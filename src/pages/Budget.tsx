@@ -10,6 +10,7 @@ import { AddBucketDialog } from '@/components/budget/AddBucketDialog';
 import { TransactionsPanel } from '@/components/budget/TransactionsPanel';
 import { BTCMapBanner } from '@/components/budget/BTCMapBanner';
 import { WalletModalControlled } from '@/components/budget/WalletModalControlled';
+import { QuickAddFAB } from '@/components/budget/QuickAddFAB';
 import { LoginArea } from '@/components/auth/LoginArea';
 import { useBudget } from '@/hooks/useBudget';
 import { useWallet } from '@/hooks/useWallet';
@@ -260,6 +261,12 @@ export default function Budget() {
           onOpenChange={setShowWalletModal}
         />
       )}
+
+      {/* Quick Add FAB */}
+      <QuickAddFAB
+        onAddTransaction={addTransaction}
+        currency={currency}
+      />
     </div>
   );
 }

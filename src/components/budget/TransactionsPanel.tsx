@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   ArrowDownLeft,
   ArrowUpRight,
@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   Zap,
 } from 'lucide-react';
+import { TransactionSearchFilter } from './TransactionSearchFilter';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -56,6 +57,7 @@ export function TransactionsPanel({
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showAssignDialog, setShowAssignDialog] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+  const [filteredTransactions, setFilteredTransactions] = useState<Transaction[]>([]);
 
   // Add transaction form state
   const [newAmount, setNewAmount] = useState('');
@@ -68,6 +70,11 @@ export function TransactionsPanel({
 
   const unassigned = getUnassignedTransactions(transactions);
   const assigned = transactions.filter(t => t.lineItemId !== null);
+
+  // Use filtered transactions if filter is active, otherwise show all
+  const displayedTransactions = useMemo(() => {
+    return filteredTransactions.length > 0 ? filteredTransactions : [...unassigned, ...assigned];
+  }, [filteredTransactions, unassigned, assigned]);
 
   const formatAmount = (sats: number) => {
     if (currency === 'usd' && priceData) {
@@ -143,8 +150,17 @@ export function TransactionsPanel({
           </div>
         </CardHeader>
         <CardContent className="pt-0">
+          {/* Search and Filter */}
+          <div className="mb-4 pb-4 border-b">
+            <TransactionSearchFilter
+              transactions={transactions}
+              buckets={buckets}
+              onFilter={setFilteredTransactions}
+            />
+          </div>
+
           {/* Unassigned transactions */}
-          {unassigned.length > 0 && (
+          {unassigned.length > 0 && !filteredTransactions.length && (
             <div className="mb-4">
               <div className="flex items-center gap-2 mb-2">
                 <AlertCircle className="h-4 w-4 text-primary" />
@@ -198,7 +214,7 @@ export function TransactionsPanel({
           )}
 
           {/* Assigned transactions */}
-          {assigned.length > 0 && (
+          {assigned.length > 0 && !filteredTransactions.length && (
             <div>
               <div className="flex items-center gap-2 mb-2">
                 <CheckCircle2 className="h-4 w-4 text-success" />
@@ -279,8 +295,98 @@ export function TransactionsPanel({
             </div>
           )}
 
+          {/* Filtered transactions results */}
+          {filteredTransactions.length > 0 && (
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-sm font-medium">
+                  Search Results ({filteredTransactions.length})
+                </span>
+              </div>
+              <ScrollArea className="max-h-[300px]">
+                <div className="space-y-1">
+                  {filteredTransactions.map((transaction) => {
+                    const bucket = buckets.find(b => b.id === transaction.bucketId);
+                    const lineItem = bucket?.lineItems.find(
+                      l => l.id === transaction.lineItemId
+                    );
+
+                    return (
+                      <div
+                        key={transaction.id}
+                        className="flex items-center justify-between p-2 hover:bg-muted rounded-lg group transition-colors cursor-pointer"
+                        onClick={() => handleOpenAssign(transaction)}
+                      >
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <div
+                            className={cn(
+                              'h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0',
+                              transaction.isIncome
+                                ? 'bg-success/20 text-success'
+                                : 'bg-muted text-muted-foreground'
+                            )}
+                          >
+                            {transaction.isIncome ? (
+                              <ArrowDownLeft className="h-3.5 w-3.5" />
+                            ) : (
+                              <ArrowUpRight className="h-3.5 w-3.5" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm truncate">
+                              {transaction.description}
+                            </p>
+                            <div className="flex items-center gap-1.5">
+                              {bucket && (
+                                <Badge
+                                  variant="secondary"
+                                  className="text-xs px-1.5 py-0"
+                                  style={{
+                                    backgroundColor: `${bucket.color}20`,
+                                    color: bucket.color,
+                                  }}
+                                >
+                                  {lineItem?.name || 'Unknown'}
+                                </Badge>
+                              )}
+                              <span className="text-xs text-muted-foreground">
+                                {formatDate(transaction.date)}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={cn(
+                              'text-sm font-medium tabular-nums',
+                              transaction.isIncome ? 'text-success' : ''
+                            )}
+                          >
+                            {transaction.isIncome ? '+' : '-'}
+                            {formatAmount(transaction.amount)}
+                          </span>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onDeleteTransaction(transaction.id);
+                            }}
+                          >
+                            <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </ScrollArea>
+            </div>
+          )}
+
           {/* Empty state */}
-          {transactions.length === 0 && (
+          {transactions.length === 0 && !filteredTransactions.length && (
             <div className="text-center py-8">
               <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mx-auto mb-3">
                 <Zap className="h-6 w-6 text-muted-foreground" />
