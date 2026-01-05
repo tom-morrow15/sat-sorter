@@ -113,9 +113,15 @@ export function BucketCard({
   const total = calculateBucketTotal(bucket);
   const spent = calculateSpentForBucket(bucket, transactions);
 
-  const formatAmount = (sats: number) => {
+  const formatAmount = (sats: number, compact = false) => {
     if (currency === 'usd' && priceData) {
       return formatUsd(satsToUsd(sats, priceData.usdPerBtc));
+    }
+    if (compact && sats >= 1_000_000) {
+      return `${(sats / 1_000_000).toFixed(1)}M`;
+    }
+    if (compact && sats >= 10_000) {
+      return `${(sats / 1_000).toFixed(0)}K`;
     }
     return `${formatSats(sats)} sats`;
   };
@@ -149,13 +155,13 @@ export function BucketCard({
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              {/* Icon with color */}
+            <div className="flex items-center gap-2 sm:gap-3">
+              {/* Icon with color - smaller on mobile */}
               <div
-                className="h-10 w-10 rounded-lg flex items-center justify-center"
+                className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg flex items-center justify-center flex-shrink-0"
                 style={{ backgroundColor: `${bucket.color}20` }}
               >
-                <Icon className="h-5 w-5" style={{ color: bucket.color }} />
+                <Icon className="h-4 w-4 sm:h-5 sm:w-5" style={{ color: bucket.color }} />
               </div>
 
               {/* Bucket name */}
@@ -175,29 +181,31 @@ export function BucketCard({
                   autoFocus
                 />
               ) : (
-                <div>
-                  <h3 className="font-semibold text-base">{bucket.name}</h3>
-                  <p className="text-xs text-muted-foreground">
+                <div className="min-w-0">
+                  <h3 className="font-semibold text-sm sm:text-base truncate">{bucket.name}</h3>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground">
                     {bucket.lineItems.length} item{bucket.lineItems.length !== 1 ? 's' : ''}
                   </p>
                 </div>
               )}
             </div>
 
-            <div className="flex items-center gap-2">
-              {/* Total */}
+            <div className="flex items-center gap-1 sm:gap-2">
+              {/* Total - compact on mobile */}
               <div className="text-right">
                 <p
                   className={cn(
-                    'font-bold tabular-nums',
+                    'font-bold tabular-nums text-sm sm:text-base',
                     bucket.isIncome && 'text-success'
                   )}
                 >
-                  {formatAmount(total)}
+                  <span className="sm:hidden">{formatAmount(total, true)}</span>
+                  <span className="hidden sm:inline">{formatAmount(total)}</span>
                 </p>
                 {!bucket.isIncome && total > 0 && (
-                  <p className="text-xs text-muted-foreground tabular-nums">
-                    {formatAmount(spent)} spent
+                  <p className="text-[10px] sm:text-xs text-muted-foreground tabular-nums">
+                    <span className="sm:hidden">{formatAmount(spent, true)} spent</span>
+                    <span className="hidden sm:inline">{formatAmount(spent)} spent</span>
                   </p>
                 )}
               </div>
