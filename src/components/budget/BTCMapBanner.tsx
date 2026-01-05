@@ -14,6 +14,7 @@ import {
   Loader2,
   Settings2,
   Search,
+  Info,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -37,14 +38,24 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@/components/ui/tabs';
+import {
+  Alert,
+  AlertDescription,
+} from '@/components/ui/alert';
+import {
   useBTCMap,
   useLocationSettings,
   getMerchantName,
   getMerchantCategory,
+  getMerchantLocation,
   acceptsLightning,
   acceptsOnchain,
   formatDistance,
-  COUNTRY_OPTIONS,
   type BTCMapElement,
 } from '@/hooks/useBTCMap';
 import { useToast } from '@/hooks/useToast';
@@ -183,6 +194,7 @@ function MerchantDetailDialog({ merchant, open, onOpenChange }: MerchantDetailDi
                 <span>
                   {tags['addr:street']}
                   {tags['addr:city'] && `, ${tags['addr:city']}`}
+                  {tags['addr:state'] && `, ${tags['addr:state']}`}
                 </span>
               </div>
             )}
@@ -197,7 +209,7 @@ function MerchantDetailDialog({ merchant, open, onOpenChange }: MerchantDetailDi
             {tags.website && (
               <div className="flex items-center gap-2">
                 <span className="text-muted-foreground">🌐</span>
-                <a
+                <a 
                   href={tags.website.startsWith('http') ? tags.website : `https://${tags.website}`}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -241,155 +253,242 @@ const RADIUS_OPTIONS = [
   { value: '100', label: '100 miles' },
 ];
 
+// Popular US cities for quick selection
+const POPULAR_LOCATIONS = [
+  { name: 'New York, NY', lat: 40.7128, lon: -74.0060 },
+  { name: 'Los Angeles, CA', lat: 34.0522, lon: -118.2437 },
+  { name: 'Chicago, IL', lat: 41.8781, lon: -87.6298 },
+  { name: 'Miami, FL', lat: 25.7617, lon: -80.1918 },
+  { name: 'Austin, TX', lat: 30.2672, lon: -97.7431 },
+  { name: 'Denver, CO', lat: 39.7392, lon: -104.9903 },
+  { name: 'Seattle, WA', lat: 47.6062, lon: -122.3321 },
+  { name: 'Portland, OR', lat: 45.5152, lon: -122.6784 },
+  { name: 'San Francisco, CA', lat: 37.7749, lon: -122.4194 },
+  { name: 'Nashville, TN', lat: 36.1627, lon: -86.7816 },
+];
+
 interface LocationSetupDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  initialZipCode?: string;
+  initialLocationName?: string;
   initialRadius?: number;
-  initialCountry?: string;
+  initialLat?: number;
+  initialLon?: number;
 }
 
-function LocationSetupDialog({
-  open,
+function LocationSetupDialog({ 
+  open, 
   onOpenChange,
-  initialZipCode = '',
+  initialLocationName = '',
   initialRadius = 25,
-  initialCountry = 'us',
+  initialLat,
+  initialLon,
 }: LocationSetupDialogProps) {
-  const [zipCode, setZipCode] = useState(initialZipCode);
   const [radius, setRadius] = useState(initialRadius.toString());
-  const [country, setCountry] = useState(initialCountry);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
+  const [locationName, setLocationName] = useState(initialLocationName);
+  const [lat, setLat] = useState(initialLat?.toString() || '');
+  const [lon, setLon] = useState(initialLon?.toString() || '');
+  
   const { updateLocation } = useLocationSettings();
   const { toast } = useToast();
 
-  const handleSubmit = async () => {
-    if (!zipCode.trim()) {
-      setError('Please enter a zip/postal code');
+  const handleQuickSelect = (location: typeof POPULAR_LOCATIONS[0]) => {
+    setLocationName(location.name);
+    setLat(location.lat.toString());
+    setLon(location.lon.toString());
+  };
+
+  const handleSubmit = () => {
+    const latNum = parseFloat(lat);
+    const lonNum = parseFloat(lon);
+
+    if (isNaN(latNum) || isNaN(lonNum)) {
+      toast({
+        title: 'Invalid coordinates',
+        description: 'Please enter valid latitude and longitude values.',
+        variant: 'destructive',
+      });
       return;
     }
 
-    setIsLoading(true);
-    setError(null);
-
-    const success = await updateLocation(zipCode.trim(), parseInt(radius), country);
-
-    setIsLoading(false);
-
-    if (success) {
+    if (latNum < -90 || latNum > 90) {
       toast({
-        title: 'Location set',
-        description: `Finding Bitcoin merchants within ${radius} miles of ${zipCode}`,
+        title: 'Invalid latitude',
+        description: 'Latitude must be between -90 and 90.',
+        variant: 'destructive',
       });
-      onOpenChange(false);
-    } else {
-      setError('Could not find that location. Please check your zip/postal code and country.');
+      return;
     }
+
+    if (lonNum < -180 || lonNum > 180) {
+      toast({
+        title: 'Invalid longitude',
+        description: 'Longitude must be between -180 and 180.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    updateLocation(latNum, lonNum, parseInt(radius), locationName.trim() || `${lat}, ${lon}`);
+    toast({
+      title: 'Location set',
+      description: `Finding Bitcoin merchants within ${radius} miles`,
+    });
+    onOpenChange(false);
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[400px]">
+      <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <MapPin className="h-5 w-5 text-primary" />
             Find Bitcoin Merchants
           </DialogTitle>
           <DialogDescription>
-            Enter your location to discover businesses near you that accept Bitcoin.
-            Your location is stored locally and never shared.
+            Choose your location to discover businesses that accept Bitcoin.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
-          {/* Country selector */}
-          <div className="space-y-2">
-            <Label htmlFor="country">Country</Label>
-            <Select value={country} onValueChange={setCountry}>
-              <SelectTrigger id="country">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="max-h-[200px]">
-                {COUNTRY_OPTIONS.map((option) => (
-                  <SelectItem key={option.code} value={option.code}>
-                    {option.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+        <Tabs defaultValue="quick" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="quick">Quick Select</TabsTrigger>
+            <TabsTrigger value="custom">Custom Location</TabsTrigger>
+          </TabsList>
 
-          {/* Zip/postal code */}
-          <div className="space-y-2">
-            <Label htmlFor="zip-code">Zip / Postal Code</Label>
-            <Input
-              id="zip-code"
-              value={zipCode}
-              onChange={(e) => {
-                setZipCode(e.target.value);
-                setError(null);
-              }}
-              placeholder={country === 'us' ? 'e.g., 32068' : 'e.g., A1A 1A1'}
-              className={cn(error && 'border-destructive')}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleSubmit();
-              }}
-            />
-            {error && (
-              <p className="text-sm text-destructive">{error}</p>
+          <TabsContent value="quick" className="space-y-4 pt-4">
+            {/* Popular locations */}
+            <div className="space-y-2">
+              <Label>Select a city</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {POPULAR_LOCATIONS.map((location) => (
+                  <Button
+                    key={location.name}
+                    variant="outline"
+                    className="justify-start"
+                    onClick={() => handleQuickSelect(location)}
+                  >
+                    <MapPin className="h-3 w-3 mr-2" />
+                    {location.name}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            {locationName && (
+              <Alert>
+                <Info className="h-4 w-4" />
+                <AlertDescription>
+                  Selected: <span className="font-medium">{locationName}</span>
+                </AlertDescription>
+              </Alert>
             )}
-          </div>
 
-          {/* Radius */}
-          <div className="space-y-2">
-            <Label htmlFor="radius">Search Radius</Label>
-            <Select value={radius} onValueChange={setRadius}>
-              <SelectTrigger id="radius">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {RADIUS_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">
-              How far are you willing to travel to spend sats?
-            </p>
-          </div>
+            {/* Radius */}
+            <div className="space-y-2">
+              <Label htmlFor="radius-quick">Search Radius</Label>
+              <Select value={radius} onValueChange={setRadius}>
+                <SelectTrigger id="radius-quick">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {RADIUS_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </TabsContent>
 
-          {/* Privacy note */}
-          <div className="p-3 rounded-lg bg-muted/50 text-sm">
-            <p className="font-medium text-xs uppercase tracking-wide text-muted-foreground mb-1">
-              🔒 Privacy First
-            </p>
+          <TabsContent value="custom" className="space-y-4 pt-4">
+            {/* Location name (optional) */}
+            <div className="space-y-2">
+              <Label htmlFor="location-name">Location Name (Optional)</Label>
+              <Input
+                id="location-name"
+                value={locationName}
+                onChange={(e) => setLocationName(e.target.value)}
+                placeholder="e.g., Jacksonville, FL"
+              />
+            </div>
+
+            {/* Coordinates */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="lat">Latitude</Label>
+                <Input
+                  id="lat"
+                  type="number"
+                  step="0.0001"
+                  value={lat}
+                  onChange={(e) => setLat(e.target.value)}
+                  placeholder="30.091"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="lon">Longitude</Label>
+                <Input
+                  id="lon"
+                  type="number"
+                  step="0.0001"
+                  value={lon}
+                  onChange={(e) => setLon(e.target.value)}
+                  placeholder="-81.853"
+                />
+              </div>
+            </div>
+
+            {/* Help text */}
             <p className="text-xs text-muted-foreground">
-              Your location is only used to find nearby merchants and is stored
-              locally on your device. We never track or share your location.
+              Tip: You can find coordinates by right-clicking on{' '}
+              <a
+                href="https://www.google.com/maps"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:underline"
+              >
+                Google Maps
+              </a>
             </p>
-          </div>
+
+            {/* Radius */}
+            <div className="space-y-2">
+              <Label htmlFor="radius-custom">Search Radius</Label>
+              <Select value={radius} onValueChange={setRadius}>
+                <SelectTrigger id="radius-custom">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {RADIUS_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </TabsContent>
+        </Tabs>
+
+        {/* Privacy note */}
+        <div className="p-3 rounded-lg bg-muted/50 text-sm">
+          <p className="font-medium text-xs uppercase tracking-wide text-muted-foreground mb-1">
+            🔒 Privacy First
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Your location is stored locally on your device and never shared with anyone.
+          </p>
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={isLoading}>
-            {isLoading ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Searching...
-              </>
-            ) : (
-              <>
-                <Search className="h-4 w-4 mr-2" />
-                Find Merchants
-              </>
-            )}
+          <Button onClick={handleSubmit} disabled={!lat || !lon}>
+            <Search className="h-4 w-4 mr-2" />
+            Find Merchants
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -398,8 +497,7 @@ function LocationSetupDialog({
 }
 
 export function BTCMapBanner() {
-  const { merchants, isLoading, hasLocation, settings } = useBTCMap();
-  const { clearLocation } = useLocationSettings();
+  const { merchants, isLoading, hasLocation, settings, totalMerchants } = useBTCMap();
   const [selectedMerchant, setSelectedMerchant] = useState<(BTCMapElement & { distance: number }) | null>(null);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
   const [showLocationDialog, setShowLocationDialog] = useState(false);
@@ -423,7 +521,7 @@ export function BTCMapBanner() {
                 <div className="text-center sm:text-left">
                   <h3 className="font-semibold">Spend Sats Locally</h3>
                   <p className="text-sm text-muted-foreground">
-                    Discover Bitcoin-accepting businesses in your area
+                    Discover {totalMerchants.toLocaleString()}+ Bitcoin-accepting businesses worldwide
                   </p>
                 </div>
               </div>
@@ -450,7 +548,7 @@ export function BTCMapBanner() {
         <CardContent className="py-4">
           <div className="flex items-center justify-center gap-3 text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin" />
-            <span className="text-sm">Finding Bitcoin merchants near {settings.zipCode}...</span>
+            <span className="text-sm">Loading Bitcoin merchants...</span>
           </div>
         </CardContent>
       </Card>
@@ -473,7 +571,7 @@ export function BTCMapBanner() {
                     No Bitcoin merchants found
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Searching within <span className="font-medium text-foreground">{settings.radiusMiles} miles</span> of <span className="font-medium text-foreground">{settings.zipCode}</span>
+                    Within <span className="font-medium text-foreground">{settings.radiusMiles} miles</span> of <span className="font-medium text-foreground">{settings.locationName || 'your location'}</span>
                   </p>
                 </div>
               </div>
@@ -482,8 +580,8 @@ export function BTCMapBanner() {
                   <Settings2 className="h-4 w-4 mr-1" />
                   Change Location
                 </Button>
-                <Button
-                  variant="ghost"
+                <Button 
+                  variant="ghost" 
                   size="sm"
                   onClick={() => window.open('https://btcmap.org/add-location', '_blank')}
                 >
@@ -498,9 +596,10 @@ export function BTCMapBanner() {
         <LocationSetupDialog
           open={showLocationDialog}
           onOpenChange={setShowLocationDialog}
-          initialZipCode={settings.zipCode}
+          initialLocationName={settings.locationName}
           initialRadius={settings.radiusMiles}
-          initialCountry={settings.countryCode}
+          initialLat={settings.lat || undefined}
+          initialLon={settings.lon || undefined}
         />
       </>
     );
@@ -524,7 +623,7 @@ export function BTCMapBanner() {
                   </Badge>
                 </h3>
                 <p className="text-xs text-muted-foreground">
-                  📍 <span className="font-medium text-foreground">{settings.zipCode}</span>
+                  📍 <span className="font-medium text-foreground">{settings.locationName || 'Your location'}</span>
                   {' · '}
                   <span className="font-medium text-foreground">{settings.radiusMiles} mile</span> radius
                 </p>
@@ -579,9 +678,10 @@ export function BTCMapBanner() {
       <LocationSetupDialog
         open={showLocationDialog}
         onOpenChange={setShowLocationDialog}
-        initialZipCode={settings.zipCode}
+        initialLocationName={settings.locationName}
         initialRadius={settings.radiusMiles}
-        initialCountry={settings.countryCode}
+        initialLat={settings.lat || undefined}
+        initialLon={settings.lon || undefined}
       />
     </>
   );

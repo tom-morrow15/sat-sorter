@@ -24,6 +24,8 @@ export interface BTCMapElement {
       'opening_hours'?: string;
       'addr:street'?: string;
       'addr:city'?: string;
+      'addr:state'?: string;
+      'addr:country'?: string;
       [key: string]: string | undefined;
     };
   };
@@ -42,56 +44,18 @@ export interface BTCMapElement {
 }
 
 export interface LocationSettings {
-  zipCode: string;
-  countryCode: string;
-  radiusMiles: number;
   lat: number | null;
   lon: number | null;
-  lastUpdated: number;
+  radiusMiles: number;
+  locationName: string; // User-friendly name
 }
 
 const DEFAULT_LOCATION_SETTINGS: LocationSettings = {
-  zipCode: '',
-  countryCode: 'us',
-  radiusMiles: 25,
   lat: null,
   lon: null,
-  lastUpdated: 0,
+  radiusMiles: 25,
+  locationName: '',
 };
-
-// Common countries for the dropdown
-export const COUNTRY_OPTIONS = [
-  { code: 'us', name: 'United States' },
-  { code: 'ca', name: 'Canada' },
-  { code: 'gb', name: 'United Kingdom' },
-  { code: 'de', name: 'Germany' },
-  { code: 'fr', name: 'France' },
-  { code: 'es', name: 'Spain' },
-  { code: 'it', name: 'Italy' },
-  { code: 'nl', name: 'Netherlands' },
-  { code: 'au', name: 'Australia' },
-  { code: 'nz', name: 'New Zealand' },
-  { code: 'jp', name: 'Japan' },
-  { code: 'kr', name: 'South Korea' },
-  { code: 'br', name: 'Brazil' },
-  { code: 'mx', name: 'Mexico' },
-  { code: 'ar', name: 'Argentina' },
-  { code: 'ch', name: 'Switzerland' },
-  { code: 'at', name: 'Austria' },
-  { code: 'be', name: 'Belgium' },
-  { code: 'pl', name: 'Poland' },
-  { code: 'cz', name: 'Czech Republic' },
-  { code: 'pt', name: 'Portugal' },
-  { code: 'se', name: 'Sweden' },
-  { code: 'no', name: 'Norway' },
-  { code: 'dk', name: 'Denmark' },
-  { code: 'fi', name: 'Finland' },
-  { code: 'ie', name: 'Ireland' },
-  { code: 'sg', name: 'Singapore' },
-  { code: 'hk', name: 'Hong Kong' },
-  { code: 'za', name: 'South Africa' },
-  { code: 'other', name: 'Other' },
-];
 
 // Category mappings from BTCMap categories to our budget line items
 export const CATEGORY_MAPPINGS: Record<string, string[]> = {
@@ -102,7 +66,7 @@ export const CATEGORY_MAPPINGS: Record<string, string[]> = {
   'fast_food': ['fast food', 'takeout', 'quick meals', 'food', 'burger', 'pizza'],
   'pub': ['bar', 'pub', 'drinks', 'entertainment', 'beer'],
   'bakery': ['bakery', 'bread', 'pastries', 'food', 'breakfast'],
-
+  
   // Shopping
   'supermarket': ['groceries', 'grocery', 'food', 'shopping', 'market'],
   'convenience': ['groceries', 'convenience', 'shopping', 'snacks'],
@@ -112,19 +76,19 @@ export const CATEGORY_MAPPINGS: Record<string, string[]> = {
   'hardware': ['hardware', 'tools', 'home improvement', 'shopping'],
   'books': ['books', 'reading', 'education', 'shopping'],
   'gift': ['gifts', 'gift', 'presents', 'shopping'],
-
+  
   // Transportation
   'fuel': ['gas', 'fuel', 'car', 'transportation', 'petrol'],
   'car_repair': ['car repair', 'auto', 'car maintenance', 'transportation', 'mechanic'],
   'car_rental': ['car rental', 'rental', 'transportation'],
   'taxi': ['taxi', 'uber', 'lyft', 'transportation', 'ride'],
   'parking': ['parking', 'car', 'transportation'],
-
+  
   // Accommodation
   'hotel': ['hotel', 'lodging', 'travel', 'vacation', 'accommodation', 'stay'],
   'hostel': ['hostel', 'lodging', 'travel', 'accommodation', 'backpacking'],
   'apartment': ['apartment', 'rental', 'accommodation', 'airbnb'],
-
+  
   // Health & Fitness
   'pharmacy': ['pharmacy', 'medicine', 'health', 'medical', 'drugs', 'prescriptions'],
   'gym': ['gym', 'fitness', 'health', 'exercise', 'workout'],
@@ -132,28 +96,28 @@ export const CATEGORY_MAPPINGS: Record<string, string[]> = {
   'dentist': ['dentist', 'dental', 'health', 'medical'],
   'doctor': ['doctor', 'medical', 'health', 'healthcare'],
   'spa': ['spa', 'wellness', 'self care', 'massage', 'relaxation'],
-
+  
   // Services
   'atm': ['banking', 'cash', 'atm', 'money'],
   'bank': ['banking', 'bank', 'financial'],
   'coworking': ['office', 'work', 'coworking', 'workspace'],
   'laundry': ['laundry', 'cleaning', 'dry cleaning'],
   'hairdresser': ['haircut', 'barber', 'salon', 'personal care', 'grooming'],
-
+  
   // Entertainment
   'cinema': ['entertainment', 'movies', 'cinema', 'film', 'theater'],
   'theatre': ['entertainment', 'theatre', 'shows', 'performance'],
   'music': ['music', 'concert', 'entertainment', 'show'],
   'sports': ['sports', 'game', 'entertainment', 'tickets'],
-
+  
   // Education
   'school': ['education', 'school', 'learning', 'tuition'],
   'university': ['education', 'university', 'college', 'tuition'],
-
+  
   // Pets
   'veterinary': ['pets', 'vet', 'veterinary', 'animal', 'dog', 'cat'],
   'pet_shop': ['pets', 'pet supplies', 'animal', 'dog', 'cat'],
-
+  
   // Other common
   'other': [],
 };
@@ -162,51 +126,51 @@ export const CATEGORY_MAPPINGS: Record<string, string[]> = {
 export function getMerchantKeywords(element: BTCMapElement): string[] {
   const category = element.tags.category?.toLowerCase() || '';
   const osmTags = element.osm_json.tags;
-
+  
   const keywords: string[] = [];
-
+  
   // Add category-based keywords
   if (CATEGORY_MAPPINGS[category]) {
     keywords.push(...CATEGORY_MAPPINGS[category]);
   }
-
+  
   // Add amenity-based keywords
   const amenity = osmTags.amenity?.toLowerCase();
   if (amenity && CATEGORY_MAPPINGS[amenity]) {
     keywords.push(...CATEGORY_MAPPINGS[amenity]);
   }
-
+  
   // Add shop-based keywords
   const shop = osmTags.shop?.toLowerCase();
   if (shop && CATEGORY_MAPPINGS[shop]) {
     keywords.push(...CATEGORY_MAPPINGS[shop]);
   }
-
+  
   // Add cuisine keywords for restaurants
   if (osmTags.cuisine) {
     keywords.push(osmTags.cuisine.toLowerCase());
   }
-
+  
   return [...new Set(keywords)]; // Remove duplicates
 }
 
 // Check if a line item matches any nearby merchants
 export function lineItemMatchesMerchant(lineItemName: string, merchants: BTCMapElement[]): BTCMapElement[] {
   const lowerName = lineItemName.toLowerCase().trim();
-
+  
   // Common words to ignore in matching
   const ignoreWords = ['the', 'a', 'an', 'and', 'or', 'my', 'our'];
-
+  
   // Split line item name into searchable words
   const lineItemWords = lowerName
     .split(/[\s\/\-&]+/)
     .filter(word => word.length > 2 && !ignoreWords.includes(word));
-
+  
   return merchants.filter(merchant => {
     const keywords = getMerchantKeywords(merchant);
     const merchantName = (merchant.osm_json.tags.name || merchant.osm_json.tags['name:en'] || '').toLowerCase();
     const category = merchant.tags.category?.toLowerCase() || '';
-
+    
     // Check if any keyword matches the line item name or its words
     const keywordMatch = keywords.some(keyword => {
       // Direct inclusion match
@@ -214,21 +178,21 @@ export function lineItemMatchesMerchant(lineItemName: string, merchants: BTCMapE
         return true;
       }
       // Word-by-word match
-      return lineItemWords.some(word =>
+      return lineItemWords.some(word => 
         keyword.includes(word) || word.includes(keyword)
       );
     });
-
+    
     // Check merchant name
     const nameMatch = lineItemWords.some(word =>
       merchantName.includes(word) || word.includes(merchantName)
     ) || merchantName.includes(lowerName) || lowerName.includes(merchantName);
-
+    
     // Check category directly
     const categoryMatch = lineItemWords.some(word =>
       category.includes(word) || word.includes(category)
     );
-
+    
     return keywordMatch || nameMatch || categoryMatch;
   });
 }
@@ -238,7 +202,7 @@ function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
   const R = 6371; // Earth's radius in km
   const dLat = (lat2 - lat1) * Math.PI / 180;
   const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a =
+  const a = 
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
     Math.sin(dLon / 2) * Math.sin(dLon / 2);
@@ -260,106 +224,36 @@ export function formatDistance(km: number): string {
   return `${miles.toFixed(1)} mi`;
 }
 
-// Geocode a zip/postal code to lat/lon using Nominatim (OpenStreetMap)
-export async function geocodeZipCode(zipCode: string, countryCode: string = 'us'): Promise<{ lat: number; lon: number } | null> {
-  try {
-    // Use OpenStreetMap Nominatim for geocoding (free, no API key needed)
-    // Include country code to get accurate results
-    const response = await fetch(
-      `https://nominatim.openstreetmap.org/search?postalcode=${encodeURIComponent(zipCode)}&country=${encodeURIComponent(countryCode)}&format=json&limit=1`,
-      {
-        signal: AbortSignal.timeout(10000),
-        headers: {
-          'User-Agent': 'SatSorter/1.0 (Bitcoin Budget App)',
-        },
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error('Geocoding failed');
-    }
-
-    const results = await response.json();
-
-    if (results.length > 0) {
-      return {
-        lat: parseFloat(results[0].lat),
-        lon: parseFloat(results[0].lon),
-      };
-    }
-
-    // If no results with country code, try without (fallback for international users)
-    const fallbackResponse = await fetch(
-      `https://nominatim.openstreetmap.org/search?postalcode=${encodeURIComponent(zipCode)}&format=json&limit=1`,
-      {
-        signal: AbortSignal.timeout(10000),
-        headers: {
-          'User-Agent': 'SatSorter/1.0 (Bitcoin Budget App)',
-        },
-      }
-    );
-
-    if (fallbackResponse.ok) {
-      const fallbackResults = await fallbackResponse.json();
-      if (fallbackResults.length > 0) {
-        return {
-          lat: parseFloat(fallbackResults[0].lat),
-          lon: parseFloat(fallbackResults[0].lon),
-        };
-      }
-    }
-
-    return null;
-  } catch (error) {
-    console.error('Geocoding error:', error);
-    return null;
-  }
-}
-
-// Fetch merchants from BTCMap API
-async function fetchMerchants(
-  lat: number,
-  lon: number,
-  radiusKm: number
-): Promise<(BTCMapElement & { distance: number })[]> {
-  // Calculate bounding box
-  const latDelta = radiusKm / 111; // ~111km per degree latitude
-  const lonDelta = radiusKm / (111 * Math.cos(lat * Math.PI / 180));
-
-  const bounds = {
-    north: lat + latDelta,
-    south: lat - latDelta,
-    east: lon + lonDelta,
-    west: lon - lonDelta,
-  };
-
-  // BTCMap API endpoint
+// Fetch ALL merchants from BTCMap API (no date filtering)
+async function fetchAllMerchants(): Promise<BTCMapElement[]> {
   const response = await fetch(
-    `https://api.btcmap.org/v2/elements?updated_since=2024-01-01&limit=10000`,
-    { signal: AbortSignal.timeout(15000) }
+    `https://api.btcmap.org/v2/elements`,
+    { signal: AbortSignal.timeout(30000) }
   );
-
+  
   if (!response.ok) {
     throw new Error('Failed to fetch BTCMap data');
   }
-
+  
   const elements: BTCMapElement[] = await response.json();
+  
+  // Filter out deleted merchants
+  return elements.filter(el => !el.deleted_at || el.deleted_at === '');
+}
 
-  // Filter by bounds, exclude deleted, and add distance
-  // Note: deleted_at is "" for active merchants, so check for truthy non-empty string
-  return elements
-    .filter(el => {
-      if (el.deleted_at && el.deleted_at !== '') return false;
-      const elLat = el.osm_json.lat;
-      const elLon = el.osm_json.lon;
-      return elLat >= bounds.south && elLat <= bounds.north &&
-             elLon >= bounds.west && elLon <= bounds.east;
-    })
+// Filter merchants by location and radius
+function filterMerchantsByLocation(
+  merchants: BTCMapElement[],
+  lat: number,
+  lon: number,
+  radiusKm: number
+): (BTCMapElement & { distance: number })[] {
+  return merchants
     .map(merchant => ({
       ...merchant,
       distance: calculateDistance(lat, lon, merchant.osm_json.lat, merchant.osm_json.lon),
     }))
-    .filter(merchant => merchant.distance <= radiusKm) // Double-check within radius
+    .filter(merchant => merchant.distance <= radiusKm)
     .sort((a, b) => a.distance - b.distance);
 }
 
@@ -370,22 +264,13 @@ export function useLocationSettings() {
     DEFAULT_LOCATION_SETTINGS
   );
 
-  const updateLocation = async (zipCode: string, radiusMiles: number, countryCode: string = 'us'): Promise<boolean> => {
-    const coords = await geocodeZipCode(zipCode, countryCode === 'other' ? '' : countryCode);
-
-    if (coords) {
-      setSettings({
-        zipCode,
-        countryCode,
-        radiusMiles,
-        lat: coords.lat,
-        lon: coords.lon,
-        lastUpdated: Date.now(),
-      });
-      return true;
-    }
-
-    return false;
+  const updateLocation = (lat: number, lon: number, radiusMiles: number, locationName: string) => {
+    setSettings({
+      lat,
+      lon,
+      radiusMiles,
+      locationName,
+    });
   };
 
   const updateRadius = (radiusMiles: number) => {
@@ -411,26 +296,32 @@ export function useLocationSettings() {
 export function useBTCMap() {
   const { settings, hasLocation } = useLocationSettings();
 
-  const query = useQuery({
-    queryKey: ['btcmap-merchants', settings.lat, settings.lon, settings.radiusMiles],
-    queryFn: async () => {
-      if (!settings.lat || !settings.lon) return [];
-
-      const radiusKm = milesToKm(settings.radiusMiles);
-      return fetchMerchants(settings.lat, settings.lon, radiusKm);
-    },
-    enabled: hasLocation,
-    staleTime: 300000, // 5 minutes
-    gcTime: 600000, // 10 minutes
+  // Fetch all merchants once and cache
+  const allMerchantsQuery = useQuery({
+    queryKey: ['btcmap-all-merchants'],
+    queryFn: fetchAllMerchants,
+    staleTime: 1800000, // 30 minutes
+    gcTime: 3600000, // 1 hour
   });
 
+  // Filter by user's location
+  const merchants = allMerchantsQuery.data && hasLocation && settings.lat && settings.lon
+    ? filterMerchantsByLocation(
+        allMerchantsQuery.data,
+        settings.lat,
+        settings.lon,
+        milesToKm(settings.radiusMiles)
+      )
+    : [];
+
   return {
-    merchants: query.data || [],
-    isLoading: query.isLoading,
-    error: query.error instanceof Error ? query.error.message : null,
+    merchants,
+    isLoading: allMerchantsQuery.isLoading,
+    error: allMerchantsQuery.error instanceof Error ? allMerchantsQuery.error.message : null,
     hasLocation,
     settings,
-    refetch: query.refetch,
+    totalMerchants: allMerchantsQuery.data?.length || 0,
+    refetch: allMerchantsQuery.refetch,
   };
 }
 
@@ -443,7 +334,7 @@ export function getMerchantName(element: BTCMapElement): string {
 export function getMerchantCategory(element: BTCMapElement): string {
   const category = element.tags.category;
   if (!category) return 'Other';
-
+  
   return category
     .split('_')
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
@@ -458,4 +349,16 @@ export function acceptsLightning(element: BTCMapElement): boolean {
 // Check if merchant accepts on-chain
 export function acceptsOnchain(element: BTCMapElement): boolean {
   return element.osm_json.tags['payment:onchain'] === 'yes';
+}
+
+// Get merchant location info for display
+export function getMerchantLocation(element: BTCMapElement): string {
+  const tags = element.osm_json.tags;
+  const parts = [];
+  
+  if (tags['addr:city']) parts.push(tags['addr:city']);
+  if (tags['addr:state']) parts.push(tags['addr:state']);
+  if (tags['addr:country']) parts.push(tags['addr:country']);
+  
+  return parts.join(', ') || 'Unknown location';
 }
