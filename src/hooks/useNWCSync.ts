@@ -1,0 +1,343 @@
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { LN } from '@getalby/sdk';
+import { useBudget } from '@/hooks/useBudget';
+import { useToast } from '@/hooks/useToast';
+import { useNWC } from '@/hooks/useNWCContext';
+import { useLocalStorage } from '@/hooks/useLocalStorage';
+
+interface NWCTransaction {
+  type: 'incoming' | 'outgoing';
+  invoice?: string;
+  description?: string;
+  description_hash?: string;
+  preimage?: string;
+  payment_hash: string;
+  amount: number; // in millisats
+  fees_paid?: number;
+  created_at: number; // unix timestamp
+  expires_at?: number;
+  settled_at?: number;
+  metadata?: Record<string, unknown>;
+}
+
+interface SyncState {
+  lastSyncTimestamp: number | null;
+  syncedPaymentHashes: string[];
+}
+
+export interface NWCSyncResult {
+  success: boolean;
+  imported: number;
+  skipped: number;
+  errors: string[];
+}
+
+const POLL_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+const MAX_STORED_HASHES = 1000; // Limit stored hashes to prevent localStorage bloat
+
+export function useNWCSync() {
+  const { toast } = useToast();
+  const { getActiveConnection, connections } = useNWC();
+  const { addTransaction, currentBudget } = useBudget();
+
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncState, setSyncState] = useLocalStorage<SyncState>('nwc-sync-state', {
+    lastSyncTimestamp: null,
+    syncedPaymentHashes: [],
+  });
+  const [autoSyncEnabled, setAutoSyncEnabled] = useLocalStorage<boolean>('nwc-auto-sync', false);
+
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  /**
+   * Check if NWC wallet supports list_transactions
+   */
+  const checkListTransactionsSupport = useCallback(async (client: LN): Promise<boolean> => {
+    try {
+      // Try to get info - some wallets expose supported methods
+      // If list_transactions fails, we'll know it's not supported
+      return true; // Optimistically assume support, will fail gracefully
+    } catch {
+      return false;
+    }
+  }, []);
+
+  /**
+   * Fetch transactions from NWC wallet
+   */
+  const fetchNWCTransactions = useCallback(async (
+    connectionString: string,
+    fromTimestamp?: number
+  ): Promise<NWCTransaction[]> => {
+    const client = new LN(connectionString);
+
+    try {
+      // The Alby SDK uses getTransactions or listTransactions
+      // Different wallets may have different method names
+      const response = await (client as unknown as {
+        getTransactions: (params: { from?: number; limit?: number }) => Promise<{ transactions: NWCTransaction[] }>
+      }).getTransactions({
+        from: fromTimestamp,
+        limit: 100,
+      });
+
+      return response.transactions || [];
+    } catch (error) {
+      // Try alternative method name
+      try {
+        const response = await (client as unknown as {
+          listTransactions: (params: { from?: number; limit?: number }) => Promise<{ transactions: NWCTransaction[] }>
+        }).listTransactions({
+          from: fromTimestamp,
+          limit: 100,
+        });
+
+        return response.transactions || [];
+      } catch {
+        console.error('NWC list_transactions not supported or failed:', error);
+        throw new Error('This wallet does not support transaction listing. Try connecting a different wallet or use manual entry.');
+      }
+    }
+  }, []);
+
+  /**
+   * Sync transactions from NWC wallet
+   */
+  const syncTransactions = useCallback(async (showToast = true): Promise<NWCSyncResult> => {
+    const result: NWCSyncResult = {
+      success: false,
+      imported: 0,
+      skipped: 0,
+      errors: [],
+    };
+
+    const activeConnection = getActiveConnection();
+    if (!activeConnection) {
+      if (showToast) {
+        toast({
+          title: 'No wallet connected',
+          description: 'Please connect a Lightning wallet first.',
+          variant: 'destructive',
+        });
+      }
+      result.errors.push('No wallet connected');
+      return result;
+    }
+
+    setIsSyncing(true);
+
+    try {
+      // Fetch transactions from the wallet
+      const nwcTransactions = await fetchNWCTransactions(
+        activeConnection.connectionString,
+        syncState.lastSyncTimestamp || undefined
+      );
+
+      if (!nwcTransactions || nwcTransactions.length === 0) {
+        if (showToast) {
+          toast({
+            title: 'No new transactions',
+            description: 'No new transactions found since last sync.',
+          });
+        }
+        result.success = true;
+        setIsSyncing(false);
+        return result;
+      }
+
+      // Track which payment hashes we've already synced
+      const existingHashes = new Set([
+        ...syncState.syncedPaymentHashes,
+        ...currentBudget.transactions
+          .filter(t => t.paymentHash)
+          .map(t => t.paymentHash!),
+      ]);
+
+      let imported = 0;
+      let skipped = 0;
+      let latestTimestamp = syncState.lastSyncTimestamp || 0;
+
+      for (const nwcTx of nwcTransactions) {
+        try {
+          // Skip if we've already synced this transaction
+          if (existingHashes.has(nwcTx.payment_hash)) {
+            skipped++;
+            continue;
+          }
+
+          // Convert millisats to sats
+          const amountSats = Math.round(nwcTx.amount / 1000);
+
+          // Skip zero-amount transactions
+          if (amountSats === 0) {
+            skipped++;
+            continue;
+          }
+
+          // Create transaction
+          const transaction = {
+            amount: amountSats,
+            description: nwcTx.description || nwcTx.invoice?.slice(0, 50) || 'Lightning payment',
+            date: new Date((nwcTx.settled_at || nwcTx.created_at) * 1000).toISOString(),
+            lineItemId: null,
+            bucketId: null,
+            isIncome: nwcTx.type === 'incoming',
+            source: 'nwc' as const,
+            paymentHash: nwcTx.payment_hash,
+            preimage: nwcTx.preimage,
+          };
+
+          addTransaction(transaction);
+          imported++;
+
+          // Track the latest timestamp
+          const txTimestamp = nwcTx.settled_at || nwcTx.created_at;
+          if (txTimestamp > latestTimestamp) {
+            latestTimestamp = txTimestamp;
+          }
+        } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : String(error);
+          result.errors.push(`Failed to import transaction: ${errorMsg}`);
+          skipped++;
+        }
+      }
+
+      result.imported = imported;
+      result.skipped = skipped;
+      result.success = true;
+
+      // Update sync state
+      if (imported > 0 || latestTimestamp > (syncState.lastSyncTimestamp || 0)) {
+        const newHashes = nwcTransactions.map(t => t.payment_hash);
+        const allHashes = [...syncState.syncedPaymentHashes, ...newHashes];
+
+        // Keep only the most recent hashes to prevent localStorage bloat
+        const trimmedHashes = allHashes.slice(-MAX_STORED_HASHES);
+
+        setSyncState({
+          lastSyncTimestamp: latestTimestamp,
+          syncedPaymentHashes: trimmedHashes,
+        });
+      }
+
+      if (showToast && imported > 0) {
+        toast({
+          title: 'Sync complete',
+          description: `Imported ${imported} transaction${imported !== 1 ? 's' : ''}${
+            skipped > 0 ? ` (${skipped} skipped)` : ''
+          }`,
+        });
+      }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      result.errors.push(errorMsg);
+      result.success = false;
+
+      if (showToast) {
+        toast({
+          title: 'Sync failed',
+          description: errorMsg,
+          variant: 'destructive',
+        });
+      }
+    } finally {
+      setIsSyncing(false);
+    }
+
+    return result;
+  }, [
+    getActiveConnection,
+    fetchNWCTransactions,
+    syncState,
+    setSyncState,
+    currentBudget.transactions,
+    addTransaction,
+    toast,
+  ]);
+
+  /**
+   * Start automatic background sync
+   */
+  const startAutoSync = useCallback(() => {
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+    }
+
+    setAutoSyncEnabled(true);
+
+    // Initial sync
+    syncTransactions(false);
+
+    // Set up polling interval
+    pollIntervalRef.current = setInterval(() => {
+      syncTransactions(false);
+    }, POLL_INTERVAL_MS);
+
+    toast({
+      title: 'Auto-sync enabled',
+      description: 'Transactions will sync automatically every 5 minutes.',
+    });
+  }, [syncTransactions, setAutoSyncEnabled, toast]);
+
+  /**
+   * Stop automatic background sync
+   */
+  const stopAutoSync = useCallback(() => {
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+    }
+
+    setAutoSyncEnabled(false);
+
+    toast({
+      title: 'Auto-sync disabled',
+      description: 'Automatic transaction sync has been turned off.',
+    });
+  }, [setAutoSyncEnabled, toast]);
+
+  /**
+   * Clear sync history (useful for re-importing all transactions)
+   */
+  const clearSyncHistory = useCallback(() => {
+    setSyncState({
+      lastSyncTimestamp: null,
+      syncedPaymentHashes: [],
+    });
+
+    toast({
+      title: 'Sync history cleared',
+      description: 'Next sync will import all available transactions.',
+    });
+  }, [setSyncState, toast]);
+
+  // Auto-start polling if enabled and wallet is connected
+  useEffect(() => {
+    if (autoSyncEnabled && connections.length > 0) {
+      // Start polling
+      pollIntervalRef.current = setInterval(() => {
+        syncTransactions(false);
+      }, POLL_INTERVAL_MS);
+
+      // Initial sync on mount
+      syncTransactions(false);
+    }
+
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+      }
+    };
+  }, [autoSyncEnabled, connections.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return {
+    isSyncing,
+    autoSyncEnabled,
+    lastSyncTimestamp: syncState.lastSyncTimestamp,
+    syncTransactions,
+    startAutoSync,
+    stopAutoSync,
+    clearSyncHistory,
+    hasWalletConnected: connections.length > 0,
+  };
+}

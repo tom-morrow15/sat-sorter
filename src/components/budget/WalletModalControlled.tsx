@@ -1,5 +1,8 @@
 import { useState, forwardRef } from 'react';
-import { Wallet, Plus, Trash2, Zap, Globe, WalletMinimal, CheckCircle, X } from 'lucide-react';
+import { 
+  Wallet, Plus, Trash2, Zap, Globe, WalletMinimal, CheckCircle, X, 
+  RefreshCw, Clock, ToggleLeft, ToggleRight 
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -22,10 +25,12 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Switch } from '@/components/ui/switch';
 import { useNWC } from '@/hooks/useNWCContext';
 import { useWallet } from '@/hooks/useWallet';
 import { useToast } from '@/hooks/useToast';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import { useNWCSync } from '@/hooks/useNWCSync';
 import type { NWCConnection, NWCInfo } from '@/hooks/useNWC';
 import type { WebLNProvider } from "@webbtc/webln-types";
 
@@ -68,6 +73,19 @@ const AddWalletContent = forwardRef<HTMLDivElement, {
 ));
 AddWalletContent.displayName = 'AddWalletContent';
 
+// Format relative time
+function formatLastSync(timestamp: number | null): string {
+  if (!timestamp) return 'Never';
+  
+  const now = Date.now();
+  const diff = now - timestamp * 1000;
+  
+  if (diff < 60000) return 'Just now';
+  if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+  return new Date(timestamp * 1000).toLocaleDateString();
+}
+
 // Extracted WalletContent
 const WalletContent = forwardRef<HTMLDivElement, {
   webln: WebLNProvider | null;
@@ -78,6 +96,12 @@ const WalletContent = forwardRef<HTMLDivElement, {
   handleSetActive: (cs: string) => void;
   handleRemoveConnection: (cs: string) => void;
   setAddDialogOpen: (open: boolean) => void;
+  // Sync props
+  isSyncing: boolean;
+  autoSyncEnabled: boolean;
+  lastSyncTimestamp: number | null;
+  onSync: () => void;
+  onToggleAutoSync: () => void;
 }>(({
   webln,
   hasNWC,
@@ -86,7 +110,12 @@ const WalletContent = forwardRef<HTMLDivElement, {
   activeConnection,
   handleSetActive,
   handleRemoveConnection,
-  setAddDialogOpen
+  setAddDialogOpen,
+  isSyncing,
+  autoSyncEnabled,
+  lastSyncTimestamp,
+  onSync,
+  onToggleAutoSync,
 }, ref) => (
   <div className="space-y-6 px-4 pb-4" ref={ref}>
     {/* Current Status */}
@@ -132,6 +161,56 @@ const WalletContent = forwardRef<HTMLDivElement, {
         </div>
       </div>
     </div>
+
+    {/* Transaction Sync Section - Only show when wallet connected */}
+    {hasNWC && (
+      <>
+        <Separator />
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="font-medium">Transaction Sync</h3>
+            <Button 
+              size="sm" 
+              variant="outline" 
+              onClick={onSync}
+              disabled={isSyncing}
+            >
+              <RefreshCw className={`h-4 w-4 mr-1 ${isSyncing ? 'animate-spin' : ''}`} />
+              {isSyncing ? 'Syncing...' : 'Sync Now'}
+            </Button>
+          </div>
+          
+          {/* Last Sync Info */}
+          <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Clock className="h-4 w-4" />
+              <span>Last synced: {formatLastSync(lastSyncTimestamp)}</span>
+            </div>
+          </div>
+
+          {/* Auto-sync Toggle */}
+          <div className="flex items-center justify-between p-3 border rounded-lg">
+            <div>
+              <p className="text-sm font-medium">Auto-sync</p>
+              <p className="text-xs text-muted-foreground">
+                Automatically import new transactions every 5 minutes
+              </p>
+            </div>
+            <Switch
+              checked={autoSyncEnabled}
+              onCheckedChange={onToggleAutoSync}
+            />
+          </div>
+
+          <p className="text-xs text-muted-foreground">
+            💡 <strong>Note:</strong> Transaction sync requires your wallet to support the 
+            <code className="mx-1 px-1 bg-muted rounded">list_transactions</code> 
+            method. Not all wallets support this feature.
+          </p>
+        </div>
+      </>
+    )}
+
     <Separator />
     {/* NWC Management */}
     <div className="space-y-4">
@@ -223,6 +302,15 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
   } = useNWC();
 
   const { webln } = useWallet();
+  
+  const {
+    isSyncing,
+    autoSyncEnabled,
+    lastSyncTimestamp,
+    syncTransactions,
+    startAutoSync,
+    stopAutoSync,
+  } = useNWCSync();
 
   const hasNWC = connections.length > 0 && connections.some(c => c.isConnected);
   const { toast } = useToast();
@@ -262,6 +350,18 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
     });
   };
 
+  const handleSync = () => {
+    syncTransactions(true);
+  };
+
+  const handleToggleAutoSync = () => {
+    if (autoSyncEnabled) {
+      stopAutoSync();
+    } else {
+      startAutoSync();
+    }
+  };
+
   const walletContentProps = {
     webln,
     hasNWC,
@@ -271,6 +371,11 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
     handleSetActive,
     handleRemoveConnection,
     setAddDialogOpen,
+    isSyncing,
+    autoSyncEnabled,
+    lastSyncTimestamp,
+    onSync: handleSync,
+    onToggleAutoSync: handleToggleAutoSync,
   };
 
   const addWalletDialog = (
