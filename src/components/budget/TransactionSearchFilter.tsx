@@ -25,7 +25,7 @@ export function TransactionSearchFilter({
   onFilter,
 }: TransactionSearchFilterProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedBucketId, setSelectedBucketId] = useState<string>('');
+  const [selectedBucketId, setSelectedBucketId] = useState<string>('all');
   const [selectedType, setSelectedType] = useState<'all' | 'income' | 'expense'>('all');
   const [sortBy, setSortBy] = useState<'date-desc' | 'date-asc' | 'amount-desc' | 'amount-asc'>(
     'date-desc'
@@ -45,7 +45,7 @@ export function TransactionSearchFilter({
     }
 
     // Filter by bucket
-    if (selectedBucketId) {
+    if (selectedBucketId && selectedBucketId !== 'all') {
       filtered = filtered.filter((t) => t.bucketId === selectedBucketId);
     }
 
@@ -82,14 +82,14 @@ export function TransactionSearchFilter({
 
   const handleClearFilters = () => {
     setSearchQuery('');
-    setSelectedBucketId('');
+    setSelectedBucketId('all');
     setSelectedType('all');
     setSortBy('date-desc');
   };
 
   // Use effect to apply filters automatically
   const hasActiveFilters =
-    searchQuery.trim() || selectedBucketId || selectedType !== 'all' || sortBy !== 'date-desc';
+    searchQuery.trim() || selectedBucketId !== 'all' || selectedType !== 'all' || sortBy !== 'date-desc';
 
   return (
     <div className="space-y-3">
@@ -117,7 +117,7 @@ export function TransactionSearchFilter({
             <SelectValue placeholder="All categories" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All categories</SelectItem>
+            <SelectItem value="all">All categories</SelectItem>
             {buckets.map((bucket) => (
               <SelectItem key={bucket.id} value={bucket.id}>
                 {bucket.name}
@@ -181,12 +181,12 @@ export function TransactionSearchFilter({
               />
             </Badge>
           )}
-          {selectedBucketId && (
+          {selectedBucketId !== 'all' && (
             <Badge variant="secondary" className="cursor-pointer hover:bg-secondary/80">
               Category: {buckets.find((b) => b.id === selectedBucketId)?.name}
               <X
                 className="h-3 w-3 ml-1"
-                onClick={() => setSelectedBucketId('')}
+                onClick={() => setSelectedBucketId('all')}
               />
             </Badge>
           )}
