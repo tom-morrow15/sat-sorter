@@ -195,8 +195,29 @@ export function getMerchantKeywords(element: BTCMapElement): string[] {
 
 // Check if merchant is an ATM
 function isATM(element: BTCMapElement): boolean {
-  return element.tags.category === 'atm' ||
-         element.osm_json.tags.amenity === 'atm';
+  const category = element.tags.category?.toLowerCase() ?? '';
+  const amenity = element.osm_json.tags.amenity?.toLowerCase() ?? '';
+  const shop = element.osm_json.tags.shop?.toLowerCase() ?? '';
+  const name = (element.osm_json.tags.name || element.osm_json.tags['name:en'] || '').toLowerCase();
+
+  // Primary ATM indicators
+  if (category === 'atm' || amenity === 'atm' || shop === 'atm') return true;
+
+  // Name-based heuristics to catch Bitcoin ATMs / kiosks
+  if (
+    name.includes('bitcoin atm') ||
+    name.includes('btc atm') ||
+    name.includes('crypto atm') ||
+    name.includes('bitcoin kiosk') ||
+    name.includes('bitcoin teller') ||
+    name.includes('coinflip bitcoin') ||
+    name.includes('coinme') ||
+    name.includes('coin cloud')
+  ) {
+    return true;
+  }
+
+  return false;
 }
 
 // Check if a line item matches any nearby merchants
@@ -337,6 +358,7 @@ function filterMerchantsByLocation(
   radiusKm: number
 ): (BTCMapElement & { distance: number })[] {
   return merchants
+    .filter(merchant => !isATM(merchant))
     .map(merchant => ({
       ...merchant,
       distance: calculateDistance(lat, lon, merchant.osm_json.lat, merchant.osm_json.lon),
