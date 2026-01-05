@@ -196,7 +196,7 @@ function MerchantDetailDialog({ merchant, open, onOpenChange }: MerchantDetailDi
             {tags.website && (
               <div className="flex items-center gap-2">
                 <span className="text-muted-foreground">🌐</span>
-                <a 
+                <a
                   href={tags.website.startsWith('http') ? tags.website : `https://${tags.website}`}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -247,17 +247,17 @@ interface LocationSetupDialogProps {
   initialRadius?: number;
 }
 
-function LocationSetupDialog({ 
-  open, 
-  onOpenChange, 
-  initialZipCode = '', 
-  initialRadius = 25 
+function LocationSetupDialog({
+  open,
+  onOpenChange,
+  initialZipCode = '',
+  initialRadius = 25
 }: LocationSetupDialogProps) {
   const [zipCode, setZipCode] = useState(initialZipCode);
   const [radius, setRadius] = useState(initialRadius.toString());
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   const { updateLocation } = useLocationSettings();
   const { toast } = useToast();
 
@@ -294,7 +294,7 @@ function LocationSetupDialog({
             Find Bitcoin Merchants
           </DialogTitle>
           <DialogDescription>
-            Enter your zip code to discover businesses near you that accept Bitcoin. 
+            Enter your zip code to discover businesses near you that accept Bitcoin.
             Your location is stored locally and never shared.
           </DialogDescription>
         </DialogHeader>
@@ -345,7 +345,7 @@ function LocationSetupDialog({
               🔒 Privacy First
             </p>
             <p className="text-xs text-muted-foreground">
-              Your zip code is only used to find nearby merchants and is stored 
+              Your zip code is only used to find nearby merchants and is stored
               locally on your device. We never track or share your location.
             </p>
           </div>
@@ -438,32 +438,36 @@ export function BTCMapBanner() {
   if (merchants.length === 0) {
     return (
       <>
-        <Card className="overflow-hidden border-muted">
+        <Card className="overflow-hidden border-primary/20 bg-gradient-to-r from-primary/5 via-orange-500/5 to-amber-500/5">
           <CardContent className="py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3 text-muted-foreground">
-                <Store className="h-5 w-5" />
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Store className="h-5 w-5 text-primary" />
+                </div>
                 <div>
                   <p className="text-sm font-medium">
-                    No Bitcoin merchants found within {settings.radiusMiles} miles of {settings.zipCode}
+                    No Bitcoin merchants found
                   </p>
-                  <p className="text-xs">
-                    Try expanding your search radius or{' '}
-                    <a 
-                      href="https://btcmap.org/add-location" 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="text-primary hover:underline"
-                    >
-                      add a merchant to BTCMap
-                    </a>
+                  <p className="text-xs text-muted-foreground">
+                    Searching within <span className="font-medium text-foreground">{settings.radiusMiles} miles</span> of <span className="font-medium text-foreground">{settings.zipCode}</span>
                   </p>
                 </div>
               </div>
-              <Button variant="outline" size="sm" onClick={() => setShowLocationDialog(true)}>
-                <Settings2 className="h-4 w-4 mr-1" />
-                Change
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={() => setShowLocationDialog(true)}>
+                  <Settings2 className="h-4 w-4 mr-1" />
+                  Change Location
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => window.open('https://btcmap.org/add-location', '_blank')}
+                >
+                  Add Merchant
+                  <ChevronRight className="h-3 w-3 ml-1" />
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -484,25 +488,27 @@ export function BTCMapBanner() {
         <CardContent className="py-4 px-4">
           {/* Header */}
           <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                <MapPin className="h-4 w-4 text-primary" />
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <MapPin className="h-5 w-5 text-primary" />
               </div>
               <div>
-                <h3 className="text-sm font-semibold flex items-center gap-1.5">
+                <h3 className="text-sm font-semibold flex items-center gap-2">
                   Spend Sats Locally
-                  <Badge variant="secondary" className="text-xs font-normal">
-                    {merchants.length} nearby
+                  <Badge variant="secondary" className="text-xs font-normal bg-success/10 text-success border-success/20">
+                    {merchants.length} found
                   </Badge>
                 </h3>
                 <p className="text-xs text-muted-foreground">
-                  Within {settings.radiusMiles} mi of {settings.zipCode}
+                  📍 <span className="font-medium text-foreground">{settings.zipCode}</span>
+                  {' · '}
+                  <span className="font-medium text-foreground">{settings.radiusMiles} mile</span> radius
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-1">
               <Button
-                variant="ghost"
+                variant="outline"
                 size="sm"
                 className="text-xs"
                 onClick={() => setShowLocationDialog(true)}
