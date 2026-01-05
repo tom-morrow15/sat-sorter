@@ -1,0 +1,451 @@
+import { useState } from 'react';
+import {
+  ArrowDownLeft,
+  ArrowUpRight,
+  Plus,
+  Trash2,
+  ChevronRight,
+  AlertCircle,
+  CheckCircle2,
+  Zap,
+} from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { useBitcoinPrice, formatSats, satsToUsd, usdToSats, formatUsd } from '@/hooks/useBitcoinPrice';
+import { getUnassignedTransactions } from '@/lib/budgetTypes';
+import type { Transaction, Bucket } from '@/lib/budgetTypes';
+import { cn } from '@/lib/utils';
+
+interface TransactionsPanelProps {
+  transactions: Transaction[];
+  buckets: Bucket[];
+  currency: 'sats' | 'usd';
+  onAddTransaction: (transaction: Omit<Transaction, 'id'>) => void;
+  onAssignTransaction: (transactionId: string, bucketId: string, lineItemId: string) => void;
+  onDeleteTransaction: (transactionId: string) => void;
+}
+
+export function TransactionsPanel({
+  transactions,
+  buckets,
+  currency,
+  onAddTransaction,
+  onAssignTransaction,
+  onDeleteTransaction,
+}: TransactionsPanelProps) {
+  const { data: priceData } = useBitcoinPrice();
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [showAssignDialog, setShowAssignDialog] = useState(false);
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+
+  // Add transaction form state
+  const [newAmount, setNewAmount] = useState('');
+  const [newDescription, setNewDescription] = useState('');
+  const [newIsIncome, setNewIsIncome] = useState(false);
+
+  // Assign form state
+  const [selectedBucketId, setSelectedBucketId] = useState<string>('');
+  const [selectedLineItemId, setSelectedLineItemId] = useState<string>('');
+
+  const unassigned = getUnassignedTransactions(transactions);
+  const assigned = transactions.filter(t => t.lineItemId !== null);
+
+  const formatAmount = (sats: number) => {
+    if (currency === 'usd' && priceData) {
+      return formatUsd(satsToUsd(sats, priceData.usdPerBtc));
+    }
+    return `${formatSats(sats)} sats`;
+  };
+
+  const parseAmountToSats = (value: string): number => {
+    const num = parseFloat(value) || 0;
+    if (currency === 'usd' && priceData) {
+      return usdToSats(num, priceData.usdPerBtc);
+    }
+    return Math.round(num);
+  };
+
+  const handleAddTransaction = () => {
+    const amount = parseAmountToSats(newAmount);
+    if (amount > 0 && newDescription.trim()) {
+      onAddTransaction({
+        amount,
+        description: newDescription.trim(),
+        date: new Date().toISOString(),
+        lineItemId: null,
+        bucketId: null,
+        isIncome: newIsIncome,
+      });
+      setNewAmount('');
+      setNewDescription('');
+      setNewIsIncome(false);
+      setShowAddDialog(false);
+    }
+  };
+
+  const handleOpenAssign = (transaction: Transaction) => {
+    setSelectedTransaction(transaction);
+    setSelectedBucketId('');
+    setSelectedLineItemId('');
+    setShowAssignDialog(true);
+  };
+
+  const handleAssign = () => {
+    if (selectedTransaction && selectedBucketId && selectedLineItemId) {
+      onAssignTransaction(selectedTransaction.id, selectedBucketId, selectedLineItemId);
+      setShowAssignDialog(false);
+      setSelectedTransaction(null);
+    }
+  };
+
+  const selectedBucket = buckets.find(b => b.id === selectedBucketId);
+  const expenseBuckets = buckets.filter(b => !b.isIncome);
+
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
+
+  return (
+    <>
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-base">Transactions</CardTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {unassigned.length} unassigned
+              </p>
+            </div>
+            <Button size="sm" onClick={() => setShowAddDialog(true)}>
+              <Plus className="h-4 w-4 mr-1" />
+              Add
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="pt-0">
+          {/* Unassigned transactions */}
+          {unassigned.length > 0 && (
+            <div className="mb-4">
+              <div className="flex items-center gap-2 mb-2">
+                <AlertCircle className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium">Needs Categorizing</span>
+              </div>
+              <div className="space-y-2">
+                {unassigned.map((transaction) => (
+                  <button
+                    key={transaction.id}
+                    onClick={() => handleOpenAssign(transaction)}
+                    className="w-full flex items-center gap-3 p-3 rounded-lg bg-primary/5 border border-primary/20 hover:bg-primary/10 transition-colors text-left group"
+                  >
+                    <div
+                      className={cn(
+                        'h-8 w-8 rounded-full flex items-center justify-center',
+                        transaction.isIncome
+                          ? 'bg-success/20 text-success'
+                          : 'bg-muted text-muted-foreground'
+                      )}
+                    >
+                      {transaction.isIncome ? (
+                        <ArrowDownLeft className="h-4 w-4" />
+                      ) : (
+                        <ArrowUpRight className="h-4 w-4" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">
+                        {transaction.description}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatDate(transaction.date)}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={cn(
+                          'font-semibold tabular-nums',
+                          transaction.isIncome ? 'text-success' : ''
+                        )}
+                      >
+                        {transaction.isIncome ? '+' : '-'}
+                        {formatAmount(transaction.amount)}
+                      </span>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Assigned transactions */}
+          {assigned.length > 0 && (
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <CheckCircle2 className="h-4 w-4 text-success" />
+                <span className="text-sm font-medium">Categorized</span>
+              </div>
+              <ScrollArea className="max-h-[300px]">
+                <div className="space-y-1">
+                  {assigned.slice(0, 10).map((transaction) => {
+                    const bucket = buckets.find(b => b.id === transaction.bucketId);
+                    const lineItem = bucket?.lineItems.find(
+                      l => l.id === transaction.lineItemId
+                    );
+                    return (
+                      <div
+                        key={transaction.id}
+                        className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 group"
+                      >
+                        <div
+                          className={cn(
+                            'h-7 w-7 rounded-full flex items-center justify-center',
+                            transaction.isIncome
+                              ? 'bg-success/20 text-success'
+                              : 'bg-muted text-muted-foreground'
+                          )}
+                        >
+                          {transaction.isIncome ? (
+                            <ArrowDownLeft className="h-3.5 w-3.5" />
+                          ) : (
+                            <ArrowUpRight className="h-3.5 w-3.5" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm truncate">
+                            {transaction.description}
+                          </p>
+                          <div className="flex items-center gap-1.5">
+                            <Badge
+                              variant="secondary"
+                              className="text-xs px-1.5 py-0"
+                              style={{
+                                backgroundColor: bucket
+                                  ? `${bucket.color}20`
+                                  : undefined,
+                                color: bucket?.color,
+                              }}
+                            >
+                              {lineItem?.name || 'Unknown'}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">
+                              {formatDate(transaction.date)}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={cn(
+                              'text-sm font-medium tabular-nums',
+                              transaction.isIncome ? 'text-success' : ''
+                            )}
+                          >
+                            {transaction.isIncome ? '+' : '-'}
+                            {formatAmount(transaction.amount)}
+                          </span>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={() => onDeleteTransaction(transaction.id)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </ScrollArea>
+            </div>
+          )}
+
+          {/* Empty state */}
+          {transactions.length === 0 && (
+            <div className="text-center py-8">
+              <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mx-auto mb-3">
+                <Zap className="h-6 w-6 text-muted-foreground" />
+              </div>
+              <p className="text-sm text-muted-foreground">
+                No transactions yet
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Connect your wallet or add transactions manually
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Add Transaction Dialog */}
+      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Add Transaction</DialogTitle>
+            <DialogDescription>
+              Record a transaction to track your spending.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {/* Type toggle */}
+            <div className="flex gap-2">
+              <Button
+                variant={!newIsIncome ? 'default' : 'outline'}
+                className="flex-1"
+                onClick={() => setNewIsIncome(false)}
+              >
+                <ArrowUpRight className="h-4 w-4 mr-2" />
+                Expense
+              </Button>
+              <Button
+                variant={newIsIncome ? 'default' : 'outline'}
+                className="flex-1"
+                onClick={() => setNewIsIncome(true)}
+              >
+                <ArrowDownLeft className="h-4 w-4 mr-2" />
+                Income
+              </Button>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Description</Label>
+              <Input
+                value={newDescription}
+                onChange={(e) => setNewDescription(e.target.value)}
+                placeholder="e.g., Coffee shop, Grocery store..."
+                autoFocus
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Amount ({currency === 'usd' ? 'USD' : 'sats'})</Label>
+              <Input
+                type="number"
+                value={newAmount}
+                onChange={(e) => setNewAmount(e.target.value)}
+                placeholder="0"
+                min="0"
+                step={currency === 'usd' ? '0.01' : '1'}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAddDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleAddTransaction}
+              disabled={!newAmount || !newDescription.trim()}
+            >
+              Add Transaction
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Assign Transaction Dialog */}
+      <Dialog open={showAssignDialog} onOpenChange={setShowAssignDialog}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Categorize Transaction</DialogTitle>
+            <DialogDescription>
+              Assign this transaction to a budget category.
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedTransaction && (
+            <div className="py-4 space-y-4">
+              {/* Transaction summary */}
+              <div className="p-3 rounded-lg bg-muted/50">
+                <p className="font-medium">{selectedTransaction.description}</p>
+                <p className="text-sm text-muted-foreground">
+                  {formatAmount(selectedTransaction.amount)} •{' '}
+                  {formatDate(selectedTransaction.date)}
+                </p>
+              </div>
+
+              {/* Category selection */}
+              <div className="space-y-2">
+                <Label>Category</Label>
+                <Select value={selectedBucketId} onValueChange={(value) => {
+                  setSelectedBucketId(value);
+                  setSelectedLineItemId('');
+                }}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a category..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {expenseBuckets.map((bucket) => (
+                      <SelectItem key={bucket.id} value={bucket.id}>
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="h-3 w-3 rounded-full"
+                            style={{ backgroundColor: bucket.color }}
+                          />
+                          {bucket.name}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Line item selection */}
+              {selectedBucket && selectedBucket.lineItems.length > 0 && (
+                <div className="space-y-2">
+                  <Label>Item</Label>
+                  <Select
+                    value={selectedLineItemId}
+                    onValueChange={setSelectedLineItemId}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select an item..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {selectedBucket.lineItems.map((item) => (
+                        <SelectItem key={item.id} value={item.id}>
+                          {item.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAssignDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleAssign}
+              disabled={!selectedBucketId || !selectedLineItemId}
+            >
+              Assign
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
