@@ -1,4 +1,5 @@
-import { Bitcoin, DollarSign, ChevronLeft, ChevronRight, Wallet, Moon, Sun } from 'lucide-react';
+import { useState } from 'react';
+import { Bitcoin, DollarSign, ChevronLeft, ChevronRight, Wallet, Moon, Sun, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -12,6 +13,10 @@ import {
 import type { Bucket } from '@/lib/budgetTypes';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/hooks/useTheme';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { AccountSwitcher } from '@/components/auth/AccountSwitcher';
+import { useAppContext } from '@/hooks/useAppContext';
 
 interface BudgetHeaderProps {
   buckets: Bucket[];
@@ -50,6 +55,15 @@ export function BudgetHeader({
   const isOver = remaining < 0;
   const isUnder = remaining > 0 && totalIncome > 0;
 
+  const { user } = useCurrentUser();
+  const { config, updateConfig } = useAppContext();
+
+  const logoStyle = config.logoStyle || 'bitcoin';
+
+  const toggleLogo = () => {
+    updateConfig((c) => ({ ...c, logoStyle: c.logoStyle === 'sats' ? 'bitcoin' : 'sats' }));
+  };
+
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto px-4">
@@ -57,9 +71,13 @@ export function BudgetHeader({
         <div className="flex h-16 items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="relative">
-              <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary to-orange-600 flex items-center justify-center shadow-lg bitcoin-glow">
-                <Bitcoin className="h-6 w-6 text-white" />
-              </div>
+              <button onClick={toggleLogo} className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary to-orange-600 flex items-center justify-center shadow-lg bitcoin-glow">
+                {logoStyle === 'bitcoin' ? (
+                  <Bitcoin className="h-6 w-6 text-white" />
+                ) : (
+                  <Zap className="h-6 w-6 text-white" />
+                )}
+              </button>
             </div>
             <div>
               <h1 className="text-xl font-bold tracking-tight">Sat Sorter</h1>
@@ -124,6 +142,13 @@ export function BudgetHeader({
             <Button variant="ghost" size="icon" onClick={toggleTheme}>
               {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </Button>
+
+            {/* User avatar / account switcher */}
+            {user ? (
+              <div className="ml-2">
+                <AccountSwitcher onAddAccountClick={() => { /* noop */ }} />
+              </div>
+            ) : null}
           </div>
         </div>
 

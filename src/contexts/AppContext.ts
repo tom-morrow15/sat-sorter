@@ -1,6 +1,7 @@
 import { createContext } from "react";
 
 export type Theme = "dark" | "light" | "system";
+export type LogoStyle = "bitcoin" | "sats";
 
 export interface RelayMetadata {
   /** List of relays with read/write permissions */
@@ -14,6 +15,8 @@ export interface AppConfig {
   theme: Theme;
   /** NIP-65 relay list metadata */
   relayMetadata: RelayMetadata;
+  /** Logo style preference: bitcoin (₿) or sats (⚡) */
+  logoStyle: LogoStyle;
 }
 
 export interface AppContextType {
