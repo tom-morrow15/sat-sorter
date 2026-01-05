@@ -60,12 +60,25 @@ const DEFAULT_LOCATION_SETTINGS: LocationSettings = {
 // Category mappings from BTCMap categories to our budget line items
 export const CATEGORY_MAPPINGS: Record<string, string[]> = {
   // Food & Drink
-  'restaurant': ['restaurants', 'restaurant', 'dining', 'food', 'eating out', 'dinner', 'lunch', 'meals'],
-  'cafe': ['coffee', 'cafe', 'coffee shop', 'starbucks', 'breakfast', 'tea', 'espresso'],
-  'bar': ['bar', 'drinks', 'alcohol', 'nightlife', 'entertainment', 'beer', 'wine'],
-  'fast_food': ['fast food', 'takeout', 'quick meals', 'food', 'burger', 'pizza'],
-  'pub': ['bar', 'pub', 'drinks', 'entertainment', 'beer'],
-  'bakery': ['bakery', 'bread', 'pastries', 'food', 'breakfast'],
+  'restaurant': ['restaurants', 'restaurant', 'dining', 'food', 'eating out', 'dinner', 'lunch', 'meals', 'casual dining', 'steakhouse', 'steak', 'grill'],
+  'cafe': ['coffee', 'cafe', 'coffee shop', 'starbucks', 'breakfast', 'tea', 'espresso', 'coffee shop'],
+  'bar': ['bar', 'drinks', 'alcohol', 'nightlife', 'entertainment', 'beer', 'wine', 'pub', 'lounge'],
+  'fast_food': ['fast food', 'takeout', 'quick meals', 'food', 'burger', 'pizza', 'sandwich', 'chicken', 'tacos', 'shake', 'burgers', 'fries'],
+  'pub': ['bar', 'pub', 'drinks', 'entertainment', 'beer', 'tavern'],
+  'bakery': ['bakery', 'bread', 'pastries', 'food', 'breakfast', 'donut', 'donuts'],
+  'ice_cream': ['ice cream', 'dessert', 'frozen', 'food'],
+  'pizza': ['pizza', 'food', 'italian', 'dining', 'takeout'],
+  'burger': ['burger', 'burgers', 'fast food', 'food', 'takeout'],
+  'sandwich': ['sandwich', 'deli', 'fast food', 'takeout', 'food'],
+  'sushi': ['sushi', 'japanese', 'restaurant', 'dining', 'food'],
+  'bbq': ['bbq', 'barbecue', 'grill', 'restaurant', 'dining', 'food'],
+  'mexican': ['mexican', 'taco', 'burrito', 'restaurant', 'dining', 'food'],
+  'chinese': ['chinese', 'asian', 'restaurant', 'dining', 'food'],
+  'indian': ['indian', 'restaurant', 'dining', 'food'],
+  'thai': ['thai', 'restaurant', 'dining', 'food'],
+  'vietnamese': ['vietnamese', 'restaurant', 'dining', 'food'],
+  'korean': ['korean', 'restaurant', 'dining', 'food'],
+  'middle_eastern': ['middle eastern', 'kebab', 'falafel', 'restaurant', 'dining', 'food'],
 
   // Shopping
   'supermarket': ['groceries', 'grocery', 'food', 'shopping', 'market'],
@@ -118,6 +131,21 @@ export const CATEGORY_MAPPINGS: Record<string, string[]> = {
   'veterinary': ['pets', 'vet', 'veterinary', 'animal', 'dog', 'cat'],
   'pet_shop': ['pets', 'pet supplies', 'animal', 'dog', 'cat'],
 
+  // Additional casual/chain dining
+  'diner': ['dining', 'restaurant', 'food', 'dinner', 'lunch', 'meals'],
+  'burger_king': ['fast food', 'burger', 'food', 'takeout'],
+  'mcdonalds': ['fast food', 'food', 'burger', 'takeout'],
+  'wendys': ['fast food', 'burger', 'food', 'takeout'],
+  'chickfila': ['fast food', 'chicken', 'food', 'takeout'],
+  'popeyes': ['fast food', 'chicken', 'food', 'takeout'],
+  'kfc': ['fast food', 'chicken', 'food', 'takeout'],
+  'tacobell': ['fast food', 'tacos', 'food', 'takeout'],
+  'subway': ['fast food', 'sandwich', 'food', 'takeout'],
+  'jimmyjohns': ['fast food', 'sandwich', 'food', 'takeout'],
+  'panerabread': ['cafe', 'bakery', 'sandwich', 'coffee', 'food'],
+  'chipotle': ['fast food', 'mexican', 'food', 'takeout'],
+  'qdoba': ['fast food', 'mexican', 'food', 'takeout'],
+
   // Other common
   'other': [],
 };
@@ -126,6 +154,7 @@ export const CATEGORY_MAPPINGS: Record<string, string[]> = {
 export function getMerchantKeywords(element: BTCMapElement): string[] {
   const category = element.tags.category?.toLowerCase() || '';
   const osmTags = element.osm_json.tags;
+  const merchantName = (osmTags.name || osmTags['name:en'] || '').toLowerCase();
 
   const keywords: string[] = [];
 
@@ -148,7 +177,17 @@ export function getMerchantKeywords(element: BTCMapElement): string[] {
 
   // Add cuisine keywords for restaurants
   if (osmTags.cuisine) {
-    keywords.push(osmTags.cuisine.toLowerCase());
+    const cuisines = osmTags.cuisine.toLowerCase().split(/[;,]/);
+    keywords.push(...cuisines.map(c => c.trim()).filter(c => c.length > 0));
+  }
+
+  // Extract individual words from merchant name for better matching
+  // This helps match "Steak n Shake" even if the category is generic
+  if (merchantName.length > 0) {
+    const nameWords = merchantName
+      .split(/[\s\-&\/]+/)
+      .filter(word => word.length > 2 && !['the', 'and', 'or', 'in', 'at', 'by', 'for'].includes(word));
+    keywords.push(...nameWords);
   }
 
   return [...new Set(keywords)]; // Remove duplicates
@@ -165,14 +204,14 @@ export function lineItemMatchesMerchant(lineItemName: string, merchants: BTCMapE
   const lowerName = lineItemName.toLowerCase().trim();
 
   // Common words to ignore in matching
-  const ignoreWords = ['the', 'a', 'an', 'and', 'or', 'my', 'our'];
+  const ignoreWords = ['the', 'a', 'an', 'and', 'or', 'my', 'our', 'in', 'at', 'to'];
 
   // Split line item name into searchable words
   const lineItemWords = lowerName
     .split(/[\s\/\-&]+/)
     .filter(word => word.length > 2 && !ignoreWords.includes(word));
 
-  return merchants.filter(merchant => {
+  const matches = merchants.filter(merchant => {
     // EXCLUDE ATMs from line item matching
     if (isATM(merchant)) {
       return false;
@@ -181,31 +220,64 @@ export function lineItemMatchesMerchant(lineItemName: string, merchants: BTCMapE
     const keywords = getMerchantKeywords(merchant);
     const merchantName = (merchant.osm_json.tags.name || merchant.osm_json.tags['name:en'] || '').toLowerCase();
     const category = merchant.tags.category?.toLowerCase() || '';
+    const amenity = merchant.osm_json.tags.amenity?.toLowerCase() || '';
+    const shop = merchant.osm_json.tags.shop?.toLowerCase() || '';
 
-    // Check if any keyword matches the line item name or its words
-    const keywordMatch = keywords.some(keyword => {
-      // Direct inclusion match
-      if (lowerName.includes(keyword) || keyword.includes(lowerName)) {
+    // EXACT or STRONG NAME MATCH - highest priority
+    // Direct merchant name match (e.g., "Steak n Shake" matches "Steak n Shake")
+    if (merchantName === lowerName || merchantName.includes(lowerName)) {
+      return true;
+    }
+
+    // Line item includes merchant name (e.g., "Dinner at Steak n Shake" matches "Steak n Shake")
+    if (lowerName.includes(merchantName) && merchantName.length > 3) {
+      return true;
+    }
+
+    // WORD-BY-WORD MATCHING - check individual words
+    const lineItemWordMatches = lineItemWords.filter(word => {
+      // Direct word match in merchant name (case-insensitive)
+      const merchantWords = merchantName.split(/[\s\-&\/]+/);
+      if (merchantWords.some(mw => mw === word || mw.includes(word))) {
         return true;
       }
-      // Word-by-word match
-      return lineItemWords.some(word =>
-        keyword.includes(word) || word.includes(keyword)
-      );
+      // Check if any keyword contains this word
+      return keywords.some(keyword => keyword.includes(word));
     });
 
-    // Check merchant name
-    const nameMatch = lineItemWords.some(word =>
-      merchantName.includes(word) || word.includes(merchantName)
-    ) || merchantName.includes(lowerName) || lowerName.includes(merchantName);
+    // If 2+ words match or all line item words match, it's a good match
+    if (lineItemWords.length > 0) {
+      const matchRatio = lineItemWordMatches.length / lineItemWords.length;
+      if (matchRatio >= 0.67 || lineItemWordMatches.length >= 2) {
+        return true;
+      }
+    }
 
-    // Check category directly
-    const categoryMatch = lineItemWords.some(word =>
-      category.includes(word) || word.includes(category)
-    );
+    // CATEGORY MATCHING - broader fallback
+    // Check if any keyword matches the line item
+    const keywordMatch = keywords.some(keyword => {
+      // At least 3 chars for meaningful match
+      if (keyword.length < 3) return false;
 
-    return keywordMatch || nameMatch || categoryMatch;
+      // Check if keyword is in line item
+      return lowerName.includes(keyword);
+    });
+
+    // Category or amenity direct match with keywords
+    const categoryMatch = lineItemWords.some(word => {
+      return category.includes(word) || amenity.includes(word) || shop.includes(word);
+    });
+
+    return keywordMatch || categoryMatch;
   });
+
+  // Log for debugging if we found matches
+  if (matches.length > 0) {
+    console.log(`[BTCMap] Matched "${lineItemName}" to ${matches.length} merchant(s):`,
+      matches.map(m => m.osm_json.tags.name || m.osm_json.tags['name:en']).slice(0, 3));
+  }
+
+  return matches;
 }
 
 // Calculate distance between two points in km
@@ -249,7 +321,12 @@ async function fetchAllMerchants(): Promise<BTCMapElement[]> {
   const elements: BTCMapElement[] = await response.json();
 
   // Filter out deleted merchants
-  return elements.filter(el => !el.deleted_at || el.deleted_at === '');
+  const activeMerchants = elements.filter(el => !el.deleted_at || el.deleted_at === '');
+
+  // Log stats for debugging
+  console.log(`[BTCMap] Fetched ${activeMerchants.length} active merchants out of ${elements.length} total`);
+
+  return activeMerchants;
 }
 
 // Filter merchants by location and radius
