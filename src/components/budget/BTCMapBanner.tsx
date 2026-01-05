@@ -56,6 +56,7 @@ import {
   acceptsLightning,
   acceptsOnchain,
   formatDistance,
+  geocodeLocation,
   type BTCMapElement,
 } from '@/hooks/useBTCMap';
 import { useToast } from '@/hooks/useToast';
@@ -209,7 +210,7 @@ function MerchantDetailDialog({ merchant, open, onOpenChange }: MerchantDetailDi
             {tags.website && (
               <div className="flex items-center gap-2">
                 <span className="text-muted-foreground">🌐</span>
-                <a 
+                <a
                   href={tags.website.startsWith('http') ? tags.website : `https://${tags.website}`}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -276,8 +277,8 @@ interface LocationSetupDialogProps {
   initialLon?: number;
 }
 
-function LocationSetupDialog({ 
-  open, 
+function LocationSetupDialog({
+  open,
   onOpenChange,
   initialLocationName = '',
   initialRadius = 25,
@@ -288,7 +289,10 @@ function LocationSetupDialog({
   const [locationName, setLocationName] = useState(initialLocationName);
   const [lat, setLat] = useState(initialLat?.toString() || '');
   const [lon, setLon] = useState(initialLon?.toString() || '');
-  
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchError, setSearchError] = useState('');
+
   const { updateLocation } = useLocationSettings();
   const { toast } = useToast();
 
@@ -296,6 +300,33 @@ function LocationSetupDialog({
     setLocationName(location.name);
     setLat(location.lat.toString());
     setLon(location.lon.toString());
+  };
+
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) {
+      setSearchError('Please enter a location');
+      return;
+    }
+
+    setIsSearching(true);
+    setSearchError('');
+
+    const result = await geocodeLocation(searchQuery.trim());
+
+    setIsSearching(false);
+
+    if (result) {
+      setLocationName(result.displayName);
+      setLat(result.lat.toString());
+      setLon(result.lon.toString());
+      setSearchError('');
+      toast({
+        title: 'Location found',
+        description: result.displayName,
+      });
+    } else {
+      setSearchError('Location not found. Try "City, State" or "Zip Code, US"');
+    }
   };
 
   const handleSubmit = () => {
@@ -350,11 +381,73 @@ function LocationSetupDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs defaultValue="quick" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="quick">Quick Select</TabsTrigger>
-            <TabsTrigger value="custom">Custom Location</TabsTrigger>
+        <Tabs defaultValue="search" className="w-full">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="search">Search</TabsTrigger>
+            <TabsTrigger value="quick">Popular Cities</TabsTrigger>
+            <TabsTrigger value="custom">Coordinates</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="search" className="space-y-4 pt-4">
+            {/* Location search */}
+            <div className="space-y-2">
+              <Label htmlFor="search-location">City, State or Zip Code</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="search-location"
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setSearchError('');
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleSearch();
+                  }}
+                  placeholder="e.g., Jacksonville FL, 32068, or New York"
+                  className={cn(searchError && 'border-destructive')}
+                />
+                <Button onClick={handleSearch} disabled={isSearching}>
+                  {isSearching ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Search className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+              {searchError && (
+                <p className="text-sm text-destructive">{searchError}</p>
+              )}
+              <p className="text-xs text-muted-foreground">
+                Enter a city name, zip code, or address
+              </p>
+            </div>
+
+            {locationName && (
+              <Alert>
+                <Info className="h-4 w-4" />
+                <AlertDescription>
+                  Location: <span className="font-medium">{locationName}</span>
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {/* Radius */}
+            <div className="space-y-2">
+              <Label htmlFor="radius-search">Search Radius</Label>
+              <Select value={radius} onValueChange={setRadius}>
+                <SelectTrigger id="radius-search">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {RADIUS_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </TabsContent>
 
           <TabsContent value="quick" className="space-y-4 pt-4">
             {/* Popular locations */}
@@ -580,8 +673,8 @@ export function BTCMapBanner() {
                   <Settings2 className="h-4 w-4 mr-1" />
                   Change Location
                 </Button>
-                <Button 
-                  variant="ghost" 
+                <Button
+                  variant="ghost"
                   size="sm"
                   onClick={() => window.open('https://btcmap.org/add-location', '_blank')}
                 >
