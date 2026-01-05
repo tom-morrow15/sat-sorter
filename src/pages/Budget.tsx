@@ -91,58 +91,58 @@ export default function Budget() {
         onOpenWallet={() => setShowWalletModal(true)}
       />
 
-      <main className="container mx-auto px-4 py-6">
-        {/* BTCMap Banner - Spend sats locally */}
-        <div className="mb-6">
-          <BTCMapBanner />
+      <main className="container mx-auto px-4 py-4 lg:py-6">
+        {/* Alerts Section - Full width */}
+        <div className="space-y-3 mb-4">
+          {/* Login prompt for guests */}
+          {!user && (
+            <Alert className="border-primary/30 bg-primary/5">
+              <Info className="h-4 w-4 text-primary" />
+              <AlertDescription className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <span className="text-sm">
+                  Log in with Nostr to sync your budget across devices.
+                </span>
+                <LoginArea className="shrink-0" />
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* NWC connection prompt */}
+          {user && !hasNWC && (
+            <Alert className="border-primary/30 bg-primary/5">
+              <Zap className="h-4 w-4 text-primary" />
+              <AlertDescription className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <span className="text-sm">
+                  Connect your Lightning wallet to track transactions automatically.
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowWalletModal(true)}
+                  className="shrink-0"
+                >
+                  <Wallet className="h-4 w-4 mr-2" />
+                  Connect
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Main budget area */}
-          <div className="lg:col-span-2 space-y-4">
-            {/* Login prompt for guests */}
-            {!user && (
-              <Alert className="border-primary/30 bg-primary/5">
-                <Info className="h-4 w-4 text-primary" />
-                <AlertDescription className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                  <span>
-                    Log in with Nostr to sync your budget across devices and connect your wallet.
-                  </span>
-                  <LoginArea className="shrink-0" />
-                </AlertDescription>
-              </Alert>
-            )}
+        {/* Main Layout - Responsive Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6">
+          {/* Left Column - Budget Categories */}
+          <div className="lg:col-span-7 xl:col-span-8 space-y-4">
+            {/* BTCMap Banner */}
+            <BTCMapBanner />
 
-            {/* NWC connection prompt */}
-            {user && !hasNWC && (
-              <Alert className="border-primary/30 bg-primary/5">
-                <Zap className="h-4 w-4 text-primary" />
-                <AlertDescription className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                  <span>
-                    Connect your Lightning wallet to automatically track transactions.
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowWalletModal(true)}
-                    className="shrink-0"
-                  >
-                    <Wallet className="h-4 w-4 mr-2" />
-                    Connect Wallet
-                  </Button>
-                </AlertDescription>
-              </Alert>
-            )}
-
-            {/* Budget Dashboard */}
-            <div className="mt-6">
-              <BudgetDashboard
-                buckets={currentBudget.buckets}
-                transactions={currentBudget.transactions}
-                currency={currency}
-                month={currentMonth}
-              />
-            </div>
+            {/* Budget Dashboard - Spending Overview */}
+            <BudgetDashboard
+              buckets={currentBudget.buckets}
+              transactions={currentBudget.transactions}
+              currency={currency}
+              month={currentMonth}
+            />
 
             {/* Income bucket - always first */}
             {incomeBucket && (
@@ -160,9 +160,9 @@ export default function Budget() {
             )}
 
             {/* Section header for expenses */}
-            <div className="flex items-center justify-between pt-4">
+            <div className="flex items-center justify-between pt-2">
               <div className="flex items-center gap-2">
-                <h2 className="text-lg font-semibold">Expense Categories</h2>
+                <h2 className="text-base font-semibold">Expense Categories</h2>
                 <span className="text-sm text-muted-foreground">
                   ({expenseBuckets.length})
                 </span>
@@ -173,12 +173,13 @@ export default function Budget() {
                 onClick={() => setShowAddBucket(true)}
               >
                 <Plus className="h-4 w-4 mr-1" />
-                Add Category
+                <span className="hidden sm:inline">Add Category</span>
+                <span className="sm:hidden">Add</span>
               </Button>
             </div>
 
             {/* Expense buckets */}
-            <div className="space-y-4">
+            <div className="space-y-3">
               {expenseBuckets.map((bucket) => (
                 <BucketCard
                   key={bucket.id}
@@ -197,16 +198,15 @@ export default function Budget() {
 
             {/* Empty state for no expense buckets */}
             {expenseBuckets.length === 0 && (
-              <div className="text-center py-12 px-8 border-2 border-dashed rounded-xl">
-                <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
-                  <Bitcoin className="h-7 w-7 text-primary" />
+              <div className="text-center py-8 sm:py-12 px-6 sm:px-8 border-2 border-dashed rounded-xl">
+                <div className="h-12 w-12 sm:h-14 sm:w-14 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                  <Bitcoin className="h-6 w-6 sm:h-7 sm:w-7 text-primary" />
                 </div>
-                <h3 className="font-semibold text-lg mb-2">
+                <h3 className="font-semibold text-base sm:text-lg mb-2">
                   Start building your budget
                 </h3>
                 <p className="text-muted-foreground text-sm max-w-md mx-auto mb-4">
-                  Create expense categories to organize your spending. Give every
-                  sat a job and watch your financial goals become reality.
+                  Create expense categories to organize your spending. Give every sat a job.
                 </p>
                 <Button onClick={() => setShowAddBucket(true)}>
                   <Plus className="h-4 w-4 mr-2" />
@@ -216,9 +216,9 @@ export default function Budget() {
             )}
           </div>
 
-          {/* Sidebar - Transactions */}
-          <div className="lg:col-span-1">
-            <div className="sticky top-[280px]">
+          {/* Right Column - Transactions */}
+          <div className="lg:col-span-5 xl:col-span-4">
+            <div className="lg:sticky lg:top-[260px]">
               <TransactionsPanel
                 transactions={currentBudget.transactions}
                 buckets={currentBudget.buckets}
@@ -232,7 +232,7 @@ export default function Budget() {
         </div>
 
         {/* Footer */}
-        <footer className="mt-16 pt-8 border-t text-center">
+        <footer className="mt-12 lg:mt-16 pt-6 lg:pt-8 border-t text-center">
           <p className="text-sm text-muted-foreground">
             Vibed with{' '}
             <a
