@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { StrikeDebugTester } from '@/components/budget/StrikeDebugTester';
 import {
   validateStrikeApiKey,
   saveStrikeConfig,
@@ -229,24 +230,28 @@ export function StrikeConnectionDialog({
                   <li>Check that the key hasn't expired in Strike Settings</li>
                   <li>If it has expired, generate a new one</li>
                   <li>Open your browser console (F12) to see detailed error messages</li>
+                  <li>Use the Debug button (bottom) to test your key against Strike API</li>
                 </ul>
               </div>
 
-              {/* Connect Button */}
-              <Button
-                onClick={handleConnect}
-                disabled={!apiKey.trim() || isValidating}
-                className="w-full"
-              >
-                {isValidating ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Validating...
-                  </>
-                ) : (
-                  'Connect Strike'
-                )}
-              </Button>
+              {/* Buttons */}
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleConnect}
+                  disabled={!apiKey.trim() || isValidating}
+                  className="flex-1"
+                >
+                  {isValidating ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Validating...
+                    </>
+                  ) : (
+                    'Connect Strike'
+                  )}
+                </Button>
+                <StrikeDebugTester />
+              </div>
             </>
           )}
         </div>
