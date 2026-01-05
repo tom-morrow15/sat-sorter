@@ -42,7 +42,7 @@ import { useBudget } from '@/hooks/useBudget';
 import { useNWC } from '@/hooks/useNWCContext';
 import { useNWCSync } from '@/hooks/useNWCSync';
 import { useIsMobile } from '@/hooks/useIsMobile';
-import { categorizeMerchant } from '@/lib/strikeUtils';
+import { categorizeMerchant } from '@/lib/merchantUtils';
 
 interface DataSourcesDialogProps {
   open: boolean;

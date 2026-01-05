@@ -9,6 +9,7 @@ import NostrProvider from '@/components/NostrProvider';
 import { NostrSync } from '@/components/NostrSync';
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { OfflineIndicator } from "@/components/OfflineIndicator";
 import { NostrLoginProvider } from '@nostrify/react/login';
 import { AppProvider } from '@/components/AppProvider';
 import { NWCProvider } from '@/contexts/NWCContext';
@@ -54,6 +55,7 @@ export function App() {
               <NWCProvider>
                 <TooltipProvider>
                   <Toaster />
+                  <OfflineIndicator />
                   <Suspense>
                     <AppRouter />
                   </Suspense>
