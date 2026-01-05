@@ -12,12 +12,14 @@ import {
   Fuel,
   Building,
   Loader2,
-  MapPinOff,
-  X,
+  Settings2,
+  Search,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import {
   Dialog,
@@ -25,9 +27,18 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from '@/components/ui/dialog';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   useBTCMap,
+  useLocationSettings,
   getMerchantName,
   getMerchantCategory,
   acceptsLightning,
@@ -35,6 +46,7 @@ import {
   formatDistance,
   type BTCMapElement,
 } from '@/hooks/useBTCMap';
+import { useToast } from '@/hooks/useToast';
 import { cn } from '@/lib/utils';
 
 // Icon mapping for categories
@@ -219,13 +231,194 @@ function MerchantDetailDialog({ merchant, open, onOpenChange }: MerchantDetailDi
   );
 }
 
+// Radius options in miles
+const RADIUS_OPTIONS = [
+  { value: '5', label: '5 miles' },
+  { value: '10', label: '10 miles' },
+  { value: '25', label: '25 miles' },
+  { value: '50', label: '50 miles' },
+  { value: '100', label: '100 miles' },
+];
+
+interface LocationSetupDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  initialZipCode?: string;
+  initialRadius?: number;
+}
+
+function LocationSetupDialog({ 
+  open, 
+  onOpenChange, 
+  initialZipCode = '', 
+  initialRadius = 25 
+}: LocationSetupDialogProps) {
+  const [zipCode, setZipCode] = useState(initialZipCode);
+  const [radius, setRadius] = useState(initialRadius.toString());
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
+  const { updateLocation } = useLocationSettings();
+  const { toast } = useToast();
+
+  const handleSubmit = async () => {
+    if (!zipCode.trim()) {
+      setError('Please enter a zip code');
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    const success = await updateLocation(zipCode.trim(), parseInt(radius));
+
+    setIsLoading(false);
+
+    if (success) {
+      toast({
+        title: 'Location set',
+        description: `Finding Bitcoin merchants within ${radius} miles of ${zipCode}`,
+      });
+      onOpenChange(false);
+    } else {
+      setError('Could not find that zip code. Please check and try again.');
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[400px]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <MapPin className="h-5 w-5 text-primary" />
+            Find Bitcoin Merchants
+          </DialogTitle>
+          <DialogDescription>
+            Enter your zip code to discover businesses near you that accept Bitcoin. 
+            Your location is stored locally and never shared.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label htmlFor="zip-code">Zip Code</Label>
+            <Input
+              id="zip-code"
+              value={zipCode}
+              onChange={(e) => {
+                setZipCode(e.target.value);
+                setError(null);
+              }}
+              placeholder="e.g., 90210"
+              className={cn(error && 'border-destructive')}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleSubmit();
+              }}
+            />
+            {error && (
+              <p className="text-sm text-destructive">{error}</p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="radius">Search Radius</Label>
+            <Select value={radius} onValueChange={setRadius}>
+              <SelectTrigger id="radius">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {RADIUS_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              How far are you willing to travel to spend sats?
+            </p>
+          </div>
+
+          {/* Privacy note */}
+          <div className="p-3 rounded-lg bg-muted/50 text-sm">
+            <p className="font-medium text-xs uppercase tracking-wide text-muted-foreground mb-1">
+              🔒 Privacy First
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Your zip code is only used to find nearby merchants and is stored 
+              locally on your device. We never track or share your location.
+            </p>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button onClick={handleSubmit} disabled={isLoading}>
+            {isLoading ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Searching...
+              </>
+            ) : (
+              <>
+                <Search className="h-4 w-4 mr-2" />
+                Find Merchants
+              </>
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function BTCMapBanner() {
-  const { merchants, isLoading, error, location } = useBTCMap(50); // 50km radius
+  const { merchants, isLoading, hasLocation, settings } = useBTCMap();
+  const { clearLocation } = useLocationSettings();
   const [selectedMerchant, setSelectedMerchant] = useState<(BTCMapElement & { distance: number }) | null>(null);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
-  const [dismissed, setDismissed] = useState(false);
+  const [showLocationDialog, setShowLocationDialog] = useState(false);
 
-  if (dismissed) return null;
+  const handleMerchantClick = (merchant: BTCMapElement & { distance: number }) => {
+    setSelectedMerchant(merchant);
+    setShowDetailDialog(true);
+  };
+
+  // No location set - show setup prompt
+  if (!hasLocation) {
+    return (
+      <>
+        <Card className="overflow-hidden border-primary/20 bg-gradient-to-r from-primary/5 via-orange-500/5 to-amber-500/5">
+          <CardContent className="py-6">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <MapPin className="h-6 w-6 text-primary" />
+                </div>
+                <div className="text-center sm:text-left">
+                  <h3 className="font-semibold">Spend Sats Locally</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Discover Bitcoin-accepting businesses in your area
+                  </p>
+                </div>
+              </div>
+              <Button onClick={() => setShowLocationDialog(true)} className="gap-2">
+                <Search className="h-4 w-4" />
+                Set Your Location
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        <LocationSetupDialog
+          open={showLocationDialog}
+          onOpenChange={setShowLocationDialog}
+        />
+      </>
+    );
+  }
 
   // Loading state
   if (isLoading) {
@@ -234,29 +427,7 @@ export function BTCMapBanner() {
         <CardContent className="py-4">
           <div className="flex items-center justify-center gap-3 text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin" />
-            <span className="text-sm">Finding Bitcoin merchants near you...</span>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  // Error or no location
-  if (error || !location) {
-    return (
-      <Card className="overflow-hidden border-muted">
-        <CardContent className="py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3 text-muted-foreground">
-              <MapPinOff className="h-5 w-5" />
-              <div>
-                <p className="text-sm font-medium">Enable location to find Bitcoin merchants</p>
-                <p className="text-xs">Discover places near you that accept sats</p>
-              </div>
-            </div>
-            <Button variant="ghost" size="icon" onClick={() => setDismissed(true)}>
-              <X className="h-4 w-4" />
-            </Button>
+            <span className="text-sm">Finding Bitcoin merchants near {settings.zipCode}...</span>
           </div>
         </CardContent>
       </Card>
@@ -266,38 +437,46 @@ export function BTCMapBanner() {
   // No merchants found
   if (merchants.length === 0) {
     return (
-      <Card className="overflow-hidden border-muted">
-        <CardContent className="py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3 text-muted-foreground">
-              <Store className="h-5 w-5" />
-              <div>
-                <p className="text-sm font-medium">No Bitcoin merchants found nearby</p>
-                <p className="text-xs">
-                  <a 
-                    href="https://btcmap.org/add-location" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-primary hover:underline"
-                  >
-                    Add a merchant to BTCMap
-                  </a>
-                </p>
+      <>
+        <Card className="overflow-hidden border-muted">
+          <CardContent className="py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3 text-muted-foreground">
+                <Store className="h-5 w-5" />
+                <div>
+                  <p className="text-sm font-medium">
+                    No Bitcoin merchants found within {settings.radiusMiles} miles of {settings.zipCode}
+                  </p>
+                  <p className="text-xs">
+                    Try expanding your search radius or{' '}
+                    <a 
+                      href="https://btcmap.org/add-location" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline"
+                    >
+                      add a merchant to BTCMap
+                    </a>
+                  </p>
+                </div>
               </div>
+              <Button variant="outline" size="sm" onClick={() => setShowLocationDialog(true)}>
+                <Settings2 className="h-4 w-4 mr-1" />
+                Change
+              </Button>
             </div>
-            <Button variant="ghost" size="icon" onClick={() => setDismissed(true)}>
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+
+        <LocationSetupDialog
+          open={showLocationDialog}
+          onOpenChange={setShowLocationDialog}
+          initialZipCode={settings.zipCode}
+          initialRadius={settings.radiusMiles}
+        />
+      </>
     );
   }
-
-  const handleMerchantClick = (merchant: BTCMapElement & { distance: number }) => {
-    setSelectedMerchant(merchant);
-    setShowDetailDialog(true);
-  };
 
   return (
     <>
@@ -317,7 +496,7 @@ export function BTCMapBanner() {
                   </Badge>
                 </h3>
                 <p className="text-xs text-muted-foreground">
-                  Bitcoin-accepting merchants from BTCMap
+                  Within {settings.radiusMiles} mi of {settings.zipCode}
                 </p>
               </div>
             </div>
@@ -326,13 +505,19 @@ export function BTCMapBanner() {
                 variant="ghost"
                 size="sm"
                 className="text-xs"
+                onClick={() => setShowLocationDialog(true)}
+              >
+                <Settings2 className="h-3 w-3 mr-1" />
+                Change
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs"
                 onClick={() => window.open('https://btcmap.org', '_blank')}
               >
                 View Map
                 <ChevronRight className="h-3 w-3 ml-1" />
-              </Button>
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDismissed(true)}>
-                <X className="h-4 w-4" />
               </Button>
             </div>
           </div>
@@ -358,6 +543,14 @@ export function BTCMapBanner() {
         merchant={selectedMerchant}
         open={showDetailDialog}
         onOpenChange={setShowDetailDialog}
+      />
+
+      {/* Location setup dialog */}
+      <LocationSetupDialog
+        open={showLocationDialog}
+        onOpenChange={setShowLocationDialog}
+        initialZipCode={settings.zipCode}
+        initialRadius={settings.radiusMiles}
       />
     </>
   );

@@ -21,7 +21,7 @@ export default function Budget() {
 
   const { user } = useCurrentUser();
   const { hasNWC } = useWallet();
-  const { merchants } = useBTCMap(50); // 50km radius
+  const { merchants } = useBTCMap();
 
   const {
     currentBudget,
