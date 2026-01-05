@@ -144,6 +144,8 @@ The following merchants are automatically detected:
 1. Check that you copied the key correctly
 2. Verify the key hasn't expired in Strike settings
 3. Try disconnecting and reconnecting with a new key
+4. Open your browser console (F12) and look for `[Strike]` debug logs
+5. See **STRIKE_DEBUGGING.md** for detailed troubleshooting steps
 
 ### No transactions imported
 
@@ -195,10 +197,10 @@ If you want to add custom merchant categorization rules, you can edit the `MERCH
 ```typescript
 const MERCHANT_RULES: MerchantCategory[] = [
   // Add new rule:
-  { 
-    pattern: /your-merchant-name/i, 
-    bucket: 'Your Bucket Name', 
-    lineItem: 'Your Line Item' 
+  {
+    pattern: /your-merchant-name/i,
+    bucket: 'Your Bucket Name',
+    lineItem: 'Your Line Item'
   },
   // ... existing rules
 ];
@@ -221,10 +223,13 @@ Potential features for future versions:
 
 For issues or questions:
 
-1. Check this documentation first
-2. Review the error messages in Sat Sorter
-3. Verify your API key is valid in Strike settings
-4. Try disconnecting and reconnecting
+1. **First check**: Read **STRIKE_DEBUGGING.md** for detailed troubleshooting
+2. Open your browser console (F12) and look for `[Strike]` debug logs
+3. Review the error messages in Sat Sorter
+4. Verify your API key is valid in Strike settings
+5. Try disconnecting and reconnecting with a fresh API key
+
+**Debug logs** are your best friend - they show exactly which authentication method failed and why.
 
 ## API Reference
 

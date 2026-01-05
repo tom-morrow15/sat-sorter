@@ -59,12 +59,12 @@ export function useStrikeSync() {
         }
 
         // Validate API key
-        const isValid = await validateStrikeApiKey(keyToUse);
-        if (!isValid) {
-          result.errors.push('Invalid Strike API key');
+        const validation = await validateStrikeApiKey(keyToUse);
+        if (!validation.valid) {
+          result.errors.push(validation.error || 'Invalid Strike API key');
           toast({
             title: 'Authentication failed',
-            description: 'Your Strike API key is invalid or expired.',
+            description: validation.error || 'Your Strike API key is invalid or expired. Check console for details.',
             variant: 'destructive',
           });
           setIsSyncing(false);

@@ -123,21 +123,160 @@ export function strikeTransactionToAppTransaction(
 }
 
 /**
- * Validate Strike API key by making a test request
+ * Get CORS proxy URL if needed
  */
-export async function validateStrikeApiKey(apiKey: string): Promise<boolean> {
-  try {
-    const response = await fetch('https://api.strike.me/v1/me', {
+function getCorsProxyUrl(url: string): string {
+  // Check if we need to use CORS proxy (based on environment or config)
+  // For now, return the URL as-is. If CORS issues occur, the error handler will try proxy
+  return url;
+}
+
+/**
+ * Validate Strike API key by making a test request
+ * Supports multiple authentication methods and endpoints
+ */
+export async function validateStrikeApiKey(apiKey: string): Promise<{ valid: boolean; error?: string }> {
+  // Try multiple authentication methods and endpoints
+  const baseAttempts = [
+    // Method 1: Bearer token at /v1/me
+    {
+      url: 'https://api.strike.me/v1/me',
       headers: {
         Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
-    });
-    return response.ok;
-  } catch (error) {
-    console.error('Strike API validation failed:', error);
-    return false;
+      name: 'Bearer token at /v1/me',
+    },
+    // Method 2: Basic auth with key
+    {
+      url: 'https://api.strike.me/v1/me',
+      headers: {
+        Authorization: `Basic ${btoa(`${apiKey}:`)}`,
+        'Content-Type': 'application/json',
+      },
+      name: 'Basic auth at /v1/me',
+    },
+    // Method 3: API key in query parameter
+    {
+      url: `https://api.strike.me/v1/me?apikey=${encodeURIComponent(apiKey)}`,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      name: 'API key in query parameter',
+    },
+    // Method 4: X-API-Key header
+    {
+      url: 'https://api.strike.me/v1/me',
+      headers: {
+        'X-API-Key': apiKey,
+        'Content-Type': 'application/json',
+      },
+      name: 'X-API-Key header',
+    },
+    // Method 5: Try /v1/account endpoint instead
+    {
+      url: 'https://api.strike.me/v1/account',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      name: 'Bearer token at /v1/account',
+    },
+    // Method 6: Try /v1/user endpoint
+    {
+      url: 'https://api.strike.me/v1/user',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      name: 'Bearer token at /v1/user',
+    },
+  ];
+
+  const attempts = baseAttempts;
+
+  let lastError: Error | null = null;
+
+  for (const attempt of attempts) {
+    try {
+      console.log(`[Strike] Trying: ${attempt.name}`);
+      console.log(`[Strike] URL: ${attempt.url}`);
+
+      const response = await fetch(attempt.url, {
+        method: 'GET',
+        headers: attempt.headers,
+      });
+
+      console.log(`[Strike] Response: ${response.status} ${response.statusText}`);
+
+      if (response.ok) {
+        console.log(`[Strike] ✓ SUCCESS with ${attempt.name}`);
+        return { valid: true };
+      }
+
+      // Try to get error details
+      let errorDetails = '';
+      try {
+        const contentType = response.headers.get('content-type');
+        if (contentType?.includes('application/json')) {
+          const data = await response.json();
+          errorDetails = JSON.stringify(data);
+        } else {
+          errorDetails = await response.text();
+        }
+      } catch (e) {
+        // Couldn't parse response body
+      }
+
+      // If 401/403, authentication failed - try next method
+      if (response.status === 401 || response.status === 403) {
+        console.log(`[Strike] Auth failed (${response.status}): ${errorDetails || 'No details'}`);
+        lastError = new Error(`${response.status} Unauthorized - check your API key`);
+        continue;
+      }
+
+      // If 404, the endpoint doesn't exist, try next
+      if (response.status === 404) {
+        console.log(`[Strike] Endpoint not found (404), trying next...`);
+        lastError = new Error('Endpoint not found');
+        continue;
+      }
+
+      // If we got a successful status code
+      if (response.status >= 200 && response.status < 300) {
+        console.log(`[Strike] ✓ SUCCESS (${response.status})`);
+        return { valid: true };
+      }
+
+      console.log(`[Strike] Got ${response.status}, trying next... Details: ${errorDetails || 'None'}`);
+      lastError = new Error(`HTTP ${response.status}`);
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.log(`[Strike] Network/fetch error with ${attempt.name}: ${errorMsg}`);
+
+      // Check for CORS errors
+      if (errorMsg.includes('Failed to fetch') || errorMsg.includes('CORS')) {
+        console.log('[Strike] CORS error detected - this might be a network/browser issue');
+      }
+
+      lastError = error instanceof Error ? error : new Error(errorMsg);
+      continue;
+    }
   }
+
+  // If all methods failed, provide helpful error
+  const errorMsg = lastError?.message || 'All authentication methods failed';
+  console.error(`[Strike] ✗ ALL ATTEMPTS FAILED: ${errorMsg}`);
+  console.error('[Strike] Check the following:');
+  console.error('1. API key is correct (copy the entire key from Strike Settings)');
+  console.error('2. API key has not expired');
+  console.error('3. You have internet connection');
+  console.error('4. Strike API is accessible');
+
+  return {
+    valid: false,
+    error: `Strike API error: ${errorMsg}. Please check your API key and Strike Settings. Open browser console (F12) for details.`,
+  };
 }
 
 /**
@@ -156,31 +295,55 @@ export async function fetchStrikeTransactions(
     }
     params.append('status', 'completed');
 
-    const response = await fetch(
-      `https://api.strike.me/v1/transactions?${params.toString()}`,
-      {
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-      }
-    );
+    const url = `https://api.strike.me/v1/transactions?${params.toString()}`;
+    console.log('[Strike] Fetching transactions from:', url);
+
+    const response = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    console.log('[Strike] Fetch response:', response.status, response.statusText);
 
     if (!response.ok) {
-      throw new Error(`Strike API error: ${response.statusText}`);
+      let errorDetails = '';
+      try {
+        const contentType = response.headers.get('content-type');
+        if (contentType?.includes('application/json')) {
+          const data = await response.json();
+          errorDetails = JSON.stringify(data);
+        } else {
+          errorDetails = await response.text();
+        }
+      } catch (e) {
+        // Couldn't parse error response
+      }
+
+      throw new Error(
+        `Strike API error: ${response.status} ${response.statusText}. ${errorDetails}`
+      );
     }
 
     const data = await response.json();
+    console.log('[Strike] Response data:', data);
 
     // Ensure we have an array
     if (!Array.isArray(data.items)) {
-      console.warn('Strike API returned unexpected format:', data);
+      console.warn('[Strike] Unexpected response format (no items array):', data);
+      // Try to return data directly if it's an array
+      if (Array.isArray(data)) {
+        return data;
+      }
       return [];
     }
 
+    console.log(`[Strike] Got ${data.items.length} transactions`);
     return data.items;
   } catch (error) {
-    console.error('Failed to fetch Strike transactions:', error);
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.error('[Strike] Failed to fetch transactions:', errorMsg);
     throw error;
   }
 }

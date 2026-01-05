@@ -62,12 +62,12 @@ export function StrikeConnectionDialog({
     setIsValidating(true);
 
     try {
-      const isValid = await validateStrikeApiKey(apiKey.trim());
+      const validation = await validateStrikeApiKey(apiKey.trim());
 
-      if (!isValid) {
+      if (!validation.valid) {
         toast({
           title: 'Authentication failed',
-          description: 'The API key is invalid or expired. Please check and try again.',
+          description: validation.error || 'The API key appears to be invalid. Check your key and try again. See browser console (F12) for details.',
           variant: 'destructive',
         });
         setIsValidating(false);
@@ -209,16 +209,27 @@ export function StrikeConnectionDialog({
               </div>
 
               {/* Help Text */}
-              <div className="text-xs text-muted-foreground space-y-1">
+              <div className="text-xs text-muted-foreground space-y-2">
                 <p>
                   <strong>How to get your API key:</strong>
                 </p>
                 <ol className="list-decimal pl-5 space-y-1">
-                  <li>Log in to your Strike account</li>
+                  <li>Log in to your Strike account at <a href="https://strike.me" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">strike.me</a></li>
                   <li>Go to Settings → API or Developer Settings</li>
-                  <li>Create a new API token</li>
-                  <li>Copy and paste it here</li>
+                  <li>Create a new API token/key</li>
+                  <li>Copy the <strong>entire</strong> key (including any prefixes)</li>
+                  <li>Paste it here exactly as shown</li>
                 </ol>
+
+                <p className="pt-2 border-t">
+                  <strong>Troubleshooting:</strong>
+                </p>
+                <ul className="list-disc pl-5 space-y-1">
+                  <li>Make sure you're copying the API key, not your username or password</li>
+                  <li>Check that the key hasn't expired in Strike Settings</li>
+                  <li>If it has expired, generate a new one</li>
+                  <li>Open your browser console (F12) to see detailed error messages</li>
+                </ul>
               </div>
 
               {/* Connect Button */}
