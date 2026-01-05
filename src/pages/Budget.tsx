@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Bitcoin, Zap, Wallet, Info } from 'lucide-react';
+import { Plus, Bitcoin, Zap, Wallet, Info, Loader2 } from 'lucide-react';
 import { useSeoMeta, useHead } from '@unhead/react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -9,19 +9,23 @@ import { AddBucketDialog } from '@/components/budget/AddBucketDialog';
 import { TransactionsPanel } from '@/components/budget/TransactionsPanel';
 import { BTCMapBanner } from '@/components/budget/BTCMapBanner';
 import { WalletModalControlled } from '@/components/budget/WalletModalControlled';
+import { StrikeConnectionDialog } from '@/components/budget/StrikeConnectionDialog';
 import { LoginArea } from '@/components/auth/LoginArea';
 import { useBudget } from '@/hooks/useBudget';
 import { useWallet } from '@/hooks/useWallet';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useBTCMap } from '@/hooks/useBTCMap';
+import { useStrikeSync } from '@/hooks/useStrikeSync';
 
 export default function Budget() {
   const [showAddBucket, setShowAddBucket] = useState(false);
   const [showWalletModal, setShowWalletModal] = useState(false);
+  const [showStrikeDialog, setShowStrikeDialog] = useState(false);
 
   const { user } = useCurrentUser();
   const { hasNWC } = useWallet();
   const { merchants } = useBTCMap();
+  const { isConfigured: strikeConfigured, isSyncing, syncTransactions } = useStrikeSync();
 
   const {
     currentBudget,
@@ -95,6 +99,39 @@ export default function Budget() {
           <BTCMapBanner />
         </div>
 
+        {/* Strike Sync Banner */}
+        {strikeConfigured() && (
+          <div className="mb-6">
+            <Alert className="border-primary/30 bg-primary/5">
+              <Zap className="h-4 w-4 text-primary" />
+              <AlertDescription className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <span>
+                  Strike is connected. Sync your transactions to track your spending automatically.
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => syncTransactions()}
+                  disabled={isSyncing}
+                  className="shrink-0"
+                >
+                  {isSyncing ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Syncing...
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="h-4 w-4 mr-2" />
+                      Sync Strike
+                    </>
+                  )}
+                </Button>
+              </AlertDescription>
+            </Alert>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main budget area */}
           <div className="lg:col-span-2 space-y-4">
@@ -127,6 +164,27 @@ export default function Budget() {
                   >
                     <Wallet className="h-4 w-4 mr-2" />
                     Connect Wallet
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {/* Strike connection prompt */}
+            {user && !strikeConfigured() && (
+              <Alert className="border-primary/30 bg-primary/5">
+                <Zap className="h-4 w-4 text-primary" />
+                <AlertDescription className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <span>
+                    Connect Strike to import your bill pay and spending transactions automatically.
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowStrikeDialog(true)}
+                    className="shrink-0"
+                  >
+                    <Zap className="h-4 w-4 mr-2" />
+                    Connect Strike
                   </Button>
                 </AlertDescription>
               </Alert>
@@ -249,6 +307,15 @@ export default function Budget() {
           onOpenChange={setShowWalletModal}
         />
       )}
+
+      {/* Strike Connection Dialog */}
+      <StrikeConnectionDialog
+        open={showStrikeDialog}
+        onOpenChange={setShowStrikeDialog}
+        onConnected={() => {
+          setShowStrikeDialog(false);
+        }}
+      />
     </div>
   );
 }

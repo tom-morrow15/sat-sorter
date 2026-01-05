@@ -10,6 +10,9 @@ export interface Transaction {
   paymentHash?: string; // from NWC
   preimage?: string;
   isIncome: boolean;
+  source?: 'manual' | 'strike' | 'nwc' | 'zap'; // Track transaction source
+  merchantName?: string; // Merchant name from Strike or payment processor
+  categoryHint?: string; // Auto-detected category hint from merchant data
 }
 
 export interface LineItem {
