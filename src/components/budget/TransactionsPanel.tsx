@@ -8,8 +8,10 @@ import {
   AlertCircle,
   CheckCircle2,
   Zap,
+  Link2,
 } from 'lucide-react';
 import { TransactionSearchFilter } from './TransactionSearchFilter';
+import { DataSourcesDialog } from './DataSourcesDialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -56,6 +58,7 @@ export function TransactionsPanel({
   const { data: priceData } = useBitcoinPrice();
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showAssignDialog, setShowAssignDialog] = useState(false);
+  const [showDataSources, setShowDataSources] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [filteredTransactions, setFilteredTransactions] = useState<Transaction[]>([]);
 
@@ -143,10 +146,16 @@ export function TransactionsPanel({
                 {unassigned.length} unassigned
               </p>
             </div>
-            <Button size="sm" onClick={() => setShowAddDialog(true)}>
-              <Plus className="h-4 w-4 mr-1" />
-              Add
-            </Button>
+            <div className="flex items-center gap-1">
+              <Button size="sm" variant="outline" onClick={() => setShowDataSources(true)}>
+                <Link2 className="h-4 w-4 sm:mr-1" />
+                <span className="hidden sm:inline">Import</span>
+              </Button>
+              <Button size="sm" onClick={() => setShowAddDialog(true)}>
+                <Plus className="h-4 w-4 sm:mr-1" />
+                <span className="hidden sm:inline">Add</span>
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="pt-0">
@@ -388,15 +397,25 @@ export function TransactionsPanel({
           {/* Empty state */}
           {transactions.length === 0 && !filteredTransactions.length && (
             <div className="text-center py-8">
-              <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mx-auto mb-3">
-                <Zap className="h-6 w-6 text-muted-foreground" />
+              <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
+                <Link2 className="h-6 w-6 text-primary" />
               </div>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm font-medium mb-1">
                 No transactions yet
               </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Connect your wallet or add transactions manually
+              <p className="text-xs text-muted-foreground mb-4">
+                Import from your wallet or add manually
               </p>
+              <div className="flex flex-col sm:flex-row gap-2 justify-center">
+                <Button size="sm" onClick={() => setShowDataSources(true)}>
+                  <Link2 className="h-4 w-4 mr-1" />
+                  Connect Data Source
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setShowAddDialog(true)}>
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add Manually
+                </Button>
+              </div>
             </div>
           )}
         </CardContent>
@@ -552,6 +571,12 @@ export function TransactionsPanel({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Data Sources Dialog */}
+      <DataSourcesDialog
+        open={showDataSources}
+        onOpenChange={setShowDataSources}
+      />
     </>
   );
 }
