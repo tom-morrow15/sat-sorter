@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Bitcoin, Zap, Wallet, Info, Upload } from 'lucide-react';
+import { Plus, Bitcoin, Zap, Wallet, Info } from 'lucide-react';
 import { useSeoMeta, useHead } from '@unhead/react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -9,7 +9,6 @@ import { AddBucketDialog } from '@/components/budget/AddBucketDialog';
 import { TransactionsPanel } from '@/components/budget/TransactionsPanel';
 import { BTCMapBanner } from '@/components/budget/BTCMapBanner';
 import { WalletModalControlled } from '@/components/budget/WalletModalControlled';
-import { ImportTransactionsDialog } from '@/components/budget/ImportTransactionsDialog';
 import { LoginArea } from '@/components/auth/LoginArea';
 import { useBudget } from '@/hooks/useBudget';
 import { useWallet } from '@/hooks/useWallet';
@@ -19,7 +18,6 @@ import { useBTCMap } from '@/hooks/useBTCMap';
 export default function Budget() {
   const [showAddBucket, setShowAddBucket] = useState(false);
   const [showWalletModal, setShowWalletModal] = useState(false);
-  const [showImportDialog, setShowImportDialog] = useState(false);
 
   const { user } = useCurrentUser();
   const { hasNWC } = useWallet();
@@ -96,29 +94,6 @@ export default function Budget() {
         <div className="mb-6">
           <BTCMapBanner />
         </div>
-
-        {/* Import Transactions Banner */}
-        {user && (
-          <div className="mb-6">
-            <Alert className="border-primary/30 bg-primary/5">
-              <Upload className="h-4 w-4 text-primary" />
-              <AlertDescription className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <span>
-                  Import transactions from Strike, PayPal, or any CSV export.
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowImportDialog(true)}
-                  className="shrink-0"
-                >
-                  <Upload className="h-4 w-4 mr-2" />
-                  Import Transactions
-                </Button>
-              </AlertDescription>
-            </Alert>
-          </div>
-        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main budget area */}
@@ -276,12 +251,6 @@ export default function Budget() {
           onOpenChange={setShowWalletModal}
         />
       )}
-
-      {/* Import Transactions Dialog */}
-      <ImportTransactionsDialog
-        open={showImportDialog}
-        onOpenChange={setShowImportDialog}
-      />
     </div>
   );
 }
