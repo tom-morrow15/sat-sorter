@@ -44,6 +44,7 @@ import {
   acceptsLightning,
   acceptsOnchain,
   formatDistance,
+  COUNTRY_OPTIONS,
   type BTCMapElement,
 } from '@/hooks/useBTCMap';
 import { useToast } from '@/hooks/useToast';
@@ -245,16 +246,19 @@ interface LocationSetupDialogProps {
   onOpenChange: (open: boolean) => void;
   initialZipCode?: string;
   initialRadius?: number;
+  initialCountry?: string;
 }
 
 function LocationSetupDialog({
   open,
   onOpenChange,
   initialZipCode = '',
-  initialRadius = 25
+  initialRadius = 25,
+  initialCountry = 'us',
 }: LocationSetupDialogProps) {
   const [zipCode, setZipCode] = useState(initialZipCode);
   const [radius, setRadius] = useState(initialRadius.toString());
+  const [country, setCountry] = useState(initialCountry);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -263,14 +267,14 @@ function LocationSetupDialog({
 
   const handleSubmit = async () => {
     if (!zipCode.trim()) {
-      setError('Please enter a zip code');
+      setError('Please enter a zip/postal code');
       return;
     }
 
     setIsLoading(true);
     setError(null);
 
-    const success = await updateLocation(zipCode.trim(), parseInt(radius));
+    const success = await updateLocation(zipCode.trim(), parseInt(radius), country);
 
     setIsLoading(false);
 
@@ -281,7 +285,7 @@ function LocationSetupDialog({
       });
       onOpenChange(false);
     } else {
-      setError('Could not find that zip code. Please check and try again.');
+      setError('Could not find that location. Please check your zip/postal code and country.');
     }
   };
 
@@ -294,14 +298,32 @@ function LocationSetupDialog({
             Find Bitcoin Merchants
           </DialogTitle>
           <DialogDescription>
-            Enter your zip code to discover businesses near you that accept Bitcoin.
+            Enter your location to discover businesses near you that accept Bitcoin.
             Your location is stored locally and never shared.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
+          {/* Country selector */}
           <div className="space-y-2">
-            <Label htmlFor="zip-code">Zip Code</Label>
+            <Label htmlFor="country">Country</Label>
+            <Select value={country} onValueChange={setCountry}>
+              <SelectTrigger id="country">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="max-h-[200px]">
+                {COUNTRY_OPTIONS.map((option) => (
+                  <SelectItem key={option.code} value={option.code}>
+                    {option.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Zip/postal code */}
+          <div className="space-y-2">
+            <Label htmlFor="zip-code">Zip / Postal Code</Label>
             <Input
               id="zip-code"
               value={zipCode}
@@ -309,7 +331,7 @@ function LocationSetupDialog({
                 setZipCode(e.target.value);
                 setError(null);
               }}
-              placeholder="e.g., 90210"
+              placeholder={country === 'us' ? 'e.g., 32068' : 'e.g., A1A 1A1'}
               className={cn(error && 'border-destructive')}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') handleSubmit();
@@ -320,6 +342,7 @@ function LocationSetupDialog({
             )}
           </div>
 
+          {/* Radius */}
           <div className="space-y-2">
             <Label htmlFor="radius">Search Radius</Label>
             <Select value={radius} onValueChange={setRadius}>
@@ -345,7 +368,7 @@ function LocationSetupDialog({
               🔒 Privacy First
             </p>
             <p className="text-xs text-muted-foreground">
-              Your zip code is only used to find nearby merchants and is stored
+              Your location is only used to find nearby merchants and is stored
               locally on your device. We never track or share your location.
             </p>
           </div>
@@ -477,6 +500,7 @@ export function BTCMapBanner() {
           onOpenChange={setShowLocationDialog}
           initialZipCode={settings.zipCode}
           initialRadius={settings.radiusMiles}
+          initialCountry={settings.countryCode}
         />
       </>
     );
@@ -557,6 +581,7 @@ export function BTCMapBanner() {
         onOpenChange={setShowLocationDialog}
         initialZipCode={settings.zipCode}
         initialRadius={settings.radiusMiles}
+        initialCountry={settings.countryCode}
       />
     </>
   );

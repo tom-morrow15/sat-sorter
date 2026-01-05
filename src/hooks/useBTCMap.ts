@@ -43,6 +43,7 @@ export interface BTCMapElement {
 
 export interface LocationSettings {
   zipCode: string;
+  countryCode: string;
   radiusMiles: number;
   lat: number | null;
   lon: number | null;
@@ -51,11 +52,46 @@ export interface LocationSettings {
 
 const DEFAULT_LOCATION_SETTINGS: LocationSettings = {
   zipCode: '',
+  countryCode: 'us',
   radiusMiles: 25,
   lat: null,
   lon: null,
   lastUpdated: 0,
 };
+
+// Common countries for the dropdown
+export const COUNTRY_OPTIONS = [
+  { code: 'us', name: 'United States' },
+  { code: 'ca', name: 'Canada' },
+  { code: 'gb', name: 'United Kingdom' },
+  { code: 'de', name: 'Germany' },
+  { code: 'fr', name: 'France' },
+  { code: 'es', name: 'Spain' },
+  { code: 'it', name: 'Italy' },
+  { code: 'nl', name: 'Netherlands' },
+  { code: 'au', name: 'Australia' },
+  { code: 'nz', name: 'New Zealand' },
+  { code: 'jp', name: 'Japan' },
+  { code: 'kr', name: 'South Korea' },
+  { code: 'br', name: 'Brazil' },
+  { code: 'mx', name: 'Mexico' },
+  { code: 'ar', name: 'Argentina' },
+  { code: 'ch', name: 'Switzerland' },
+  { code: 'at', name: 'Austria' },
+  { code: 'be', name: 'Belgium' },
+  { code: 'pl', name: 'Poland' },
+  { code: 'cz', name: 'Czech Republic' },
+  { code: 'pt', name: 'Portugal' },
+  { code: 'se', name: 'Sweden' },
+  { code: 'no', name: 'Norway' },
+  { code: 'dk', name: 'Denmark' },
+  { code: 'fi', name: 'Finland' },
+  { code: 'ie', name: 'Ireland' },
+  { code: 'sg', name: 'Singapore' },
+  { code: 'hk', name: 'Hong Kong' },
+  { code: 'za', name: 'South Africa' },
+  { code: 'other', name: 'Other' },
+];
 
 // Category mappings from BTCMap categories to our budget line items
 export const CATEGORY_MAPPINGS: Record<string, string[]> = {
@@ -224,12 +260,13 @@ export function formatDistance(km: number): string {
   return `${miles.toFixed(1)} mi`;
 }
 
-// Geocode a zip code to lat/lon using Nominatim (OpenStreetMap)
-export async function geocodeZipCode(zipCode: string): Promise<{ lat: number; lon: number } | null> {
+// Geocode a zip/postal code to lat/lon using Nominatim (OpenStreetMap)
+export async function geocodeZipCode(zipCode: string, countryCode: string = 'us'): Promise<{ lat: number; lon: number } | null> {
   try {
     // Use OpenStreetMap Nominatim for geocoding (free, no API key needed)
+    // Include country code to get accurate results
     const response = await fetch(
-      `https://nominatim.openstreetmap.org/search?postalcode=${encodeURIComponent(zipCode)}&format=json&limit=1`,
+      `https://nominatim.openstreetmap.org/search?postalcode=${encodeURIComponent(zipCode)}&country=${encodeURIComponent(countryCode)}&format=json&limit=1`,
       {
         signal: AbortSignal.timeout(10000),
         headers: {
@@ -249,6 +286,27 @@ export async function geocodeZipCode(zipCode: string): Promise<{ lat: number; lo
         lat: parseFloat(results[0].lat),
         lon: parseFloat(results[0].lon),
       };
+    }
+
+    // If no results with country code, try without (fallback for international users)
+    const fallbackResponse = await fetch(
+      `https://nominatim.openstreetmap.org/search?postalcode=${encodeURIComponent(zipCode)}&format=json&limit=1`,
+      {
+        signal: AbortSignal.timeout(10000),
+        headers: {
+          'User-Agent': 'SatSorter/1.0 (Bitcoin Budget App)',
+        },
+      }
+    );
+
+    if (fallbackResponse.ok) {
+      const fallbackResults = await fallbackResponse.json();
+      if (fallbackResults.length > 0) {
+        return {
+          lat: parseFloat(fallbackResults[0].lat),
+          lon: parseFloat(fallbackResults[0].lon),
+        };
+      }
     }
 
     return null;
@@ -312,12 +370,13 @@ export function useLocationSettings() {
     DEFAULT_LOCATION_SETTINGS
   );
 
-  const updateLocation = async (zipCode: string, radiusMiles: number): Promise<boolean> => {
-    const coords = await geocodeZipCode(zipCode);
+  const updateLocation = async (zipCode: string, radiusMiles: number, countryCode: string = 'us'): Promise<boolean> => {
+    const coords = await geocodeZipCode(zipCode, countryCode === 'other' ? '' : countryCode);
 
     if (coords) {
       setSettings({
         zipCode,
+        countryCode,
         radiusMiles,
         lat: coords.lat,
         lon: coords.lon,
