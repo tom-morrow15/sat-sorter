@@ -147,33 +147,16 @@ export async function validateStrikeApiKey(apiKey: string): Promise<{ valid: boo
       },
       name: 'Bearer token at /v1/me',
     },
-    // Method 2: Basic auth with key
-    {
-      url: 'https://api.strike.me/v1/me',
-      headers: {
-        Authorization: `Basic ${btoa(`${apiKey}:`)}`,
-        'Content-Type': 'application/json',
-      },
-      name: 'Basic auth at /v1/me',
-    },
-    // Method 3: API key in query parameter
-    {
-      url: `https://api.strike.me/v1/me?apikey=${encodeURIComponent(apiKey)}`,
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      name: 'API key in query parameter',
-    },
-    // Method 4: X-API-Key header
+    // Method 2: X-API-Key header
     {
       url: 'https://api.strike.me/v1/me',
       headers: {
         'X-API-Key': apiKey,
         'Content-Type': 'application/json',
       },
-      name: 'X-API-Key header',
+      name: 'X-API-Key header at /v1/me',
     },
-    // Method 5: Try /v1/account endpoint instead
+    // Method 3: Try /v1/account endpoint
     {
       url: 'https://api.strike.me/v1/account',
       headers: {
@@ -182,14 +165,50 @@ export async function validateStrikeApiKey(apiKey: string): Promise<{ valid: boo
       },
       name: 'Bearer token at /v1/account',
     },
-    // Method 6: Try /v1/user endpoint
+    // Method 4: Try /v1/users/me endpoint
     {
-      url: 'https://api.strike.me/v1/user',
+      url: 'https://api.strike.me/v1/users/me',
       headers: {
         Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
-      name: 'Bearer token at /v1/user',
+      name: 'Bearer token at /v1/users/me',
+    },
+    // Method 5: Try /v1/profile endpoint
+    {
+      url: 'https://api.strike.me/v1/profile',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      name: 'Bearer token at /v1/profile',
+    },
+    // Method 6: Try /v1/info endpoint
+    {
+      url: 'https://api.strike.me/v1/info',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      name: 'Bearer token at /v1/info',
+    },
+    // Method 7: Try /me endpoint (no /v1/)
+    {
+      url: 'https://api.strike.me/me',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      name: 'Bearer token at /me (no version)',
+    },
+    // Method 8: Try Basic auth
+    {
+      url: 'https://api.strike.me/v1/me',
+      headers: {
+        Authorization: `Basic ${btoa(`api:${apiKey}`)}`,
+        'Content-Type': 'application/json',
+      },
+      name: 'Basic auth (api:key) at /v1/me',
     },
   ];
 
@@ -287,65 +306,94 @@ export async function fetchStrikeTransactions(
   apiKey: string,
   lastSyncDate?: string
 ): Promise<StrikeTransaction[]> {
-  try {
-    // Build query parameters
-    const params = new URLSearchParams();
-    if (lastSyncDate) {
-      params.append('createdAfter', lastSyncDate);
-    }
-    params.append('status', 'completed');
+  // Try multiple endpoints for transactions
+  const transactionUrls = [
+    // Try /v1/transactions first
+    { url: 'https://api.strike.me/v1/transactions', name: '/v1/transactions' },
+    // Try /v1/history
+    { url: 'https://api.strike.me/v1/history', name: '/v1/history' },
+    // Try /transactions (no version)
+    { url: 'https://api.strike.me/transactions', name: '/transactions' },
+    // Try /v1/ledger
+    { url: 'https://api.strike.me/v1/ledger', name: '/v1/ledger' },
+    // Try /v1/invoices
+    { url: 'https://api.strike.me/v1/invoices', name: '/v1/invoices' },
+  ];
 
-    const url = `https://api.strike.me/v1/transactions?${params.toString()}`;
-    console.log('[Strike] Fetching transactions from:', url);
+  let lastError: Error | null = null;
 
-    const response = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-    });
+  for (const endpoint of transactionUrls) {
+    try {
+      // Build query parameters
+      const params = new URLSearchParams();
+      if (lastSyncDate) {
+        params.append('createdAfter', lastSyncDate);
+      }
+      params.append('status', 'completed');
 
-    console.log('[Strike] Fetch response:', response.status, response.statusText);
+      const url = `${endpoint.url}?${params.toString()}`;
+      console.log('[Strike] Trying transactions endpoint:', endpoint.name);
 
-    if (!response.ok) {
-      let errorDetails = '';
-      try {
-        const contentType = response.headers.get('content-type');
-        if (contentType?.includes('application/json')) {
+      const response = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      console.log('[Strike] Response:', response.status, response.statusText);
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('[Strike] Got data from', endpoint.name, ':', data);
+
+        // Handle various response formats
+        if (Array.isArray(data.items)) {
+          console.log(`[Strike] Got ${data.items.length} transactions from items array`);
+          return data.items;
+        }
+        if (Array.isArray(data)) {
+          console.log(`[Strike] Got ${data.length} transactions from direct array`);
+          return data;
+        }
+        if (data.data && Array.isArray(data.data)) {
+          console.log(`[Strike] Got ${data.data.length} transactions from data field`);
+          return data.data;
+        }
+
+        console.warn('[Strike] Unexpected response format:', data);
+        return [];
+      }
+
+      if (response.status === 404) {
+        console.log('[Strike] Endpoint not found, trying next...');
+        continue;
+      }
+
+      if (response.status === 401 || response.status === 403) {
+        let errorDetails = '';
+        try {
           const data = await response.json();
           errorDetails = JSON.stringify(data);
-        } else {
-          errorDetails = await response.text();
+        } catch (e) {
+          // Couldn't parse
         }
-      } catch (e) {
-        // Couldn't parse error response
+        throw new Error(`Authorization failed (${response.status}). ${errorDetails}`);
       }
 
-      throw new Error(
-        `Strike API error: ${response.status} ${response.statusText}. ${errorDetails}`
-      );
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.log('[Strike] Error with', endpoint.name, ':', errorMsg);
+      lastError = error instanceof Error ? error : new Error(errorMsg);
+      continue;
     }
-
-    const data = await response.json();
-    console.log('[Strike] Response data:', data);
-
-    // Ensure we have an array
-    if (!Array.isArray(data.items)) {
-      console.warn('[Strike] Unexpected response format (no items array):', data);
-      // Try to return data directly if it's an array
-      if (Array.isArray(data)) {
-        return data;
-      }
-      return [];
-    }
-
-    console.log(`[Strike] Got ${data.items.length} transactions`);
-    return data.items;
-  } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : String(error);
-    console.error('[Strike] Failed to fetch transactions:', errorMsg);
-    throw error;
   }
+
+  // If we tried all endpoints, throw the last error
+  const errorMsg = lastError?.message || 'No working transaction endpoints found';
+  console.error('[Strike] Failed to fetch transactions from any endpoint:', errorMsg);
+  throw new Error(`Could not fetch transactions: ${errorMsg}`);
 }
 
 /**
