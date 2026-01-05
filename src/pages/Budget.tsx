@@ -4,6 +4,7 @@ import { useSeoMeta, useHead } from '@unhead/react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { BudgetHeader } from '@/components/budget/BudgetHeader';
+import { BudgetDashboard } from '@/components/budget/BudgetDashboard';
 import { BucketCard } from '@/components/budget/BucketCard';
 import { AddBucketDialog } from '@/components/budget/AddBucketDialog';
 import { TransactionsPanel } from '@/components/budget/TransactionsPanel';
@@ -132,7 +133,15 @@ export default function Budget() {
               </Alert>
             )}
 
-
+            {/* Budget Dashboard */}
+            <div className="mt-6">
+              <BudgetDashboard
+                buckets={currentBudget.buckets}
+                transactions={currentBudget.transactions}
+                currency={currency}
+                month={currentMonth}
+              />
+            </div>
 
             {/* Income bucket - always first */}
             {incomeBucket && (

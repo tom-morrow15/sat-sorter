@@ -24,6 +24,7 @@ import {
   Dog,
   Stethoscope,
 } from 'lucide-react';
+import { SpendingProgressBar } from './SpendingProgressBar';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -266,6 +267,13 @@ export function BucketCard({
 
         <CollapsibleContent>
           <CardContent className="pt-0 pb-3">
+            {/* Progress bar for expenses */}
+            {!bucket.isIncome && total > 0 && (
+              <div className="mb-4 pb-4 border-b">
+                <SpendingProgressBar spent={spent} budget={total} showLabel={true} />
+              </div>
+            )}
+
             {/* Line items */}
             <div className="space-y-1">
               {bucket.lineItems
