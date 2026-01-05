@@ -94,7 +94,8 @@ export function useNWCSync() {
 
         return response.transactions || [];
       } catch {
-        console.error('NWC list_transactions not supported or failed:', error);
+        // This is expected for wallets that don't support list_transactions
+        // Don't log as error since it's normal behavior
         throw new Error('This wallet does not support transaction listing. Try connecting a different wallet or use manual entry.');
       }
     }
