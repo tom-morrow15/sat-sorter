@@ -6,9 +6,12 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { StrikeAPIDebugger } from '@/components/budget/StrikeAPIDebugger';
 import { useToast } from '@/hooks/useToast';
 import { useBudget } from '@/hooks/useBudget';
 import { categorizeMerchant } from '@/lib/strikeUtils';
@@ -168,18 +171,24 @@ export function ImportTransactionsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Upload className="h-5 w-5" />
             Import Transactions
           </DialogTitle>
           <DialogDescription>
-            Import transactions from a CSV file. Works with Strike, PayPal, Bank exports, and more.
+            Import from CSV file or connect Strike API directly.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
+        <Tabs defaultValue="csv" className="py-4">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="csv">CSV Import</TabsTrigger>
+            <TabsTrigger value="strike">Strike API</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="csv" className="space-y-4">
           {/* Instructions */}
           <Alert>
             <AlertCircle className="h-4 w-4" />
@@ -246,25 +255,56 @@ export function ImportTransactionsDialog({
             </div>
           )}
 
-          {/* Help Text */}
-          <div className="text-xs text-muted-foreground space-y-2 bg-muted p-3 rounded-lg">
-            <p>
-              <strong>Features:</strong>
-            </p>
-            <ul className="list-disc pl-5 space-y-1">
-              <li>Auto-detects merchants (Starbucks, Uber, Amazon, etc.)</li>
-              <li>Auto-categorizes into your budget categories</li>
-              <li>Prevents duplicate imports</li>
-              <li>Works with any CSV export (Strike, PayPal, banks, etc.)</li>
-              <li>You can manually adjust categories after import</li>
-            </ul>
+            {/* Help Text */}
+            <div className="text-xs text-muted-foreground space-y-2 bg-muted p-3 rounded-lg">
+              <p>
+                <strong>Features:</strong>
+              </p>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>Auto-detects merchants (Starbucks, Uber, Amazon, etc.)</li>
+                <li>Auto-categorizes into your budget categories</li>
+                <li>Prevents duplicate imports</li>
+                <li>Works with any CSV export (Strike, PayPal, banks, etc.)</li>
+                <li>You can manually adjust categories after import</li>
+              </ul>
 
-            <p className="pt-2 border-t">
-              <strong>CSV Format:</strong> Each line should have: date (YYYY-MM-DD), description,
-              amount
-            </p>
-          </div>
-        </div>
+              <p className="pt-2 border-t">
+                <strong>CSV Format:</strong> Each line should have: date (YYYY-MM-DD), description,
+                amount
+              </p>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="strike" className="space-y-4">
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Help us find the correct Strike API! If you have a Strike API key, the debugger
+                below will test which endpoints work. Share your results so we can fix the integration
+                for everyone.
+              </AlertDescription>
+            </Alert>
+
+            <div className="space-y-3">
+              <h3 className="font-semibold text-sm">Strike API Debugger</h3>
+              <p className="text-sm text-muted-foreground">
+                This tool tests 39 different endpoint combinations to find what works with your API key.
+                It takes about 5-10 seconds and helps us improve Strike integration.
+              </p>
+
+              <StrikeAPIDebugger />
+
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription className="text-xs">
+                  <strong>Found working endpoints?</strong> Please share them! Go to the Debug API
+                  button, run tests, and copy the results. Share in a message and we can fix the
+                  integration for everyone.
+                </AlertDescription>
+              </Alert>
+            </div>
+          </TabsContent>
+        </Tabs>
       </DialogContent>
     </Dialog>
   );
