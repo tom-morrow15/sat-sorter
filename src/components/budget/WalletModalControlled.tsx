@@ -1,7 +1,7 @@
 import { useState, forwardRef } from 'react';
-import { 
-  Wallet, Plus, Trash2, Zap, Globe, WalletMinimal, CheckCircle, X, 
-  RefreshCw, Clock, ToggleLeft, ToggleRight 
+import {
+  Wallet, Plus, Trash2, Zap, Globe, WalletMinimal, CheckCircle, X,
+  RefreshCw, Clock, FileSpreadsheet, Link2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -31,6 +31,7 @@ import { useWallet } from '@/hooks/useWallet';
 import { useToast } from '@/hooks/useToast';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useNWCSync } from '@/hooks/useNWCSync';
+import { DataSourcesDialog } from './DataSourcesDialog';
 import type { NWCConnection, NWCInfo } from '@/hooks/useNWC';
 import type { WebLNProvider } from "@webbtc/webln-types";
 
@@ -66,7 +67,7 @@ const AddWalletContent = forwardRef<HTMLDivElement, {
         rows={3}
       />
       <p className="text-xs text-muted-foreground mt-2">
-        Get this from your wallet app (e.g., Alby, Mutiny, Primal).
+        Get this from your wallet app (e.g., Alby, Zeus, Primal).
       </p>
     </div>
   </div>
@@ -76,10 +77,10 @@ AddWalletContent.displayName = 'AddWalletContent';
 // Format relative time
 function formatLastSync(timestamp: number | null): string {
   if (!timestamp) return 'Never';
-  
+
   const now = Date.now();
   const diff = now - timestamp * 1000;
-  
+
   if (diff < 60000) return 'Just now';
   if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
   if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
@@ -102,6 +103,8 @@ const WalletContent = forwardRef<HTMLDivElement, {
   lastSyncTimestamp: number | null;
   onSync: () => void;
   onToggleAutoSync: () => void;
+  // Data sources
+  onOpenDataSources: () => void;
 }>(({
   webln,
   hasNWC,
@@ -116,6 +119,7 @@ const WalletContent = forwardRef<HTMLDivElement, {
   lastSyncTimestamp,
   onSync,
   onToggleAutoSync,
+  onOpenDataSources,
 }, ref) => (
   <div className="space-y-6 px-4 pb-4" ref={ref}>
     {/* Current Status */}
@@ -169,9 +173,9 @@ const WalletContent = forwardRef<HTMLDivElement, {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="font-medium">Transaction Sync</h3>
-            <Button 
-              size="sm" 
-              variant="outline" 
+            <Button
+              size="sm"
+              variant="outline"
               onClick={onSync}
               disabled={isSyncing}
             >
@@ -179,7 +183,7 @@ const WalletContent = forwardRef<HTMLDivElement, {
               {isSyncing ? 'Syncing...' : 'Sync Now'}
             </Button>
           </div>
-          
+
           {/* Last Sync Info */}
           <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -203,13 +207,32 @@ const WalletContent = forwardRef<HTMLDivElement, {
           </div>
 
           <p className="text-xs text-muted-foreground">
-            💡 <strong>Note:</strong> Transaction sync requires your wallet to support the 
-            <code className="mx-1 px-1 bg-muted rounded">list_transactions</code> 
+            💡 <strong>Note:</strong> Transaction sync requires your wallet to support the
+            <code className="mx-1 px-1 bg-muted rounded">list_transactions</code>
             method. Not all wallets support this feature.
           </p>
         </div>
       </>
     )}
+
+    <Separator />
+
+    {/* Import Transactions Section */}
+    <div className="space-y-3">
+      <h3 className="font-medium">Import Transactions</h3>
+      <p className="text-sm text-muted-foreground">
+        Import transactions from your wallet or a CSV file
+      </p>
+      <Button
+        variant="outline"
+        className="w-full justify-start"
+        onClick={onOpenDataSources}
+      >
+        <Link2 className="h-4 w-4 mr-2" />
+        Connect Data Sources
+        <span className="ml-auto text-xs text-muted-foreground">NWC, CSV, more...</span>
+      </Button>
+    </div>
 
     <Separator />
     {/* NWC Management */}
@@ -287,6 +310,7 @@ WalletContent.displayName = 'WalletContent';
 
 export function WalletModalControlled({ open, onOpenChange }: WalletModalControlledProps) {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [showDataSources, setShowDataSources] = useState(false);
   const [connectionUri, setConnectionUri] = useState('');
   const [alias, setAlias] = useState('');
   const [isConnecting, setIsConnecting] = useState(false);
@@ -302,7 +326,7 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
   } = useNWC();
 
   const { webln } = useWallet();
-  
+
   const {
     isSyncing,
     autoSyncEnabled,
@@ -376,6 +400,7 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
     lastSyncTimestamp,
     onSync: handleSync,
     onToggleAutoSync: handleToggleAutoSync,
+    onOpenDataSources: () => setShowDataSources(true),
   };
 
   const addWalletDialog = (
@@ -457,6 +482,7 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
             </div>
           </DrawerContent>
         </Drawer>
+        <DataSourcesDialog open={showDataSources} onOpenChange={setShowDataSources} />
       </>
     );
   }
@@ -478,6 +504,7 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
         </DialogContent>
       </Dialog>
       {addWalletDialog}
+      <DataSourcesDialog open={showDataSources} onOpenChange={setShowDataSources} />
     </>
   );
 }

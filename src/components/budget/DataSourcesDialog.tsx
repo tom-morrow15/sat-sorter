@@ -66,7 +66,7 @@ function PrivacyBanner() {
           Your data stays private
         </p>
         <p className="text-green-700 dark:text-green-300 text-xs mt-1">
-          All connections and transactions are stored locally in your browser. 
+          All connections and transactions are stored locally in your browser.
           No one else can see your financial data — not even us.
         </p>
       </div>
@@ -96,8 +96,8 @@ function DataSourceCard({
       disabled={disabled || status === 'coming-soon'}
       className={`
         w-full flex items-center gap-4 p-4 border rounded-lg text-left transition-all
-        ${status === 'connected' 
-          ? 'border-green-500 bg-green-50 dark:bg-green-950/30' 
+        ${status === 'connected'
+          ? 'border-green-500 bg-green-50 dark:bg-green-950/30'
           : 'hover:border-primary hover:bg-muted/50'
         }
         ${disabled || status === 'coming-soon' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
@@ -254,7 +254,7 @@ function NWCPanel({ onBack }: { onBack: () => void }) {
       {/* Add New Connection */}
       <div className="space-y-3 pt-3 border-t">
         <Label>{connections.length > 0 ? 'Add Another Wallet' : 'Connect Your Wallet'}</Label>
-        
+
         <div className="space-y-3">
           <div>
             <Label htmlFor="nwc-alias" className="text-xs text-muted-foreground">Wallet Name (optional)</Label>
@@ -265,7 +265,7 @@ function NWCPanel({ onBack }: { onBack: () => void }) {
               onChange={(e) => setAlias(e.target.value)}
             />
           </div>
-          
+
           <div>
             <Label htmlFor="nwc-uri" className="text-xs text-muted-foreground">NWC Connection String</Label>
             <Textarea
@@ -287,7 +287,7 @@ function NWCPanel({ onBack }: { onBack: () => void }) {
         </div>
 
         <p className="text-xs text-muted-foreground">
-          Get your NWC connection string from wallets like Alby, Mutiny, or Primal.
+          Get your NWC connection string from wallets like Alby, Zeus, or Primal.
         </p>
       </div>
     </div>
@@ -557,7 +557,7 @@ function DataSourcesContent({ onClose }: { onClose: () => void }) {
         <DataSourceCard
           icon={Zap}
           title="Lightning Wallet (NWC)"
-          description="Alby, Mutiny, Primal, and other NWC wallets"
+          description="Alby, Zeus, Primal, and other NWC wallets"
           status={hasNWC ? 'connected' : 'available'}
           onClick={() => setActivePanel('nwc')}
         />
@@ -593,8 +593,8 @@ function DataSourcesContent({ onClose }: { onClose: () => void }) {
       <div className="text-center">
         <p className="text-xs text-muted-foreground">
           More integrations coming soon! Have a request?{' '}
-          <a href="https://primal.net/p/npub1acu2u940prfg429x4axskgu2e5auvjx4y6ejme8y8t4ns4tz82pqs5l3q0" 
-             target="_blank" 
+          <a href="https://primal.net/p/npub1acu2u940prfg429x4axskgu2e5auvjx4y6ejme8y8t4ns4tz82pqs5l3q0"
+             target="_blank"
              rel="noopener noreferrer"
              className="text-primary hover:underline">
             Let us know
