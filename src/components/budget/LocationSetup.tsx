@@ -39,16 +39,18 @@ function LocationSetupContent({ onClose }: { onClose: () => void }) {
   const { settings, updateLocation, updateRadius, clearLocation, hasLocation } = useLocationSettings();
   const { toast } = useToast();
 
-  const [searchQuery, setSearchQuery] = useState('');
+  const [country, setCountry] = useState('');
+  const [state, setState] = useState('');
+  const [city, setCity] = useState('');
   const [selectedRadius, setSelectedRadius] = useState(settings.radiusMiles || 25);
   const [isSearching, setIsSearching] = useState(false);
   const [isDetecting, setIsDetecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Search for location using the query
+  // Build location string and search
   const handleSearch = async () => {
-    if (!searchQuery.trim()) {
-      setError('Please enter a location');
+    if (!country.trim() || !city.trim()) {
+      setError('Please enter at least country and city');
       return;
     }
 
@@ -56,10 +58,14 @@ function LocationSetupContent({ onClose }: { onClose: () => void }) {
     setError(null);
 
     try {
-      const result = await geocodeLocation(searchQuery.trim());
+      // Build search query: "City, State, Country" or "City, Country"
+      const searchParts = [city.trim(), state.trim(), country.trim()].filter(Boolean);
+      const searchQuery = searchParts.join(', ');
+
+      const result = await geocodeLocation(searchQuery);
 
       if (!result) {
-        setError('Location not found. Try searching by city name, state/region, or country (e.g., "Tokyo", "London", "São Paulo")');
+        setError('Location not found. Please check your spelling and try again.');
         setIsSearching(false);
         return;
       }
@@ -211,40 +217,72 @@ function LocationSetupContent({ onClose }: { onClose: () => void }) {
         </Alert>
       )}
 
-      {/* Search input - primary method */}
-      <div className="space-y-2">
-        <Label htmlFor="location-search">Search your location</Label>
-        <div className="flex gap-2">
+      {/* Location input fields */}
+      <div className="space-y-3">
+        <div className="space-y-2">
+          <Label htmlFor="country-input">Country</Label>
           <Input
-            id="location-search"
-            value={searchQuery}
+            id="country-input"
+            value={country}
             onChange={(e) => {
-              setSearchQuery(e.target.value);
+              setCountry(e.target.value);
               setError(null);
             }}
+            placeholder="e.g., United States"
+            disabled={isSearching || isDetecting}
+            autoFocus
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="state-input">State / Region (optional)</Label>
+          <Input
+            id="state-input"
+            value={state}
+            onChange={(e) => {
+              setState(e.target.value);
+              setError(null);
+            }}
+            placeholder="e.g., Florida"
+            disabled={isSearching || isDetecting}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="city-input">City</Label>
+          <Input
+            id="city-input"
+            value={city}
+            onChange={(e) => {
+              setCity(e.target.value);
+              setError(null);
+            }}
+            placeholder="e.g., Jacksonville"
+            disabled={isSearching || isDetecting}
             onKeyDown={(e) => {
               if (e.key === 'Enter') handleSearch();
             }}
-            placeholder="e.g., Tokyo, Miami, São Paulo"
-            disabled={isSearching || isDetecting}
-            className="flex-1"
-            autoFocus
           />
-          <Button
-            onClick={handleSearch}
-            disabled={isSearching || isDetecting || !searchQuery.trim()}
-            size="lg"
-          >
-            {isSearching ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Search className="h-4 w-4" />
-            )}
-          </Button>
         </div>
-        <p className="text-xs text-muted-foreground">
-          Type a city name, state, or country and press Enter or click search
-        </p>
+
+        <Button
+          onClick={handleSearch}
+          disabled={isSearching || isDetecting || !country.trim() || !city.trim()}
+          className="w-full"
+          size="lg"
+        >
+          {isSearching ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Searching...
+            </>
+          ) : (
+            <>
+              <Search className="h-4 w-4 mr-2" />
+              Search
+            </>
+          )}
+        </Button>
       </div>
 
       {/* Radius selector */}
