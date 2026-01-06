@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bitcoin, DollarSign, ChevronLeft, ChevronRight, Wallet, Moon, Sun, Zap, Calendar, Menu, Info, Heart, ExternalLink, Shield, Globe, GraduationCap, User, LogIn, UserPlus } from 'lucide-react';
+import { Bitcoin, DollarSign, ChevronLeft, ChevronRight, Wallet, Moon, Sun, Zap, Calendar, Menu, Info, Heart, ExternalLink, Shield, Globe, GraduationCap, User, LogIn, UserPlus, Cloud } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -34,6 +34,7 @@ import LoginDialog from '@/components/auth/LoginDialog';
 import { useAppContext } from '@/hooks/useAppContext';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { genUserName } from '@/lib/genUserName';
+import { BackupRestoreDialog } from './BackupRestoreDialog';
 
 interface BudgetHeaderProps {
   buckets: Bucket[];
@@ -65,6 +66,7 @@ export function BudgetHeader({
   const [showDonate, setShowDonate] = useState(false);
   const [showBitcoinEdu, setShowBitcoinEdu] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
+  const [showBackup, setShowBackup] = useState(false);
 
   // Generate list of months for picker (current month + 11 months back + 6 months forward)
   const getAvailableMonths = () => {
@@ -262,6 +264,11 @@ export function BudgetHeader({
                 <DropdownMenuItem onClick={() => setShowDonate(true)}>
                   <Heart className="h-4 w-4 mr-2" />
                   Support Bitcoin Projects
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setShowBackup(true)}>
+                  <Cloud className="h-4 w-4 mr-2" />
+                  Backup & Sync
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -655,6 +662,12 @@ export function BudgetHeader({
         isOpen={showLogin}
         onClose={() => setShowLogin(false)}
         onLogin={() => setShowLogin(false)}
+      />
+
+      {/* Backup & Sync Dialog */}
+      <BackupRestoreDialog
+        open={showBackup}
+        onOpenChange={setShowBackup}
       />
     </header>
   );

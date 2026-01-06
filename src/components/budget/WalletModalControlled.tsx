@@ -1,7 +1,7 @@
 import { useState, forwardRef } from 'react';
 import {
   Wallet, Plus, Trash2, Zap, Globe, WalletMinimal, CheckCircle, X,
-  RefreshCw, Clock, FileSpreadsheet, Link2
+  RefreshCw, Clock, FileSpreadsheet, Link2, QrCode
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -32,6 +32,7 @@ import { useToast } from '@/hooks/useToast';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useNWCSync } from '@/hooks/useNWCSync';
 import { DataSourcesDialog } from './DataSourcesDialog';
+import { QRScanner } from './QRScanner';
 import type { NWCConnection, NWCInfo } from '@/hooks/useNWC';
 import type { WebLNProvider } from "@webbtc/webln-types";
 
@@ -46,7 +47,8 @@ const AddWalletContent = forwardRef<HTMLDivElement, {
   setAlias: (value: string) => void;
   connectionUri: string;
   setConnectionUri: (value: string) => void;
-}>(({ alias, setAlias, connectionUri, setConnectionUri }, ref) => (
+  onScanQR?: () => void;
+}>(({ alias, setAlias, connectionUri, setConnectionUri, onScanQR }, ref) => (
   <div className="space-y-4 px-4" ref={ref}>
     <div>
       <Label htmlFor="alias">Wallet Name (optional)</Label>
@@ -66,9 +68,22 @@ const AddWalletContent = forwardRef<HTMLDivElement, {
         onChange={(e) => setConnectionUri(e.target.value)}
         rows={3}
       />
-      <p className="text-xs text-muted-foreground mt-2">
-        Get this from your wallet app (e.g., Alby, Zeus, Primal).
-      </p>
+      <div className="flex items-center justify-between mt-2">
+        <p className="text-xs text-muted-foreground">
+          Get this from your wallet app (e.g., Alby, Zeus, Primal).
+        </p>
+        {onScanQR && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onScanQR}
+          >
+            <QrCode className="h-4 w-4 mr-1" />
+            Scan
+          </Button>
+        )}
+      </div>
     </div>
   </div>
 ));
@@ -311,10 +326,19 @@ WalletContent.displayName = 'WalletContent';
 export function WalletModalControlled({ open, onOpenChange }: WalletModalControlledProps) {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [showDataSources, setShowDataSources] = useState(false);
+  const [showQRScanner, setShowQRScanner] = useState(false);
   const [connectionUri, setConnectionUri] = useState('');
   const [alias, setAlias] = useState('');
   const [isConnecting, setIsConnecting] = useState(false);
   const isMobile = useIsMobile();
+
+  const handleQRScan = (result: string) => {
+    // Check if it's a valid NWC URI
+    if (result.startsWith('nostr+walletconnect://') || result.startsWith('nostrwalletconnect://')) {
+      setConnectionUri(result);
+      setShowQRScanner(false);
+    }
+  };
 
   const {
     connections,
@@ -409,7 +433,7 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
         <DialogHeader>
           <DialogTitle>Connect NWC Wallet</DialogTitle>
           <DialogDescription>
-            Enter your connection string from a compatible wallet.
+            Enter your connection string or scan a QR code.
           </DialogDescription>
         </DialogHeader>
         <AddWalletContent
@@ -417,6 +441,7 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
           setAlias={setAlias}
           connectionUri={connectionUri}
           setConnectionUri={setConnectionUri}
+          onScanQR={() => setShowQRScanner(true)}
         />
         <DialogFooter className="px-4">
           <Button
@@ -462,7 +487,7 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
             <DrawerHeader className="flex-shrink-0">
               <DrawerTitle>Connect NWC Wallet</DrawerTitle>
               <DrawerDescription>
-                Enter your connection string from a compatible wallet.
+                Enter your connection string or scan a QR code.
               </DrawerDescription>
             </DrawerHeader>
             <div className="flex-1 overflow-y-auto overscroll-contain">
@@ -471,6 +496,7 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
                 setAlias={setAlias}
                 connectionUri={connectionUri}
                 setConnectionUri={setConnectionUri}
+                onScanQR={() => setShowQRScanner(true)}
               />
             </div>
             <div className="p-4 flex-shrink-0 border-t bg-background">
@@ -485,6 +511,13 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
           </DrawerContent>
         </Drawer>
         <DataSourcesDialog open={showDataSources} onOpenChange={setShowDataSources} />
+        <QRScanner
+          open={showQRScanner}
+          onOpenChange={setShowQRScanner}
+          onScan={handleQRScan}
+          title="Scan NWC QR Code"
+          description="Scan the QR code from your wallet app"
+        />
       </>
     );
   }
@@ -507,6 +540,13 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
       </Dialog>
       {addWalletDialog}
       <DataSourcesDialog open={showDataSources} onOpenChange={setShowDataSources} />
+      <QRScanner
+        open={showQRScanner}
+        onOpenChange={setShowQRScanner}
+        onScan={handleQRScan}
+        title="Scan NWC QR Code"
+        description="Scan the QR code from your wallet app"
+      />
     </>
   );
 }
