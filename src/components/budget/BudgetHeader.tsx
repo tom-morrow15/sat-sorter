@@ -1,7 +1,15 @@
-import { Bitcoin, DollarSign, ChevronLeft, ChevronRight, Wallet, Moon, Sun, Zap } from 'lucide-react';
+import { useState } from 'react';
+import { Bitcoin, DollarSign, ChevronLeft, ChevronRight, Wallet, Moon, Sun, Zap, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { useBitcoinPrice, formatSats, satsToUsd, formatUsd } from '@/hooks/useBitcoinPrice';
 import {
   calculateTotalIncome,
@@ -24,6 +32,8 @@ interface BudgetHeaderProps {
   onPreviousMonth: () => void;
   onNextMonth: () => void;
   onOpenWallet: () => void;
+  onSelectMonth?: (month: string) => void;
+  unassignedCount?: number;
 }
 
 export function BudgetHeader({
@@ -34,9 +44,29 @@ export function BudgetHeader({
   onPreviousMonth,
   onNextMonth,
   onOpenWallet,
+  onSelectMonth,
+  unassignedCount = 0,
 }: BudgetHeaderProps) {
   const { data: priceData, isLoading: priceLoading } = useBitcoinPrice();
   const { isDark, toggle: toggleTheme } = useTheme();
+  const [showMonthPicker, setShowMonthPicker] = useState(false);
+
+  // Generate list of months for picker (current month + 11 months back + 6 months forward)
+  const getAvailableMonths = () => {
+    const months: string[] = [];
+    const now = new Date();
+    // Go back 11 months
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      months.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+    }
+    // Go forward 6 months
+    for (let i = 1; i <= 6; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+      months.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+    }
+    return months;
+  };
 
   const totalIncome = calculateTotalIncome(buckets);
   const totalExpenses = calculateTotalExpenses(buckets);
@@ -139,19 +169,29 @@ export function BudgetHeader({
               </TooltipContent>
             </Tooltip>
 
-            {/* Wallet Button */}
+            {/* Wallet Button with notification badge */}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
                   variant="outline"
                   size="icon"
                   onClick={onOpenWallet}
-                  className="h-8 w-8 sm:h-9 sm:w-9"
+                  className="h-8 w-8 sm:h-9 sm:w-9 relative"
                 >
                   <Wallet className="h-4 w-4" />
+                  {unassignedCount > 0 && (
+                    <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center">
+                      {unassignedCount > 9 ? '9+' : unassignedCount}
+                    </span>
+                  )}
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Wallet</TooltipContent>
+              <TooltipContent>
+                {unassignedCount > 0
+                  ? `${unassignedCount} transaction${unassignedCount !== 1 ? 's' : ''} to categorize`
+                  : 'Wallet'
+                }
+              </TooltipContent>
             </Tooltip>
 
             {/* Theme Toggle */}
@@ -175,14 +215,30 @@ export function BudgetHeader({
 
         {/* Budget summary bar - More compact */}
         <div className="py-3 sm:py-4 space-y-3">
+          {/* Bitcoin Price - Mobile only (above month) */}
+          {priceData && (
+            <div className="flex md:hidden justify-center">
+              <Badge variant="secondary" className="gap-1 font-mono text-xs">
+                <Bitcoin className="h-3 w-3" />
+                {formatUsd(priceData.usdPerBtc)}
+              </Badge>
+            </div>
+          )}
+
           {/* Month navigation */}
           <div className="flex items-center justify-center gap-2 sm:gap-4">
             <Button variant="ghost" size="icon" onClick={onPreviousMonth} className="h-8 w-8">
               <ChevronLeft className="h-4 w-4 sm:h-5 sm:w-5" />
             </Button>
-            <h2 className="text-base sm:text-lg font-semibold min-w-[140px] sm:min-w-[180px] text-center">
-              {formatMonth(currentMonth)}
-            </h2>
+            <button
+              onClick={() => setShowMonthPicker(true)}
+              className="flex items-center gap-2 px-3 py-1 rounded-lg hover:bg-muted transition-colors"
+            >
+              <h2 className="text-base sm:text-lg font-semibold min-w-[120px] sm:min-w-[160px] text-center">
+                {formatMonth(currentMonth)}
+              </h2>
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+            </button>
             <Button variant="ghost" size="icon" onClick={onNextMonth} className="h-8 w-8">
               <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5" />
             </Button>
@@ -249,6 +305,36 @@ export function BudgetHeader({
           </div>
         </div>
       </div>
+
+      {/* Month Picker Dialog */}
+      <Dialog open={showMonthPicker} onOpenChange={setShowMonthPicker}>
+        <DialogContent className="sm:max-w-[340px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Calendar className="h-5 w-5" />
+              Select Month
+            </DialogTitle>
+          </DialogHeader>
+          <ScrollArea className="max-h-[400px]">
+            <div className="grid grid-cols-2 gap-2 p-1">
+              {getAvailableMonths().map((month) => (
+                <Button
+                  key={month}
+                  variant={month === currentMonth ? 'default' : 'outline'}
+                  size="sm"
+                  className="justify-start"
+                  onClick={() => {
+                    onSelectMonth?.(month);
+                    setShowMonthPicker(false);
+                  }}
+                >
+                  {formatMonth(month)}
+                </Button>
+              ))}
+            </div>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
     </header>
   );
 }

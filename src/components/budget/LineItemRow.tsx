@@ -148,15 +148,27 @@ export function LineItemRow({
             step={currency === 'usd' ? '0.01' : '1'}
           />
         </div>
-        <div className="flex justify-end gap-2">
-          <Button size="sm" variant="ghost" onClick={handleCancel}>
-            <X className="h-4 w-4 mr-1" />
-            Cancel
+        <div className="flex justify-between gap-2">
+          {/* Delete button - visible in edit mode for mobile access */}
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+            onClick={() => onDelete(bucketId, lineItem.id)}
+          >
+            <Trash2 className="h-4 w-4 mr-1" />
+            Delete
           </Button>
-          <Button size="sm" onClick={handleSave}>
-            <Check className="h-4 w-4 mr-1" />
-            Save
-          </Button>
+          <div className="flex gap-2">
+            <Button size="sm" variant="ghost" onClick={handleCancel}>
+              <X className="h-4 w-4 mr-1" />
+              Cancel
+            </Button>
+            <Button size="sm" onClick={handleSave}>
+              <Check className="h-4 w-4 mr-1" />
+              Save
+            </Button>
+          </div>
         </div>
       </div>
     );

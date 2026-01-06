@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Plus, Bitcoin, Zap, Wallet, Info } from 'lucide-react';
 import { useSeoMeta, useHead } from '@unhead/react';
 import { Button } from '@/components/ui/button';
@@ -79,6 +79,12 @@ export default function Budget() {
   const incomeBucket = sortedBuckets.find(b => b.isIncome);
   const expenseBuckets = sortedBuckets.filter(b => !b.isIncome);
 
+  // Count unassigned transactions
+  const unassignedCount = useMemo(() =>
+    currentBudget.transactions.filter(t => t.lineItemId === null).length,
+    [currentBudget.transactions]
+  );
+
   return (
     <div className="min-h-screen bg-background">
       <BudgetHeader
@@ -89,6 +95,8 @@ export default function Budget() {
         onPreviousMonth={handlePreviousMonth}
         onNextMonth={handleNextMonth}
         onOpenWallet={() => setShowWalletModal(true)}
+        onSelectMonth={setCurrentMonth}
+        unassignedCount={unassignedCount}
       />
 
       <main className="container mx-auto px-3 sm:px-4 py-4 lg:py-6">
@@ -232,7 +240,15 @@ export default function Budget() {
         </div>
 
         {/* Footer */}
-        <footer className="mt-12 lg:mt-16 pt-6 lg:pt-8 border-t text-center">
+        <footer className="mt-12 lg:mt-16 pt-6 lg:pt-8 border-t text-center space-y-3">
+          {/* Easter egg - Dollar purchasing power */}
+          <p className="text-xs text-muted-foreground/70 italic">
+            💡 Since 1913, the US dollar has lost over 96% of its purchasing power.
+            <br className="sm:hidden" />
+            <span className="hidden sm:inline"> </span>
+            Bitcoin fixes this.
+          </p>
+
           <p className="text-sm text-muted-foreground">
             Vibed with{' '}
             <a
