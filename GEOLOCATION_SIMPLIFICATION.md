@@ -52,11 +52,28 @@ Works for every country without special UI adjustments.
 - `src/hooks/useBTCMap.ts` - Simplified `useLocationSettings` hook
 - `src/components/budget/LocationSetup.tsx` - Completely redesigned component
 
+### Radius Selection
+The search radius is now **user-adjustable** with these options:
+- **Quick presets**: 5, 10, 25, 50, 100 miles (5 common choices)
+- **Fine-tuning**: Up/Down buttons to adjust by 5-mile increments
+- **Default**: 25 miles (good balance globally)
+- **Range**: 1-500 miles
+
+This gives users flexibility while keeping the interface simple.
+
+### Search Format Recommendations
+For best results, search using:
+- **City, State**: "Middleburg, FL" ✅
+- **City, Country**: "London, UK" ✅
+- **Zip/Postal Code**: "90210" or "W1A 1AA" ✅
+- **Full State Name**: "Middleburg, Florida" ✅
+
 ### API Integrations
 - **Nominatim (OpenStreetMap)** - Geocoding and reverse-geocoding
   - Private/self-hosted option available
   - No authentication required
   - No personal data tracking
+  - Works best with "City, State" or "City, Country" format
 
 - **Browser Geolocation API** - Optional automatic detection
   - Requires explicit user permission
@@ -80,18 +97,19 @@ Note: All coordinates and location names stay in browser memory/storage only.
 ✅ **Flexible** - Manual search or auto-detect, user's choice
 ✅ **Secure** - No servers involved in location storage
 
-## Radius Management
+## UI Improvements
 
-The search radius is now **hardcoded to 25 miles** for the following reasons:
+### Location Settings Discoverability
+- **Location display is clickable** - Users can tap the location name to change it
+- **Prominent "Change" button** - Makes it obvious how to modify settings
+- **Current radius shown** - Users always see their selected search distance
+- **External BTCMap link** - Quick access to full map view
 
-1. **25 miles is globally appropriate**
-   - In dense urban areas: plenty of merchants
-   - In rural areas: reasonable coverage
-   - Works across all climate zones and geographies
-
-2. **Simplifies UI** - No slider or preset buttons needed
-
-3. **Users can adjust** - They can search a different city if they want a different area
+### Pie Chart Formatting
+- **Responsive layout** - Properly sized on mobile and desktop
+- **No text overlap** - Center text doesn't overlap with the pie ring
+- **Better spacing** - Legend positioned to the right on desktop, below on mobile
+- **Smaller on mobile** - Optimized sizing for smaller screens (28x28 vs 36x36 on desktop)
 
 ## Privacy Guarantees
 
@@ -121,12 +139,27 @@ Potential enhancements (not implemented now):
 
 ## Testing Checklist
 
-- [x] Search works with city names (e.g., "Paris, France")
-- [x] Search works with postal codes (e.g., "10001")
-- [x] Search works with region names (e.g., "California")
+### Search Functionality
+- [x] Search works with "City, State" format (e.g., "Middleburg, FL")
+- [x] Search works with "City, Country" format (e.g., "London, UK")
+- [x] Search works with zip codes (e.g., "90210")
+- [x] Error message shows helpful format suggestions
+- [x] Location name displays correctly after search
+
+### Radius Selection
+- [x] Quick preset buttons (5, 10, 25, 50, 100) work
+- [x] Up/Down buttons adjust radius by 5 miles
+- [x] Selected radius applies to new searches
+- [x] Current radius shows in location display
+- [x] Radius updates on auto-detect
+
+### UI/UX
 - [x] Auto-detect location works (if permission granted)
 - [x] Location is cleared when user clicks X button
-- [x] Merchants display within 25 miles correctly
+- [x] Location name in banner is clickable
+- [x] "Change" button is clearly visible
+- [x] Merchants display within selected radius
 - [x] Privacy notice is visible and clear
+- [x] Pie chart text doesn't overlap on mobile/desktop
 - [x] Works on mobile and desktop
 - [x] Works on all browsers supporting geolocation API
