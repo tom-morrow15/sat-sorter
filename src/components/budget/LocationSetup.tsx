@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { MapPin, X, Shield, Check, AlertCircle, ChevronDown } from 'lucide-react';
+import { MapPin, X, Shield, Check, AlertCircle, Navigation, Loader2, Search } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -15,17 +15,11 @@ import {
   DrawerTitle,
   DrawerClose,
 } from '@/components/ui/drawer';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Label } from '@/components/ui/label';
-import { useLocationSettings } from '@/hooks/useBTCMap';
+import { useLocationSettings, geocodeLocation } from '@/hooks/useBTCMap';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useToast } from '@/hooks/useToast';
 import {
@@ -45,62 +39,133 @@ function LocationSetupContent({ onClose }: { onClose: () => void }) {
   const { settings, updateLocation, updateRadius, clearLocation, hasLocation } = useLocationSettings();
   const { toast } = useToast();
 
-  const [selectedCountry, setSelectedCountry] = useState<string>('');
-  const [selectedState, setSelectedState] = useState<string>('');
-  const [selectedCity, setSelectedCity] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [selectedRadius, setSelectedRadius] = useState(settings.radiusMiles || 25);
+  const [isSearching, setIsSearching] = useState(false);
+  const [isDetecting, setIsDetecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const countries = getCountries();
-  const states = selectedCountry ? getStatesByCountry(selectedCountry) : [];
-  const cities = selectedCountry && selectedState ? getCitiesByCountryAndState(selectedCountry, selectedState) : [];
-
-  const handleCountryChange = (country: string) => {
-    setSelectedCountry(country);
-    setSelectedState('');
-    setSelectedCity('');
-    setError(null);
-  };
-
-  const handleStateChange = (state: string) => {
-    setSelectedState(state);
-    setSelectedCity('');
-    setError(null);
-  };
-
-  const handleCityChange = (city: string) => {
-    setSelectedCity(city);
-    setError(null);
-  };
-
-  const handleSetLocation = () => {
-    if (!selectedCountry || !selectedCity) {
-      setError('Please select a country and city');
+  // Search for location using the query
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) {
+      setError('Please enter a location');
       return;
     }
 
-    const coords = getLocationCoordinates(selectedCountry, selectedState, selectedCity);
-    if (!coords) {
-      setError('Could not find coordinates for this location');
+    setIsSearching(true);
+    setError(null);
+
+    try {
+      const result = await geocodeLocation(searchQuery.trim());
+
+      if (!result) {
+        setError('Location not found. Try searching by city name, state/region, or country (e.g., "Tokyo", "London", "São Paulo")');
+        setIsSearching(false);
+        return;
+      }
+
+      updateLocation(result.lat, result.lon, selectedRadius, result.displayName);
+
+      toast({
+        title: 'Location set!',
+        description: `Finding Bitcoin merchants within ${selectedRadius} miles`,
+      });
+
+      onClose();
+    } catch (err) {
+      setError('Could not search location. Please try again.');
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // Auto-detect location (with user permission)
+  const handleAutoDetect = () => {
+    if (!navigator.geolocation) {
+      setError('Location detection is not available in your browser');
       return;
     }
 
-    const displayName = getLocationDisplayName(selectedCountry, selectedState, selectedCity);
-    updateLocation(coords.lat, coords.lon, selectedRadius, displayName);
+    setIsDetecting(true);
+    setError(null);
 
-    toast({
-      title: 'Location set!',
-      description: `Finding Bitcoin merchants within ${selectedRadius} miles`,
-    });
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
 
-    onClose();
+        // Reverse geocode to get a friendly name
+        try {
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&zoom=10`,
+            {
+              headers: { 'User-Agent': 'SatSorter/1.0' },
+              signal: AbortSignal.timeout(10000),
+            }
+          );
+
+          const data = await response.json();
+
+          // Build a friendly location name (city + state/country)
+          let locationName = 'Your Area';
+          if (data.address) {
+            const city = data.address.city || data.address.town || data.address.village || data.address.suburb;
+            const state = data.address.state;
+            const country = data.address.country;
+
+            const parts = [city, state || country].filter(Boolean);
+            if (parts.length > 0) {
+              locationName = parts.join(', ');
+            }
+          }
+
+          updateLocation(latitude, longitude, selectedRadius, locationName);
+
+          toast({
+            title: 'Location detected!',
+            description: `Finding Bitcoin merchants within ${selectedRadius} miles`,
+          });
+
+          onClose();
+        } catch {
+          // Even if reverse geocoding fails, we still have coords
+          updateLocation(latitude, longitude, selectedRadius, 'Your Area');
+          toast({
+            title: 'Location set!',
+            description: `Finding Bitcoin merchants within ${selectedRadius} miles`,
+          });
+          onClose();
+        }
+
+        setIsDetecting(false);
+      },
+      (err) => {
+        setIsDetecting(false);
+
+        switch (err.code) {
+          case err.PERMISSION_DENIED:
+            setError('Location access denied. Please enter your location manually below.');
+            break;
+          case err.POSITION_UNAVAILABLE:
+            setError('Could not detect location. Please enter it manually below.');
+            break;
+          case err.TIMEOUT:
+            setError('Location detection timed out. Please try again or enter manually.');
+            break;
+          default:
+            setError('Could not detect location. Please enter it manually below.');
+        }
+      },
+      {
+        enableHighAccuracy: false,
+        timeout: 15000,
+        maximumAge: 600000, // 10 minutes cache
+      }
+    );
   };
 
   const handleClear = () => {
     clearLocation();
-    setSelectedCountry('');
-    setSelectedState('');
-    setSelectedCity('');
+    setSearchQuery('');
     toast({
       title: 'Location cleared',
       description: 'Bitcoin merchant suggestions disabled',
@@ -146,94 +211,92 @@ function LocationSetupContent({ onClose }: { onClose: () => void }) {
         </Alert>
       )}
 
-      {/* Location Selection Dropdowns */}
-      <div className="space-y-3">
-        <div className="space-y-2">
-          <Label htmlFor="country-select">Country</Label>
-          <Select value={selectedCountry} onValueChange={handleCountryChange}>
-            <SelectTrigger id="country-select">
-              <SelectValue placeholder="Select a country" />
-            </SelectTrigger>
-            <SelectContent>
-              {countries.map((country) => (
-                <SelectItem key={country} value={country}>
-                  {country}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+      {/* Search input - primary method */}
+      <div className="space-y-2">
+        <Label htmlFor="location-search">Search your location</Label>
+        <div className="flex gap-2">
+          <Input
+            id="location-search"
+            value={searchQuery}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setError(null);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleSearch();
+            }}
+            placeholder="e.g., Tokyo, Miami, São Paulo"
+            disabled={isSearching || isDetecting}
+            className="flex-1"
+            autoFocus
+          />
+          <Button
+            onClick={handleSearch}
+            disabled={isSearching || isDetecting || !searchQuery.trim()}
+            size="lg"
+          >
+            {isSearching ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Search className="h-4 w-4" />
+            )}
+          </Button>
         </div>
-
-        {selectedCountry && states.length > 0 && (
-          <div className="space-y-2">
-            <Label htmlFor="state-select">State / Region</Label>
-            <Select value={selectedState} onValueChange={handleStateChange}>
-              <SelectTrigger id="state-select">
-                <SelectValue placeholder="Select a state or region" />
-              </SelectTrigger>
-              <SelectContent>
-                {states.map((state) => (
-                  <SelectItem key={state} value={state}>
-                    {state}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
-
-        {selectedCountry && selectedState && cities.length > 0 && (
-          <div className="space-y-2">
-            <Label htmlFor="city-select">City</Label>
-            <Select value={selectedCity} onValueChange={handleCityChange}>
-              <SelectTrigger id="city-select">
-                <SelectValue placeholder="Select a city" />
-              </SelectTrigger>
-              <SelectContent>
-                {cities.map((city) => (
-                  <SelectItem key={city} value={city}>
-                    {city}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
+        <p className="text-xs text-muted-foreground">
+          Type a city name, state, or country and press Enter or click search
+        </p>
       </div>
 
       {/* Radius selector */}
-      {selectedCity && (
-        <div className="space-y-2 pt-2 border-t">
-          <div className="flex items-center justify-between">
-            <label className="text-sm font-medium">Search radius</label>
-            <div className="text-sm font-semibold text-primary">{selectedRadius} miles</div>
-          </div>
-          <div className="grid grid-cols-5 gap-1">
-            {[5, 10, 25, 50, 100].map((radius) => (
-              <Button
-                key={radius}
-                variant={selectedRadius === radius ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setSelectedRadius(radius)}
-                className="text-xs"
-              >
-                {radius}
-              </Button>
-            ))}
-          </div>
+      <div className="space-y-2 pt-2 border-t">
+        <div className="flex items-center justify-between">
+          <label className="text-sm font-medium">Search radius</label>
+          <div className="text-sm font-semibold text-primary">{selectedRadius} miles</div>
         </div>
-      )}
+        <div className="grid grid-cols-5 gap-1">
+          {[5, 10, 25, 50, 100].map((radius) => (
+            <Button
+              key={radius}
+              variant={selectedRadius === radius ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setSelectedRadius(radius)}
+              className="text-xs"
+            >
+              {radius}
+            </Button>
+          ))}
+        </div>
+      </div>
 
-      {/* Set location button */}
-      {selectedCity && (
-        <Button
-          onClick={handleSetLocation}
-          className="w-full"
-          size="lg"
-        >
-          Set Location to {getLocationDisplayName(selectedCountry, selectedState, selectedCity)}
-        </Button>
-      )}
+      {/* Divider */}
+      <div className="relative">
+        <div className="absolute inset-0 flex items-center">
+          <span className="w-full border-t" />
+        </div>
+        <div className="relative flex justify-center text-xs uppercase">
+          <span className="bg-background px-2 text-muted-foreground">Or use</span>
+        </div>
+      </div>
+
+      {/* Auto-detect button */}
+      <Button
+        variant="outline"
+        className="w-full"
+        onClick={handleAutoDetect}
+        disabled={isDetecting || isSearching}
+      >
+        {isDetecting ? (
+          <>
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            Detecting...
+          </>
+        ) : (
+          <>
+            <Navigation className="h-4 w-4 mr-2" />
+            Use My Current Location
+          </>
+        )}
+      </Button>
     </div>
   );
 }
