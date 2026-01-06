@@ -2,17 +2,26 @@
 
 ## Issues Found and Fixed
 
-### 1. **useIsMobile Hook - Double Render Bug** ✅
-**Issue:** The hook was causing unnecessary re-renders and potential hydration mismatches by setting state twice:
-- Once in `useState(window.innerWidth < MOBILE_BREAKPOINT)`
-- Again in `useEffect` with `setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)`
+### 1. **useIsMobile Hook - Hydration & Flash Bug** ✅
+**Issue:** The hook was causing:
+- Unnecessary re-renders by setting state twice
+- Flash of incorrect UI (desktop → mobile transition visible to users)
+- Potential hydration mismatches in SSR scenarios
 
-**Fix:** Changed initial state to `undefined` and only set it once in `useEffect`:
+**Fix:** Replaced useState/useEffect pattern with React 18's `useSyncExternalStore`:
 ```typescript
-const [isMobile, setIsMobile] = useState<boolean | undefined>(undefined);
+import { useSyncExternalStore } from "react"
+
+export function useIsMobile(): boolean {
+  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+}
 ```
 
-**Impact:** Eliminates double renders, prevents layout shifts, and ensures consistent mobile detection.
+**Impact:**
+- Eliminates double renders completely
+- Prevents flash of desktop UI on mobile devices
+- Better integration with React's concurrent features
+- More reliable and performant mobile detection
 
 ---
 
