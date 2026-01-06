@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { MapPin, Search, Loader2, X, Navigation, Shield, Check, AlertCircle } from 'lucide-react';
+import { MapPin, Search, Loader2, X, Navigation, Shield, Check, AlertCircle, ChevronUp, ChevronDown } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -28,10 +28,11 @@ interface LocationSetupProps {
 }
 
 function LocationSetupContent({ onClose }: { onClose: () => void }) {
-  const { settings, updateLocation, clearLocation, hasLocation } = useLocationSettings();
+  const { settings, updateLocation, updateRadius, clearLocation, hasLocation } = useLocationSettings();
   const { toast } = useToast();
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedRadius, setSelectedRadius] = useState(settings.radiusMiles || 25);
   const [isSearching, setIsSearching] = useState(false);
   const [isDetecting, setIsDetecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,16 +51,16 @@ function LocationSetupContent({ onClose }: { onClose: () => void }) {
       const result = await geocodeLocation(searchQuery.trim());
 
       if (!result) {
-        setError('Location not found. Try a different search (e.g., "Miami, FL" or "London, UK")');
+        setError('Location not found. Try searching "City, State" (e.g., "Middleburg, FL" or "London, UK") or just the zip code.');
         setIsSearching(false);
         return;
       }
 
-      updateLocation(result.lat, result.lon, result.displayName);
+      updateLocation(result.lat, result.lon, selectedRadius, result.displayName);
 
       toast({
         title: 'Location set!',
-        description: `Finding Bitcoin merchants near ${result.displayName}`,
+        description: `Finding Bitcoin merchants within ${selectedRadius} miles of ${result.displayName}`,
       });
 
       onClose();
@@ -109,20 +110,20 @@ function LocationSetupContent({ onClose }: { onClose: () => void }) {
             }
           }
 
-          updateLocation(latitude, longitude, locationName);
+          updateLocation(latitude, longitude, selectedRadius, locationName);
 
           toast({
             title: 'Location detected!',
-            description: `Finding Bitcoin merchants near ${locationName}`,
+            description: `Finding Bitcoin merchants within ${selectedRadius} miles`,
           });
 
           onClose();
         } catch {
           // Even if reverse geocoding fails, we still have coords
-          updateLocation(latitude, longitude, 'Your Area');
+          updateLocation(latitude, longitude, selectedRadius, 'Your Area');
           toast({
             title: 'Location set!',
-            description: 'Finding Bitcoin merchants near you',
+            description: `Finding Bitcoin merchants within ${selectedRadius} miles`,
           });
           onClose();
         }
@@ -185,7 +186,7 @@ function LocationSetupContent({ onClose }: { onClose: () => void }) {
             <Check className="h-4 w-4 text-green-600" />
             <div>
               <p className="text-sm font-medium">{settings.locationName}</p>
-              <p className="text-xs text-muted-foreground">Within 25 miles</p>
+              <p className="text-xs text-muted-foreground">Within {settings.radiusMiles} miles</p>
             </div>
           </div>
           <Button variant="ghost" size="sm" onClick={handleClear} className="h-8">
@@ -214,7 +215,7 @@ function LocationSetupContent({ onClose }: { onClose: () => void }) {
             onKeyDown={(e) => {
               if (e.key === 'Enter') handleSearch();
             }}
-            placeholder="e.g., Tokyo, London, or 90210"
+            placeholder="e.g., Middleburg, FL or London, UK"
             disabled={isSearching || isDetecting}
             className="flex-1"
             autoFocus
@@ -229,6 +230,48 @@ function LocationSetupContent({ onClose }: { onClose: () => void }) {
             ) : (
               <Search className="h-4 w-4" />
             )}
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Format: "City, State" or "City, Country" (e.g., "Middleburg, FL" or "Miami, Florida")
+        </p>
+      </div>
+
+      {/* Radius selector */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <label className="text-sm font-medium">Search radius</label>
+          <div className="text-sm font-semibold text-primary">{selectedRadius} miles</div>
+        </div>
+        <div className="flex gap-2 items-center">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setSelectedRadius(Math.max(1, selectedRadius - 5))}
+            disabled={selectedRadius <= 1}
+          >
+            <ChevronDown className="h-4 w-4" />
+          </Button>
+          <div className="flex-1 grid grid-cols-5 gap-1">
+            {[5, 10, 25, 50, 100].map((radius) => (
+              <Button
+                key={radius}
+                variant={selectedRadius === radius ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setSelectedRadius(radius)}
+                className="text-xs"
+              >
+                {radius}
+              </Button>
+            ))}
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setSelectedRadius(Math.min(500, selectedRadius + 5))}
+            disabled={selectedRadius >= 500}
+          >
+            <ChevronUp className="h-4 w-4" />
           </Button>
         </div>
       </div>

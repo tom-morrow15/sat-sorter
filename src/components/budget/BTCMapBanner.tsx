@@ -327,40 +327,44 @@ export function BTCMapBanner() {
       <Card className="overflow-hidden border-primary/20 bg-gradient-to-r from-primary/5 via-orange-500/5 to-amber-500/5">
         <CardContent className="py-3 sm:py-4 px-3 sm:px-4">
           {/* Header */}
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <div className="flex items-center justify-between mb-3 gap-2">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
               <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
                 <MapPin className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
               </div>
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <h3 className="text-sm font-semibold flex items-center gap-2">
                   <span className="truncate">Spend Sats</span>
                   <Badge variant="secondary" className="text-[10px] sm:text-xs font-normal bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 flex-shrink-0">
                     {merchants.length}
                   </Badge>
                 </h3>
-                <p className="text-[10px] sm:text-xs text-muted-foreground truncate">
+                <button
+                  onClick={() => setShowLocationSetup(true)}
+                  className="text-[10px] sm:text-xs text-muted-foreground truncate hover:text-primary hover:underline transition-colors text-left max-w-full"
+                >
                   📍 {settings.locationName} · {settings.radiusMiles} mi
-                </p>
+                </button>
               </div>
             </div>
             <div className="flex items-center gap-1 flex-shrink-0">
               <Button
-                variant="ghost"
+                variant="outline"
                 size="sm"
-                className="h-8 px-2 text-xs"
+                className="h-8 px-2 text-xs whitespace-nowrap"
                 onClick={() => setShowLocationSetup(true)}
               >
-                <Settings2 className="h-3.5 w-3.5" />
+                <Settings2 className="h-3.5 w-3.5 mr-1" />
+                <span className="hidden sm:inline">Change</span>
               </Button>
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-8 px-2 text-xs hidden sm:flex"
+                className="h-8 px-2 text-xs"
                 onClick={() => window.open('https://btcmap.org', '_blank')}
+                title="View full map on BTCMap.org"
               >
-                Map
-                <ChevronRight className="h-3 w-3 ml-0.5" />
+                <ExternalLink className="h-3.5 w-3.5" />
               </Button>
             </div>
           </div>
@@ -375,7 +379,7 @@ export function BTCMapBanner() {
                   onClick={() => handleMerchantClick(merchant)}
                 />
               ))}
-              
+
               {/* View more card */}
               {merchants.length > 15 && (
                 <button

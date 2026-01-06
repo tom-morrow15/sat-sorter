@@ -57,68 +57,74 @@ export function BudgetDashboard({
       <CardContent>
         <div className="space-y-4">
           {/* Compact Pie Chart Visualization */}
-          <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
-            {/* Pie Chart */}
-            <div className="relative w-32 h-32 sm:w-40 sm:h-40 flex-shrink-0">
-              <div className="absolute inset-0 rounded-full flex items-center justify-center bg-gradient-to-br from-muted to-muted/50">
-                <div className="text-center">
-                  <div className="text-lg sm:text-xl font-bold">
-                    {formatAmount(totalSpent)}
+          <div className="flex flex-col gap-4">
+            {/* Top: Chart and Legend side by side on desktop, stacked on mobile */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
+              {/* Pie Chart - Takes 1 col on mobile, 1 col on desktop */}
+              <div className="flex justify-center sm:col-span-1">
+                <div className="relative w-28 h-28 sm:w-36 sm:h-36 flex-shrink-0">
+                  {/* Center label - positioned absolutely but with proper sizing */}
+                  <div className="absolute inset-0 rounded-full flex items-center justify-center">
+                    <div className="text-center pointer-events-none">
+                      <div className="text-base sm:text-lg font-bold leading-tight">
+                        {formatAmount(totalSpent)}
+                      </div>
+                      <div className="text-[10px] sm:text-xs text-muted-foreground">
+                        Spent
+                      </div>
+                    </div>
                   </div>
-                  <div className="text-[10px] sm:text-xs text-muted-foreground">
-                    Spent
-                  </div>
+
+                  {/* Ring-style pie chart */}
+                  <svg className="w-full h-full -rotate-90" viewBox="0 0 200 200">
+                    {generatePieSlices(spendingByBucket, totalSpent).map((slice, idx) => (
+                      <circle
+                        key={idx}
+                        cx="100"
+                        cy="100"
+                        r="80"
+                        fill="none"
+                        stroke={getColorForIndex(idx)}
+                        strokeWidth="20"
+                        strokeDasharray={`${slice.dashArray} 502.4`}
+                        strokeDashoffset={`${slice.dashOffset}`}
+                        opacity="0.8"
+                      />
+                    ))}
+                  </svg>
                 </div>
               </div>
 
-              {/* Ring-style pie chart */}
-              <svg className="w-full h-full -rotate-90" viewBox="0 0 200 200">
-                {generatePieSlices(spendingByBucket, totalSpent).map((slice, idx) => (
-                  <circle
-                    key={idx}
-                    cx="100"
-                    cy="100"
-                    r="80"
-                    fill="none"
-                    stroke={getColorForIndex(idx)}
-                    strokeWidth="20"
-                    strokeDasharray={`${slice.dashArray} 502.4`}
-                    strokeDashoffset={`${slice.dashOffset}`}
-                    opacity="0.8"
-                  />
-                ))}
-              </svg>
-            </div>
-
-            {/* Legend - Compact grid */}
-            <div className="flex-1 w-full">
-              <div className="grid grid-cols-2 gap-2">
-                {spendingByBucket.slice(0, 6).map((item, idx) => {
-                  const percentage =
-                    totalSpent > 0 ? ((item.spent / totalSpent) * 100).toFixed(0) : '0';
-                  return (
-                    <div key={item.bucket.id} className="flex items-center gap-2 min-w-0">
-                      <div
-                        className="w-3 h-3 rounded-sm flex-shrink-0"
-                        style={{ backgroundColor: getColorForIndex(idx) }}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium truncate">
-                          {item.bucket.name}
-                        </p>
-                        <p className="text-[10px] text-muted-foreground">
-                          {formatAmount(item.spent)} ({percentage}%)
-                        </p>
+              {/* Legend - Takes 1 col on mobile, 2 cols on desktop */}
+              <div className="flex-1 sm:col-span-2">
+                <div className="grid grid-cols-2 gap-2">
+                  {spendingByBucket.slice(0, 6).map((item, idx) => {
+                    const percentage =
+                      totalSpent > 0 ? ((item.spent / totalSpent) * 100).toFixed(0) : '0';
+                    return (
+                      <div key={item.bucket.id} className="flex items-start gap-2 min-w-0">
+                        <div
+                          className="w-3 h-3 rounded-sm flex-shrink-0 mt-1"
+                          style={{ backgroundColor: getColorForIndex(idx) }}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium truncate">
+                            {item.bucket.name}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground">
+                            {formatAmount(item.spent)} ({percentage}%)
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
+                {spendingByBucket.length > 6 && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    +{spendingByBucket.length - 6} more categories
+                  </p>
+                )}
               </div>
-              {spendingByBucket.length > 6 && (
-                <p className="text-xs text-muted-foreground mt-2">
-                  +{spendingByBucket.length - 6} more categories
-                </p>
-              )}
             </div>
           </div>
 
