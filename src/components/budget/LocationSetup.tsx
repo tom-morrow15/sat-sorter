@@ -171,7 +171,9 @@ function LocationSetupContent({ onClose }: { onClose: () => void }) {
 
   const handleClear = () => {
     clearLocation();
-    setSearchQuery('');
+    setCountry('');
+    setState('');
+    setCity('');
     toast({
       title: 'Location cleared',
       description: 'Bitcoin merchant suggestions disabled',
