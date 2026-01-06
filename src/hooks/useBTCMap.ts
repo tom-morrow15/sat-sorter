@@ -374,11 +374,11 @@ export function useLocationSettings() {
     DEFAULT_LOCATION_SETTINGS
   );
 
-  const updateLocation = (lat: number, lon: number, radiusMiles: number, locationName: string) => {
+  const updateLocation = (lat: number, lon: number, locationName: string) => {
     setSettings({
       lat,
       lon,
-      radiusMiles,
+      radiusMiles: 25, // Default radius
       locationName,
     });
   };

@@ -13,14 +13,10 @@ import {
   Building,
   Loader2,
   Settings2,
-  Search,
-  Info,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import {
   Dialog,
@@ -28,38 +24,17 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from '@/components/ui/dialog';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from '@/components/ui/tabs';
-import {
-  Alert,
-  AlertDescription,
-} from '@/components/ui/alert';
-import {
   useBTCMap,
-  useLocationSettings,
   getMerchantName,
   getMerchantCategory,
-  getMerchantLocation,
   acceptsLightning,
   acceptsOnchain,
   formatDistance,
-  geocodeLocation,
   type BTCMapElement,
 } from '@/hooks/useBTCMap';
-import { useToast } from '@/hooks/useToast';
+import { LocationSetup } from './LocationSetup';
 import { cn } from '@/lib/utils';
 
 // Icon mapping for categories
@@ -92,11 +67,11 @@ function MerchantCard({ merchant, onClick }: MerchantCardProps) {
   return (
     <button
       onClick={onClick}
-      className="flex-shrink-0 w-[200px] p-3 rounded-xl border bg-card hover:bg-accent/50 transition-all hover:shadow-md text-left group"
+      className="flex-shrink-0 w-[180px] sm:w-[200px] p-3 rounded-xl border bg-card hover:bg-accent/50 active:bg-accent transition-all text-left group"
     >
-      <div className="flex items-start gap-3">
-        <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-          <Icon className="h-5 w-5 text-primary" />
+      <div className="flex items-start gap-2 sm:gap-3">
+        <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+          <Icon className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
         </div>
         <div className="flex-1 min-w-0">
           <p className="font-medium text-sm truncate group-hover:text-primary transition-colors">
@@ -105,12 +80,12 @@ function MerchantCard({ merchant, onClick }: MerchantCardProps) {
           <p className="text-xs text-muted-foreground truncate">
             {getMerchantCategory(merchant)}
           </p>
-          <div className="flex items-center gap-2 mt-1.5">
-            <span className="text-xs text-muted-foreground flex items-center gap-1">
-              <MapPin className="h-3 w-3" />
+          <div className="flex items-center gap-2 mt-1">
+            <span className="text-xs text-muted-foreground flex items-center gap-0.5">
+              <MapPin className="h-2.5 w-2.5" />
               {formatDistance(merchant.distance)}
             </span>
-            <div className="flex gap-1">
+            <div className="flex gap-0.5">
               {hasLightning && (
                 <Badge variant="secondary" className="h-4 px-1 text-[10px] bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
                   <Zap className="h-2.5 w-2.5" />
@@ -161,8 +136,8 @@ function MerchantDetailDialog({ merchant, open, onOpenChange }: MerchantDetailDi
             <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
               <Icon className="h-6 w-6 text-primary" />
             </div>
-            <div>
-              <DialogTitle className="text-left">{getMerchantName(merchant)}</DialogTitle>
+            <div className="min-w-0">
+              <DialogTitle className="text-left truncate">{getMerchantName(merchant)}</DialogTitle>
               <DialogDescription className="text-left">
                 {getMerchantCategory(merchant)} • {formatDistance(merchant.distance)} away
               </DialogDescription>
@@ -191,8 +166,8 @@ function MerchantDetailDialog({ merchant, open, onOpenChange }: MerchantDetailDi
           <div className="space-y-2 text-sm">
             {tags['addr:street'] && (
               <div className="flex items-start gap-2">
-                <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
-                <span>
+                <MapPin className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                <span className="break-words">
                   {tags['addr:street']}
                   {tags['addr:city'] && `, ${tags['addr:city']}`}
                   {tags['addr:state'] && `, ${tags['addr:state']}`}
@@ -208,8 +183,8 @@ function MerchantDetailDialog({ merchant, open, onOpenChange }: MerchantDetailDi
               </div>
             )}
             {tags.website && (
-              <div className="flex items-center gap-2">
-                <span className="text-muted-foreground">🌐</span>
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-muted-foreground flex-shrink-0">🌐</span>
                 <a
                   href={tags.website.startsWith('http') ? tags.website : `https://${tags.website}`}
                   target="_blank"
@@ -222,8 +197,8 @@ function MerchantDetailDialog({ merchant, open, onOpenChange }: MerchantDetailDi
             )}
             {tags.opening_hours && !tags.opening_hours.startsWith('http') && (
               <div className="flex items-start gap-2">
-                <span className="text-muted-foreground">🕐</span>
-                <span className="text-muted-foreground">{tags.opening_hours}</span>
+                <span className="text-muted-foreground flex-shrink-0">🕐</span>
+                <span className="text-muted-foreground break-words">{tags.opening_hours}</span>
               </div>
             )}
           </div>
@@ -245,355 +220,11 @@ function MerchantDetailDialog({ merchant, open, onOpenChange }: MerchantDetailDi
   );
 }
 
-// Radius options in miles
-const RADIUS_OPTIONS = [
-  { value: '5', label: '5 miles' },
-  { value: '10', label: '10 miles' },
-  { value: '25', label: '25 miles' },
-  { value: '50', label: '50 miles' },
-  { value: '100', label: '100 miles' },
-];
-
-// Popular US cities for quick selection
-const POPULAR_LOCATIONS = [
-  { name: 'New York, NY', lat: 40.7128, lon: -74.0060 },
-  { name: 'Los Angeles, CA', lat: 34.0522, lon: -118.2437 },
-  { name: 'Chicago, IL', lat: 41.8781, lon: -87.6298 },
-  { name: 'Miami, FL', lat: 25.7617, lon: -80.1918 },
-  { name: 'Austin, TX', lat: 30.2672, lon: -97.7431 },
-  { name: 'Denver, CO', lat: 39.7392, lon: -104.9903 },
-  { name: 'Seattle, WA', lat: 47.6062, lon: -122.3321 },
-  { name: 'Portland, OR', lat: 45.5152, lon: -122.6784 },
-  { name: 'San Francisco, CA', lat: 37.7749, lon: -122.4194 },
-  { name: 'Nashville, TN', lat: 36.1627, lon: -86.7816 },
-];
-
-interface LocationSetupDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  initialLocationName?: string;
-  initialRadius?: number;
-  initialLat?: number;
-  initialLon?: number;
-}
-
-function LocationSetupDialog({
-  open,
-  onOpenChange,
-  initialLocationName = '',
-  initialRadius = 25,
-  initialLat,
-  initialLon,
-}: LocationSetupDialogProps) {
-  const [radius, setRadius] = useState(initialRadius.toString());
-  const [locationName, setLocationName] = useState(initialLocationName);
-  const [lat, setLat] = useState(initialLat?.toString() || '');
-  const [lon, setLon] = useState(initialLon?.toString() || '');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isSearching, setIsSearching] = useState(false);
-  const [searchError, setSearchError] = useState('');
-
-  const { updateLocation } = useLocationSettings();
-  const { toast } = useToast();
-
-  const handleQuickSelect = (location: typeof POPULAR_LOCATIONS[0]) => {
-    setLocationName(location.name);
-    setLat(location.lat.toString());
-    setLon(location.lon.toString());
-  };
-
-  const handleSearch = async () => {
-    if (!searchQuery.trim()) {
-      setSearchError('Please enter a location');
-      return;
-    }
-
-    setIsSearching(true);
-    setSearchError('');
-
-    const result = await geocodeLocation(searchQuery.trim());
-
-    setIsSearching(false);
-
-    if (result) {
-      setLocationName(result.displayName);
-      setLat(result.lat.toString());
-      setLon(result.lon.toString());
-      setSearchError('');
-      toast({
-        title: 'Location found',
-        description: result.displayName,
-      });
-    } else {
-      setSearchError('Location not found. Try "City, State" or "Zip Code, US"');
-    }
-  };
-
-  const handleSubmit = () => {
-    const latNum = parseFloat(lat);
-    const lonNum = parseFloat(lon);
-
-    if (isNaN(latNum) || isNaN(lonNum)) {
-      toast({
-        title: 'Invalid coordinates',
-        description: 'Please enter valid latitude and longitude values.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    if (latNum < -90 || latNum > 90) {
-      toast({
-        title: 'Invalid latitude',
-        description: 'Latitude must be between -90 and 90.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    if (lonNum < -180 || lonNum > 180) {
-      toast({
-        title: 'Invalid longitude',
-        description: 'Longitude must be between -180 and 180.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    updateLocation(latNum, lonNum, parseInt(radius), locationName.trim() || `${lat}, ${lon}`);
-    toast({
-      title: 'Location set',
-      description: `Finding Bitcoin merchants within ${radius} miles`,
-    });
-    onOpenChange(false);
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <MapPin className="h-5 w-5 text-primary" />
-            Find Bitcoin Merchants
-          </DialogTitle>
-          <DialogDescription>
-            Choose your location to discover businesses that accept Bitcoin.
-          </DialogDescription>
-        </DialogHeader>
-
-        <Tabs defaultValue="search" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="search">Search</TabsTrigger>
-            <TabsTrigger value="quick">Popular Cities</TabsTrigger>
-            <TabsTrigger value="custom">Coordinates</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="search" className="space-y-4 pt-4">
-            {/* Location search */}
-            <div className="space-y-2">
-              <Label htmlFor="search-location">City, State or Zip Code</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="search-location"
-                  value={searchQuery}
-                  onChange={(e) => {
-                    setSearchQuery(e.target.value);
-                    setSearchError('');
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleSearch();
-                  }}
-                  placeholder="e.g., Jacksonville FL, 32068, or New York"
-                  className={cn(searchError && 'border-destructive')}
-                />
-                <Button onClick={handleSearch} disabled={isSearching}>
-                  {isSearching ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Search className="h-4 w-4" />
-                  )}
-                </Button>
-              </div>
-              {searchError && (
-                <p className="text-sm text-destructive">{searchError}</p>
-              )}
-              <p className="text-xs text-muted-foreground">
-                Enter a city name, zip code, or address
-              </p>
-            </div>
-
-            {locationName && (
-              <Alert>
-                <Info className="h-4 w-4" />
-                <AlertDescription>
-                  Location: <span className="font-medium">{locationName}</span>
-                </AlertDescription>
-              </Alert>
-            )}
-
-            {/* Radius */}
-            <div className="space-y-2">
-              <Label htmlFor="radius-search">Search Radius</Label>
-              <Select value={radius} onValueChange={setRadius}>
-                <SelectTrigger id="radius-search">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {RADIUS_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="quick" className="space-y-4 pt-4">
-            {/* Popular locations */}
-            <div className="space-y-2">
-              <Label>Select a city</Label>
-              <div className="grid grid-cols-2 gap-2">
-                {POPULAR_LOCATIONS.map((location) => (
-                  <Button
-                    key={location.name}
-                    variant="outline"
-                    className="justify-start"
-                    onClick={() => handleQuickSelect(location)}
-                  >
-                    <MapPin className="h-3 w-3 mr-2" />
-                    {location.name}
-                  </Button>
-                ))}
-              </div>
-            </div>
-
-            {locationName && (
-              <Alert>
-                <Info className="h-4 w-4" />
-                <AlertDescription>
-                  Selected: <span className="font-medium">{locationName}</span>
-                </AlertDescription>
-              </Alert>
-            )}
-
-            {/* Radius */}
-            <div className="space-y-2">
-              <Label htmlFor="radius-quick">Search Radius</Label>
-              <Select value={radius} onValueChange={setRadius}>
-                <SelectTrigger id="radius-quick">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {RADIUS_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="custom" className="space-y-4 pt-4">
-            {/* Location name (optional) */}
-            <div className="space-y-2">
-              <Label htmlFor="location-name">Location Name (Optional)</Label>
-              <Input
-                id="location-name"
-                value={locationName}
-                onChange={(e) => setLocationName(e.target.value)}
-                placeholder="e.g., Jacksonville, FL"
-              />
-            </div>
-
-            {/* Coordinates */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="lat">Latitude</Label>
-                <Input
-                  id="lat"
-                  type="number"
-                  step="0.0001"
-                  value={lat}
-                  onChange={(e) => setLat(e.target.value)}
-                  placeholder="30.091"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="lon">Longitude</Label>
-                <Input
-                  id="lon"
-                  type="number"
-                  step="0.0001"
-                  value={lon}
-                  onChange={(e) => setLon(e.target.value)}
-                  placeholder="-81.853"
-                />
-              </div>
-            </div>
-
-            {/* Help text */}
-            <p className="text-xs text-muted-foreground">
-              Tip: You can find coordinates by right-clicking on{' '}
-              <a
-                href="https://www.google.com/maps"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-primary hover:underline"
-              >
-                Google Maps
-              </a>
-            </p>
-
-            {/* Radius */}
-            <div className="space-y-2">
-              <Label htmlFor="radius-custom">Search Radius</Label>
-              <Select value={radius} onValueChange={setRadius}>
-                <SelectTrigger id="radius-custom">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {RADIUS_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </TabsContent>
-        </Tabs>
-
-        {/* Privacy note */}
-        <div className="p-3 rounded-lg bg-muted/50 text-sm">
-          <p className="font-medium text-xs uppercase tracking-wide text-muted-foreground mb-1">
-            🔒 Privacy First
-          </p>
-          <p className="text-xs text-muted-foreground">
-            Your location is stored locally on your device and never shared with anyone.
-          </p>
-        </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button onClick={handleSubmit} disabled={!lat || !lon}>
-            <Search className="h-4 w-4 mr-2" />
-            Find Merchants
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 export function BTCMapBanner() {
   const { merchants, isLoading, hasLocation, settings, totalMerchants } = useBTCMap();
   const [selectedMerchant, setSelectedMerchant] = useState<(BTCMapElement & { distance: number }) | null>(null);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
-  const [showLocationDialog, setShowLocationDialog] = useState(false);
+  const [showLocationSetup, setShowLocationSetup] = useState(false);
 
   const handleMerchantClick = (merchant: BTCMapElement & { distance: number }) => {
     setSelectedMerchant(merchant);
@@ -605,31 +236,27 @@ export function BTCMapBanner() {
     return (
       <>
         <Card className="overflow-hidden border-primary/20 bg-gradient-to-r from-primary/5 via-orange-500/5 to-amber-500/5">
-          <CardContent className="py-6">
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                  <MapPin className="h-6 w-6 text-primary" />
+          <CardContent className="py-5 px-4">
+            <div className="flex flex-col sm:flex-row items-center gap-4">
+              <div className="flex items-center gap-3 flex-1">
+                <div className="h-11 w-11 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <MapPin className="h-5 w-5 text-primary" />
                 </div>
                 <div className="text-center sm:text-left">
-                  <h3 className="font-semibold">Spend Sats Locally</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Discover {totalMerchants.toLocaleString()}+ Bitcoin-accepting businesses worldwide
+                  <h3 className="font-semibold text-sm sm:text-base">Spend Sats Locally</h3>
+                  <p className="text-xs sm:text-sm text-muted-foreground">
+                    Find {totalMerchants > 10000 ? `${Math.floor(totalMerchants / 1000)}K+` : totalMerchants.toLocaleString()} Bitcoin merchants worldwide
                   </p>
                 </div>
               </div>
-              <Button onClick={() => setShowLocationDialog(true)} className="gap-2">
-                <Search className="h-4 w-4" />
-                Set Your Location
+              <Button onClick={() => setShowLocationSetup(true)} className="w-full sm:w-auto">
+                Set Location
               </Button>
             </div>
           </CardContent>
         </Card>
 
-        <LocationSetupDialog
-          open={showLocationDialog}
-          onOpenChange={setShowLocationDialog}
-        />
+        <LocationSetup open={showLocationSetup} onOpenChange={setShowLocationSetup} />
       </>
     );
   }
@@ -641,7 +268,7 @@ export function BTCMapBanner() {
         <CardContent className="py-4">
           <div className="flex items-center justify-center gap-3 text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin" />
-            <span className="text-sm">Loading Bitcoin merchants...</span>
+            <span className="text-sm">Finding Bitcoin merchants...</span>
           </div>
         </CardContent>
       </Card>
@@ -653,107 +280,112 @@ export function BTCMapBanner() {
     return (
       <>
         <Card className="overflow-hidden border-primary/20 bg-gradient-to-r from-primary/5 via-orange-500/5 to-amber-500/5">
-          <CardContent className="py-4">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <CardContent className="py-4 px-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <Store className="h-5 w-5 text-primary" />
+                <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+                  <Store className="h-5 w-5 text-muted-foreground" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium">
-                    No Bitcoin merchants found
-                  </p>
+                  <p className="text-sm font-medium">No merchants found nearby</p>
                   <p className="text-xs text-muted-foreground">
-                    Within <span className="font-medium text-foreground">{settings.radiusMiles} miles</span> of <span className="font-medium text-foreground">{settings.locationName || 'your location'}</span>
+                    Within {settings.radiusMiles} miles of {settings.locationName}
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={() => setShowLocationDialog(true)}>
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowLocationSetup(true)}
+                  className="flex-1 sm:flex-initial"
+                >
                   <Settings2 className="h-4 w-4 mr-1" />
-                  Change Location
+                  Change
                 </Button>
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => window.open('https://btcmap.org/add-location', '_blank')}
+                  className="flex-1 sm:flex-initial"
                 >
                   Add Merchant
-                  <ChevronRight className="h-3 w-3 ml-1" />
                 </Button>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <LocationSetupDialog
-          open={showLocationDialog}
-          onOpenChange={setShowLocationDialog}
-          initialLocationName={settings.locationName}
-          initialRadius={settings.radiusMiles}
-          initialLat={settings.lat || undefined}
-          initialLon={settings.lon || undefined}
-        />
+        <LocationSetup open={showLocationSetup} onOpenChange={setShowLocationSetup} />
       </>
     );
   }
 
+  // Merchants found - show carousel
   return (
     <>
       <Card className="overflow-hidden border-primary/20 bg-gradient-to-r from-primary/5 via-orange-500/5 to-amber-500/5">
-        <CardContent className="py-4 px-4">
+        <CardContent className="py-3 sm:py-4 px-3 sm:px-4">
           {/* Header */}
           <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                <MapPin className="h-5 w-5 text-primary" />
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+              <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <MapPin className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
               </div>
-              <div>
+              <div className="min-w-0">
                 <h3 className="text-sm font-semibold flex items-center gap-2">
-                  Spend Sats Locally
-                  <Badge variant="secondary" className="text-xs font-normal bg-success/10 text-success border-success/20">
-                    {merchants.length} found
+                  <span className="truncate">Spend Sats</span>
+                  <Badge variant="secondary" className="text-[10px] sm:text-xs font-normal bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 flex-shrink-0">
+                    {merchants.length}
                   </Badge>
                 </h3>
-                <p className="text-xs text-muted-foreground">
-                  📍 <span className="font-medium text-foreground">{settings.locationName || 'Your location'}</span>
-                  {' · '}
-                  <span className="font-medium text-foreground">{settings.radiusMiles} mile</span> radius
+                <p className="text-[10px] sm:text-xs text-muted-foreground truncate">
+                  📍 {settings.locationName} · {settings.radiusMiles} mi
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 flex-shrink-0">
               <Button
-                variant="outline"
+                variant="ghost"
                 size="sm"
-                className="text-xs"
-                onClick={() => setShowLocationDialog(true)}
+                className="h-8 px-2 text-xs"
+                onClick={() => setShowLocationSetup(true)}
               >
-                <Settings2 className="h-3 w-3 mr-1" />
-                Change
+                <Settings2 className="h-3.5 w-3.5" />
               </Button>
               <Button
                 variant="ghost"
                 size="sm"
-                className="text-xs"
+                className="h-8 px-2 text-xs hidden sm:flex"
                 onClick={() => window.open('https://btcmap.org', '_blank')}
               >
-                View Map
-                <ChevronRight className="h-3 w-3 ml-1" />
+                Map
+                <ChevronRight className="h-3 w-3 ml-0.5" />
               </Button>
             </div>
           </div>
 
           {/* Scrollable merchant cards */}
           <ScrollArea className="w-full">
-            <div className="flex gap-3 pb-2">
-              {merchants.slice(0, 20).map((merchant) => (
+            <div className="flex gap-2 sm:gap-3 pb-2">
+              {merchants.slice(0, 15).map((merchant) => (
                 <MerchantCard
                   key={merchant.id}
                   merchant={merchant}
                   onClick={() => handleMerchantClick(merchant)}
                 />
               ))}
+              
+              {/* View more card */}
+              {merchants.length > 15 && (
+                <button
+                  onClick={() => window.open('https://btcmap.org', '_blank')}
+                  className="flex-shrink-0 w-[120px] p-3 rounded-xl border border-dashed bg-card/50 hover:bg-accent/50 transition-all flex flex-col items-center justify-center gap-2 text-muted-foreground hover:text-foreground"
+                >
+                  <span className="text-2xl font-bold">+{merchants.length - 15}</span>
+                  <span className="text-xs">View all</span>
+                </button>
+              )}
             </div>
             <ScrollBar orientation="horizontal" />
           </ScrollArea>
@@ -768,14 +400,7 @@ export function BTCMapBanner() {
       />
 
       {/* Location setup dialog */}
-      <LocationSetupDialog
-        open={showLocationDialog}
-        onOpenChange={setShowLocationDialog}
-        initialLocationName={settings.locationName}
-        initialRadius={settings.radiusMiles}
-        initialLat={settings.lat || undefined}
-        initialLon={settings.lon || undefined}
-      />
+      <LocationSetup open={showLocationSetup} onOpenChange={setShowLocationSetup} />
     </>
   );
 }
