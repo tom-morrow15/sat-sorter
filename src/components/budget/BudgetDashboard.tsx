@@ -55,59 +55,62 @@ export function BudgetDashboard({
         <CardTitle className="text-base">Spending Breakdown</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
-          {/* Pie Chart and Legend */}
-          <div className="space-y-4">
-            {/* Pie Chart - Centered */}
-            <div className="flex justify-center">
-              <div className="relative w-32 h-32 sm:w-40 sm:h-40 flex-shrink-0">
-                {/* SVG Ring Chart */}
-                <svg className="w-full h-full -rotate-90" viewBox="0 0 200 200">
-                  {generatePieSlices(spendingByBucket, totalSpent).map((slice, idx) => (
-                    <circle
-                      key={idx}
-                      cx="100"
-                      cy="100"
-                      r="70"
-                      fill="none"
-                      stroke={getColorForIndex(idx)}
-                      strokeWidth="24"
-                      strokeDasharray={`${slice.dashArray} 439.8`}
-                      strokeDashoffset={`${slice.dashOffset}`}
-                      opacity="0.85"
-                    />
-                  ))}
-                </svg>
+        <div className="space-y-6">
+          {/* Pie Chart - Centered and larger */}
+          <div className="flex justify-center pt-2">
+            <div className="relative w-40 h-40 sm:w-48 sm:h-48 flex-shrink-0">
+              {/* SVG Ring Chart */}
+              <svg className="w-full h-full -rotate-90" viewBox="0 0 200 200">
+                {generatePieSlices(spendingByBucket, totalSpent).map((slice, idx) => (
+                  <circle
+                    key={idx}
+                    cx="100"
+                    cy="100"
+                    r="70"
+                    fill="none"
+                    stroke={getColorForIndex(idx)}
+                    strokeWidth="24"
+                    strokeDasharray={`${slice.dashArray} 439.8`}
+                    strokeDashoffset={`${slice.dashOffset}`}
+                    opacity="0.85"
+                  />
+                ))}
+              </svg>
 
-                {/* Center Text */}
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <div className="text-base sm:text-xl font-bold">
-                    {formatAmount(totalSpent)}
-                  </div>
-                  <div className="text-[10px] sm:text-xs text-muted-foreground">
-                    Spent
-                  </div>
+              {/* Center Text */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <div className="text-lg sm:text-2xl font-bold text-center px-2 line-clamp-2">
+                  {formatAmount(totalSpent)}
+                </div>
+                <div className="text-xs sm:text-sm text-muted-foreground mt-1">
+                  Spent
                 </div>
               </div>
             </div>
+          </div>
 
-            {/* Legend */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          {/* Legend - Better organized */}
+          <div className="space-y-3">
+            {/* Grid for legend items */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {spendingByBucket.slice(0, 6).map((item, idx) => {
                 const percentage =
                   totalSpent > 0 ? ((item.spent / totalSpent) * 100).toFixed(0) : '0';
                 return (
-                  <div key={item.bucket.id} className="flex items-start gap-2">
+                  <div key={item.bucket.id} className="flex items-start gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors">
                     <div
-                      className="w-2.5 h-2.5 rounded-sm flex-shrink-0 mt-1.5"
+                      className="w-3 h-3 rounded-sm flex-shrink-0 mt-1"
                       style={{ backgroundColor: getColorForIndex(idx) }}
                     />
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium truncate">
+                      <p className="text-sm font-medium leading-snug">
                         {item.bucket.name}
                       </p>
-                      <p className="text-[10px] text-muted-foreground">
-                        {formatAmount(item.spent)} ({percentage}%)
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {formatAmount(item.spent)}
+                      </p>
+                      <p className="text-xs text-muted-foreground font-medium">
+                        {percentage}%
                       </p>
                     </div>
                   </div>
@@ -115,7 +118,7 @@ export function BudgetDashboard({
               })}
             </div>
             {spendingByBucket.length > 6 && (
-              <p className="text-xs text-muted-foreground text-center">
+              <p className="text-xs text-muted-foreground text-center pt-2">
                 +{spendingByBucket.length - 6} more categories
               </p>
             )}
