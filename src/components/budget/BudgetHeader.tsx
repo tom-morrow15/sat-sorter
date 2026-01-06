@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bitcoin, DollarSign, ChevronLeft, ChevronRight, Wallet, Moon, Sun, Zap, Calendar, Menu, Info, Heart, ExternalLink, Shield, Globe } from 'lucide-react';
+import { Bitcoin, DollarSign, ChevronLeft, ChevronRight, Wallet, Moon, Sun, Zap, Calendar, Menu, Info, Heart, ExternalLink, Shield, Globe, GraduationCap, User, LogIn, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -30,7 +30,10 @@ import { cn } from '@/lib/utils';
 import { useTheme } from '@/hooks/useTheme';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { AccountSwitcher } from '@/components/auth/AccountSwitcher';
+import LoginDialog from '@/components/auth/LoginDialog';
 import { useAppContext } from '@/hooks/useAppContext';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { genUserName } from '@/lib/genUserName';
 
 interface BudgetHeaderProps {
   buckets: Bucket[];
@@ -60,6 +63,8 @@ export function BudgetHeader({
   const [showMonthPicker, setShowMonthPicker] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
   const [showDonate, setShowDonate] = useState(false);
+  const [showBitcoinEdu, setShowBitcoinEdu] = useState(false);
+  const [showLogin, setShowLogin] = useState(false);
 
   // Generate list of months for picker (current month + 11 months back + 6 months forward)
   const getAvailableMonths = () => {
@@ -215,35 +220,51 @@ export function BudgetHeader({
               {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </Button>
 
-            {/* User avatar / account switcher (when logged in) */}
-            {user ? (
+            {/* Account Switcher (when logged in) */}
+            {user && (
               <div className="ml-1">
-                <AccountSwitcher onAddAccountClick={() => { /* noop */ }} />
+                <AccountSwitcher onAddAccountClick={() => setShowLogin(true)} />
               </div>
-            ) : (
-              /* Menu for guests (always visible when not logged in) */
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 sm:h-9 sm:w-9"
-                  >
-                    <Menu className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuItem onClick={() => setShowAbout(true)}>
-                    <Info className="h-4 w-4 mr-2" />
-                    About Sat Sorter
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setShowDonate(true)}>
-                    <Heart className="h-4 w-4 mr-2" />
-                    Support Bitcoin Projects
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
             )}
+
+            {/* App Menu - Always visible */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 sm:h-9 sm:w-9"
+                >
+                  <Menu className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                {/* Login/Signup for guests */}
+                {!user && (
+                  <>
+                    <DropdownMenuItem onClick={() => setShowLogin(true)}>
+                      <LogIn className="h-4 w-4 mr-2" />
+                      Log In with Nostr
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                  </>
+                )}
+
+                {/* Info section */}
+                <DropdownMenuItem onClick={() => setShowAbout(true)}>
+                  <Info className="h-4 w-4 mr-2" />
+                  About Sat Sorter
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setShowBitcoinEdu(true)}>
+                  <GraduationCap className="h-4 w-4 mr-2" />
+                  Learn About Bitcoin
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setShowDonate(true)}>
+                  <Heart className="h-4 w-4 mr-2" />
+                  Support Bitcoin Projects
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 
@@ -370,7 +391,7 @@ export function BudgetHeader({
         </DialogContent>
       </Dialog>
 
-      {/* About Dialog (for guests) */}
+      {/* About Dialog */}
       <Dialog open={showAbout} onOpenChange={setShowAbout}>
         <DialogContent className="sm:max-w-[500px] max-h-[85vh]">
           <DialogHeader>
@@ -420,21 +441,114 @@ export function BudgetHeader({
                   When you log in with Nostr, your budget syncs securely using your own keys.
                 </p>
               </div>
+            </div>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bitcoin Education Dialog */}
+      <Dialog open={showBitcoinEdu} onOpenChange={setShowBitcoinEdu}>
+        <DialogContent className="sm:max-w-[500px] max-h-[85vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <GraduationCap className="h-5 w-5 text-primary" />
+              Learn About Bitcoin
+            </DialogTitle>
+            <DialogDescription>
+              Understanding sound money
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="max-h-[60vh] pr-4">
+            <div className="space-y-6 py-4">
+              <div className="space-y-2">
+                <h3 className="font-semibold flex items-center gap-2">
+                  <Bitcoin className="h-4 w-4 text-primary" />
+                  What is Bitcoin?
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  Bitcoin is a decentralized digital currency that operates without a central bank or single administrator.
+                  It was created in 2009 by an anonymous person (or group) using the pseudonym Satoshi Nakamoto.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="font-semibold flex items-center gap-2">
+                  <Shield className="h-4 w-4 text-primary" />
+                  Why is Bitcoin Sound Money?
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  Unlike fiat currencies that governments can print at will, Bitcoin has a fixed supply of 21 million coins.
+                  This scarcity makes it resistant to inflation. When you save in Bitcoin, your purchasing power is protected
+                  from the devaluation that affects traditional currencies.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="font-semibold flex items-center gap-2">
+                  <Zap className="h-4 w-4 text-primary" />
+                  What are Satoshis (Sats)?
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  A satoshi (or "sat") is the smallest unit of Bitcoin. Just like a dollar has 100 cents,
+                  1 Bitcoin has 100,000,000 satoshis. This makes Bitcoin highly divisible and practical for
+                  everyday transactions of any size.
+                </p>
+                <div className="bg-muted p-3 rounded-lg mt-2">
+                  <p className="text-sm font-mono text-center">
+                    1 BTC = 100,000,000 sats
+                  </p>
+                </div>
+              </div>
 
               <div className="space-y-2">
                 <h3 className="font-semibold flex items-center gap-2">
                   <Globe className="h-4 w-4 text-primary" />
-                  Why Bitcoin?
+                  The Lightning Network
                 </h3>
                 <p className="text-sm text-muted-foreground">
-                  Bitcoin is sound money. Unlike fiat currencies that lose value every year through inflation,
-                  Bitcoin has a fixed supply of 21 million coins. When you budget in sats, you're planning
-                  with money that can't be devalued by central banks.
+                  The Lightning Network is a "layer 2" payment protocol built on top of Bitcoin.
+                  It enables instant, low-cost transactions — perfect for everyday purchases.
+                  Sat Sorter can connect to your Lightning wallet to automatically track your spending.
                 </p>
-                <p className="text-sm text-muted-foreground mt-2">
-                  <strong>Fun fact:</strong> 1 Bitcoin = 100,000,000 satoshis (sats).
-                  That's why we count every sat — they add up!
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="font-semibold">The Dollar's Decline</h3>
+                <p className="text-sm text-muted-foreground">
+                  Since the Federal Reserve was created in 1913, the US dollar has lost over 96% of its purchasing power.
+                  What cost $1 in 1913 would cost over $30 today. Bitcoin offers an alternative — money that can't be
+                  inflated away by central banks.
                 </p>
+              </div>
+
+              <div className="border-t pt-4 mt-4">
+                <p className="text-sm font-medium mb-2">Learn More</p>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => window.open('https://bitcoin.org', '_blank')}
+                  >
+                    <ExternalLink className="h-3 w-3 mr-1" />
+                    Bitcoin.org
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => window.open('https://hope.com', '_blank')}
+                  >
+                    <ExternalLink className="h-3 w-3 mr-1" />
+                    Hope.com
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => window.open('https://21lessons.com', '_blank')}
+                  >
+                    <ExternalLink className="h-3 w-3 mr-1" />
+                    21 Lessons
+                  </Button>
+                </div>
               </div>
             </div>
           </ScrollArea>
@@ -535,6 +649,13 @@ export function BudgetHeader({
           </ScrollArea>
         </DialogContent>
       </Dialog>
+
+      {/* Login Dialog */}
+      <LoginDialog
+        isOpen={showLogin}
+        onClose={() => setShowLogin(false)}
+        onLogin={() => setShowLogin(false)}
+      />
     </header>
   );
 }
