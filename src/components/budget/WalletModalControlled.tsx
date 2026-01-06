@@ -435,8 +435,8 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
     return (
       <>
         <Drawer open={open} onOpenChange={onOpenChange}>
-          <DrawerContent className="h-full">
-            <DrawerHeader className="text-center relative">
+          <DrawerContent className="max-h-[90vh] flex flex-col">
+            <DrawerHeader className="text-center relative flex-shrink-0">
               <DrawerClose asChild>
                 <Button variant="ghost" size="sm" className="absolute right-4 top-4">
                   <X className="h-4 w-4" />
@@ -451,27 +451,29 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
                 Connect your wallet to track transactions automatically.
               </DrawerDescription>
             </DrawerHeader>
-            <div className="overflow-y-auto">
+            <div className="flex-1 overflow-y-auto overscroll-contain pb-8">
               <WalletContent {...walletContentProps} />
             </div>
           </DrawerContent>
         </Drawer>
         {/* Render Add Wallet as a separate Drawer for mobile */}
         <Drawer open={addDialogOpen} onOpenChange={setAddDialogOpen}>
-          <DrawerContent>
-            <DrawerHeader>
+          <DrawerContent className="max-h-[85vh] flex flex-col">
+            <DrawerHeader className="flex-shrink-0">
               <DrawerTitle>Connect NWC Wallet</DrawerTitle>
               <DrawerDescription>
                 Enter your connection string from a compatible wallet.
               </DrawerDescription>
             </DrawerHeader>
-            <AddWalletContent
-              alias={alias}
-              setAlias={setAlias}
-              connectionUri={connectionUri}
-              setConnectionUri={setConnectionUri}
-            />
-            <div className="p-4">
+            <div className="flex-1 overflow-y-auto overscroll-contain">
+              <AddWalletContent
+                alias={alias}
+                setAlias={setAlias}
+                connectionUri={connectionUri}
+                setConnectionUri={setConnectionUri}
+              />
+            </div>
+            <div className="p-4 flex-shrink-0 border-t bg-background">
               <Button
                 onClick={handleAddConnection}
                 disabled={isConnecting || !connectionUri.trim()}

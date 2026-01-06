@@ -101,7 +101,8 @@ export function BudgetHeader({
   const { user } = useCurrentUser();
   const { config, updateConfig } = useAppContext();
 
-  const logoStyle = config.logoStyle || 'bitcoin';
+  // Default to lightning bolt (sats), user can toggle to bitcoin
+  const logoStyle = config.logoStyle || 'sats';
 
   const toggleLogo = () => {
     updateConfig((c) => ({ ...c, logoStyle: c.logoStyle === 'sats' ? 'bitcoin' : 'sats' }));

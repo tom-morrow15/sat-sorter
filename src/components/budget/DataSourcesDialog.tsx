@@ -615,8 +615,8 @@ export function DataSourcesDialog({ open, onOpenChange }: DataSourcesDialogProps
   if (isMobile) {
     return (
       <Drawer open={open} onOpenChange={onOpenChange}>
-        <DrawerContent className="max-h-[90vh]">
-          <DrawerHeader className="text-center relative">
+        <DrawerContent className="max-h-[90vh] flex flex-col">
+          <DrawerHeader className="text-center relative flex-shrink-0">
             <DrawerClose asChild>
               <Button variant="ghost" size="sm" className="absolute right-4 top-4">
                 <X className="h-4 w-4" />
@@ -630,7 +630,7 @@ export function DataSourcesDialog({ open, onOpenChange }: DataSourcesDialogProps
               Connect your wallets and import transactions
             </DrawerDescription>
           </DrawerHeader>
-          <div className="overflow-y-auto px-4 pb-6">
+          <div className="flex-1 overflow-y-auto overscroll-contain px-4 pb-8">
             <DataSourcesContent onClose={handleClose} />
           </div>
         </DrawerContent>

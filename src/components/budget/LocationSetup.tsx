@@ -349,8 +349,8 @@ export function LocationSetup({ open, onOpenChange }: LocationSetupProps) {
   if (isMobile) {
     return (
       <Drawer open={open} onOpenChange={onOpenChange}>
-        <DrawerContent className="max-h-[85vh]">
-          <DrawerHeader className="text-center relative pb-2">
+        <DrawerContent className="max-h-[90vh] flex flex-col">
+          <DrawerHeader className="text-center relative pb-2 flex-shrink-0">
             <DrawerClose asChild>
               <Button variant="ghost" size="sm" className="absolute right-4 top-4">
                 <X className="h-4 w-4" />
@@ -364,7 +364,7 @@ export function LocationSetup({ open, onOpenChange }: LocationSetupProps) {
               Select your location to discover nearby Bitcoin-friendly businesses
             </DrawerDescription>
           </DrawerHeader>
-          <div className="overflow-y-auto px-4 pb-6">
+          <div className="flex-1 overflow-y-auto overscroll-contain px-4 pb-8">
             <LocationSetupContent onClose={handleClose} />
           </div>
         </DrawerContent>

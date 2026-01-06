@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Plus, Bitcoin, Zap, Wallet, Info } from 'lucide-react';
+import { Plus, Bitcoin, Zap, Wallet, Info, Copy } from 'lucide-react';
 import { useSeoMeta, useHead } from '@unhead/react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -40,6 +40,9 @@ export default function Budget() {
     addTransaction,
     assignTransaction,
     deleteTransaction,
+    duplicateFromMonth,
+    getPreviousMonth,
+    hasPreviousMonthBudget,
   } = useBudget();
 
   useSeoMeta({
@@ -216,10 +219,21 @@ export default function Budget() {
                 <p className="text-muted-foreground text-sm max-w-md mx-auto mb-4">
                   Create expense categories to organize your spending. Give every sat a job.
                 </p>
-                <Button onClick={() => setShowAddBucket(true)}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Your First Category
-                </Button>
+                <div className="flex flex-col sm:flex-row gap-2 justify-center">
+                  {hasPreviousMonthBudget && (
+                    <Button
+                      variant="outline"
+                      onClick={() => duplicateFromMonth(getPreviousMonth())}
+                    >
+                      <Copy className="h-4 w-4 mr-2" />
+                      Copy from Last Month
+                    </Button>
+                  )}
+                  <Button onClick={() => setShowAddBucket(true)}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    {hasPreviousMonthBudget ? 'Start Fresh' : 'Add Your First Category'}
+                  </Button>
+                </div>
               </div>
             )}
           </div>

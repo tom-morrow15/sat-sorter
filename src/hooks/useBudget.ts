@@ -39,7 +39,7 @@ export function useBudget() {
     setState(prev => {
       const existingIndex = prev.budgets.findIndex(b => b.month === budget.month);
       const newBudgets = [...prev.budgets];
-      
+
       if (existingIndex >= 0) {
         newBudgets[existingIndex] = budget;
       } else {
@@ -230,6 +230,45 @@ export function useBudget() {
     return Array.from(months).sort().reverse();
   }, [state.budgets, state.currentMonth]);
 
+  // Duplicate budget from a previous month (copies buckets and line items with amounts, not transactions)
+  const duplicateFromMonth = useCallback((sourceMonth: string) => {
+    const sourceBudget = state.budgets.find(b => b.month === sourceMonth);
+    if (!sourceBudget) return false;
+
+    // Create new buckets with new IDs but same structure and amounts
+    const newBuckets = sourceBudget.buckets.map(bucket => ({
+      ...bucket,
+      id: generateId(),
+      lineItems: bucket.lineItems.map(item => ({
+        ...item,
+        id: generateId(),
+      })),
+    }));
+
+    const newBudget: MonthlyBudget = {
+      id: generateId(),
+      month: state.currentMonth,
+      buckets: newBuckets,
+      transactions: [], // Start fresh with transactions
+    };
+
+    saveBudget(newBudget);
+    return true;
+  }, [state.budgets, state.currentMonth, saveBudget]);
+
+  // Get the previous month string
+  const getPreviousMonth = useCallback(() => {
+    const [year, month] = state.currentMonth.split('-').map(Number);
+    const prevDate = new Date(year, month - 2);
+    return `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
+  }, [state.currentMonth]);
+
+  // Check if previous month has a budget
+  const hasPreviousMonthBudget = useMemo(() => {
+    const prevMonth = getPreviousMonth();
+    return state.budgets.some(b => b.month === prevMonth);
+  }, [state.budgets, getPreviousMonth]);
+
   return {
     // State
     currentBudget,
@@ -256,5 +295,10 @@ export function useBudget() {
     updateTransaction,
     deleteTransaction,
     assignTransaction,
+
+    // Budget duplication
+    duplicateFromMonth,
+    getPreviousMonth,
+    hasPreviousMonthBudget,
   };
 }
