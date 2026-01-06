@@ -92,11 +92,16 @@ export function QuickAddFAB({ onAddTransaction, currency }: QuickAddFABProps) {
         onClick={() => setOpen(true)}
         className={cn(
           'fixed bottom-6 right-6 z-40',
+          'sm:bottom-6 sm:right-6',
           'h-14 w-14 rounded-full shadow-lg hover:shadow-xl',
           'flex items-center justify-center transition-all duration-200',
           'bg-primary text-primary-foreground hover:bg-primary/90',
           'active:scale-95'
         )}
+        style={{
+          bottom: 'max(1.5rem, env(safe-area-inset-bottom))',
+          right: 'max(1.5rem, env(safe-area-inset-right))',
+        }}
       >
         <Plus className="h-6 w-6" />
       </button>

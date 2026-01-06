@@ -229,7 +229,7 @@ export function TransactionsPanel({
                 <CheckCircle2 className="h-4 w-4 text-success" />
                 <span className="text-sm font-medium">Categorized</span>
               </div>
-              <ScrollArea className="max-h-[300px]">
+              <ScrollArea className="max-h-[300px] w-full">
                 <div className="space-y-1">
                   {assigned.slice(0, 10).map((transaction) => {
                     const bucket = buckets.find(b => b.id === transaction.bucketId);
@@ -312,7 +312,7 @@ export function TransactionsPanel({
                   Search Results ({filteredTransactions.length})
                 </span>
               </div>
-              <ScrollArea className="max-h-[300px]">
+              <ScrollArea className="max-h-[300px] w-full">
                 <div className="space-y-1">
                   {filteredTransactions.map((transaction) => {
                     const bucket = buckets.find(b => b.id === transaction.bucketId);

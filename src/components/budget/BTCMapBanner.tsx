@@ -370,7 +370,7 @@ export function BTCMapBanner() {
           </div>
 
           {/* Scrollable merchant cards */}
-          <ScrollArea className="w-full">
+          <ScrollArea className="w-full -mx-3 sm:-mx-4 px-3 sm:px-4">
             <div className="flex gap-2 sm:gap-3 pb-2">
               {merchants.slice(0, 15).map((merchant) => (
                 <MerchantCard

@@ -91,7 +91,7 @@ export default function Budget() {
         onOpenWallet={() => setShowWalletModal(true)}
       />
 
-      <main className="container mx-auto px-4 py-4 lg:py-6">
+      <main className="container mx-auto px-3 sm:px-4 py-4 lg:py-6">
         {/* Alerts Section - Full width */}
         <div className="space-y-3 mb-4">
           {/* Login prompt for guests */}
@@ -218,7 +218,7 @@ export default function Budget() {
 
           {/* Right Column - Transactions */}
           <div className="lg:col-span-5 xl:col-span-4">
-            <div className="lg:sticky lg:top-[260px]">
+            <div className="lg:sticky lg:top-6">
               <TransactionsPanel
                 transactions={currentBudget.transactions}
                 buckets={currentBudget.buckets}

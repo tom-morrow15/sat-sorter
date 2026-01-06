@@ -78,8 +78,8 @@ export function BudgetHeader({
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container mx-auto px-4">
+    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 safe-top">
+      <div className="container mx-auto px-3 sm:px-4">
         {/* Top bar with logo and actions */}
         <div className="flex h-14 items-center justify-between">
           <div className="flex items-center gap-2 sm:gap-3">
@@ -142,9 +142,9 @@ export function BudgetHeader({
             {/* Wallet Button */}
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button 
-                  variant="outline" 
-                  size="icon" 
+                <Button
+                  variant="outline"
+                  size="icon"
                   onClick={onOpenWallet}
                   className="h-8 w-8 sm:h-9 sm:w-9"
                 >
@@ -155,9 +155,9 @@ export function BudgetHeader({
             </Tooltip>
 
             {/* Theme Toggle */}
-            <Button 
-              variant="ghost" 
-              size="icon" 
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={toggleTheme}
               className="h-8 w-8 sm:h-9 sm:w-9"
             >
