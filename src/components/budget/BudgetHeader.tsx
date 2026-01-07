@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bitcoin, DollarSign, ChevronLeft, ChevronRight, Wallet, Moon, Sun, Zap, Calendar, Menu, Info, Heart, ExternalLink, Shield, Globe, GraduationCap, User, LogIn, UserPlus, Cloud } from 'lucide-react';
+import { Bitcoin, DollarSign, ChevronLeft, ChevronRight, Wallet, Moon, Sun, Zap, Calendar, Menu, Info, Heart, ExternalLink, Shield, Globe, GraduationCap, User, LogIn, UserPlus, Cloud, Loader2, Check, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -46,6 +46,7 @@ interface BudgetHeaderProps {
   onOpenWallet: () => void;
   onSelectMonth?: (month: string) => void;
   unassignedCount?: number;
+  syncStatus?: 'idle' | 'syncing' | 'synced' | 'error';
 }
 
 export function BudgetHeader({
@@ -58,6 +59,7 @@ export function BudgetHeader({
   onOpenWallet,
   onSelectMonth,
   unassignedCount = 0,
+  syncStatus = 'idle',
 }: BudgetHeaderProps) {
   const { data: priceData, isLoading: priceLoading } = useBitcoinPrice();
   const { isDark, toggle: toggleTheme } = useTheme();
@@ -342,6 +344,30 @@ export function BudgetHeader({
               </p>
             </div>
           </div>
+
+          {/* Cloud Sync Status - Show when syncing, synced, or error */}
+          {syncStatus !== 'idle' && (
+            <div className="flex justify-center">
+              {syncStatus === 'syncing' && (
+                <Badge variant="outline" className="text-xs gap-1.5">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Syncing to cloud...
+                </Badge>
+              )}
+              {syncStatus === 'synced' && (
+                <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-xs gap-1.5">
+                  <Check className="h-3 w-3" />
+                  Synced to cloud
+                </Badge>
+              )}
+              {syncStatus === 'error' && (
+                <Badge variant="destructive" className="text-xs gap-1.5">
+                  <AlertCircle className="h-3 w-3" />
+                  Sync failed
+                </Badge>
+              )}
+            </div>
+          )}
 
           {/* Zero-based budget indicator */}
           <div className="flex justify-center">

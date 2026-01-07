@@ -391,39 +391,12 @@ export function LocationSetup({ open, onOpenChange }: LocationSetupProps) {
 
   const handleClose = () => onOpenChange(false);
 
-  if (isMobile) {
-    return (
-      <Drawer open={open} onOpenChange={onOpenChange}>
-        <DrawerContent className="max-h-[85vh] flex flex-col">
-          <DrawerHeader className="text-center relative pb-2 flex-shrink-0">
-            <DrawerClose asChild>
-              <Button variant="ghost" size="sm" className="absolute right-4 top-4">
-                <X className="h-4 w-4" />
-              </Button>
-            </DrawerClose>
-            <DrawerTitle className="flex items-center justify-center gap-2">
-              <MapPin className="h-5 w-5 text-primary" />
-              Find Bitcoin Merchants
-            </DrawerTitle>
-            <DrawerDescription>
-              Select your location to discover nearby Bitcoin-friendly businesses
-            </DrawerDescription>
-          </DrawerHeader>
-          <div
-            className="flex-1 overflow-y-auto overscroll-contain px-4 pb-safe-bottom"
-            style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom))' }}
-          >
-            <LocationSetupContent onClose={handleClose} />
-          </div>
-        </DrawerContent>
-      </Drawer>
-    );
-  }
-
+  // Use Dialog on both mobile and desktop for consistent, fixed positioning
+  // This prevents the dialog from being affected by keyboard/scroll issues
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[420px]">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-[420px] max-h-[90vh] overflow-y-auto">
+        <DialogHeader className="sticky top-0 bg-background z-10 pb-2">
           <DialogTitle className="flex items-center gap-2">
             <MapPin className="h-5 w-5 text-primary" />
             Find Bitcoin Merchants

@@ -247,16 +247,28 @@ export function BTCMapBanner() {
     try {
       const result = await refetch();
       console.log('[BTCMapBanner] Refetch result:', result);
-      const count = result?.data?.length || 0;
+
+      // Handle both possible return formats
+      let count = 0;
+      if (result?.data?.length !== undefined) {
+        // Direct array format
+        count = result.data.length;
+      } else if (result?.data?.data?.length !== undefined) {
+        // Nested format from query result
+        count = result.data.data.length;
+      }
+
       toast({
         title: 'Merchants refreshed!',
-        description: `Found ${count.toLocaleString()} Bitcoin merchants worldwide`,
+        description: count > 0
+          ? `Found ${count.toLocaleString()} Bitcoin merchants`
+          : 'Merchant data refreshed',
       });
     } catch (error) {
       console.error('[BTCMapBanner] Refresh error:', error);
       toast({
         title: 'Refresh failed',
-        description: 'Could not refresh merchant data. Please try again.',
+        description: error instanceof Error ? error.message : 'Could not refresh merchant data. Please try again.',
         variant: 'destructive',
       });
     } finally {

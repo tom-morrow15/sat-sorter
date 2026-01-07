@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { Plus, Bitcoin, Zap, Wallet, Info, Copy } from 'lucide-react';
+import { useState, useMemo, useEffect, useRef } from 'react';
+import { Plus, Bitcoin, Zap, Wallet, Info, Copy, Cloud, Loader2 } from 'lucide-react';
 import { useSeoMeta, useHead } from '@unhead/react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -16,10 +16,13 @@ import { useBudget } from '@/hooks/useBudget';
 import { useWallet } from '@/hooks/useWallet';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useBTCMap } from '@/hooks/useBTCMap';
+import { useBudgetSync } from '@/hooks/useBudgetSync';
 
 export default function Budget() {
   const [showAddBucket, setShowAddBucket] = useState(false);
   const [showWalletModal, setShowWalletModal] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'synced' | 'error'>('idle');
+  const syncTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
 
   const { user } = useCurrentUser();
   const { hasNWC } = useWallet();
@@ -45,6 +48,8 @@ export default function Budget() {
     hasPreviousMonthBudget,
   } = useBudget();
 
+  const { uploadBudget, downloadBudget, canSync } = useBudgetSync();
+
   useSeoMeta({
     title: 'Sat Sorter - Bitcoin Budget App',
     description: 'Zero-based budgeting on a Bitcoin standard. Give every sat a job.',
@@ -55,6 +60,61 @@ export default function Budget() {
       { rel: 'icon', type: 'image/svg+xml', href: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">₿</text></svg>' },
     ],
   });
+
+  // Load budget from cloud when user logs in
+  useEffect(() => {
+    if (!canSync) return;
+
+    const loadCloudBudget = async () => {
+      try {
+        setSyncStatus('syncing');
+        const cloudBudget = await downloadBudget();
+        if (cloudBudget) {
+          console.log('[Budget] Loaded budget from cloud');
+          // Budget state is already synced by the download
+        }
+        setSyncStatus('synced');
+        // Show synced status for 2 seconds
+        syncTimeoutRef.current = setTimeout(() => setSyncStatus('idle'), 2000);
+      } catch (error) {
+        console.error('[Budget] Failed to load cloud budget:', error);
+        setSyncStatus('error');
+        syncTimeoutRef.current = setTimeout(() => setSyncStatus('idle'), 3000);
+      }
+    };
+
+    loadCloudBudget();
+
+    return () => {
+      if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
+    };
+  }, [canSync, downloadBudget]);
+
+  // Auto-save budget to cloud when it changes
+  useEffect(() => {
+    if (!canSync) return;
+
+    // Debounce cloud sync to avoid too many API calls
+    const debounceTimer = setTimeout(async () => {
+      try {
+        setSyncStatus('syncing');
+        await uploadBudget(currentBudget);
+        console.log('[Budget] Budget synced to cloud');
+        setSyncStatus('synced');
+        // Show synced status for 2 seconds
+        syncTimeoutRef.current = setTimeout(() => setSyncStatus('idle'), 2000);
+      } catch (error) {
+        console.error('[Budget] Failed to sync budget to cloud:', error);
+        setSyncStatus('error');
+        syncTimeoutRef.current = setTimeout(() => setSyncStatus('idle'), 3000);
+      }
+    }, 1000);
+
+    return () => {
+      clearTimeout(debounceTimer);
+      if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
+    };
+  }, [currentBudget, canSync, uploadBudget]);
 
   // Month navigation
   const handlePreviousMonth = () => {
@@ -100,6 +160,7 @@ export default function Budget() {
         onOpenWallet={() => setShowWalletModal(true)}
         onSelectMonth={setCurrentMonth}
         unassignedCount={unassignedCount}
+        syncStatus={syncStatus}
       />
 
       <main className="container mx-auto px-3 sm:px-4 py-4 lg:py-6">

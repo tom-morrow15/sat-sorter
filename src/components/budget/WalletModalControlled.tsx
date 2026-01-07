@@ -12,14 +12,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import {
-  Drawer,
-  DrawerContent,
-  DrawerDescription,
-  DrawerHeader,
-  DrawerTitle,
-  DrawerClose,
-} from '@/components/ui/drawer';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -456,120 +448,13 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
     onOpenDataSources: () => setShowDataSources(true),
   };
 
-  const addWalletDialog = (
-    <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle>Connect NWC Wallet</DialogTitle>
-          <DialogDescription>
-            Enter your connection string or scan a QR code.
-          </DialogDescription>
-        </DialogHeader>
-        <AddWalletContent
-          alias={alias}
-          setAlias={setAlias}
-          connectionUri={connectionUri}
-          setConnectionUri={setConnectionUri}
-          onScanQR={() => setShowQRScanner(true)}
-        />
-        <DialogFooter className="px-4">
-          <Button
-            onClick={handleAddConnection}
-            disabled={isConnecting || !connectionUri.trim()}
-            className="w-full"
-          >
-            {isConnecting ? 'Connecting...' : 'Connect'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-
-  if (isMobile) {
-    return (
-      <>
-        <Drawer open={open} onOpenChange={onOpenChange}>
-          <DrawerContent className="max-h-[85vh] flex flex-col">
-            <DrawerHeader className="text-center relative flex-shrink-0">
-              <DrawerClose asChild>
-                <Button variant="ghost" size="sm" className="absolute right-4 top-4">
-                  <X className="h-4 w-4" />
-                  <span className="sr-only">Close</span>
-                </Button>
-              </DrawerClose>
-              <DrawerTitle className="flex items-center justify-center gap-2 pt-2">
-                <Wallet className="h-5 w-5" />
-                Lightning Wallet
-              </DrawerTitle>
-              <DrawerDescription>
-                Connect your wallet to track transactions automatically.
-              </DrawerDescription>
-            </DrawerHeader>
-            <div
-              className="flex-1 overflow-y-auto overscroll-contain"
-              style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom))' }}
-            >
-              <WalletContent {...walletContentProps} />
-            </div>
-          </DrawerContent>
-        </Drawer>
-        {/* Render Add Wallet as a separate Drawer for mobile */}
-        <Drawer open={addDialogOpen} onOpenChange={setAddDialogOpen}>
-          <DrawerContent className="max-h-[80vh] flex flex-col">
-            <DrawerHeader className="flex-shrink-0 relative">
-              <DrawerClose asChild>
-                <Button variant="ghost" size="sm" className="absolute right-4 top-4">
-                  <X className="h-4 w-4" />
-                </Button>
-              </DrawerClose>
-              <DrawerTitle>Connect NWC Wallet</DrawerTitle>
-              <DrawerDescription>
-                Enter your connection string or scan a QR code.
-              </DrawerDescription>
-            </DrawerHeader>
-            <div
-              className="flex-1 overflow-y-auto overscroll-contain"
-              style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
-            >
-              <AddWalletContent
-                alias={alias}
-                setAlias={setAlias}
-                connectionUri={connectionUri}
-                setConnectionUri={setConnectionUri}
-                onScanQR={() => setShowQRScanner(true)}
-              />
-            </div>
-            <div
-              className="p-4 flex-shrink-0 border-t bg-background"
-              style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}
-            >
-              <Button
-                onClick={handleAddConnection}
-                disabled={isConnecting || !connectionUri.trim()}
-                className="w-full"
-              >
-                {isConnecting ? 'Connecting...' : 'Connect'}
-              </Button>
-            </div>
-          </DrawerContent>
-        </Drawer>
-        <DataSourcesDialog open={showDataSources} onOpenChange={setShowDataSources} />
-        <QRScanner
-          open={showQRScanner}
-          onOpenChange={setShowQRScanner}
-          onScan={handleQRScan}
-          title="Scan NWC QR Code"
-          description="Scan the QR code from your wallet app"
-        />
-      </>
-    );
-  }
-
+  // Use Dialog on both mobile and desktop for consistent, fixed positioning
+  // This prevents the dialog from being affected by keyboard/scroll issues
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-[500px] max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader className="sticky top-0 bg-background z-10 pb-2">
             <DialogTitle className="flex items-center gap-2">
               <Wallet className="h-5 w-5" />
               Lightning Wallet
@@ -581,7 +466,32 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
           <WalletContent {...walletContentProps} />
         </DialogContent>
       </Dialog>
-      {addWalletDialog}
+      <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+        <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Connect NWC Wallet</DialogTitle>
+            <DialogDescription>
+              Enter your connection string or scan a QR code.
+            </DialogDescription>
+          </DialogHeader>
+          <AddWalletContent
+            alias={alias}
+            setAlias={setAlias}
+            connectionUri={connectionUri}
+            setConnectionUri={setConnectionUri}
+            onScanQR={() => setShowQRScanner(true)}
+          />
+          <DialogFooter className="px-4 pt-2">
+            <Button
+              onClick={handleAddConnection}
+              disabled={isConnecting || !connectionUri.trim()}
+              className="w-full"
+            >
+              {isConnecting ? 'Connecting...' : 'Connect'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <DataSourcesDialog open={showDataSources} onOpenChange={setShowDataSources} />
       <QRScanner
         open={showQRScanner}

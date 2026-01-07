@@ -429,16 +429,22 @@ export function useBTCMap() {
   // Force refetch that invalidates cache first to ensure fresh data
   const forceRefetch = useCallback(async () => {
     console.log('[BTCMap] Manual refresh triggered');
-    // Invalidate the cache to force a fresh fetch
-    await queryClient.invalidateQueries({ queryKey: ['btcmap-all-merchants'] });
-    // Refetch returns immediately with cached data, need to get fresh
-    const result = await queryClient.fetchQuery({
-      queryKey: ['btcmap-all-merchants'],
-      queryFn: fetchAllMerchants,
-      staleTime: 0, // Force fresh fetch
-    });
-    console.log('[BTCMap] Refresh complete, got', result?.length, 'merchants');
-    return { data: result };
+    try {
+      // First, invalidate the cache completely
+      await queryClient.invalidateQueries({ queryKey: ['btcmap-all-merchants'] });
+
+      // Then fetch fresh data directly from the API
+      const freshMerchants = await fetchAllMerchants();
+
+      // Update the cache with the fresh data
+      queryClient.setQueryData(['btcmap-all-merchants'], freshMerchants);
+
+      console.log('[BTCMap] Refresh complete, got', freshMerchants.length, 'merchants');
+      return { data: freshMerchants };
+    } catch (error) {
+      console.error('[BTCMap] Refresh failed:', error);
+      throw error;
+    }
   }, [queryClient]);
 
   // Filter by user's location
