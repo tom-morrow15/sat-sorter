@@ -1,4 +1,4 @@
-import { useState, forwardRef } from 'react';
+import { useState, forwardRef, useEffect, useRef } from 'react';
 import {
   Wallet, Plus, Trash2, Zap, Globe, WalletMinimal, CheckCircle, X,
   RefreshCw, Clock, FileSpreadsheet, Link2, QrCode
@@ -48,45 +48,74 @@ const AddWalletContent = forwardRef<HTMLDivElement, {
   connectionUri: string;
   setConnectionUri: (value: string) => void;
   onScanQR?: () => void;
-}>(({ alias, setAlias, connectionUri, setConnectionUri, onScanQR }, ref) => (
-  <div className="space-y-4 px-4" ref={ref}>
-    <div>
-      <Label htmlFor="alias">Wallet Name (optional)</Label>
-      <Input
-        id="alias"
-        placeholder="My Lightning Wallet"
-        value={alias}
-        onChange={(e) => setAlias(e.target.value)}
-      />
-    </div>
-    <div>
-      <Label htmlFor="connection-uri">Connection URI</Label>
-      <Textarea
-        id="connection-uri"
-        placeholder="nostr+walletconnect://..."
-        value={connectionUri}
-        onChange={(e) => setConnectionUri(e.target.value)}
-        rows={3}
-      />
-      <div className="flex items-center justify-between mt-2">
-        <p className="text-xs text-muted-foreground">
-          Get this from your wallet app (e.g., Alby, Zeus, Primal).
-        </p>
-        {onScanQR && (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={onScanQR}
-          >
-            <QrCode className="h-4 w-4 mr-1" />
-            Scan
-          </Button>
-        )}
+}>(({ alias, setAlias, connectionUri, setConnectionUri, onScanQR }, ref) => {
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  // Handle keyboard visibility on mobile - scroll focused input into view
+  useEffect(() => {
+    const handleFocus = (e: FocusEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        // Use setTimeout to wait for keyboard to appear
+        setTimeout(() => {
+          e.target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 300);
+      }
+    };
+
+    const container = contentRef.current;
+    if (container) {
+      container.addEventListener('focusin', handleFocus);
+      return () => {
+        container.removeEventListener('focusin', handleFocus);
+      };
+    }
+  }, []);
+
+  return (
+    <div className="space-y-4 px-4" ref={(node) => {
+      // Handle both refs
+      if (typeof ref === 'function') ref(node);
+      else if (ref) ref.current = node;
+      (contentRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+    }}>
+      <div>
+        <Label htmlFor="alias">Wallet Name (optional)</Label>
+        <Input
+          id="alias"
+          placeholder="My Lightning Wallet"
+          value={alias}
+          onChange={(e) => setAlias(e.target.value)}
+        />
+      </div>
+      <div>
+        <Label htmlFor="connection-uri">Connection URI</Label>
+        <Textarea
+          id="connection-uri"
+          placeholder="nostr+walletconnect://..."
+          value={connectionUri}
+          onChange={(e) => setConnectionUri(e.target.value)}
+          rows={3}
+        />
+        <div className="flex items-center justify-between mt-2">
+          <p className="text-xs text-muted-foreground">
+            Get this from your wallet app (e.g., Alby, Zeus, Primal).
+          </p>
+          {onScanQR && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onScanQR}
+            >
+              <QrCode className="h-4 w-4 mr-1" />
+              Scan
+            </Button>
+          )}
+        </div>
       </div>
     </div>
-  </div>
-));
+  );
+});
 AddWalletContent.displayName = 'AddWalletContent';
 
 // Format relative time
@@ -460,7 +489,7 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
     return (
       <>
         <Drawer open={open} onOpenChange={onOpenChange}>
-          <DrawerContent className="max-h-[90vh] flex flex-col">
+          <DrawerContent className="max-h-[85vh] flex flex-col">
             <DrawerHeader className="text-center relative flex-shrink-0">
               <DrawerClose asChild>
                 <Button variant="ghost" size="sm" className="absolute right-4 top-4">
@@ -476,21 +505,32 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
                 Connect your wallet to track transactions automatically.
               </DrawerDescription>
             </DrawerHeader>
-            <div className="flex-1 overflow-y-auto overscroll-contain pb-8">
+            <div
+              className="flex-1 overflow-y-auto overscroll-contain"
+              style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom))' }}
+            >
               <WalletContent {...walletContentProps} />
             </div>
           </DrawerContent>
         </Drawer>
         {/* Render Add Wallet as a separate Drawer for mobile */}
         <Drawer open={addDialogOpen} onOpenChange={setAddDialogOpen}>
-          <DrawerContent className="max-h-[85vh] flex flex-col">
-            <DrawerHeader className="flex-shrink-0">
+          <DrawerContent className="max-h-[80vh] flex flex-col">
+            <DrawerHeader className="flex-shrink-0 relative">
+              <DrawerClose asChild>
+                <Button variant="ghost" size="sm" className="absolute right-4 top-4">
+                  <X className="h-4 w-4" />
+                </Button>
+              </DrawerClose>
               <DrawerTitle>Connect NWC Wallet</DrawerTitle>
               <DrawerDescription>
                 Enter your connection string or scan a QR code.
               </DrawerDescription>
             </DrawerHeader>
-            <div className="flex-1 overflow-y-auto overscroll-contain">
+            <div
+              className="flex-1 overflow-y-auto overscroll-contain"
+              style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+            >
               <AddWalletContent
                 alias={alias}
                 setAlias={setAlias}
@@ -499,7 +539,10 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
                 onScanQR={() => setShowQRScanner(true)}
               />
             </div>
-            <div className="p-4 flex-shrink-0 border-t bg-background">
+            <div
+              className="p-4 flex-shrink-0 border-t bg-background"
+              style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}
+            >
               <Button
                 onClick={handleAddConnection}
                 disabled={isConnecting || !connectionUri.trim()}

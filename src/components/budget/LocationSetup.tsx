@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { MapPin, X, Shield, Check, AlertCircle, Navigation, Loader2, Search } from 'lucide-react';
 import {
   Dialog,
@@ -38,6 +38,8 @@ interface LocationSetupProps {
 function LocationSetupContent({ onClose }: { onClose: () => void }) {
   const { settings, updateLocation, updateRadius, clearLocation, hasLocation } = useLocationSettings();
   const { toast } = useToast();
+  const contentRef = useRef<HTMLDivElement>(null);
+  const activeInputRef = useRef<HTMLInputElement | null>(null);
 
   const [country, setCountry] = useState('');
   const [state, setState] = useState('');
@@ -46,6 +48,33 @@ function LocationSetupContent({ onClose }: { onClose: () => void }) {
   const [isSearching, setIsSearching] = useState(false);
   const [isDetecting, setIsDetecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Handle keyboard visibility on mobile - scroll focused input into view
+  useEffect(() => {
+    const handleFocus = (e: FocusEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        activeInputRef.current = e.target as HTMLInputElement;
+        // Use setTimeout to wait for keyboard to appear
+        setTimeout(() => {
+          e.target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 300);
+      }
+    };
+
+    const handleBlur = () => {
+      activeInputRef.current = null;
+    };
+
+    const container = contentRef.current;
+    if (container) {
+      container.addEventListener('focusin', handleFocus);
+      container.addEventListener('focusout', handleBlur);
+      return () => {
+        container.removeEventListener('focusin', handleFocus);
+        container.removeEventListener('focusout', handleBlur);
+      };
+    }
+  }, []);
 
   // Build location string and search
   const handleSearch = async () => {
@@ -181,7 +210,7 @@ function LocationSetupContent({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div className="space-y-4">
+    <div ref={contentRef} className="space-y-4">
       {/* Privacy notice */}
       <div className="flex items-start gap-3 p-3 rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800">
         <Shield className="h-5 w-5 text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" />
@@ -349,7 +378,7 @@ export function LocationSetup({ open, onOpenChange }: LocationSetupProps) {
   if (isMobile) {
     return (
       <Drawer open={open} onOpenChange={onOpenChange}>
-        <DrawerContent className="max-h-[90vh] flex flex-col">
+        <DrawerContent className="max-h-[85vh] flex flex-col">
           <DrawerHeader className="text-center relative pb-2 flex-shrink-0">
             <DrawerClose asChild>
               <Button variant="ghost" size="sm" className="absolute right-4 top-4">
@@ -364,7 +393,10 @@ export function LocationSetup({ open, onOpenChange }: LocationSetupProps) {
               Select your location to discover nearby Bitcoin-friendly businesses
             </DrawerDescription>
           </DrawerHeader>
-          <div className="flex-1 overflow-y-auto overscroll-contain px-4 pb-8">
+          <div
+            className="flex-1 overflow-y-auto overscroll-contain px-4 pb-safe-bottom"
+            style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom))' }}
+          >
             <LocationSetupContent onClose={handleClose} />
           </div>
         </DrawerContent>

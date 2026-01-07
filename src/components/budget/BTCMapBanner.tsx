@@ -13,6 +13,7 @@ import {
   Building,
   Loader2,
   Settings2,
+  RefreshCw,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -221,14 +222,25 @@ function MerchantDetailDialog({ merchant, open, onOpenChange }: MerchantDetailDi
 }
 
 export function BTCMapBanner() {
-  const { merchants, isLoading, hasLocation, settings, totalMerchants } = useBTCMap();
+  const { merchants, isLoading, hasLocation, settings, totalMerchants, refetch } = useBTCMap();
   const [selectedMerchant, setSelectedMerchant] = useState<(BTCMapElement & { distance: number }) | null>(null);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
   const [showLocationSetup, setShowLocationSetup] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const handleMerchantClick = (merchant: BTCMapElement & { distance: number }) => {
     setSelectedMerchant(merchant);
     setShowDetailDialog(true);
+  };
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await refetch();
+    } finally {
+      // Add a small delay so the animation is visible
+      setTimeout(() => setIsRefreshing(false), 500);
+    }
   };
 
   // No location set - show setup prompt
@@ -295,6 +307,15 @@ export function BTCMapBanner() {
               </div>
               <div className="flex items-center gap-2 w-full sm:w-auto">
                 <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleRefresh}
+                  disabled={isRefreshing || isLoading}
+                  className="flex-initial"
+                >
+                  <RefreshCw className={cn("h-4 w-4", (isRefreshing || isLoading) && "animate-spin")} />
+                </Button>
+                <Button
                   variant="outline"
                   size="sm"
                   onClick={() => setShowLocationSetup(true)}
@@ -349,6 +370,16 @@ export function BTCMapBanner() {
             </div>
             <div className="flex items-center gap-1 flex-shrink-0">
               <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0"
+                onClick={handleRefresh}
+                disabled={isRefreshing || isLoading}
+                title="Refresh merchants"
+              >
+                <RefreshCw className={cn("h-3.5 w-3.5", (isRefreshing || isLoading) && "animate-spin")} />
+              </Button>
+              <Button
                 variant="outline"
                 size="sm"
                 className="h-8 px-2 text-xs whitespace-nowrap"
@@ -360,7 +391,7 @@ export function BTCMapBanner() {
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-8 px-2 text-xs"
+                className="h-8 w-8 p-0"
                 onClick={() => window.open('https://btcmap.org', '_blank')}
                 title="View full map on BTCMap.org"
               >

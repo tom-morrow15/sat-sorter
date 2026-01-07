@@ -178,4 +178,31 @@
   .safe-bottom {
     padding-bottom: env(safe-area-inset-bottom);
   }
+
+  .pb-safe-bottom {
+    padding-bottom: max(2rem, env(safe-area-inset-bottom));
+  }
+}
+
+/* Mobile keyboard handling - prevent drawer from being pushed away */
+@supports (height: 100dvh) {
+  [data-vaul-drawer] {
+    max-height: 85dvh;
+  }
+}
+
+/* Ensure inputs remain accessible when keyboard is open */
+@media (max-width: 640px) {
+  /* Better scrolling in drawers and dialogs */
+  [data-vaul-drawer-content] {
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Prevent body scroll when drawer is open */
+  body[data-vaul-drawer-open="true"] {
+    overflow: hidden;
+    position: fixed;
+    width: 100%;
+  }
 }
