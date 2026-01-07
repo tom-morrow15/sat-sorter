@@ -34,9 +34,10 @@ import {
 interface LocationSetupProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onLocationSet?: () => void; // Callback when location is successfully set
 }
 
-function LocationSetupContent({ onClose }: { onClose: () => void }) {
+function LocationSetupContent({ onClose, onLocationSet }: { onClose: () => void; onLocationSet?: () => void }) {
   const { settings, updateLocation, updateRadius, clearLocation, hasLocation, toggleShowATMs } = useLocationSettings();
   const { toast } = useToast();
   const contentRef = useRef<HTMLDivElement>(null);
@@ -107,6 +108,8 @@ function LocationSetupContent({ onClose }: { onClose: () => void }) {
         description: `Finding Bitcoin merchants within ${selectedRadius} miles`,
       });
 
+      // Trigger callback to refresh merchants display
+      onLocationSet?.();
       onClose();
     } catch (err) {
       setError('Could not search location. Please try again.');
@@ -161,6 +164,8 @@ function LocationSetupContent({ onClose }: { onClose: () => void }) {
             description: `Finding Bitcoin merchants within ${selectedRadius} miles`,
           });
 
+          // Trigger callback to refresh merchants display
+          onLocationSet?.();
           onClose();
         } catch {
           // Even if reverse geocoding fails, we still have coords
@@ -169,6 +174,8 @@ function LocationSetupContent({ onClose }: { onClose: () => void }) {
             title: 'Location set!',
             description: `Finding Bitcoin merchants within ${selectedRadius} miles`,
           });
+          // Trigger callback to refresh merchants display
+          onLocationSet?.();
           onClose();
         }
 
@@ -386,7 +393,7 @@ function LocationSetupContent({ onClose }: { onClose: () => void }) {
   );
 }
 
-export function LocationSetup({ open, onOpenChange }: LocationSetupProps) {
+export function LocationSetup({ open, onOpenChange, onLocationSet }: LocationSetupProps) {
   const isMobile = useIsMobile();
 
   const handleClose = () => onOpenChange(false);
@@ -405,7 +412,7 @@ export function LocationSetup({ open, onOpenChange }: LocationSetupProps) {
             Select your location to discover nearby Bitcoin-friendly businesses
           </DialogDescription>
         </DialogHeader>
-        <LocationSetupContent onClose={handleClose} />
+        <LocationSetupContent onClose={handleClose} onLocationSet={onLocationSet} />
       </DialogContent>
     </Dialog>
   );

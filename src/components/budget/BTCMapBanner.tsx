@@ -281,6 +281,12 @@ export function BTCMapBanner() {
     toggleShowATMs();
   };
 
+  const handleLocationSet = () => {
+    // Automatically refresh merchants when location is set
+    console.log('[BTCMapBanner] Location set, auto-refreshing merchants');
+    handleRefresh();
+  };
+
   // No location set - show setup prompt
   if (!hasLocation) {
     return (
@@ -322,7 +328,7 @@ export function BTCMapBanner() {
           </CardContent>
         </Card>
 
-        <LocationSetup open={showLocationSetup} onOpenChange={setShowLocationSetup} />
+        <LocationSetup open={showLocationSetup} onOpenChange={setShowLocationSetup} onLocationSet={handleLocationSet} />
       </>
     );
   }
@@ -500,7 +506,7 @@ export function BTCMapBanner() {
       />
 
       {/* Location setup dialog */}
-      <LocationSetup open={showLocationSetup} onOpenChange={setShowLocationSetup} />
+      <LocationSetup open={showLocationSetup} onOpenChange={setShowLocationSetup} onLocationSet={handleLocationSet} />
     </>
   );
 }
