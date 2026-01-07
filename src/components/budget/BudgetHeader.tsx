@@ -127,6 +127,10 @@ export function BudgetHeader({
     updateConfig((c) => ({ ...c, logoStyle: c.logoStyle === 'sats' ? 'bitcoin' : 'sats' }));
   };
 
+  // App developer's pubkey for donations - will be set by project maintainer
+  // For now, we'll note that this should be configured
+  const DEVELOPER_PUBKEY = ''; // TODO: Replace with actual developer pubkey for zaps
+
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 safe-top">
       <div className="container mx-auto px-3 sm:px-4">
