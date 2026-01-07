@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { MapPin, X, Shield, Check, AlertCircle, Navigation, Loader2, Search } from 'lucide-react';
+import { MapPin, X, Shield, Check, AlertCircle, Navigation, Loader2, Search, Landmark } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -19,6 +19,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { useLocationSettings, geocodeLocation } from '@/hooks/useBTCMap';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useToast } from '@/hooks/useToast';
@@ -36,7 +37,7 @@ interface LocationSetupProps {
 }
 
 function LocationSetupContent({ onClose }: { onClose: () => void }) {
-  const { settings, updateLocation, updateRadius, clearLocation, hasLocation } = useLocationSettings();
+  const { settings, updateLocation, updateRadius, clearLocation, hasLocation, toggleShowATMs } = useLocationSettings();
   const { toast } = useToast();
   const contentRef = useRef<HTMLDivElement>(null);
   const activeInputRef = useRef<HTMLInputElement | null>(null);
@@ -335,6 +336,21 @@ function LocationSetupContent({ onClose }: { onClose: () => void }) {
             </Button>
           ))}
         </div>
+      </div>
+
+      {/* ATM Toggle */}
+      <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/30">
+        <div className="flex items-center gap-3">
+          <Landmark className="h-4 w-4 text-muted-foreground" />
+          <div>
+            <p className="text-sm font-medium">Include Bitcoin ATMs</p>
+            <p className="text-xs text-muted-foreground">Show ATMs for buying/selling Bitcoin</p>
+          </div>
+        </div>
+        <Switch
+          checked={settings.showATMs}
+          onCheckedChange={toggleShowATMs}
+        />
       </div>
 
       {/* Divider */}

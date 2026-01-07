@@ -222,7 +222,7 @@ function MerchantDetailDialog({ merchant, open, onOpenChange }: MerchantDetailDi
 }
 
 export function BTCMapBanner() {
-  const { merchants, isLoading, hasLocation, settings, totalMerchants, refetch } = useBTCMap();
+  const { merchants, isLoading, hasLocation, settings, totalMerchants, refetch, toggleShowATMs } = useBTCMap();
   const [selectedMerchant, setSelectedMerchant] = useState<(BTCMapElement & { distance: number }) | null>(null);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
   const [showLocationSetup, setShowLocationSetup] = useState(false);
@@ -243,6 +243,10 @@ export function BTCMapBanner() {
     }
   };
 
+  const handleToggleATMs = () => {
+    toggleShowATMs();
+  };
+
   // No location set - show setup prompt
   if (!hasLocation) {
     return (
@@ -261,9 +265,21 @@ export function BTCMapBanner() {
                   </p>
                 </div>
               </div>
-              <Button onClick={() => setShowLocationSetup(true)} className="w-full sm:w-auto">
-                Set Location
-              </Button>
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleRefresh}
+                  disabled={isRefreshing || isLoading}
+                  title="Refresh merchant data"
+                  className="h-9 w-9"
+                >
+                  <RefreshCw className={cn("h-4 w-4", (isRefreshing || isLoading) && "animate-spin")} />
+                </Button>
+                <Button onClick={() => setShowLocationSetup(true)} className="flex-1 sm:flex-initial">
+                  Set Location
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>

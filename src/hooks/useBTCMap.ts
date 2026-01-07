@@ -48,6 +48,7 @@ export interface LocationSettings {
   lon: number | null;
   radiusMiles: number;
   locationName: string; // User-friendly name
+  showATMs: boolean; // Whether to include Bitcoin ATMs in results
 }
 
 const DEFAULT_LOCATION_SETTINGS: LocationSettings = {
@@ -55,6 +56,7 @@ const DEFAULT_LOCATION_SETTINGS: LocationSettings = {
   lon: null,
   radiusMiles: 25,
   locationName: '',
+  showATMs: false, // Default to hiding ATMs
 };
 
 // Category mappings from BTCMap categories to our budget line items
@@ -355,10 +357,11 @@ function filterMerchantsByLocation(
   merchants: BTCMapElement[],
   lat: number,
   lon: number,
-  radiusKm: number
+  radiusKm: number,
+  showATMs: boolean = false
 ): (BTCMapElement & { distance: number })[] {
   return merchants
-    .filter(merchant => !isATM(merchant))
+    .filter(merchant => showATMs || !isATM(merchant))
     .map(merchant => ({
       ...merchant,
       distance: calculateDistance(lat, lon, merchant.osm_json.lat, merchant.osm_json.lon),
@@ -375,16 +378,21 @@ export function useLocationSettings() {
   );
 
   const updateLocation = (lat: number, lon: number, radiusMiles: number, locationName: string) => {
-    setSettings({
+    setSettings(prev => ({
+      ...prev,
       lat,
       lon,
       radiusMiles,
       locationName,
-    });
+    }));
   };
 
   const updateRadius = (radiusMiles: number) => {
     setSettings(prev => ({ ...prev, radiusMiles }));
+  };
+
+  const toggleShowATMs = () => {
+    setSettings(prev => ({ ...prev, showATMs: !prev.showATMs }));
   };
 
   const clearLocation = () => {
@@ -398,13 +406,14 @@ export function useLocationSettings() {
     hasLocation,
     updateLocation,
     updateRadius,
+    toggleShowATMs,
     clearLocation,
   };
 }
 
 // Main hook for BTCMap integration
 export function useBTCMap() {
-  const { settings, hasLocation } = useLocationSettings();
+  const { settings, hasLocation, toggleShowATMs } = useLocationSettings();
 
   // Fetch all merchants once and cache
   const allMerchantsQuery = useQuery({
@@ -420,7 +429,8 @@ export function useBTCMap() {
         allMerchantsQuery.data,
         settings.lat,
         settings.lon,
-        milesToKm(settings.radiusMiles)
+        milesToKm(settings.radiusMiles),
+        settings.showATMs
       )
     : [];
 
@@ -432,6 +442,7 @@ export function useBTCMap() {
     settings,
     totalMerchants: allMerchantsQuery.data?.length || 0,
     refetch: allMerchantsQuery.refetch,
+    toggleShowATMs,
   };
 }
 
