@@ -449,11 +449,11 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
   };
 
   // Use Dialog on both mobile and desktop for consistent, fixed positioning
-  // This prevents the dialog from being affected by keyboard/scroll issues
+  // Force centered modal behavior, not drawer-like popup from bottom
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] max-w-[500px] max-h-[85vh] overflow-y-auto rounded-lg fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50">
           <DialogHeader className="sticky top-0 bg-background z-10 pb-2">
             <DialogTitle className="flex items-center gap-2">
               <Wallet className="h-5 w-5" />
@@ -467,7 +467,7 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
         </DialogContent>
       </Dialog>
       <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
-        <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] max-w-[425px] max-h-[85vh] overflow-y-auto rounded-lg fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50">
           <DialogHeader>
             <DialogTitle>Connect NWC Wallet</DialogTitle>
             <DialogDescription>

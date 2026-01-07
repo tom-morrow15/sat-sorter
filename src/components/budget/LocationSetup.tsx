@@ -392,10 +392,10 @@ export function LocationSetup({ open, onOpenChange }: LocationSetupProps) {
   const handleClose = () => onOpenChange(false);
 
   // Use Dialog on both mobile and desktop for consistent, fixed positioning
-  // This prevents the dialog from being affected by keyboard/scroll issues
+  // Force centered modal behavior, not drawer-like popup from bottom
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[420px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[95vw] max-w-[420px] max-h-[85vh] overflow-y-auto rounded-lg fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50">
         <DialogHeader className="sticky top-0 bg-background z-10 pb-2">
           <DialogTitle className="flex items-center gap-2">
             <MapPin className="h-5 w-5 text-primary" />
