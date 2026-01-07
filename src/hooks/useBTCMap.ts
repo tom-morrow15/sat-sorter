@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 
 export interface BTCMapElement {
@@ -414,14 +414,24 @@ export function useLocationSettings() {
 // Main hook for BTCMap integration
 export function useBTCMap() {
   const { settings, hasLocation, toggleShowATMs } = useLocationSettings();
+  const queryClient = useQueryClient();
 
   // Fetch all merchants once and cache
   const allMerchantsQuery = useQuery({
     queryKey: ['btcmap-all-merchants'],
     queryFn: fetchAllMerchants,
-    staleTime: 1800000, // 30 minutes
-    gcTime: 3600000, // 1 hour
+    staleTime: 1800000, // 30 minutes - data considered fresh
+    gcTime: 3600000, // 1 hour - keep in cache
+    refetchOnWindowFocus: false,
   });
+
+  // Force refetch that invalidates cache first to ensure fresh data
+  const forceRefetch = async () => {
+    // Invalidate the cache to force a fresh fetch
+    await queryClient.invalidateQueries({ queryKey: ['btcmap-all-merchants'] });
+    // Then refetch
+    return allMerchantsQuery.refetch();
+  };
 
   // Filter by user's location
   const merchants = allMerchantsQuery.data && hasLocation && settings.lat && settings.lon
@@ -436,12 +446,12 @@ export function useBTCMap() {
 
   return {
     merchants,
-    isLoading: allMerchantsQuery.isLoading,
+    isLoading: allMerchantsQuery.isLoading || allMerchantsQuery.isFetching,
     error: allMerchantsQuery.error instanceof Error ? allMerchantsQuery.error.message : null,
     hasLocation,
     settings,
     totalMerchants: allMerchantsQuery.data?.length || 0,
-    refetch: allMerchantsQuery.refetch,
+    refetch: forceRefetch,
     toggleShowATMs,
   };
 }

@@ -36,6 +36,7 @@ import {
   type BTCMapElement,
 } from '@/hooks/useBTCMap';
 import { LocationSetup } from './LocationSetup';
+import { useToast } from '@/hooks/useToast';
 import { cn } from '@/lib/utils';
 
 // Icon mapping for categories
@@ -227,6 +228,7 @@ export function BTCMapBanner() {
   const [showDetailDialog, setShowDetailDialog] = useState(false);
   const [showLocationSetup, setShowLocationSetup] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const { toast } = useToast();
 
   const handleMerchantClick = (merchant: BTCMapElement & { distance: number }) => {
     setSelectedMerchant(merchant);
@@ -236,7 +238,18 @@ export function BTCMapBanner() {
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
-      await refetch();
+      const result = await refetch();
+      const count = result.data?.length || 0;
+      toast({
+        title: 'Merchants refreshed',
+        description: `Found ${count.toLocaleString()} Bitcoin merchants worldwide`,
+      });
+    } catch (error) {
+      toast({
+        title: 'Refresh failed',
+        description: 'Could not refresh merchant data. Please try again.',
+        variant: 'destructive',
+      });
     } finally {
       // Add a small delay so the animation is visible
       setTimeout(() => setIsRefreshing(false), 500);
