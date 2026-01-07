@@ -236,15 +236,24 @@ export function BTCMapBanner() {
   };
 
   const handleRefresh = async () => {
+    console.log('[BTCMapBanner] Refresh button clicked');
     setIsRefreshing(true);
+
+    toast({
+      title: 'Refreshing...',
+      description: 'Fetching latest merchant data from BTCMap',
+    });
+
     try {
       const result = await refetch();
-      const count = result.data?.length || 0;
+      console.log('[BTCMapBanner] Refetch result:', result);
+      const count = result?.data?.length || 0;
       toast({
-        title: 'Merchants refreshed',
+        title: 'Merchants refreshed!',
         description: `Found ${count.toLocaleString()} Bitcoin merchants worldwide`,
       });
     } catch (error) {
+      console.error('[BTCMapBanner] Refresh error:', error);
       toast({
         title: 'Refresh failed',
         description: 'Could not refresh merchant data. Please try again.',
@@ -280,16 +289,20 @@ export function BTCMapBanner() {
               </div>
               <div className="flex items-center gap-2 w-full sm:w-auto">
                 <Button
+                  type="button"
                   variant="ghost"
                   size="icon"
-                  onClick={handleRefresh}
-                  disabled={isRefreshing || isLoading}
+                  onClick={() => {
+                    console.log('[BTCMapBanner] Refresh button onClick fired');
+                    handleRefresh();
+                  }}
+                  disabled={isRefreshing}
                   title="Refresh merchant data"
                   className="h-9 w-9"
                 >
-                  <RefreshCw className={cn("h-4 w-4", (isRefreshing || isLoading) && "animate-spin")} />
+                  <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
                 </Button>
-                <Button onClick={() => setShowLocationSetup(true)} className="flex-1 sm:flex-initial">
+                <Button type="button" onClick={() => setShowLocationSetup(true)} className="flex-1 sm:flex-initial">
                   Set Location
                 </Button>
               </div>
@@ -336,15 +349,20 @@ export function BTCMapBanner() {
               </div>
               <div className="flex items-center gap-2 w-full sm:w-auto">
                 <Button
+                  type="button"
                   variant="ghost"
                   size="sm"
-                  onClick={handleRefresh}
-                  disabled={isRefreshing || isLoading}
+                  onClick={() => {
+                    console.log('[BTCMapBanner] Refresh button (no merchants) clicked');
+                    handleRefresh();
+                  }}
+                  disabled={isRefreshing}
                   className="flex-initial"
                 >
-                  <RefreshCw className={cn("h-4 w-4", (isRefreshing || isLoading) && "animate-spin")} />
+                  <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
                 </Button>
                 <Button
+                  type="button"
                   variant="outline"
                   size="sm"
                   onClick={() => setShowLocationSetup(true)}
@@ -354,6 +372,7 @@ export function BTCMapBanner() {
                   Change
                 </Button>
                 <Button
+                  type="button"
                   variant="ghost"
                   size="sm"
                   onClick={() => window.open('https://btcmap.org/add-location', '_blank')}
@@ -399,16 +418,21 @@ export function BTCMapBanner() {
             </div>
             <div className="flex items-center gap-1 flex-shrink-0">
               <Button
+                type="button"
                 variant="ghost"
                 size="sm"
                 className="h-8 w-8 p-0"
-                onClick={handleRefresh}
-                disabled={isRefreshing || isLoading}
+                onClick={() => {
+                  console.log('[BTCMapBanner] Refresh button (carousel) clicked');
+                  handleRefresh();
+                }}
+                disabled={isRefreshing}
                 title="Refresh merchants"
               >
-                <RefreshCw className={cn("h-3.5 w-3.5", (isRefreshing || isLoading) && "animate-spin")} />
+                <RefreshCw className={cn("h-3.5 w-3.5", isRefreshing && "animate-spin")} />
               </Button>
               <Button
+                type="button"
                 variant="outline"
                 size="sm"
                 className="h-8 px-2 text-xs whitespace-nowrap"

@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 
@@ -426,12 +427,19 @@ export function useBTCMap() {
   });
 
   // Force refetch that invalidates cache first to ensure fresh data
-  const forceRefetch = async () => {
+  const forceRefetch = useCallback(async () => {
+    console.log('[BTCMap] Manual refresh triggered');
     // Invalidate the cache to force a fresh fetch
     await queryClient.invalidateQueries({ queryKey: ['btcmap-all-merchants'] });
-    // Then refetch
-    return allMerchantsQuery.refetch();
-  };
+    // Refetch returns immediately with cached data, need to get fresh
+    const result = await queryClient.fetchQuery({
+      queryKey: ['btcmap-all-merchants'],
+      queryFn: fetchAllMerchants,
+      staleTime: 0, // Force fresh fetch
+    });
+    console.log('[BTCMap] Refresh complete, got', result?.length, 'merchants');
+    return { data: result };
+  }, [queryClient]);
 
   // Filter by user's location
   const merchants = allMerchantsQuery.data && hasLocation && settings.lat && settings.lon
