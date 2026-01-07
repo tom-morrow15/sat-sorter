@@ -1,5 +1,8 @@
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import { useBitcoinPrice, formatSats, satsToUsd, formatUsd } from '@/hooks/useBitcoinPrice';
 import {
   calculateTotalExpenses,
@@ -21,6 +24,7 @@ export function BudgetDashboard({
   transactions,
   currency,
 }: BudgetDashboardProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
   const { data: priceData } = useBitcoinPrice();
 
   const totalBudgeted = calculateTotalExpenses(buckets);
@@ -51,11 +55,24 @@ export function BudgetDashboard({
 
   return (
     <Card>
-      <CardHeader className="pb-2">
+      <CardHeader className="pb-2 flex flex-row items-center justify-between">
         <CardTitle className="text-base">Spending Breakdown</CardTitle>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="h-8 w-8 p-0"
+        >
+          {isExpanded ? (
+            <ChevronUp className="h-4 w-4" />
+          ) : (
+            <ChevronDown className="h-4 w-4" />
+          )}
+        </Button>
       </CardHeader>
-      <CardContent>
-        <div className="space-y-6">
+      {isExpanded && (
+        <CardContent>
+          <div className="space-y-6">
           {/* Pie Chart - Centered and larger */}
           <div className="flex justify-center pt-2">
             <div className="relative w-40 h-40 sm:w-48 sm:h-48 flex-shrink-0">
@@ -142,7 +159,8 @@ export function BudgetDashboard({
             </div>
           )}
         </div>
-      </CardContent>
+        </CardContent>
+      )}
     </Card>
   );
 }
