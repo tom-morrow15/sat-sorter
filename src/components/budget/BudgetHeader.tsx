@@ -69,6 +69,7 @@ export function BudgetHeader({
   const [showBitcoinEdu, setShowBitcoinEdu] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
   const [showBackup, setShowBackup] = useState(false);
+  const [showBitcoinProjects, setShowBitcoinProjects] = useState(false);
 
   // Generate list of months for picker (current month + 11 months back + 6 months forward)
   const getAvailableMonths = () => {
@@ -269,7 +270,11 @@ export function BudgetHeader({
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setShowDonate(true)}>
                   <Heart className="h-4 w-4 mr-2" />
-                  Support Bitcoin Projects
+                  Support Developer
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setShowBitcoinProjects(true)}>
+                  <Globe className="h-4 w-4 mr-2" />
+                  Other Bitcoin Projects
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => setShowBackup(true)}>
@@ -593,12 +598,75 @@ export function BudgetHeader({
       </Dialog>
 
       {/* Donate Dialog (for guests) */}
+      {/* Support Developer Dialog */}
       <Dialog open={showDonate} onOpenChange={setShowDonate}>
         <DialogContent className="sm:max-w-[500px] max-h-[85vh]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Heart className="h-5 w-5 text-pink-500" />
-              Support Bitcoin Projects
+              Support Sat Sorter Development
+            </DialogTitle>
+            <DialogDescription>
+              Help us build and maintain Sat Sorter
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="max-h-[60vh] pr-4">
+            <div className="space-y-6 py-4">
+              <p className="text-sm text-muted-foreground">
+                Sat Sorter is built with passion and maintained by developers who believe in Bitcoin and financial freedom.
+                Your donation helps us continue improving this app and building new features.
+              </p>
+
+              <div className="p-4 border rounded-lg bg-primary/5 space-y-4">
+                <div className="space-y-2">
+                  <h3 className="font-semibold">⚡ Send Sats via Lightning</h3>
+                  <p className="text-sm text-muted-foreground">
+                    The fastest way to support us. Send any amount instantly with no fees.
+                  </p>
+                  <p className="text-sm font-mono bg-muted p-2 rounded break-all">
+                    devin@primal.net
+                  </p>
+                  <Button
+                    className="w-full"
+                    onClick={() => {
+                      navigator.clipboard.writeText('devin@primal.net');
+                    }}
+                  >
+                    <Zap className="h-4 w-4 mr-2" />
+                    Copy Lightning Address
+                  </Button>
+                </div>
+              </div>
+
+              <div className="p-4 border rounded-lg space-y-2">
+                <h3 className="font-semibold">❤️ Why Support?</h3>
+                <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+                  <li>Keep the app free for everyone</li>
+                  <li>Fund new features and improvements</li>
+                  <li>Support ongoing maintenance</li>
+                  <li>Help with hosting and infrastructure</li>
+                </ul>
+              </div>
+
+              <div className="p-4 border rounded-lg space-y-2">
+                <h3 className="font-semibold">💡 Every Sat Counts</h3>
+                <p className="text-sm text-muted-foreground">
+                  Whether you send 100 sats or 100,000 sats, your support means the world to us.
+                  Thank you for helping build Bitcoin tools! 🙏
+                </p>
+              </div>
+            </div>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
+
+      {/* Other Bitcoin Projects Dialog */}
+      <Dialog open={showBitcoinProjects} onOpenChange={setShowBitcoinProjects}>
+        <DialogContent className="sm:max-w-[500px] max-h-[85vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Globe className="h-5 w-5 text-primary" />
+              Support Other Bitcoin Projects
             </DialogTitle>
             <DialogDescription>
               Help build the future of freedom technology
