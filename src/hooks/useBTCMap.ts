@@ -235,6 +235,10 @@ export function lineItemMatchesMerchant(lineItemName: string, merchants: BTCMapE
     .split(/[\s\/\-&]+/)
     .filter(word => word.length > 2 && !ignoreWords.includes(word));
 
+  // For specific line items like "Gas", be strict about category matching
+  // to avoid matching restaurants that have "gastro" cuisine
+  const isSpecificLineItem = ['gas', 'fuel', 'car payment', 'insurance', 'rent', 'mortgage'].some(item => lowerName === item);
+
   const matches = merchants.filter(merchant => {
     // EXCLUDE ATMs from line item matching
     if (isATM(merchant)) {
@@ -256,6 +260,34 @@ export function lineItemMatchesMerchant(lineItemName: string, merchants: BTCMapE
     // Line item includes merchant name (e.g., "Dinner at Steak n Shake" matches "Steak n Shake")
     if (lowerName.includes(merchantName) && merchantName.length > 3) {
       return true;
+    }
+
+    // STRICT CATEGORY MATCHING for specific line items
+    // For items like "Gas", only match if the category explicitly indicates it's a gas station
+    if (isSpecificLineItem) {
+      // For "Gas" - only match fuel category, not restaurants with "gastro" cuisine
+      if (lowerName === 'gas' || lowerName === 'fuel') {
+        // Must be explicitly a fuel/gas station
+        const isFuelStation = category === 'fuel' ||
+                            amenity === 'fuel' ||
+                            shop === 'fuel' ||
+                            merchantName.includes('gas station') ||
+                            merchantName.match(/chevron|shell|exxon|bp|mobil|speedway|wawa|circle|pilot/);
+        return isFuelStation;
+      }
+
+      // For "Car Payment" or "Car Insurance" - only match automotive finance
+      if (lowerName.includes('car payment') || lowerName.includes('car insurance')) {
+        return category === 'car_rental' ||
+               category === 'car_repair' ||
+               amenity === 'car_rental' ||
+               shop === 'car_rental';
+      }
+
+      // For rent/mortgage - don't auto-match merchants
+      if (lowerName === 'rent' || lowerName === 'mortgage') {
+        return false; // These are manual entries, not merchant-based
+      }
     }
 
     // WORD-BY-WORD MATCHING - check individual words

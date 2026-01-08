@@ -27,10 +27,10 @@ interface MerchantIndicatorProps {
 
 export function MerchantIndicator({ lineItemName, merchants, className }: MerchantIndicatorProps) {
   const [open, setOpen] = useState(false);
-  
+
   // Find matching merchants for this line item
   const matchingMerchants = lineItemMatchesMerchant(lineItemName, merchants);
-  
+
   if (matchingMerchants.length === 0) {
     return null;
   }
@@ -76,13 +76,13 @@ export function MerchantIndicator({ lineItemName, merchants, className }: Mercha
             </div>
           </div>
         </div>
-        
-        <ScrollArea className="max-h-[250px]">
+
+        <div className="max-h-[320px] overflow-y-auto">
           <div className="p-2 space-y-1">
-            {(matchingMerchants as (BTCMapElement & { distance: number })[]).slice(0, 10).map((merchant) => {
+            {(matchingMerchants as (BTCMapElement & { distance: number })[]).map((merchant) => {
               const hasLightning = acceptsLightning(merchant);
               const hasOnchain = acceptsOnchain(merchant);
-              
+
               return (
                 <button
                   key={merchant.id}
@@ -105,16 +105,16 @@ export function MerchantIndicator({ lineItemName, merchants, className }: Mercha
                   </div>
                   <div className="flex items-center gap-1">
                     {hasLightning && (
-                      <Badge 
-                        variant="secondary" 
+                      <Badge
+                        variant="secondary"
                         className="h-5 w-5 p-0 flex items-center justify-center bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
                       >
                         <Zap className="h-3 w-3" />
                       </Badge>
                     )}
                     {hasOnchain && (
-                      <Badge 
-                        variant="secondary" 
+                      <Badge
+                        variant="secondary"
                         className="h-5 w-5 p-0 flex items-center justify-center bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400"
                       >
                         <Bitcoin className="h-3 w-3" />
@@ -126,8 +126,8 @@ export function MerchantIndicator({ lineItemName, merchants, className }: Mercha
               );
             })}
           </div>
-        </ScrollArea>
-        
+        </div>
+
         <div className="p-2 border-t">
           <Button
             variant="ghost"
@@ -149,7 +149,7 @@ export function MerchantIndicator({ lineItemName, merchants, className }: Mercha
 export function MerchantBadge({ lineItemName, merchants, className }: MerchantIndicatorProps) {
   const [open, setOpen] = useState(false);
   const matchingMerchants = lineItemMatchesMerchant(lineItemName, merchants);
-  
+
   if (matchingMerchants.length === 0) {
     return null;
   }
@@ -193,13 +193,13 @@ export function MerchantBadge({ lineItemName, merchants, className }: MerchantIn
             </div>
           </div>
         </div>
-        
-        <ScrollArea className="max-h-[200px]">
+
+        <div className="max-h-[280px] overflow-y-auto">
           <div className="p-2 space-y-1">
-            {(matchingMerchants as (BTCMapElement & { distance: number })[]).slice(0, 8).map((merchant) => {
+            {(matchingMerchants as (BTCMapElement & { distance: number })[]).map((merchant) => {
               const hasLightning = acceptsLightning(merchant);
               const hasOnchain = acceptsOnchain(merchant);
-              
+
               return (
                 <button
                   key={merchant.id}
@@ -220,16 +220,16 @@ export function MerchantBadge({ lineItemName, merchants, className }: MerchantIn
                   </div>
                   <div className="flex items-center gap-1 flex-shrink-0">
                     {hasLightning && (
-                      <Badge 
-                        variant="secondary" 
+                      <Badge
+                        variant="secondary"
                         className="h-5 w-5 p-0 flex items-center justify-center bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
                       >
                         <Zap className="h-3 w-3" />
                       </Badge>
                     )}
                     {hasOnchain && (
-                      <Badge 
-                        variant="secondary" 
+                      <Badge
+                        variant="secondary"
                         className="h-5 w-5 p-0 flex items-center justify-center bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400"
                       >
                         <Bitcoin className="h-3 w-3" />
@@ -240,8 +240,8 @@ export function MerchantBadge({ lineItemName, merchants, className }: MerchantIn
               );
             })}
           </div>
-        </ScrollArea>
-        
+        </div>
+
         <div className="p-2 border-t">
           <Button
             variant="ghost"
