@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Settings2, Zap, Globe, Server, Zaplier, CreditCard, Plus, Trash2 } from 'lucide-react';
+import { Settings2, Zap, Globe, Server, Lightbulb, CreditCard, Plus, Trash2 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -25,7 +25,7 @@ interface WalletMethodsDialogProps {
 export function WalletMethodsDialog({ open, onOpenChange }: WalletMethodsDialogProps) {
   const { hasNWC, hasWebLN, availableMethods } = useWallet();
   const { addToast } = useToast();
-  
+
   // LNbits state
   const [lnbitsUrl, setLnbitsUrl] = useState('');
   const [lnbitsKey, setLnbitsKey] = useState('');
@@ -60,7 +60,7 @@ export function WalletMethodsDialog({ open, onOpenChange }: WalletMethodsDialogP
       }
 
       const data = await response.json();
-      
+
       // Save the config
       saveLNbitsConfig({ url: lnbitsUrl, adminKey: lnbitsKey });
       addToast('LNbits wallet connected successfully!', 'success');
@@ -290,7 +290,7 @@ export function WalletMethodsDialog({ open, onOpenChange }: WalletMethodsDialogP
             {/* Direct Node Tab */}
             <TabsContent value="node" className="space-y-4">
               <Alert>
-                <Zaplier className="h-4 w-4" />
+                <Lightbulb className="h-4 w-4" />
                 <AlertDescription>
                   Connect directly to your Lightning node (LND, C-Lightning, or Eclair) for full control.
                 </AlertDescription>
