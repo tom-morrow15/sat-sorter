@@ -360,7 +360,7 @@ cat ~/.lnd/tls.cert | base64
 - ❌ Requires running a Lightning node (complex)
 - ❌ Need technical knowledge
 - ❌ Node must be accessible from your device
-- ❌ Complex setup and maintenance
+- ❌ More setup required
 
 **Best For:**
 - Lightning node operators
@@ -369,7 +369,7 @@ cat ~/.lnd/tls.cert | base64
 - Maximum security seekers
 
 **Cost:**
-Free (but you're running a node, so cost of hardware/hosting)
+Free (but you're running a node, so cost of hardware)
 
 **Security:**
 Your keys never leave your node. Macaroon is restricted and read-only. Best possible security.

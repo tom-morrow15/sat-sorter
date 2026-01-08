@@ -621,9 +621,8 @@ export function BudgetHeader({
             <div className="space-y-6 py-4">
               <p className="text-sm text-muted-foreground">
                 I built Sat Sorter because I believe in Bitcoin and want to help people take control of their finances.
-                Your donation helps me continue building this app, maintaining the servers, and adding new features.
-                It's just me vibe coding this with Shakespeare (ironically, since I have no idea how to build apps,
-                but here we are!). Thanks for the support. 🙏
+                Your donation helps me continue building this app and adding new features.
+                Thanks for using Sat Sorter. Fix the money, fix the world. 🙏
               </p>
 
               <div className="p-4 border rounded-lg bg-primary/5 space-y-4">
@@ -650,9 +649,9 @@ export function BudgetHeader({
               <div className="p-4 border rounded-lg space-y-2">
                 <h3 className="font-semibold">⚙️ What Your Donation Goes To</h3>
                 <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-                  <li>Server hosting and infrastructure</li>
-                  <li>New features and improvements</li>
-                  <li>Bug fixes and maintenance</li>
+                  <li>Building new features</li>
+                  <li>Bug fixes and improvements</li>
+                  <li>Development time</li>
                   <li>Keeping Sat Sorter free for everyone</li>
                 </ul>
               </div>
