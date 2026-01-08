@@ -1,7 +1,7 @@
 import { useState, forwardRef, useEffect, useRef } from 'react';
 import {
   Wallet, Plus, Trash2, Zap, Globe, WalletMinimal, CheckCircle, X,
-  RefreshCw, Clock, FileSpreadsheet, Link2, QrCode
+  RefreshCw, Clock, FileSpreadsheet, Link2, QrCode, Settings2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -25,6 +25,7 @@ import { useIsMobile } from '@/hooks/useIsMobile';
 import { useNWCSync } from '@/hooks/useNWCSync';
 import { DataSourcesDialog } from './DataSourcesDialog';
 import { QRScanner } from './QRScanner';
+import { WalletMethodsDialog } from './WalletMethodsDialog';
 import type { NWCConnection, NWCInfo } from '@/hooks/useNWC';
 import type { WebLNProvider } from "@webbtc/webln-types";
 
@@ -348,6 +349,7 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [showDataSources, setShowDataSources] = useState(false);
   const [showQRScanner, setShowQRScanner] = useState(false);
+  const [showMethods, setShowMethods] = useState(false);
   const [connectionUri, setConnectionUri] = useState('');
   const [alias, setAlias] = useState('');
   const [isConnecting, setIsConnecting] = useState(false);
@@ -462,10 +464,20 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
             <span className="sr-only">Close</span>
           </button>
           <DialogHeader className="sticky top-0 bg-background z-10 pb-2 pr-8">
-            <DialogTitle className="flex items-center gap-2">
-              <Wallet className="h-5 w-5" />
-              Lightning Wallet
-            </DialogTitle>
+            <div className="flex items-center justify-between">
+              <DialogTitle className="flex items-center gap-2">
+                <Wallet className="h-5 w-5" />
+                Lightning Wallet
+              </DialogTitle>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowMethods(true)}
+                title="Payment methods"
+              >
+                <Settings2 className="h-4 w-4" />
+              </Button>
+            </div>
             <DialogDescription>
               Connect your wallet to track transactions automatically.
             </DialogDescription>
@@ -514,6 +526,7 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
         title="Scan NWC QR Code"
         description="Scan the QR code from your wallet app"
       />
+      <WalletMethodsDialog open={showMethods} onOpenChange={setShowMethods} />
     </>
   );
 }
