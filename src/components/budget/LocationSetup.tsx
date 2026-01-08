@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { MapPin, Shield, Check, AlertCircle, Navigation, Loader2, Search, Landmark } from 'lucide-react';
+import { MapPin, X, Shield, Check, AlertCircle, Navigation, Loader2, Search, Landmark } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
