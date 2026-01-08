@@ -830,60 +830,64 @@ export function BudgetHeader({
           </DialogHeader>
           <ScrollArea className="max-h-[65vh] pr-4">
             <div className="space-y-6 py-4">
-              {/* Wallet Compatibility Section */}
+              {/* Transaction Import Methods */}
               <div className="space-y-3">
                 <h3 className="font-semibold text-lg flex items-center gap-2">
                   <Wallet className="h-5 w-5 text-primary" />
-                  Wallet Compatibility
+                  How to Import Transactions
                 </h3>
 
                 <div className="space-y-4">
+                  <div className="p-4 border rounded-lg bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800">
+                    <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-2">
+                      📁 CSV Import (Any Wallet)
+                    </h4>
+                    <p className="text-sm text-blue-700 dark:text-blue-300 mb-2">
+                      Export transactions from your wallet and import the CSV file. Works with:
+                    </p>
+                    <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1 list-disc list-inside">
+                      <li><strong>Phoenix</strong> - Settings → Payment History → Export</li>
+                      <li><strong>BlueWallet</strong> - Wallet → ••• → Export Transactions</li>
+                      <li><strong>Zeus</strong> - History → Export</li>
+                      <li><strong>Breez, Muun, etc.</strong> - Check for export option</li>
+                    </ul>
+                  </div>
+
                   <div className="p-4 border rounded-lg bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800">
                     <h4 className="font-semibold text-green-800 dark:text-green-200 mb-2">
-                      ✅ Fully Compatible Wallets
+                      ⚡ LNbits (Auto-Import)
                     </h4>
                     <p className="text-sm text-green-700 dark:text-green-300 mb-2">
-                      These wallets support automatic transaction import via NWC:
+                      Connect to your LNbits wallet for automatic transaction import:
                     </p>
                     <ul className="text-sm text-green-700 dark:text-green-300 space-y-1 list-disc list-inside">
-                      <li><strong>Alby</strong> - Browser extension</li>
-                      <li><strong>Alby Hub</strong> - Self-hosted, full control</li>
-                      <li><strong>Primal</strong> - iOS, Android, Web</li>
-                      <li><strong>Zeus</strong> - Connect to your own node</li>
-                      <li><strong>Umbrel + NWC Plugin</strong> - For Umbrel users</li>
-                      <li><strong>Coinos</strong> - Web-based Lightning wallet</li>
+                      <li>Works with any LNbits instance (self-hosted or public)</li>
+                      <li>Requires your wallet's Admin Key</li>
+                      <li>Click "Import Transactions" to sync</li>
                     </ul>
                   </div>
 
-                  <div className="p-4 border rounded-lg bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800">
-                    <h4 className="font-semibold text-amber-800 dark:text-amber-200 mb-2">
-                      🟡 May Work (Limited Support)
+                  <div className="p-4 border rounded-lg bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800">
+                    <h4 className="font-semibold text-green-800 dark:text-green-200 mb-2">
+                      🐝 Alby Hub (Auto-Import)
                     </h4>
-                    <p className="text-sm text-amber-700 dark:text-amber-300 mb-2">
-                      These wallets have NWC but may not support transaction listing:
+                    <p className="text-sm text-green-700 dark:text-green-300 mb-2">
+                      Connect via NWC for automatic transaction import:
                     </p>
-                    <ul className="text-sm text-amber-700 dark:text-amber-300 space-y-1 list-disc list-inside">
-                      <li><strong>Phoenix</strong> - NWC support varies by version</li>
-                      <li><strong>Breez</strong> - Check if NWC is enabled</li>
-                      <li><strong>BlueWallet</strong> - May work via LNDHub</li>
+                    <ul className="text-sm text-green-700 dark:text-green-300 space-y-1 list-disc list-inside">
+                      <li><strong>Alby Hub only</strong> - Other NWC wallets don't support transaction listing</li>
+                      <li>Get your NWC URI from Alby Hub settings</li>
+                      <li>Scan QR code or paste the connection string</li>
                     </ul>
                   </div>
 
-                  <div className="p-4 border rounded-lg bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800">
-                    <h4 className="font-semibold text-red-800 dark:text-red-200 mb-2">
-                      ❌ Not Compatible
+                  <div className="p-4 border rounded-lg bg-muted">
+                    <h4 className="font-semibold mb-2">
+                      ✏️ Manual Entry
                     </h4>
-                    <p className="text-sm text-red-700 dark:text-red-300 mb-2">
-                      These wallets don't support NWC or transaction listing:
-                    </p>
-                    <ul className="text-sm text-red-700 dark:text-red-300 space-y-1 list-disc list-inside">
-                      <li><strong>Wallet of Satoshi</strong> - Custodial, no NWC</li>
-                      <li><strong>Strike</strong> - No NWC support</li>
-                      <li><strong>Cash App</strong> - No NWC support</li>
-                      <li><strong>River, Swan</strong> - No NWC support</li>
-                    </ul>
-                    <p className="text-xs text-red-600 dark:text-red-400 mt-2">
-                      You can still manually add transactions or import via CSV.
+                    <p className="text-sm text-muted-foreground">
+                      You can always add transactions manually from the main screen.
+                      This works for any wallet or payment method.
                     </p>
                   </div>
                 </div>
@@ -891,75 +895,29 @@ export function BudgetHeader({
 
               <Separator />
 
-              {/* How It Works Section */}
+              {/* Privacy Section */}
               <div className="space-y-3">
                 <h3 className="font-semibold text-lg flex items-center gap-2">
                   <Shield className="h-5 w-5 text-primary" />
-                  How Transaction Import Works
+                  Privacy & Security
                 </h3>
 
                 <div className="p-4 border rounded-lg space-y-3">
-                  <p className="text-sm text-muted-foreground">
-                    Sat Sorter uses <strong>Nostr Wallet Connect (NWC)</strong> to observe your Lightning transactions. Here's what happens:
-                  </p>
-
-                  <ol className="text-sm text-muted-foreground space-y-2 list-decimal list-inside">
-                    <li>You create an NWC connection in your wallet</li>
-                    <li>You paste the connection string into Sat Sorter</li>
-                    <li>Sat Sorter asks your wallet: "What transactions happened?"</li>
-                    <li>Your wallet responds with transaction data</li>
-                    <li>Sat Sorter displays them for you to categorize</li>
-                  </ol>
-
-                  <div className="bg-primary/5 p-3 rounded-lg mt-3">
-                    <p className="text-sm font-medium text-primary">🔒 Privacy Guarantee</p>
-                    <ul className="text-xs text-muted-foreground mt-1 space-y-1">
-                      <li>• No central server sees your transactions</li>
-                      <li>• Data flows directly: Your Wallet → Your Browser</li>
-                      <li>• Transaction data stays on YOUR device</li>
-                      <li>• You can revoke access anytime in your wallet</li>
-                      <li>• We never store, share, or transmit your data</li>
+                  <div className="bg-primary/5 p-3 rounded-lg">
+                    <p className="text-sm font-medium text-primary">🔒 Your Data Stays Yours</p>
+                    <ul className="text-xs text-muted-foreground mt-2 space-y-1">
+                      <li>• <strong>No central server</strong> - Everything runs in your browser</li>
+                      <li>• <strong>Local storage</strong> - Budget data saved on your device</li>
+                      <li>• <strong>Encrypted sync</strong> - Cloud backup uses NIP-44 encryption</li>
+                      <li>• <strong>Only you can decrypt</strong> - Uses your Nostr keys</li>
+                      <li>• <strong>Open source</strong> - Verify the code yourself</li>
                     </ul>
                   </div>
-                </div>
-              </div>
-
-              <Separator />
-
-              {/* What is NWC Section */}
-              <div className="space-y-3">
-                <h3 className="font-semibold text-lg flex items-center gap-2">
-                  <Zap className="h-5 w-5 text-primary" />
-                  What is NWC?
-                </h3>
-
-                <div className="p-4 border rounded-lg space-y-3">
-                  <p className="text-sm text-muted-foreground">
-                    <strong>Nostr Wallet Connect (NWC)</strong> is an open protocol that lets apps communicate with Lightning wallets securely.
-                  </p>
 
                   <p className="text-sm text-muted-foreground">
-                    Think of it like OAuth for Bitcoin wallets - you authorize Sat Sorter to <em>view</em> your transactions, but we can never spend your sats.
+                    When you connect LNbits or Alby Hub, data flows directly from your wallet to your browser.
+                    Sat Sorter never sees, stores, or transmits your transaction data to any server.
                   </p>
-
-                  <div className="grid grid-cols-2 gap-3 mt-3">
-                    <div className="p-3 bg-green-50 dark:bg-green-950/30 rounded-lg">
-                      <p className="text-xs font-medium text-green-700 dark:text-green-300">✅ NWC Can:</p>
-                      <ul className="text-xs text-green-600 dark:text-green-400 mt-1">
-                        <li>• View transactions</li>
-                        <li>• See balances</li>
-                        <li>• Request payments</li>
-                      </ul>
-                    </div>
-                    <div className="p-3 bg-red-50 dark:bg-red-950/30 rounded-lg">
-                      <p className="text-xs font-medium text-red-700 dark:text-red-300">❌ NWC Cannot:</p>
-                      <ul className="text-xs text-red-600 dark:text-red-400 mt-1">
-                        <li>• Spend your sats</li>
-                        <li>• Access your keys</li>
-                        <li>• Control your wallet</li>
-                      </ul>
-                    </div>
-                  </div>
                 </div>
               </div>
 
