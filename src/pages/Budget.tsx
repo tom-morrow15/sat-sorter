@@ -309,6 +309,7 @@ export default function Budget() {
                 onAddTransaction={addTransaction}
                 onAssignTransaction={assignTransaction}
                 onDeleteTransaction={deleteTransaction}
+                onOpenWallet={() => setShowWalletModal(true)}
               />
             </div>
           </div>

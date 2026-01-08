@@ -45,6 +45,7 @@ interface TransactionsPanelProps {
   onAddTransaction: (transaction: Omit<Transaction, 'id'>) => void;
   onAssignTransaction: (transactionId: string, bucketId: string, lineItemId: string) => void;
   onDeleteTransaction: (transactionId: string) => void;
+  onOpenWallet?: () => void;
 }
 
 export function TransactionsPanel({
@@ -54,6 +55,7 @@ export function TransactionsPanel({
   onAddTransaction,
   onAssignTransaction,
   onDeleteTransaction,
+  onOpenWallet,
 }: TransactionsPanelProps) {
   const { data: priceData } = useBitcoinPrice();
   const [showAddDialog, setShowAddDialog] = useState(false);
@@ -407,9 +409,9 @@ export function TransactionsPanel({
                 Import from your wallet or add manually
               </p>
               <div className="flex flex-col sm:flex-row gap-2 justify-center">
-                <Button size="sm" onClick={() => setShowDataSources(true)}>
+                <Button size="sm" onClick={() => onOpenWallet ? onOpenWallet() : setShowDataSources(true)}>
                   <Link2 className="h-4 w-4 mr-1" />
-                  Connect Data Source
+                  Connect Wallet
                 </Button>
                 <Button size="sm" variant="outline" onClick={() => setShowAddDialog(true)}>
                   <Plus className="h-4 w-4 mr-1" />
