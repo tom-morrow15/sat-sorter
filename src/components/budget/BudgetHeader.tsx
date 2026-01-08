@@ -312,7 +312,7 @@ export function BudgetHeader({
                 <DropdownMenuItem
                   onClick={() => window.open('https://primal.net/p/npub1hq4rd0xalt9swws546kk9mm70uda4n64e30qc09uukvn9uz4dylqw6zqmg', '_blank')}
                 >
-                  <span className="mr-2 text-base">🦩</span>
+                  <span className="mr-2 text-base">🤙</span>
                   Follow on Nostr
                 </DropdownMenuItem>
               </DropdownMenuContent>

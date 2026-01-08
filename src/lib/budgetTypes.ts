@@ -2,7 +2,8 @@
 
 export interface Transaction {
   id: string;
-  amount: number; // in sats
+  amount: number; // in sats (derived from USD if usdAmount is set)
+  usdAmount?: number; // if set, this is the "source of truth" and sats are recalculated
   description: string;
   date: string; // ISO date string
   lineItemId: string | null; // null means unassigned
@@ -18,7 +19,8 @@ export interface Transaction {
 export interface LineItem {
   id: string;
   name: string;
-  plannedAmount: number; // in sats
+  plannedAmount: number; // in sats (derived from USD if usdAmount is set)
+  usdAmount?: number; // if set, this is the "source of truth" and sats are recalculated
   order: number;
 }
 

@@ -48,9 +48,17 @@ export function LineItemRow({
   const isOverBudget = remaining < 0;
 
   // Format amount based on currency - compact for mobile
-  const formatAmount = (sats: number, compact = false) => {
-    if (currency === 'usd' && priceData) {
-      return formatUsd(satsToUsd(sats, priceData.usdPerBtc));
+  // For planned amount, use stored USD if available to avoid conversion drift
+  const formatAmount = (sats: number, compact = false, useStoredUsd = false) => {
+    if (currency === 'usd') {
+      // Use stored USD amount for planned amounts to avoid conversion drift
+      if (useStoredUsd && lineItem.usdAmount !== undefined) {
+        return formatUsd(lineItem.usdAmount);
+      }
+      if (priceData) {
+        return formatUsd(satsToUsd(sats, priceData.usdPerBtc));
+      }
+      return '$0.00';
     }
     if (compact && sats >= 1_000_000) {
       return `${(sats / 1_000_000).toFixed(1)}M`;
@@ -63,21 +71,35 @@ export function LineItemRow({
 
   // Get editable amount value
   const getEditableAmount = () => {
-    if (currency === 'usd' && priceData) {
-      return satsToUsd(lineItem.plannedAmount, priceData.usdPerBtc).toFixed(2);
+    if (currency === 'usd') {
+      // If we have a stored USD amount, use it exactly
+      if (lineItem.usdAmount !== undefined) {
+        return lineItem.usdAmount.toFixed(2);
+      }
+      // Otherwise convert from sats
+      if (priceData) {
+        return satsToUsd(lineItem.plannedAmount, priceData.usdPerBtc).toFixed(2);
+      }
+      return '0.00';
     }
     return lineItem.plannedAmount.toString();
   };
 
-  // Parse input amount to sats - preserve whole dollar amounts
-  const parseAmountToSats = (value: string): number => {
+  // Parse input amount - returns both sats and USD values
+  const parseInputAmount = (value: string): { sats: number; usdAmount?: number } => {
     const num = parseFloat(value) || 0;
     if (currency === 'usd' && priceData) {
-      // Round to nearest whole sat, but preserve the intended dollar value
-      // For whole dollar amounts, we want to ensure minimal conversion drift
-      return Math.round(usdToSats(num, priceData.usdPerBtc));
+      // Store the exact USD amount and convert to sats
+      return {
+        sats: Math.round(usdToSats(num, priceData.usdPerBtc)),
+        usdAmount: num,
+      };
     }
-    return Math.round(num);
+    // When entering sats, clear the USD amount so sats becomes the source of truth
+    return {
+      sats: Math.round(num),
+      usdAmount: undefined,
+    };
   };
 
   const handleStartEdit = () => {
@@ -87,10 +109,11 @@ export function LineItemRow({
   };
 
   const handleSave = () => {
-    const newAmount = parseAmountToSats(editAmount);
+    const { sats, usdAmount } = parseInputAmount(editAmount);
     onUpdate(bucketId, lineItem.id, {
       name: editName.trim() || lineItem.name,
-      plannedAmount: newAmount >= 0 ? newAmount : 0,
+      plannedAmount: sats >= 0 ? sats : 0,
+      usdAmount: usdAmount,
     });
     setIsEditing(false);
   };
@@ -230,8 +253,8 @@ export function LineItemRow({
           )}
         >
           {/* Show compact on very small screens */}
-          <span className="sm:hidden">{formatAmount(lineItem.plannedAmount, true)}</span>
-          <span className="hidden sm:inline">{formatAmount(lineItem.plannedAmount)} sats</span>
+          <span className="sm:hidden">{formatAmount(lineItem.plannedAmount, true, true)}</span>
+          <span className="hidden sm:inline">{formatAmount(lineItem.plannedAmount, false, true)}{currency === 'sats' ? ' sats' : ''}</span>
         </div>
 
         {/* Action buttons - only on hover/desktop */}

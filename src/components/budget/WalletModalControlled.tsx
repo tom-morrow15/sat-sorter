@@ -263,20 +263,29 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
               {/* NWC Tab */}
               <TabsContent value="nwc" className="space-y-4">
                 <div className="text-sm text-muted-foreground">
-                  Connect using Nostr Wallet Connect (NWC) for secure wallet integration.
+                  Connect using Nostr Wallet Connect (NWC) for Lightning payments.
                 </div>
 
-                {/* Manual Sync Section - Show when wallet is connected */}
+                {/* Transaction Sync Notice */}
                 {connections.length > 0 && (
-                  <div className="p-3 border rounded-lg bg-muted/30 space-y-3">
+                  <Alert className="border-amber-500/50 bg-amber-50 dark:bg-amber-950/30">
+                    <Lightbulb className="h-4 w-4 text-amber-600" />
+                    <AlertDescription className="text-amber-700 dark:text-amber-400 text-sm">
+                      <strong>About Transaction Import:</strong> Most wallets don't support automatic transaction listing via NWC yet.
+                      For now, please add transactions manually or import via CSV. Your connected wallet can still be used for payments.
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                {/* Try Sync Button - Hidden but available for wallets that support it */}
+                {connections.length > 0 && (
+                  <div className="p-3 border rounded-lg bg-muted/30 space-y-2">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm font-medium">Sync Transactions</p>
-                        {lastSyncTimestamp && (
-                          <p className="text-xs text-muted-foreground">
-                            Last synced: {new Date(lastSyncTimestamp * 1000).toLocaleString()}
-                          </p>
-                        )}
+                        <p className="text-sm font-medium">Try Transaction Import</p>
+                        <p className="text-xs text-muted-foreground">
+                          Works with Alby Hub. May not work with other wallets.
+                        </p>
                       </div>
                       <Button
                         size="sm"
@@ -287,24 +296,14 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
                         {isSyncing ? (
                           <>
                             <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                            Syncing...
+                            Trying...
                           </>
                         ) : (
                           <>
                             <RotateCcw className="h-4 w-4 mr-2" />
-                            Refresh Now
+                            Try Import
                           </>
                         )}
-                      </Button>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Auto-sync every 5 min</span>
-                      <Button
-                        size="sm"
-                        variant={autoSyncEnabled ? "default" : "outline"}
-                        onClick={autoSyncEnabled ? stopAutoSync : startAutoSync}
-                      >
-                        {autoSyncEnabled ? 'On' : 'Off'}
                       </Button>
                     </div>
                   </div>

@@ -82,6 +82,21 @@ export function TransactionsPanel({
     return filteredTransactions.length > 0 ? filteredTransactions : [...unassigned, ...assigned];
   }, [filteredTransactions, unassigned, assigned]);
 
+  // Format amount - use stored USD amount if available to avoid drift
+  const formatTransactionAmount = (transaction: Transaction) => {
+    if (currency === 'usd') {
+      // Use stored USD amount if available
+      if (transaction.usdAmount !== undefined) {
+        return formatUsd(transaction.usdAmount);
+      }
+      if (priceData) {
+        return formatUsd(satsToUsd(transaction.amount, priceData.usdPerBtc));
+      }
+      return '$0.00';
+    }
+    return `${formatSats(transaction.amount)} sats`;
+  };
+
   const formatAmount = (sats: number) => {
     if (currency === 'usd' && priceData) {
       return formatUsd(satsToUsd(sats, priceData.usdPerBtc));
@@ -89,19 +104,27 @@ export function TransactionsPanel({
     return `${formatSats(sats)} sats`;
   };
 
-  const parseAmountToSats = (value: string): number => {
+  // Parse input amount - returns both sats and USD
+  const parseInputAmount = (value: string): { sats: number; usdAmount?: number } => {
     const num = parseFloat(value) || 0;
     if (currency === 'usd' && priceData) {
-      return usdToSats(num, priceData.usdPerBtc);
+      return {
+        sats: Math.round(usdToSats(num, priceData.usdPerBtc)),
+        usdAmount: num,
+      };
     }
-    return Math.round(num);
+    return {
+      sats: Math.round(num),
+      usdAmount: undefined,
+    };
   };
 
   const handleAddTransaction = () => {
-    const amount = parseAmountToSats(newAmount);
-    if (amount > 0 && newDescription.trim()) {
+    const { sats, usdAmount } = parseInputAmount(newAmount);
+    if (sats > 0 && newDescription.trim()) {
       onAddTransaction({
-        amount,
+        amount: sats,
+        usdAmount,
         description: newDescription.trim(),
         date: new Date().toISOString(),
         lineItemId: null,
@@ -215,7 +238,7 @@ export function TransactionsPanel({
                         )}
                       >
                         {transaction.isIncome ? '+' : '-'}
-                        {formatAmount(transaction.amount)}
+                        {formatTransactionAmount(transaction)}
                       </span>
                       <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
                     </div>
@@ -288,7 +311,7 @@ export function TransactionsPanel({
                             )}
                           >
                             {transaction.isIncome ? '+' : '-'}
-                            {formatAmount(transaction.amount)}
+                            {formatTransactionAmount(transaction)}
                           </span>
                           <Button
                             size="icon"
@@ -375,7 +398,7 @@ export function TransactionsPanel({
                             )}
                           >
                             {transaction.isIncome ? '+' : '-'}
-                            {formatAmount(transaction.amount)}
+                            {formatTransactionAmount(transaction)}
                           </span>
                           <Button
                             size="icon"
@@ -401,27 +424,27 @@ export function TransactionsPanel({
           {transactions.length === 0 && !filteredTransactions.length && (
             <div className="text-center py-8">
               <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-blue-500/20 to-purple-500/20 flex items-center justify-center mx-auto mb-4">
-                <Link2 className="h-7 w-7 text-blue-500" />
+                <Plus className="h-7 w-7 text-blue-500" />
               </div>
               <h4 className="text-sm font-semibold mb-1.5">
                 No Transactions Yet
               </h4>
               <p className="text-xs text-muted-foreground mb-5 max-w-xs mx-auto">
-                Import transactions from your Lightning wallet or add them manually to start tracking your spending.
+                Add your Lightning and on-chain transactions to track spending against your budget.
               </p>
               <div className="flex flex-col gap-2 px-4">
-                <Button size="sm" onClick={() => onOpenWallet ? onOpenWallet() : setShowDataSources(true)}>
-                  <Zap className="h-4 w-4 mr-2" />
-                  Connect Lightning Wallet
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => setShowAddDialog(true)}>
+                <Button size="sm" onClick={() => setShowAddDialog(true)}>
                   <Plus className="h-4 w-4 mr-2" />
-                  Add Manually
+                  Add Transaction
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setShowDataSources(true)}>
+                  <Link2 className="h-4 w-4 mr-2" />
+                  Import from CSV
                 </Button>
               </div>
               <div className="mt-5 p-3 bg-muted/50 rounded-lg mx-4">
                 <p className="text-xs text-muted-foreground">
-                  💡 <strong>Tip:</strong> NWC-compatible wallets like Alby and Primal can auto-import your transactions.
+                  💡 <strong>Tip:</strong> Export transactions from your wallet app and import them here via CSV for bulk entry.
                 </p>
               </div>
             </div>
@@ -511,7 +534,7 @@ export function TransactionsPanel({
               <div className="p-3 rounded-lg bg-muted/50">
                 <p className="font-medium">{selectedTransaction.description}</p>
                 <p className="text-sm text-muted-foreground">
-                  {formatAmount(selectedTransaction.amount)} •{' '}
+                  {formatTransactionAmount(selectedTransaction)} •{' '}
                   {formatDate(selectedTransaction.date)}
                 </p>
               </div>
