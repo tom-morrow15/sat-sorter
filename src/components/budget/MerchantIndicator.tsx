@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { MapPin, Zap, Bitcoin, ExternalLink, Store } from 'lucide-react';
+import { MapPin, Zap, Bitcoin, ExternalLink, Store, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -17,6 +17,7 @@ import {
   formatDistance,
   type BTCMapElement,
 } from '@/hooks/useBTCMap';
+import { getMerchantCategoryGroup, isOtherCategory } from '@/lib/merchantCategoryUtils';
 import { cn } from '@/lib/utils';
 
 interface MerchantIndicatorProps {
@@ -82,12 +83,19 @@ export function MerchantIndicator({ lineItemName, merchants, className }: Mercha
             {(matchingMerchants as (BTCMapElement & { distance: number })[]).map((merchant) => {
               const hasLightning = acceptsLightning(merchant);
               const hasOnchain = acceptsOnchain(merchant);
+              const isOther = isOtherCategory(merchant);
+              const categoryGroup = getMerchantCategoryGroup(merchant);
 
               return (
                 <button
                   key={merchant.id}
                   onClick={() => openMerchantInMaps(merchant)}
-                  className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 active:bg-muted transition-colors text-left group"
+                  className={cn(
+                    "w-full flex items-center gap-3 p-2 rounded-lg transition-colors text-left group",
+                    isOther
+                      ? "hover:bg-amber-50 dark:hover:bg-amber-950/20 active:bg-amber-100 dark:active:bg-amber-900/30"
+                      : "hover:bg-muted/50 active:bg-muted"
+                  )}
                 >
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate group-hover:text-primary transition-colors">
@@ -95,7 +103,7 @@ export function MerchantIndicator({ lineItemName, merchants, className }: Mercha
                     </p>
                     <div className="flex items-center gap-2 mt-0.5">
                       <span className="text-xs text-muted-foreground">
-                        {getMerchantCategory(merchant)}
+                        {categoryGroup}
                       </span>
                       <span className="text-xs text-muted-foreground flex items-center gap-0.5">
                         <MapPin className="h-2.5 w-2.5" />
@@ -104,6 +112,14 @@ export function MerchantIndicator({ lineItemName, merchants, className }: Mercha
                     </div>
                   </div>
                   <div className="flex items-center gap-1">
+                    {isOther && (
+                      <Badge
+                        variant="outline"
+                        className="h-5 w-5 p-0 flex items-center justify-center bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-700"
+                      >
+                        <AlertCircle className="h-2.5 w-2.5" />
+                      </Badge>
+                    )}
                     {hasLightning && (
                       <Badge
                         variant="secondary"
@@ -199,19 +215,26 @@ export function MerchantBadge({ lineItemName, merchants, className }: MerchantIn
             {(matchingMerchants as (BTCMapElement & { distance: number })[]).map((merchant) => {
               const hasLightning = acceptsLightning(merchant);
               const hasOnchain = acceptsOnchain(merchant);
+              const isOther = isOtherCategory(merchant);
+              const categoryGroup = getMerchantCategoryGroup(merchant);
 
               return (
                 <button
                   key={merchant.id}
                   onClick={() => openMerchantInMaps(merchant)}
-                  className="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-muted/50 active:bg-muted transition-colors text-left"
+                  className={cn(
+                    "w-full flex items-center gap-2 p-2 rounded-lg transition-colors text-left",
+                    isOther
+                      ? "hover:bg-amber-50 dark:hover:bg-amber-950/20 active:bg-amber-100 dark:active:bg-amber-900/30"
+                      : "hover:bg-muted/50 active:bg-muted"
+                  )}
                 >
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">
                       {getMerchantName(merchant)}
                     </p>
                     <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground">
-                      <span>{getMerchantCategory(merchant)}</span>
+                      <span>{categoryGroup}</span>
                       <span className="flex items-center gap-0.5">
                         <MapPin className="h-2.5 w-2.5" />
                         {formatDistance(merchant.distance)}
@@ -219,6 +242,14 @@ export function MerchantBadge({ lineItemName, merchants, className }: MerchantIn
                     </div>
                   </div>
                   <div className="flex items-center gap-1 flex-shrink-0">
+                    {isOther && (
+                      <Badge
+                        variant="outline"
+                        className="h-5 w-5 p-0 flex items-center justify-center bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-700"
+                      >
+                        <AlertCircle className="h-2.5 w-2.5" />
+                      </Badge>
+                    )}
                     {hasLightning && (
                       <Badge
                         variant="secondary"
