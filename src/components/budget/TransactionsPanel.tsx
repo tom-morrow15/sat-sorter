@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   Zap,
   Link2,
+  Wallet,
 } from 'lucide-react';
 import { TransactionSearchFilter } from './TransactionSearchFilter';
 import { DataSourcesDialog } from './DataSourcesDialog';
@@ -399,24 +400,29 @@ export function TransactionsPanel({
           {/* Empty state */}
           {transactions.length === 0 && !filteredTransactions.length && (
             <div className="text-center py-8">
-              <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
-                <Link2 className="h-6 w-6 text-primary" />
+              <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-blue-500/20 to-purple-500/20 flex items-center justify-center mx-auto mb-4">
+                <Link2 className="h-7 w-7 text-blue-500" />
               </div>
-              <p className="text-sm font-medium mb-1">
-                No transactions yet
+              <h4 className="text-sm font-semibold mb-1.5">
+                No Transactions Yet
+              </h4>
+              <p className="text-xs text-muted-foreground mb-5 max-w-xs mx-auto">
+                Import transactions from your Lightning wallet or add them manually to start tracking your spending.
               </p>
-              <p className="text-xs text-muted-foreground mb-4">
-                Import from your wallet or add manually
-              </p>
-              <div className="flex flex-col sm:flex-row gap-2 justify-center">
+              <div className="flex flex-col gap-2 px-4">
                 <Button size="sm" onClick={() => onOpenWallet ? onOpenWallet() : setShowDataSources(true)}>
-                  <Link2 className="h-4 w-4 mr-1" />
-                  Connect Wallet
+                  <Zap className="h-4 w-4 mr-2" />
+                  Connect Lightning Wallet
                 </Button>
                 <Button size="sm" variant="outline" onClick={() => setShowAddDialog(true)}>
-                  <Plus className="h-4 w-4 mr-1" />
+                  <Plus className="h-4 w-4 mr-2" />
                   Add Manually
                 </Button>
+              </div>
+              <div className="mt-5 p-3 bg-muted/50 rounded-lg mx-4">
+                <p className="text-xs text-muted-foreground">
+                  💡 <strong>Tip:</strong> NWC-compatible wallets like Alby, Primal, or Mutiny can auto-import your transactions.
+                </p>
               </div>
             </div>
           )}

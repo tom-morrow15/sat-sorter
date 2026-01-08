@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bitcoin, DollarSign, ChevronLeft, ChevronRight, Wallet, Moon, Sun, Zap, Calendar, Menu, Info, Heart, ExternalLink, Shield, Globe, GraduationCap, User, LogIn, UserPlus, Wifi, Loader2, Check, AlertCircle, HelpCircle, MessageCircle } from 'lucide-react';
+import { Bitcoin, DollarSign, ChevronLeft, ChevronRight, Wallet, Moon, Sun, Zap, Calendar, Menu, Info, Heart, ExternalLink, Shield, Globe, GraduationCap, User, LogIn, UserPlus, Wifi, Loader2, Check, AlertCircle, HelpCircle, MessageCircle, Download, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -36,6 +36,9 @@ import { useAppContext } from '@/hooks/useAppContext';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { genUserName } from '@/lib/genUserName';
 import { BackupRestoreDialog } from './BackupRestoreDialog';
+import { DataExportDialog } from './DataExportDialog';
+import { OnboardingWelcome } from './OnboardingWelcome';
+import { useOnboarding } from '@/hooks/useOnboarding';
 
 interface BudgetHeaderProps {
   buckets: Bucket[];
@@ -72,6 +75,10 @@ export function BudgetHeader({
   const [showBackup, setShowBackup] = useState(false);
   const [showBitcoinProjects, setShowBitcoinProjects] = useState(false);
   const [showFAQ, setShowFAQ] = useState(false);
+  const [showDataExport, setShowDataExport] = useState(false);
+  const [showOnboardingTour, setShowOnboardingTour] = useState(false);
+
+  const { completeOnboarding } = useOnboarding();
 
   // Generate list of months for picker (current month + 11 months back + 6 months forward)
   const getAvailableMonths = () => {
@@ -283,7 +290,15 @@ export function BudgetHeader({
                   <Wifi className="h-4 w-4 mr-2" />
                   Nostr Relay Sync
                 </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setShowDataExport(true)}>
+                  <Download className="h-4 w-4 mr-2" />
+                  Export & Backup Data
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setShowOnboardingTour(true)}>
+                  <BookOpen className="h-4 w-4 mr-2" />
+                  How It Works Tour
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setShowFAQ(true)}>
                   <HelpCircle className="h-4 w-4 mr-2" />
                   FAQ & Help
@@ -781,6 +796,19 @@ export function BudgetHeader({
       <BackupRestoreDialog
         open={showBackup}
         onOpenChange={setShowBackup}
+      />
+
+      {/* Data Export Dialog */}
+      <DataExportDialog
+        open={showDataExport}
+        onOpenChange={setShowDataExport}
+      />
+
+      {/* Onboarding Tour Dialog */}
+      <OnboardingWelcome
+        open={showOnboardingTour}
+        onOpenChange={setShowOnboardingTour}
+        onComplete={completeOnboarding}
       />
 
       {/* FAQ & Help Dialog */}

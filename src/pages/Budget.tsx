@@ -11,22 +11,28 @@ import { TransactionsPanel } from '@/components/budget/TransactionsPanel';
 import { BTCMapBanner } from '@/components/budget/BTCMapBanner';
 import { WalletModalControlled } from '@/components/budget/WalletModalControlled';
 import { QuickAddFAB } from '@/components/budget/QuickAddFAB';
+import { OnboardingWelcome } from '@/components/budget/OnboardingWelcome';
+import { FirstTimeBudgetPrompt, EmptyBudgetCategories } from '@/components/budget/EmptyStates';
 import { LoginArea } from '@/components/auth/LoginArea';
 import { useBudget } from '@/hooks/useBudget';
 import { useWallet } from '@/hooks/useWallet';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useBTCMap } from '@/hooks/useBTCMap';
 import { useBudgetSync } from '@/hooks/useBudgetSync';
+import { useOnboarding } from '@/hooks/useOnboarding';
 
 export default function Budget() {
   const [showAddBucket, setShowAddBucket] = useState(false);
   const [showWalletModal, setShowWalletModal] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showTourPrompt, setShowTourPrompt] = useState(true);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'synced' | 'error'>('idle');
   const syncTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
 
   const { user } = useCurrentUser();
   const { hasNWC } = useWallet();
   const { merchants } = useBTCMap();
+  const { shouldShowOnboarding, hasCompletedOnboarding, completeOnboarding } = useOnboarding();
 
   const {
     currentBudget,
@@ -49,6 +55,15 @@ export default function Budget() {
   } = useBudget();
 
   const { uploadBudget, downloadBudget, canSync } = useBudgetSync();
+
+  // Show onboarding for new users
+  useEffect(() => {
+    if (shouldShowOnboarding) {
+      // Small delay for smoother UX
+      const timer = setTimeout(() => setShowOnboarding(true), 500);
+      return () => clearTimeout(timer);
+    }
+  }, [shouldShowOnboarding]);
 
   useSeoMeta({
     title: 'Sat Sorter - Bitcoin Budget App',
@@ -201,6 +216,21 @@ export default function Budget() {
           )}
         </div>
 
+        {/* Tour prompt for users who haven't done onboarding */}
+        {!hasCompletedOnboarding && showTourPrompt && (
+          <FirstTimeBudgetPrompt
+            onStartTour={() => {
+              setShowOnboarding(true);
+              setShowTourPrompt(false);
+            }}
+            onDismiss={() => {
+              setShowTourPrompt(false);
+              completeOnboarding();
+            }}
+            className="mb-4"
+          />
+        )}
+
         {/* Main Layout - Responsive Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6">
           {/* Left Column - Budget Categories */}
@@ -270,32 +300,11 @@ export default function Budget() {
 
             {/* Empty state for no expense buckets */}
             {expenseBuckets.length === 0 && (
-              <div className="text-center py-8 sm:py-12 px-6 sm:px-8 border-2 border-dashed rounded-xl">
-                <div className="h-12 w-12 sm:h-14 sm:w-14 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
-                  <Bitcoin className="h-6 w-6 sm:h-7 sm:w-7 text-primary" />
-                </div>
-                <h3 className="font-semibold text-base sm:text-lg mb-2">
-                  Start building your budget
-                </h3>
-                <p className="text-muted-foreground text-sm max-w-md mx-auto mb-4">
-                  Create expense categories to organize your spending. Give every sat a job.
-                </p>
-                <div className="flex flex-col sm:flex-row gap-2 justify-center">
-                  {hasPreviousMonthBudget && (
-                    <Button
-                      variant="outline"
-                      onClick={() => duplicateFromMonth(getPreviousMonth())}
-                    >
-                      <Copy className="h-4 w-4 mr-2" />
-                      Copy from Last Month
-                    </Button>
-                  )}
-                  <Button onClick={() => setShowAddBucket(true)}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    {hasPreviousMonthBudget ? 'Start Fresh' : 'Add Your First Category'}
-                  </Button>
-                </div>
-              </div>
+              <EmptyBudgetCategories
+                onAddCategory={() => setShowAddBucket(true)}
+                onCopyFromLastMonth={hasPreviousMonthBudget ? () => duplicateFromMonth(getPreviousMonth()) : undefined}
+                hasPreviousMonthBudget={hasPreviousMonthBudget}
+              />
             )}
           </div>
 
@@ -358,6 +367,13 @@ export default function Budget() {
       <QuickAddFAB
         onAddTransaction={addTransaction}
         currency={currency}
+      />
+
+      {/* Onboarding Welcome Dialog */}
+      <OnboardingWelcome
+        open={showOnboarding}
+        onOpenChange={setShowOnboarding}
+        onComplete={completeOnboarding}
       />
     </div>
   );
