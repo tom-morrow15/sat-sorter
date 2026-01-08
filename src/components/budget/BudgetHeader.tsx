@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bitcoin, DollarSign, ChevronLeft, ChevronRight, Wallet, Moon, Sun, Zap, Calendar, Menu, Info, Heart, ExternalLink, Shield, Globe, GraduationCap, User, LogIn, UserPlus, Wifi, Loader2, Check, AlertCircle } from 'lucide-react';
+import { Bitcoin, DollarSign, ChevronLeft, ChevronRight, Wallet, Moon, Sun, Zap, Calendar, Menu, Info, Heart, ExternalLink, Shield, Globe, GraduationCap, User, LogIn, UserPlus, Wifi, Loader2, Check, AlertCircle, HelpCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -18,6 +18,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
 import { useBitcoinPrice, formatSats, satsToUsd, formatUsd } from '@/hooks/useBitcoinPrice';
 import {
   calculateTotalIncome,
@@ -70,6 +71,7 @@ export function BudgetHeader({
   const [showLogin, setShowLogin] = useState(false);
   const [showBackup, setShowBackup] = useState(false);
   const [showBitcoinProjects, setShowBitcoinProjects] = useState(false);
+  const [showFAQ, setShowFAQ] = useState(false);
 
   // Generate list of months for picker (current month + 11 months back + 6 months forward)
   const getAvailableMonths = () => {
@@ -280,6 +282,11 @@ export function BudgetHeader({
                 <DropdownMenuItem onClick={() => setShowBackup(true)}>
                   <Wifi className="h-4 w-4 mr-2" />
                   Nostr Relay Sync
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setShowFAQ(true)}>
+                  <HelpCircle className="h-4 w-4 mr-2" />
+                  FAQ & Help
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -767,6 +774,231 @@ export function BudgetHeader({
         open={showBackup}
         onOpenChange={setShowBackup}
       />
+
+      {/* FAQ & Help Dialog */}
+      <Dialog open={showFAQ} onOpenChange={setShowFAQ}>
+        <DialogContent className="sm:max-w-[600px] max-h-[85vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <HelpCircle className="h-5 w-5 text-primary" />
+              FAQ & Help
+            </DialogTitle>
+            <DialogDescription>
+              Common questions about Sat Sorter
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="max-h-[65vh] pr-4">
+            <div className="space-y-6 py-4">
+              {/* Wallet Compatibility Section */}
+              <div className="space-y-3">
+                <h3 className="font-semibold text-lg flex items-center gap-2">
+                  <Wallet className="h-5 w-5 text-primary" />
+                  Wallet Compatibility
+                </h3>
+
+                <div className="space-y-4">
+                  <div className="p-4 border rounded-lg bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800">
+                    <h4 className="font-semibold text-green-800 dark:text-green-200 mb-2">
+                      ✅ Fully Compatible Wallets
+                    </h4>
+                    <p className="text-sm text-green-700 dark:text-green-300 mb-2">
+                      These wallets support automatic transaction import:
+                    </p>
+                    <ul className="text-sm text-green-700 dark:text-green-300 space-y-1 list-disc list-inside">
+                      <li><strong>Alby</strong> - Browser extension (recommended)</li>
+                      <li><strong>Alby Hub</strong> - Self-hosted, full control</li>
+                      <li><strong>Primal</strong> - iOS, Android, Web</li>
+                      <li><strong>Mutiny Wallet</strong> - Privacy-focused, self-custodial</li>
+                      <li><strong>Zeus</strong> - Connect to your own node</li>
+                      <li><strong>Umbrel + NWC Plugin</strong> - For Umbrel users</li>
+                    </ul>
+                  </div>
+
+                  <div className="p-4 border rounded-lg bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800">
+                    <h4 className="font-semibold text-amber-800 dark:text-amber-200 mb-2">
+                      🟡 May Work (Limited Support)
+                    </h4>
+                    <p className="text-sm text-amber-700 dark:text-amber-300 mb-2">
+                      These wallets have NWC but may not support transaction listing:
+                    </p>
+                    <ul className="text-sm text-amber-700 dark:text-amber-300 space-y-1 list-disc list-inside">
+                      <li><strong>Phoenix</strong> - NWC is newer, test to verify</li>
+                      <li><strong>Breez</strong> - Check if NWC supported</li>
+                      <li><strong>BlueWallet</strong> - May work via LNDHub</li>
+                    </ul>
+                  </div>
+
+                  <div className="p-4 border rounded-lg bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800">
+                    <h4 className="font-semibold text-red-800 dark:text-red-200 mb-2">
+                      ❌ Not Compatible
+                    </h4>
+                    <p className="text-sm text-red-700 dark:text-red-300 mb-2">
+                      These wallets don't support NWC or transaction listing:
+                    </p>
+                    <ul className="text-sm text-red-700 dark:text-red-300 space-y-1 list-disc list-inside">
+                      <li><strong>Wallet of Satoshi</strong> - Custodial, no NWC</li>
+                      <li><strong>Strike</strong> - No NWC support</li>
+                      <li><strong>Cash App</strong> - No NWC support</li>
+                      <li><strong>River, Swan</strong> - No NWC support</li>
+                    </ul>
+                    <p className="text-xs text-red-600 dark:text-red-400 mt-2">
+                      You can still manually add transactions or import via CSV.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* How It Works Section */}
+              <div className="space-y-3">
+                <h3 className="font-semibold text-lg flex items-center gap-2">
+                  <Shield className="h-5 w-5 text-primary" />
+                  How Transaction Import Works
+                </h3>
+
+                <div className="p-4 border rounded-lg space-y-3">
+                  <p className="text-sm text-muted-foreground">
+                    Sat Sorter uses <strong>Nostr Wallet Connect (NWC)</strong> to observe your Lightning transactions. Here's what happens:
+                  </p>
+
+                  <ol className="text-sm text-muted-foreground space-y-2 list-decimal list-inside">
+                    <li>You create an NWC connection in your wallet</li>
+                    <li>You paste the connection string into Sat Sorter</li>
+                    <li>Sat Sorter asks your wallet: "What transactions happened?"</li>
+                    <li>Your wallet responds with transaction data</li>
+                    <li>Sat Sorter displays them for you to categorize</li>
+                  </ol>
+
+                  <div className="bg-primary/5 p-3 rounded-lg mt-3">
+                    <p className="text-sm font-medium text-primary">🔒 Privacy Guarantee</p>
+                    <ul className="text-xs text-muted-foreground mt-1 space-y-1">
+                      <li>• No central server sees your transactions</li>
+                      <li>• Data flows directly: Your Wallet → Your Browser</li>
+                      <li>• Transaction data stays on YOUR device</li>
+                      <li>• You can revoke access anytime in your wallet</li>
+                      <li>• We never store, share, or transmit your data</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* What is NWC Section */}
+              <div className="space-y-3">
+                <h3 className="font-semibold text-lg flex items-center gap-2">
+                  <Zap className="h-5 w-5 text-primary" />
+                  What is NWC?
+                </h3>
+
+                <div className="p-4 border rounded-lg space-y-3">
+                  <p className="text-sm text-muted-foreground">
+                    <strong>Nostr Wallet Connect (NWC)</strong> is an open protocol that lets apps communicate with Lightning wallets securely.
+                  </p>
+
+                  <p className="text-sm text-muted-foreground">
+                    Think of it like OAuth for Bitcoin wallets - you authorize Sat Sorter to <em>view</em> your transactions, but we can never spend your sats.
+                  </p>
+
+                  <div className="grid grid-cols-2 gap-3 mt-3">
+                    <div className="p-3 bg-green-50 dark:bg-green-950/30 rounded-lg">
+                      <p className="text-xs font-medium text-green-700 dark:text-green-300">✅ NWC Can:</p>
+                      <ul className="text-xs text-green-600 dark:text-green-400 mt-1">
+                        <li>• View transactions</li>
+                        <li>• See balances</li>
+                        <li>• Request payments</li>
+                      </ul>
+                    </div>
+                    <div className="p-3 bg-red-50 dark:bg-red-950/30 rounded-lg">
+                      <p className="text-xs font-medium text-red-700 dark:text-red-300">❌ NWC Cannot:</p>
+                      <ul className="text-xs text-red-600 dark:text-red-400 mt-1">
+                        <li>• Spend your sats</li>
+                        <li>• Access your keys</li>
+                        <li>• Control your wallet</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Nostr Sync Section */}
+              <div className="space-y-3">
+                <h3 className="font-semibold text-lg flex items-center gap-2">
+                  <Wifi className="h-5 w-5 text-primary" />
+                  Nostr Relay Sync
+                </h3>
+
+                <div className="p-4 border rounded-lg space-y-3">
+                  <p className="text-sm text-muted-foreground">
+                    Your budget syncs across devices using <strong>Nostr relays</strong> instead of a central cloud server.
+                  </p>
+
+                  <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+                    <li>Data is encrypted with YOUR Nostr keys</li>
+                    <li>Relays store encrypted data they can't read</li>
+                    <li>You choose which relays to use</li>
+                    <li>No single point of failure</li>
+                    <li>True ownership of your data</li>
+                  </ul>
+
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Go to <strong>Menu → Nostr Relay Sync</strong> to manage your relays.
+                  </p>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Getting Started Section */}
+              <div className="space-y-3">
+                <h3 className="font-semibold text-lg">🚀 Quick Start</h3>
+
+                <div className="p-4 border rounded-lg space-y-3">
+                  <p className="text-sm font-medium">To enable automatic transaction import:</p>
+
+                  <ol className="text-sm text-muted-foreground space-y-2 list-decimal list-inside">
+                    <li>Get a compatible wallet (Alby recommended)</li>
+                    <li>Create an NWC connection in your wallet</li>
+                    <li>Click the Wallet icon in Sat Sorter</li>
+                    <li>Paste your NWC connection string</li>
+                    <li>Enable "Auto-sync" for automatic imports</li>
+                    <li>Transactions will appear for categorizing!</li>
+                  </ol>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Need Help Section */}
+              <div className="space-y-3">
+                <h3 className="font-semibold text-lg">Need More Help?</h3>
+
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => window.open('https://nwc.dev', '_blank')}
+                  >
+                    <ExternalLink className="h-3 w-3 mr-1" />
+                    NWC Documentation
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => window.open('https://getalby.com', '_blank')}
+                  >
+                    <ExternalLink className="h-3 w-3 mr-1" />
+                    Get Alby Wallet
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
     </header>
   );
 }
