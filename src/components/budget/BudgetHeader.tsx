@@ -272,7 +272,7 @@ export function BudgetHeader({
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setShowDonate(true)}>
                   <Heart className="h-4 w-4 mr-2" />
-                  Support Developer
+                  Support Sat Sorter
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setShowBitcoinProjects(true)}>
                   <Globe className="h-4 w-4 mr-2" />
@@ -611,17 +611,19 @@ export function BudgetHeader({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Heart className="h-5 w-5 text-pink-500" />
-              Support Sat Sorter Development
+              Support Sat Sorter
             </DialogTitle>
             <DialogDescription>
-              Help us build and maintain Sat Sorter
+              Help me keep building and improving Sat Sorter
             </DialogDescription>
           </DialogHeader>
           <ScrollArea className="max-h-[60vh] pr-4">
             <div className="space-y-6 py-4">
               <p className="text-sm text-muted-foreground">
-                Sat Sorter is built with passion and maintained by developers who believe in Bitcoin and financial freedom.
-                Your donation helps us continue improving this app and building new features.
+                I built Sat Sorter because I believe in Bitcoin and want to help people take control of their finances.
+                Your donation helps me continue building this app, maintaining the servers, and adding new features.
+                It's just me vibe coding this with Shakespeare (ironically, since I have no idea how to build apps,
+                but here we are!). Thanks for the support. 🙏
               </p>
 
               <div className="p-4 border rounded-lg bg-primary/5 space-y-4">
@@ -646,20 +648,20 @@ export function BudgetHeader({
               </div>
 
               <div className="p-4 border rounded-lg space-y-2">
-                <h3 className="font-semibold">❤️ Why Support?</h3>
+                <h3 className="font-semibold">⚙️ What Your Donation Goes To</h3>
                 <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-                  <li>Keep the app free for everyone</li>
-                  <li>Fund new features and improvements</li>
-                  <li>Support ongoing maintenance</li>
-                  <li>Help with hosting and infrastructure</li>
+                  <li>Server hosting and infrastructure</li>
+                  <li>New features and improvements</li>
+                  <li>Bug fixes and maintenance</li>
+                  <li>Keeping Sat Sorter free for everyone</li>
                 </ul>
               </div>
 
               <div className="p-4 border rounded-lg space-y-2">
-                <h3 className="font-semibold">💡 Every Sat Counts</h3>
+                <h3 className="font-semibold">💡 Even a Little Helps</h3>
                 <p className="text-sm text-muted-foreground">
-                  Whether you send 100 sats or 100,000 sats, your support means the world to us.
-                  Thank you for helping build Bitcoin tools! 🙏
+                  Send whatever you can - 100 sats, 1000 sats, whatever feels right.
+                  Even small donations add up and help me dedicate more time to building this. ⚡
                 </p>
               </div>
             </div>

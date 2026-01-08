@@ -456,27 +456,31 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="w-[95vw] max-w-[500px] max-h-[85vh] overflow-y-auto rounded-lg fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 p-6">
-          <button
-            onClick={() => onOpenChange(false)}
-            className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none"
-          >
-            <X className="h-4 w-4" />
-            <span className="sr-only">Close</span>
-          </button>
-          <DialogHeader className="sticky top-0 bg-background z-10 pb-2 pr-8">
-            <div className="flex items-center justify-between">
-              <DialogTitle className="flex items-center gap-2">
-                <Wallet className="h-5 w-5" />
-                Lightning Wallet
-              </DialogTitle>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setShowMethods(true)}
-                title="Payment methods"
-              >
-                <Settings2 className="h-4 w-4" />
-              </Button>
+          <DialogHeader className="sticky top-0 bg-background z-20 pb-2">
+            <div className="flex items-center justify-between pr-2">
+              <div className="flex-1 flex items-center gap-2">
+                <DialogTitle className="flex items-center gap-2">
+                  <Wallet className="h-5 w-5" />
+                  Lightning Wallet
+                </DialogTitle>
+              </div>
+              <div className="flex items-center gap-1 flex-shrink-0">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setShowMethods(true)}
+                  title="Payment methods"
+                >
+                  <Settings2 className="h-4 w-4" />
+                </Button>
+                <button
+                  onClick={() => onOpenChange(false)}
+                  className="rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none"
+                >
+                  <X className="h-4 w-4" />
+                  <span className="sr-only">Close</span>
+                </button>
+              </div>
             </div>
             <DialogDescription>
               Connect your wallet to track transactions automatically.
