@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bitcoin, DollarSign, ChevronLeft, ChevronRight, Wallet, Moon, Sun, Zap, Calendar, Menu, Info, Heart, ExternalLink, Shield, Globe, GraduationCap, User, LogIn, UserPlus, Wifi, Loader2, Check, AlertCircle, HelpCircle } from 'lucide-react';
+import { Bitcoin, DollarSign, ChevronLeft, ChevronRight, Wallet, Moon, Sun, Zap, Calendar, Menu, Info, Heart, ExternalLink, Shield, Globe, GraduationCap, User, LogIn, UserPlus, Wifi, Loader2, Check, AlertCircle, HelpCircle, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -287,6 +287,13 @@ export function BudgetHeader({
                 <DropdownMenuItem onClick={() => setShowFAQ(true)}>
                   <HelpCircle className="h-4 w-4 mr-2" />
                   FAQ & Help
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => window.open('https://nostrtool.com/profile/npub1hq4rd0xalt9swws546kk9mm70uda4n64e30qc09uukvn9uz4dylqw6zqmg', '_blank')}
+                >
+                  <MessageCircle className="h-4 w-4 mr-2" />
+                  Follow on Nostr
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
