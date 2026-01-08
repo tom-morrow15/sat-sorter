@@ -1,14 +1,13 @@
-import { useState, forwardRef, useEffect, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
-  Wallet, Plus, Trash2, Zap, Globe, WalletMinimal, CheckCircle,
-  RefreshCw, Clock, FileSpreadsheet, Link2, QrCode, Settings2
+  Wallet, Plus, Trash2, Zap, Globe, CheckCircle, Server,
+  RefreshCw, FileSpreadsheet, QrCode, CreditCard, Lightbulb
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -17,376 +16,59 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Switch } from '@/components/ui/switch';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useNWC } from '@/hooks/useNWCContext';
-import { useWallet } from '@/hooks/useWallet';
+import { useWallet, saveLNbitsConfig, clearLNbitsConfig, saveNodeConfig, clearNodeConfig } from '@/hooks/useWallet';
 import { useToast } from '@/hooks/useToast';
-import { useIsMobile } from '@/hooks/useIsMobile';
-import { useNWCSync } from '@/hooks/useNWCSync';
 import { DataSourcesDialog } from './DataSourcesDialog';
 import { QRScanner } from './QRScanner';
-import { WalletMethodsDialog } from './WalletMethodsDialog';
-import type { NWCConnection, NWCInfo } from '@/hooks/useNWC';
-import type { WebLNProvider } from "@webbtc/webln-types";
+import type { NWCConnection } from '@/hooks/useNWC';
 
 interface WalletModalControlledProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-// Extracted AddWalletContent
-const AddWalletContent = forwardRef<HTMLDivElement, {
-  alias: string;
-  setAlias: (value: string) => void;
-  connectionUri: string;
-  setConnectionUri: (value: string) => void;
-  onScanQR?: () => void;
-}>(({ alias, setAlias, connectionUri, setConnectionUri, onScanQR }, ref) => {
-  const contentRef = useRef<HTMLDivElement>(null);
-
-  // Handle keyboard visibility on mobile - scroll focused input into view
-  useEffect(() => {
-    const handleFocus = (e: FocusEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
-        // Use setTimeout to wait for keyboard to appear
-        setTimeout(() => {
-          e.target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }, 300);
-      }
-    };
-
-    const container = contentRef.current;
-    if (container) {
-      container.addEventListener('focusin', handleFocus);
-      return () => {
-        container.removeEventListener('focusin', handleFocus);
-      };
-    }
-  }, []);
-
-  return (
-    <div className="space-y-4 px-4" ref={(node) => {
-      // Handle both refs
-      if (typeof ref === 'function') ref(node);
-      else if (ref) ref.current = node;
-      (contentRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
-    }}>
-      <div>
-        <Label htmlFor="alias">Wallet Name (optional)</Label>
-        <Input
-          id="alias"
-          placeholder="My Lightning Wallet"
-          value={alias}
-          onChange={(e) => setAlias(e.target.value)}
-        />
-      </div>
-      <div>
-        <Label htmlFor="connection-uri">Connection URI</Label>
-        <Textarea
-          id="connection-uri"
-          placeholder="nostr+walletconnect://..."
-          value={connectionUri}
-          onChange={(e) => setConnectionUri(e.target.value)}
-          rows={3}
-        />
-        <div className="flex items-center justify-between mt-2">
-          <p className="text-xs text-muted-foreground">
-            Get this from your wallet app (e.g., Alby, Zeus, Primal).
-          </p>
-          {onScanQR && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={onScanQR}
-            >
-              <QrCode className="h-4 w-4 mr-1" />
-              Scan
-            </Button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-});
-AddWalletContent.displayName = 'AddWalletContent';
-
-// Format relative time
-function formatLastSync(timestamp: number | null): string {
-  if (!timestamp) return 'Never';
-
-  const now = Date.now();
-  const diff = now - timestamp * 1000;
-
-  if (diff < 60000) return 'Just now';
-  if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
-  if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
-  return new Date(timestamp * 1000).toLocaleDateString();
-}
-
-// Extracted WalletContent
-const WalletContent = forwardRef<HTMLDivElement, {
-  webln: WebLNProvider | null;
-  hasNWC: boolean;
-  connections: NWCConnection[];
-  connectionInfo: Record<string, NWCInfo>;
-  activeConnection: string | null;
-  handleSetActive: (cs: string) => void;
-  handleRemoveConnection: (cs: string) => void;
-  setAddDialogOpen: (open: boolean) => void;
-  // Sync props
-  isSyncing: boolean;
-  autoSyncEnabled: boolean;
-  lastSyncTimestamp: number | null;
-  onSync: () => void;
-  onToggleAutoSync: () => void;
-  // Data sources
-  onOpenDataSources: () => void;
-}>(({
-  webln,
-  hasNWC,
-  connections,
-  connectionInfo,
-  activeConnection,
-  handleSetActive,
-  handleRemoveConnection,
-  setAddDialogOpen,
-  isSyncing,
-  autoSyncEnabled,
-  lastSyncTimestamp,
-  onSync,
-  onToggleAutoSync,
-  onOpenDataSources,
-}, ref) => (
-  <div className="space-y-6 px-4 pb-4" ref={ref}>
-    {/* Current Status */}
-    <div className="space-y-3">
-      <h3 className="font-medium">Connection Status</h3>
-      <div className="grid gap-3">
-        {/* WebLN */}
-        <div className="flex items-center justify-between p-3 border rounded-lg">
-          <div className="flex items-center gap-3">
-            <Globe className="h-4 w-4 text-muted-foreground" />
-            <div>
-              <p className="text-sm font-medium">WebLN</p>
-              <p className="text-xs text-muted-foreground">Browser extension</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            {webln && <CheckCircle className="h-4 w-4 text-green-600" />}
-            <Badge variant={webln ? "default" : "secondary"} className="text-xs">
-              {webln ? "Ready" : "Not Found"}
-            </Badge>
-          </div>
-        </div>
-        {/* NWC */}
-        <div className="flex items-center justify-between p-3 border rounded-lg">
-          <div className="flex items-center gap-3">
-            <WalletMinimal className="h-4 w-4 text-muted-foreground" />
-            <div>
-              <p className="text-sm font-medium">Nostr Wallet Connect</p>
-              <p className="text-xs text-muted-foreground">
-                {connections.length > 0
-                  ? `${connections.length} wallet${connections.length !== 1 ? 's' : ''} connected`
-                  : "Remote wallet connection"
-                }
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            {hasNWC && <CheckCircle className="h-4 w-4 text-green-600" />}
-            <Badge variant={hasNWC ? "default" : "secondary"} className="text-xs">
-              {hasNWC ? "Ready" : "None"}
-            </Badge>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    {/* Transaction Sync Section - Only show when wallet connected */}
-    {hasNWC && (
-      <>
-        <Separator />
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="font-medium">Transaction Sync</h3>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={onSync}
-              disabled={isSyncing}
-            >
-              <RefreshCw className={`h-4 w-4 mr-1 ${isSyncing ? 'animate-spin' : ''}`} />
-              {isSyncing ? 'Syncing...' : 'Sync Now'}
-            </Button>
-          </div>
-
-          {/* Last Sync Info */}
-          <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Clock className="h-4 w-4" />
-              <span>Last synced: {formatLastSync(lastSyncTimestamp)}</span>
-            </div>
-          </div>
-
-          {/* Auto-sync Toggle */}
-          <div className="flex items-center justify-between p-3 border rounded-lg">
-            <div>
-              <p className="text-sm font-medium">Auto-sync</p>
-              <p className="text-xs text-muted-foreground">
-                Automatically import new transactions every 5 minutes
-              </p>
-            </div>
-            <Switch
-              checked={autoSyncEnabled}
-              onCheckedChange={onToggleAutoSync}
-            />
-          </div>
-
-          <p className="text-xs text-muted-foreground">
-            💡 <strong>Note:</strong> Transaction sync requires your wallet to support the
-            <code className="mx-1 px-1 bg-muted rounded">list_transactions</code>
-            method. Not all wallets support this feature.
-          </p>
-        </div>
-      </>
-    )}
-
-    <Separator />
-
-    {/* Import Transactions Section */}
-    <div className="space-y-3">
-      <h3 className="font-medium">Import Transactions</h3>
-      <p className="text-sm text-muted-foreground">
-        Import transactions from your wallet or a CSV file
-      </p>
-      <Button
-        variant="outline"
-        className="w-full justify-start"
-        onClick={onOpenDataSources}
-      >
-        <Link2 className="h-4 w-4 mr-2" />
-        Connect Data Sources
-        <span className="ml-auto text-xs text-muted-foreground">NWC, CSV, more...</span>
-      </Button>
-    </div>
-
-    <Separator />
-    {/* NWC Management */}
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="font-medium">Nostr Wallet Connect</h3>
-        <Button size="sm" variant="outline" onClick={() => setAddDialogOpen(true)}>
-          <Plus className="h-4 w-4 mr-1" />
-          Add Wallet
-        </Button>
-      </div>
-      {/* Connected Wallets List */}
-      {connections.length === 0 ? (
-        <div className="text-center py-6 text-muted-foreground">
-          <p className="text-sm">No wallets connected</p>
-          <p className="text-xs mt-1">Connect your Lightning wallet to track transactions</p>
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {connections.map((connection) => {
-            const info = connectionInfo[connection.connectionString];
-            const isActive = activeConnection === connection.connectionString;
-            return (
-              <div key={connection.connectionString} className={`flex items-center justify-between p-3 border rounded-lg ${isActive ? 'ring-2 ring-primary' : ''}`}>
-                <div className="flex items-center gap-3">
-                  <WalletMinimal className="h-4 w-4 text-muted-foreground" />
-                  <div>
-                    <p className="text-sm font-medium">
-                      {connection.alias || info?.alias || 'Lightning Wallet'}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      NWC Connection
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  {isActive && <CheckCircle className="h-4 w-4 text-green-600" />}
-                  {!isActive && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => handleSetActive(connection.connectionString)}
-                    >
-                      <Zap className="h-3 w-3" />
-                    </Button>
-                  )}
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => handleRemoveConnection(connection.connectionString)}
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-    {/* Help */}
-    {!webln && connections.length === 0 && (
-      <>
-        <Separator />
-        <div className="text-center py-4 space-y-2">
-          <p className="text-sm text-muted-foreground">
-            Connect your wallet to automatically track your Lightning transactions.
-          </p>
-        </div>
-      </>
-    )}
-  </div>
-));
-WalletContent.displayName = 'WalletContent';
-
 export function WalletModalControlled({ open, onOpenChange }: WalletModalControlledProps) {
-  const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [showDataSources, setShowDataSources] = useState(false);
   const [showQRScanner, setShowQRScanner] = useState(false);
-  const [showMethods, setShowMethods] = useState(false);
   const [connectionUri, setConnectionUri] = useState('');
   const [alias, setAlias] = useState('');
   const [isConnecting, setIsConnecting] = useState(false);
-  const isMobile = useIsMobile();
+  
+  // LNbits state
+  const [lnbitsUrl, setLnbitsUrl] = useState('');
+  const [lnbitsKey, setLnbitsKey] = useState('');
+  const [lnbitsLoading, setLnbitsLoading] = useState(false);
+
+  // Direct Node state
+  const [nodeType, setNodeType] = useState<'lnd' | 'clightning' | 'eclair'>('lnd');
+  const [nodeHost, setNodeHost] = useState('');
+  const [nodePort, setNodePort] = useState('10009');
+  const [nodeMacaroon, setNodeMacaroon] = useState('');
+  const [nodeLoading, setNodeLoading] = useState(false);
+
+  const { toast, addToast } = useToast();
+  const { hasNWC, hasWebLN, webln, availableMethods } = useWallet();
+
+  const {
+    connections,
+    activeConnection,
+    addConnection,
+    removeConnection,
+    setActiveConnection
+  } = useNWC();
 
   const handleQRScan = (result: string) => {
-    // Check if it's a valid NWC URI
     if (result.startsWith('nostr+walletconnect://') || result.startsWith('nostrwalletconnect://')) {
       setConnectionUri(result);
       setShowQRScanner(false);
     }
   };
 
-  const {
-    connections,
-    activeConnection,
-    connectionInfo,
-    addConnection,
-    removeConnection,
-    setActiveConnection
-  } = useNWC();
-
-  const { webln } = useWallet();
-
-  const {
-    isSyncing,
-    autoSyncEnabled,
-    lastSyncTimestamp,
-    syncTransactions,
-    startAutoSync,
-    stopAutoSync,
-  } = useNWCSync();
-
-  const hasNWC = connections.length > 0 && connections.some(c => c.isConnected);
-  const { toast } = useToast();
-
-  const handleAddConnection = async () => {
+  const handleAddNWCConnection = async () => {
     if (!connectionUri.trim()) {
       toast({
         title: 'Connection URI required',
@@ -400,10 +82,19 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
     try {
       const success = await addConnection(connectionUri.trim(), alias.trim() || undefined);
       if (success) {
+        toast({
+          title: 'Wallet connected!',
+          description: 'Your NWC wallet has been connected successfully.',
+        });
         setConnectionUri('');
         setAlias('');
-        setAddDialogOpen(false);
       }
+    } catch (error) {
+      toast({
+        title: 'Connection failed',
+        description: error instanceof Error ? error.message : 'Failed to connect wallet',
+        variant: 'destructive',
+      });
     } finally {
       setIsConnecting(false);
     }
@@ -421,94 +112,417 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
     });
   };
 
-  const handleSync = () => {
-    syncTransactions(true);
-  };
+  // LNbits handlers
+  const handleLNbitsTest = async () => {
+    if (!lnbitsUrl || !lnbitsKey) {
+      addToast('Please enter both URL and admin key', 'error');
+      return;
+    }
 
-  const handleToggleAutoSync = () => {
-    if (autoSyncEnabled) {
-      stopAutoSync();
-    } else {
-      startAutoSync();
+    setLnbitsLoading(true);
+    try {
+      const response = await fetch(`${lnbitsUrl}/api/v1/wallet`, {
+        headers: { 'X-Api-Key': lnbitsKey },
+      });
+
+      if (!response.ok) {
+        throw new Error('Invalid credentials or connection failed');
+      }
+
+      saveLNbitsConfig({ url: lnbitsUrl, adminKey: lnbitsKey });
+      addToast('LNbits wallet connected!', 'success');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Connection failed';
+      addToast(`Failed to connect: ${message}`, 'error');
+    } finally {
+      setLnbitsLoading(false);
     }
   };
 
-  const walletContentProps = {
-    webln,
-    hasNWC,
-    connections,
-    connectionInfo,
-    activeConnection,
-    handleSetActive,
-    handleRemoveConnection,
-    setAddDialogOpen,
-    isSyncing,
-    autoSyncEnabled,
-    lastSyncTimestamp,
-    onSync: handleSync,
-    onToggleAutoSync: handleToggleAutoSync,
-    onOpenDataSources: () => setShowDataSources(true),
+  const handleLNbitsDisconnect = () => {
+    clearLNbitsConfig();
+    setLnbitsUrl('');
+    setLnbitsKey('');
+    addToast('LNbits configuration removed', 'success');
   };
 
-  // Use Dialog on both mobile and desktop for consistent, fixed positioning
-  // Force centered modal behavior, not drawer-like popup from bottom
+  // Direct Node handlers
+  const handleNodeConnect = async () => {
+    if (!nodeHost || !nodePort) {
+      addToast('Please enter host and port', 'error');
+      return;
+    }
+
+    if (nodeType === 'lnd' && !nodeMacaroon) {
+      addToast('LND requires a macaroon', 'error');
+      return;
+    }
+
+    setNodeLoading(true);
+    try {
+      const port = parseInt(nodePort);
+      if (port < 1 || port > 65535) {
+        throw new Error('Invalid port number');
+      }
+
+      saveNodeConfig({
+        type: nodeType,
+        host: nodeHost,
+        port,
+        macaroon: nodeMacaroon || undefined,
+      });
+
+      addToast(`${nodeType.toUpperCase()} node configured!`, 'success');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Configuration failed';
+      addToast(`Failed to configure: ${message}`, 'error');
+    } finally {
+      setNodeLoading(false);
+    }
+  };
+
+  const handleNodeDisconnect = () => {
+    clearNodeConfig();
+    setNodeHost('');
+    setNodePort('10009');
+    setNodeMacaroon('');
+    addToast('Node configuration removed', 'success');
+  };
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="w-[95vw] max-w-[500px] max-h-[85vh] rounded-lg sm:rounded-lg p-0 overflow-hidden">
-          <div className="p-6 overflow-y-auto max-h-[85vh]">
-            <DialogHeader className="pb-2 pr-8 flex flex-row items-start justify-between">
-              <div className="flex items-center gap-2">
-                <DialogTitle className="flex items-center gap-2">
-                  <Wallet className="h-5 w-5" />
-                  Lightning Wallet
-                </DialogTitle>
-              </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setShowMethods(true)}
-                title="Payment methods"
-                className="h-8 w-8 -mr-6"
-              >
-                <Settings2 className="h-4 w-4" />
-              </Button>
+        <DialogContent className="w-[95vw] max-w-[550px] max-h-[90vh] rounded-lg sm:rounded-lg p-0 overflow-hidden">
+          <div className="p-6 overflow-y-auto max-h-[90vh]">
+            <DialogHeader className="pb-4 pr-8">
+              <DialogTitle className="flex items-center gap-2">
+                <Wallet className="h-5 w-5" />
+                Wallet Connections
+              </DialogTitle>
+              <DialogDescription>
+                Connect your wallet to track Lightning transactions
+              </DialogDescription>
             </DialogHeader>
-            <DialogDescription>
-              Connect your wallet to track transactions automatically.
-            </DialogDescription>
-            <WalletContent {...walletContentProps} />
+
+            {/* Active Methods Summary */}
+            <div className="rounded-lg border bg-muted/50 p-3 mb-4">
+              <p className="text-xs font-medium text-muted-foreground mb-2">Connected Methods:</p>
+              <div className="flex flex-wrap gap-2">
+                {availableMethods.includes('nwc') && (
+                  <Badge variant="default" className="flex items-center gap-1 bg-green-600">
+                    <Zap className="h-3 w-3" />
+                    NWC
+                  </Badge>
+                )}
+                {availableMethods.includes('webln') && (
+                  <Badge variant="default" className="flex items-center gap-1 bg-green-600">
+                    <Globe className="h-3 w-3" />
+                    WebLN
+                  </Badge>
+                )}
+                {availableMethods.includes('lnbits') && (
+                  <Badge variant="default" className="flex items-center gap-1 bg-green-600">
+                    <CreditCard className="h-3 w-3" />
+                    LNbits
+                  </Badge>
+                )}
+                {availableMethods.includes('node') && (
+                  <Badge variant="default" className="flex items-center gap-1 bg-green-600">
+                    <Server className="h-3 w-3" />
+                    Node
+                  </Badge>
+                )}
+                {availableMethods.length === 1 && availableMethods[0] === 'manual' && (
+                  <Badge variant="outline" className="text-muted-foreground">No wallets connected</Badge>
+                )}
+              </div>
+            </div>
+
+            <Tabs defaultValue="nwc" className="w-full">
+              <TabsList className="grid w-full grid-cols-4 mb-4">
+                <TabsTrigger value="nwc" className="text-xs">
+                  <Zap className="h-3 w-3 mr-1" />
+                  NWC
+                </TabsTrigger>
+                <TabsTrigger value="webln" className="text-xs">
+                  <Globe className="h-3 w-3 mr-1" />
+                  WebLN
+                </TabsTrigger>
+                <TabsTrigger value="lnbits" className="text-xs">
+                  <CreditCard className="h-3 w-3 mr-1" />
+                  LNbits
+                </TabsTrigger>
+                <TabsTrigger value="node" className="text-xs">
+                  <Server className="h-3 w-3 mr-1" />
+                  Node
+                </TabsTrigger>
+              </TabsList>
+
+              {/* NWC Tab */}
+              <TabsContent value="nwc" className="space-y-4">
+                <div className="text-sm text-muted-foreground">
+                  Connect using Nostr Wallet Connect (NWC) for secure wallet integration.
+                </div>
+
+                {/* Connected NWC Wallets */}
+                {connections.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">Connected Wallets:</p>
+                    {connections.map((conn: NWCConnection) => (
+                      <div
+                        key={conn.connectionString}
+                        className="flex items-center justify-between p-3 rounded-lg border bg-card"
+                      >
+                        <div className="flex items-center gap-2">
+                          {conn.isConnected ? (
+                            <CheckCircle className="h-4 w-4 text-green-500" />
+                          ) : (
+                            <RefreshCw className="h-4 w-4 text-muted-foreground animate-spin" />
+                          )}
+                          <div>
+                            <p className="text-sm font-medium">{conn.alias || 'NWC Wallet'}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {conn.isConnected ? 'Connected' : 'Connecting...'}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {activeConnection === conn.connectionString ? (
+                            <Badge variant="default" className="text-xs">Active</Badge>
+                          ) : (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleSetActive(conn.connectionString)}
+                            >
+                              Set Active
+                            </Button>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive"
+                            onClick={() => handleRemoveConnection(conn.connectionString)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Add NWC Connection */}
+                <div className="space-y-3 pt-2 border-t">
+                  <p className="text-sm font-medium">Add NWC Wallet:</p>
+                  <div>
+                    <Label htmlFor="nwc-alias" className="text-xs">Wallet Name (optional)</Label>
+                    <Input
+                      id="nwc-alias"
+                      placeholder="My Wallet"
+                      value={alias}
+                      onChange={(e) => setAlias(e.target.value)}
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="nwc-uri" className="text-xs">Connection URI</Label>
+                    <Textarea
+                      id="nwc-uri"
+                      placeholder="nostr+walletconnect://..."
+                      value={connectionUri}
+                      onChange={(e) => setConnectionUri(e.target.value)}
+                      rows={2}
+                      className="mt-1 text-xs"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={handleAddNWCConnection}
+                      disabled={isConnecting || !connectionUri.trim()}
+                      className="flex-1"
+                    >
+                      {isConnecting ? 'Connecting...' : 'Connect'}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setShowQRScanner(true)}
+                    >
+                      <QrCode className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </TabsContent>
+
+              {/* WebLN Tab */}
+              <TabsContent value="webln" className="space-y-4">
+                <div className="text-sm text-muted-foreground">
+                  WebLN auto-detects browser extension wallets like Alby. No setup needed!
+                </div>
+
+                {hasWebLN ? (
+                  <Alert className="border-green-500/50 bg-green-50 dark:bg-green-950/30">
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                    <AlertDescription className="text-green-700 dark:text-green-400">
+                      WebLN wallet detected and ready to use!
+                    </AlertDescription>
+                  </Alert>
+                ) : (
+                  <div className="space-y-3">
+                    <Alert className="border-amber-500/50 bg-amber-50 dark:bg-amber-950/30">
+                      <Globe className="h-4 w-4 text-amber-600" />
+                      <AlertDescription className="text-amber-700 dark:text-amber-400">
+                        No WebLN wallet detected. Install a browser extension to use this method.
+                      </AlertDescription>
+                    </Alert>
+                    <Button
+                      variant="outline"
+                      onClick={() => window.open('https://getalby.com', '_blank')}
+                    >
+                      <Zap className="h-4 w-4 mr-2" />
+                      Get Alby Extension
+                    </Button>
+                  </div>
+                )}
+              </TabsContent>
+
+              {/* LNbits Tab */}
+              <TabsContent value="lnbits" className="space-y-4">
+                <div className="text-sm text-muted-foreground">
+                  Connect to your self-hosted or public LNbits instance.
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <Label htmlFor="lnbits-url" className="text-xs">LNbits URL</Label>
+                    <Input
+                      id="lnbits-url"
+                      placeholder="https://lnbits.example.com"
+                      value={lnbitsUrl}
+                      onChange={(e) => setLnbitsUrl(e.target.value)}
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="lnbits-key" className="text-xs">Admin Key</Label>
+                    <Input
+                      id="lnbits-key"
+                      type="password"
+                      placeholder="sk_..."
+                      value={lnbitsKey}
+                      onChange={(e) => setLnbitsKey(e.target.value)}
+                      className="mt-1"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={handleLNbitsTest}
+                      disabled={lnbitsLoading || !lnbitsUrl || !lnbitsKey}
+                      className="flex-1"
+                    >
+                      {lnbitsLoading ? 'Testing...' : 'Connect'}
+                    </Button>
+                    {(lnbitsUrl || lnbitsKey) && (
+                      <Button variant="destructive" size="icon" onClick={handleLNbitsDisconnect}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </TabsContent>
+
+              {/* Direct Node Tab */}
+              <TabsContent value="node" className="space-y-4">
+                <div className="text-sm text-muted-foreground">
+                  Connect directly to your Lightning node (advanced).
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <Label htmlFor="node-type" className="text-xs">Node Type</Label>
+                    <Select value={nodeType} onValueChange={(v) => setNodeType(v as 'lnd' | 'clightning' | 'eclair')}>
+                      <SelectTrigger id="node-type" className="mt-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="lnd">LND</SelectItem>
+                        <SelectItem value="clightning">C-Lightning</SelectItem>
+                        <SelectItem value="eclair">Eclair</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label htmlFor="node-host" className="text-xs">Host</Label>
+                      <Input
+                        id="node-host"
+                        placeholder="localhost"
+                        value={nodeHost}
+                        onChange={(e) => setNodeHost(e.target.value)}
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="node-port" className="text-xs">Port</Label>
+                      <Input
+                        id="node-port"
+                        placeholder="10009"
+                        value={nodePort}
+                        onChange={(e) => setNodePort(e.target.value)}
+                        className="mt-1"
+                      />
+                    </div>
+                  </div>
+                  {nodeType === 'lnd' && (
+                    <div>
+                      <Label htmlFor="node-macaroon" className="text-xs">Macaroon (Base64)</Label>
+                      <Input
+                        id="node-macaroon"
+                        type="password"
+                        placeholder="Paste base64 macaroon"
+                        value={nodeMacaroon}
+                        onChange={(e) => setNodeMacaroon(e.target.value)}
+                        className="mt-1"
+                      />
+                    </div>
+                  )}
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={handleNodeConnect}
+                      disabled={nodeLoading || !nodeHost || !nodePort}
+                      className="flex-1"
+                    >
+                      {nodeLoading ? 'Connecting...' : 'Connect'}
+                    </Button>
+                    {nodeHost && (
+                      <Button variant="destructive" size="icon" onClick={handleNodeDisconnect}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </TabsContent>
+            </Tabs>
+
+            {/* Import Transactions Section */}
+            <Separator className="my-4" />
+            <div className="space-y-3">
+              <p className="text-sm font-medium">Import Transactions</p>
+              <Button
+                variant="outline"
+                className="w-full justify-start"
+                onClick={() => setShowDataSources(true)}
+              >
+                <FileSpreadsheet className="h-4 w-4 mr-2" />
+                Import from CSV or other sources
+              </Button>
+            </div>
+
           </div>
         </DialogContent>
       </Dialog>
-      <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
-        <DialogContent className="w-[95vw] max-w-[425px] max-h-[85vh] rounded-lg sm:rounded-lg p-0 overflow-hidden">
-          <div className="p-6 overflow-y-auto max-h-[85vh]">
-          <DialogHeader className="pr-8">
-            <DialogTitle>Connect NWC Wallet</DialogTitle>
-            <DialogDescription>
-              Enter your connection string or scan a QR code.
-            </DialogDescription>
-          </DialogHeader>
-          <AddWalletContent
-            alias={alias}
-            setAlias={setAlias}
-            connectionUri={connectionUri}
-            setConnectionUri={setConnectionUri}
-            onScanQR={() => setShowQRScanner(true)}
-          />
-          <DialogFooter className="pt-2">
-            <Button
-              onClick={handleAddConnection}
-              disabled={isConnecting || !connectionUri.trim()}
-              className="w-full"
-            >
-              {isConnecting ? 'Connecting...' : 'Connect'}
-            </Button>
-          </DialogFooter>
-          </div>
-        </DialogContent>
-      </Dialog>
+
       <DataSourcesDialog open={showDataSources} onOpenChange={setShowDataSources} />
       <QRScanner
         open={showQRScanner}
@@ -517,7 +531,6 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
         title="Scan NWC QR Code"
         description="Scan the QR code from your wallet app"
       />
-      <WalletMethodsDialog open={showMethods} onOpenChange={setShowMethods} />
     </>
   );
 }
