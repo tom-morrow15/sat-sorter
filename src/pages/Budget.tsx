@@ -52,9 +52,10 @@ export default function Budget() {
     duplicateFromMonth,
     getPreviousMonth,
     hasPreviousMonthBudget,
+    mergeBudgetFromCloud,
   } = useBudget();
 
-  const { uploadBudget, downloadBudget, canSync } = useBudgetSync();
+  const { uploadBudget, downloadBudget, canSync, remoteTimestamp } = useBudgetSync();
 
   // Show onboarding for new users
   useEffect(() => {
@@ -84,9 +85,13 @@ export default function Budget() {
       try {
         setSyncStatus('syncing');
         const cloudBudget = await downloadBudget();
-        if (cloudBudget) {
-          console.log('[Budget] Loaded budget from cloud');
-          // Budget state is already synced by the download
+        if (cloudBudget && remoteTimestamp) {
+          console.log('[Budget] Loaded budget from cloud, merging...');
+          // Merge the cloud budget into local state
+          const wasApplied = mergeBudgetFromCloud(cloudBudget, remoteTimestamp);
+          if (wasApplied) {
+            console.log('[Budget] Cloud budget applied successfully');
+          }
         }
         setSyncStatus('synced');
         // Show synced status for 2 seconds
@@ -103,7 +108,7 @@ export default function Budget() {
     return () => {
       if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
     };
-  }, [canSync, downloadBudget]);
+  }, [canSync, downloadBudget, mergeBudgetFromCloud, remoteTimestamp]);
 
   // Auto-save budget to cloud when it changes
   useEffect(() => {
@@ -113,8 +118,12 @@ export default function Budget() {
     const debounceTimer = setTimeout(async () => {
       try {
         setSyncStatus('syncing');
-        await uploadBudget(currentBudget);
-        console.log('[Budget] Budget synced to cloud');
+        const success = await uploadBudget(currentBudget);
+        if (success) {
+          // Update the local sync timestamp
+          localStorage.setItem('sat-sorter-last-sync', Math.floor(Date.now() / 1000).toString());
+          console.log('[Budget] Budget synced to cloud');
+        }
         setSyncStatus('synced');
         // Show synced status for 2 seconds
         syncTimeoutRef.current = setTimeout(() => setSyncStatus('idle'), 2000);
@@ -123,7 +132,7 @@ export default function Budget() {
         setSyncStatus('error');
         syncTimeoutRef.current = setTimeout(() => setSyncStatus('idle'), 3000);
       }
-    }, 1000);
+    }, 2000); // Increase debounce to 2 seconds to avoid race conditions
 
     return () => {
       clearTimeout(debounceTimer);

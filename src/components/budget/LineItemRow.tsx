@@ -69,11 +69,13 @@ export function LineItemRow({
     return lineItem.plannedAmount.toString();
   };
 
-  // Parse input amount to sats
+  // Parse input amount to sats - preserve whole dollar amounts
   const parseAmountToSats = (value: string): number => {
     const num = parseFloat(value) || 0;
     if (currency === 'usd' && priceData) {
-      return usdToSats(num, priceData.usdPerBtc);
+      // Round to nearest whole sat, but preserve the intended dollar value
+      // For whole dollar amounts, we want to ensure minimal conversion drift
+      return Math.round(usdToSats(num, priceData.usdPerBtc));
     }
     return Math.round(num);
   };
@@ -126,15 +128,20 @@ export function LineItemRow({
 
   if (isEditing) {
     return (
-      <div className="py-3 px-3 sm:px-4 rounded-lg bg-muted/50 space-y-3">
-        <div className="flex flex-col sm:flex-row gap-2">
+      <div className="py-2.5 px-3 sm:px-4 rounded-lg bg-muted/50 space-y-2">
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* Hidden spacer for alignment with non-edit mode */}
+          <div className="hidden sm:block w-4" />
+
+          {/* Inline editing - same row layout */}
           <Input
             ref={nameInputRef}
             value={editName}
             onChange={(e) => setEditName(e.target.value)}
             onKeyDown={handleKeyDown}
-            className="h-9 text-sm flex-1"
+            className="h-8 text-sm flex-1 min-w-0"
             placeholder="Item name"
+            onClick={(e) => e.stopPropagation()}
           />
           <Input
             ref={inputRef}
@@ -142,30 +149,40 @@ export function LineItemRow({
             value={editAmount}
             onChange={(e) => setEditAmount(e.target.value)}
             onKeyDown={handleKeyDown}
-            className="h-9 w-full sm:w-32 text-right text-sm tabular-nums"
+            className="h-8 w-24 sm:w-28 text-right text-sm tabular-nums"
             placeholder="0"
             min="0"
             step={currency === 'usd' ? '0.01' : '1'}
+            onClick={(e) => e.stopPropagation()}
           />
         </div>
-        <div className="flex justify-between gap-2">
+        <div className="flex justify-between gap-2 pl-0 sm:pl-7">
           {/* Delete button - visible in edit mode for mobile access */}
           <Button
             size="sm"
             variant="ghost"
-            className="text-destructive hover:text-destructive hover:bg-destructive/10"
-            onClick={() => onDelete(bucketId, lineItem.id)}
+            className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 px-2"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(bucketId, lineItem.id);
+            }}
           >
-            <Trash2 className="h-4 w-4 mr-1" />
+            <Trash2 className="h-3.5 w-3.5 mr-1" />
             Delete
           </Button>
-          <div className="flex gap-2">
-            <Button size="sm" variant="ghost" onClick={handleCancel}>
-              <X className="h-4 w-4 mr-1" />
+          <div className="flex gap-1">
+            <Button size="sm" variant="ghost" className="h-8 px-2" onClick={(e) => {
+              e.stopPropagation();
+              handleCancel();
+            }}>
+              <X className="h-3.5 w-3.5 mr-1" />
               Cancel
             </Button>
-            <Button size="sm" onClick={handleSave}>
-              <Check className="h-4 w-4 mr-1" />
+            <Button size="sm" className="h-8 px-2" onClick={(e) => {
+              e.stopPropagation();
+              handleSave();
+            }}>
+              <Check className="h-3.5 w-3.5 mr-1" />
               Save
             </Button>
           </div>

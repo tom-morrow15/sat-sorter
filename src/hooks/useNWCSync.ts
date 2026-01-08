@@ -64,41 +64,65 @@ export function useNWCSync() {
 
   /**
    * Fetch transactions from NWC wallet
+   * Tries multiple methods since wallets implement different NWC methods
    */
   const fetchNWCTransactions = useCallback(async (
     connectionString: string,
     fromTimestamp?: number
   ): Promise<NWCTransaction[]> => {
+    console.log('[NWCSync] Starting transaction fetch, fromTimestamp:', fromTimestamp);
     const client = new LN(connectionString);
 
-    try {
-      // The Alby SDK uses getTransactions or listTransactions
-      // Different wallets may have different method names
-      const response = await (client as unknown as {
-        getTransactions: (params: { from?: number; limit?: number }) => Promise<{ transactions: NWCTransaction[] }>
-      }).getTransactions({
-        from: fromTimestamp,
-        limit: 100,
-      });
+    // List of method names to try - different wallets use different names
+    const methodsToTry = [
+      'getTransactions',
+      'listTransactions',
+      'list_transactions',
+      'get_transactions'
+    ];
 
-      return response.transactions || [];
-    } catch (error) {
-      // Try alternative method name
+    let lastError: Error | null = null;
+
+    for (const methodName of methodsToTry) {
       try {
-        const response = await (client as unknown as {
-          listTransactions: (params: { from?: number; limit?: number }) => Promise<{ transactions: NWCTransaction[] }>
-        }).listTransactions({
-          from: fromTimestamp,
-          limit: 100,
-        });
+        console.log(`[NWCSync] Trying method: ${methodName}`);
+        const clientWithMethod = client as unknown as Record<string, unknown>;
 
-        return response.transactions || [];
-      } catch {
-        // This is expected for wallets that don't support list_transactions
-        // Don't log as error since it's normal behavior
-        throw new Error('This wallet does not support transaction listing. Try connecting a different wallet or use manual entry.');
+        if (typeof clientWithMethod[methodName] === 'function') {
+          const method = clientWithMethod[methodName] as (params: { from?: number; limit?: number; offset?: number }) => Promise<{ transactions?: NWCTransaction[] }>;
+
+          const response = await method({
+            from: fromTimestamp,
+            limit: 100,
+            offset: 0,
+          });
+
+          console.log(`[NWCSync] ${methodName} response:`, response);
+
+          if (response && Array.isArray(response.transactions)) {
+            console.log(`[NWCSync] Found ${response.transactions.length} transactions using ${methodName}`);
+            return response.transactions;
+          }
+
+          // Some wallets return transactions at the top level
+          if (Array.isArray(response)) {
+            console.log(`[NWCSync] Found ${response.length} transactions (array response) using ${methodName}`);
+            return response as unknown as NWCTransaction[];
+          }
+        }
+      } catch (error) {
+        console.log(`[NWCSync] Method ${methodName} failed:`, error);
+        lastError = error instanceof Error ? error : new Error(String(error));
       }
     }
+
+    // If all methods failed, throw a helpful error
+    console.warn('[NWCSync] All transaction fetch methods failed');
+    throw new Error(
+      'This wallet does not support transaction listing (list_transactions). ' +
+      'Compatible wallets include: Alby Hub, Primal (with NWC enabled), Zeus. ' +
+      'You can still add transactions manually.'
+    );
   }, []);
 
   /**

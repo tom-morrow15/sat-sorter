@@ -421,7 +421,7 @@ export function TransactionsPanel({
               </div>
               <div className="mt-5 p-3 bg-muted/50 rounded-lg mx-4">
                 <p className="text-xs text-muted-foreground">
-                  💡 <strong>Tip:</strong> NWC-compatible wallets like Alby, Primal, or Mutiny can auto-import your transactions.
+                  💡 <strong>Tip:</strong> NWC-compatible wallets like Alby and Primal can auto-import your transactions.
                 </p>
               </div>
             </div>

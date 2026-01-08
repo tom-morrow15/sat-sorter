@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import {
   Wallet, Plus, Trash2, Zap, Globe, CheckCircle, Server,
-  RefreshCw, FileSpreadsheet, QrCode, CreditCard, Lightbulb
+  RefreshCw, FileSpreadsheet, QrCode, CreditCard, Lightbulb, RotateCcw
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -22,6 +22,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useNWC } from '@/hooks/useNWCContext';
 import { useWallet, saveLNbitsConfig, clearLNbitsConfig, saveNodeConfig, clearNodeConfig } from '@/hooks/useWallet';
 import { useToast } from '@/hooks/useToast';
+import { useNWCSync } from '@/hooks/useNWCSync';
 import { DataSourcesDialog } from './DataSourcesDialog';
 import { QRScanner } from './QRScanner';
 import type { NWCConnection } from '@/hooks/useNWC';
@@ -52,6 +53,7 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
 
   const { toast, addToast } = useToast();
   const { hasNWC, hasWebLN, webln, availableMethods } = useWallet();
+  const { isSyncing, syncTransactions, autoSyncEnabled, startAutoSync, stopAutoSync, lastSyncTimestamp } = useNWCSync();
 
   const {
     connections,
@@ -263,6 +265,50 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
                 <div className="text-sm text-muted-foreground">
                   Connect using Nostr Wallet Connect (NWC) for secure wallet integration.
                 </div>
+
+                {/* Manual Sync Section - Show when wallet is connected */}
+                {connections.length > 0 && (
+                  <div className="p-3 border rounded-lg bg-muted/30 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium">Sync Transactions</p>
+                        {lastSyncTimestamp && (
+                          <p className="text-xs text-muted-foreground">
+                            Last synced: {new Date(lastSyncTimestamp * 1000).toLocaleString()}
+                          </p>
+                        )}
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => syncTransactions(true)}
+                        disabled={isSyncing}
+                      >
+                        {isSyncing ? (
+                          <>
+                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                            Syncing...
+                          </>
+                        ) : (
+                          <>
+                            <RotateCcw className="h-4 w-4 mr-2" />
+                            Refresh Now
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Auto-sync every 5 min</span>
+                      <Button
+                        size="sm"
+                        variant={autoSyncEnabled ? "default" : "outline"}
+                        onClick={autoSyncEnabled ? stopAutoSync : startAutoSync}
+                      >
+                        {autoSyncEnabled ? 'On' : 'Off'}
+                      </Button>
+                    </div>
+                  </div>
+                )}
 
                 {/* Connected NWC Wallets */}
                 {connections.length > 0 && (

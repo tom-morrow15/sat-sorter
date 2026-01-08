@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bitcoin, DollarSign, ChevronLeft, ChevronRight, Wallet, Moon, Sun, Zap, Calendar, Menu, Info, Heart, ExternalLink, Shield, Globe, GraduationCap, User, LogIn, UserPlus, Wifi, Loader2, Check, AlertCircle, HelpCircle, MessageCircle, Download, BookOpen } from 'lucide-react';
+import { Bitcoin, DollarSign, ChevronLeft, ChevronRight, Wallet, Moon, Sun, Zap, Calendar, Menu, Info, Heart, ExternalLink, Shield, Globe, GraduationCap, LogIn, Wifi, Loader2, Check, AlertCircle, HelpCircle, Download, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -33,8 +33,7 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { AccountSwitcher } from '@/components/auth/AccountSwitcher';
 import LoginDialog from '@/components/auth/LoginDialog';
 import { useAppContext } from '@/hooks/useAppContext';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { genUserName } from '@/lib/genUserName';
+
 import { BackupRestoreDialog } from './BackupRestoreDialog';
 import { DataExportDialog } from './DataExportDialog';
 import { OnboardingWelcome } from './OnboardingWelcome';
@@ -181,25 +180,31 @@ export function BudgetHeader({
               </Tooltip>
             )}
 
-            {/* Currency Toggle */}
+            {/* Currency Toggle - Shows both ₿ and $ with active highlighted */}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
                   variant="outline"
-                  size="icon"
                   onClick={onToggleCurrency}
                   disabled={priceLoading}
-                  className="h-8 w-8 sm:h-9 sm:w-9"
+                  className="h-8 sm:h-9 px-2 gap-0.5"
                 >
-                  {currency === 'sats' ? (
-                    <Bitcoin className="h-4 w-4" />
-                  ) : (
-                    <DollarSign className="h-4 w-4" />
-                  )}
+                  <Bitcoin className={cn(
+                    "h-4 w-4 transition-colors",
+                    currency === 'sats' ? 'text-primary' : 'text-muted-foreground/50'
+                  )} />
+                  <span className="text-muted-foreground/50 text-xs">/</span>
+                  <DollarSign className={cn(
+                    "h-4 w-4 transition-colors",
+                    currency === 'usd' ? 'text-green-600' : 'text-muted-foreground/50'
+                  )} />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
-                Switch to {currency === 'sats' ? 'USD' : 'Sats'} view
+                <p>Toggle currency view</p>
+                <p className="text-xs text-muted-foreground">
+                  Currently showing: {currency === 'sats' ? 'Sats (₿)' : 'USD ($)'}
+                </p>
               </TooltipContent>
             </Tooltip>
 
@@ -305,9 +310,9 @@ export function BudgetHeader({
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
-                  onClick={() => window.open('https://nostrtool.com/profile/npub1hq4rd0xalt9swws546kk9mm70uda4n64e30qc09uukvn9uz4dylqw6zqmg', '_blank')}
+                  onClick={() => window.open('https://primal.net/p/npub1hq4rd0xalt9swws546kk9mm70uda4n64e30qc09uukvn9uz4dylqw6zqmg', '_blank')}
                 >
-                  <MessageCircle className="h-4 w-4 mr-2" />
+                  <span className="mr-2 text-base">🦩</span>
                   Follow on Nostr
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -838,15 +843,15 @@ export function BudgetHeader({
                       ✅ Fully Compatible Wallets
                     </h4>
                     <p className="text-sm text-green-700 dark:text-green-300 mb-2">
-                      These wallets support automatic transaction import:
+                      These wallets support automatic transaction import via NWC:
                     </p>
                     <ul className="text-sm text-green-700 dark:text-green-300 space-y-1 list-disc list-inside">
-                      <li><strong>Alby</strong> - Browser extension (recommended)</li>
+                      <li><strong>Alby</strong> - Browser extension</li>
                       <li><strong>Alby Hub</strong> - Self-hosted, full control</li>
                       <li><strong>Primal</strong> - iOS, Android, Web</li>
-                      <li><strong>Mutiny Wallet</strong> - Privacy-focused, self-custodial</li>
                       <li><strong>Zeus</strong> - Connect to your own node</li>
                       <li><strong>Umbrel + NWC Plugin</strong> - For Umbrel users</li>
+                      <li><strong>Coinos</strong> - Web-based Lightning wallet</li>
                     </ul>
                   </div>
 
@@ -858,8 +863,8 @@ export function BudgetHeader({
                       These wallets have NWC but may not support transaction listing:
                     </p>
                     <ul className="text-sm text-amber-700 dark:text-amber-300 space-y-1 list-disc list-inside">
-                      <li><strong>Phoenix</strong> - NWC is newer, test to verify</li>
-                      <li><strong>Breez</strong> - Check if NWC supported</li>
+                      <li><strong>Phoenix</strong> - NWC support varies by version</li>
+                      <li><strong>Breez</strong> - Check if NWC is enabled</li>
                       <li><strong>BlueWallet</strong> - May work via LNDHub</li>
                     </ul>
                   </div>
