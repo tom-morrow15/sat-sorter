@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { MapPin, X, Shield, Check, AlertCircle, Navigation, Loader2, Search, Landmark } from 'lucide-react';
+import { MapPin, Shield, Check, AlertCircle, Navigation, Loader2, Search, Landmark } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -404,24 +404,13 @@ export function LocationSetup({ open, onOpenChange, onLocationSet }: LocationSet
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[95vw] max-w-[420px] max-h-[85vh] overflow-y-auto rounded-lg fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 p-6">
         <DialogHeader className="sticky top-0 bg-background z-20 pb-2">
-          <div className="flex items-start justify-between pr-2">
-            <div className="flex-1">
-              <DialogTitle className="flex items-center gap-2">
-                <MapPin className="h-5 w-5 text-primary" />
-                Find Bitcoin Merchants
-              </DialogTitle>
-              <DialogDescription className="mt-1">
-                Select your location to discover nearby Bitcoin-friendly businesses
-              </DialogDescription>
-            </div>
-            <button
-              onClick={() => onOpenChange(false)}
-              className="rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none flex-shrink-0"
-            >
-              <X className="h-4 w-4" />
-              <span className="sr-only">Close</span>
-            </button>
-          </div>
+          <DialogTitle className="flex items-center gap-2">
+            <MapPin className="h-5 w-5 text-primary" />
+            Find Bitcoin Merchants
+          </DialogTitle>
+          <DialogDescription className="mt-1">
+            Select your location to discover nearby Bitcoin-friendly businesses
+          </DialogDescription>
         </DialogHeader>
         <LocationSetupContent onClose={handleClose} onLocationSet={onLocationSet} />
       </DialogContent>
