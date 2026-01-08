@@ -455,33 +455,36 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="w-[95vw] max-w-[500px] max-h-[85vh] overflow-y-auto rounded-lg fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 p-6">
-          <DialogHeader className="sticky top-0 bg-background z-20 pb-2 flex flex-row items-start justify-between">
-            <div className="flex items-center gap-2">
-              <DialogTitle className="flex items-center gap-2">
-                <Wallet className="h-5 w-5" />
-                Lightning Wallet
-              </DialogTitle>
-            </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setShowMethods(true)}
-              title="Payment methods"
-              className="h-8 w-8"
-            >
-              <Settings2 className="h-4 w-4" />
-            </Button>
-          </DialogHeader>
-          <DialogDescription className="px-6">
-            Connect your wallet to track transactions automatically.
-          </DialogDescription>
-          <WalletContent {...walletContentProps} />
+        <DialogContent className="w-[95vw] max-w-[500px] max-h-[85vh] rounded-lg sm:rounded-lg p-0 overflow-hidden">
+          <div className="p-6 overflow-y-auto max-h-[85vh]">
+            <DialogHeader className="pb-2 pr-8 flex flex-row items-start justify-between">
+              <div className="flex items-center gap-2">
+                <DialogTitle className="flex items-center gap-2">
+                  <Wallet className="h-5 w-5" />
+                  Lightning Wallet
+                </DialogTitle>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowMethods(true)}
+                title="Payment methods"
+                className="h-8 w-8 -mr-6"
+              >
+                <Settings2 className="h-4 w-4" />
+              </Button>
+            </DialogHeader>
+            <DialogDescription>
+              Connect your wallet to track transactions automatically.
+            </DialogDescription>
+            <WalletContent {...walletContentProps} />
+          </div>
         </DialogContent>
       </Dialog>
       <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
-        <DialogContent className="w-[95vw] max-w-[425px] max-h-[85vh] overflow-y-auto rounded-lg fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 p-6">
-          <DialogHeader>
+        <DialogContent className="w-[95vw] max-w-[425px] max-h-[85vh] rounded-lg sm:rounded-lg p-0 overflow-hidden">
+          <div className="p-6 overflow-y-auto max-h-[85vh]">
+          <DialogHeader className="pr-8">
             <DialogTitle>Connect NWC Wallet</DialogTitle>
             <DialogDescription>
               Enter your connection string or scan a QR code.
@@ -494,7 +497,7 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
             setConnectionUri={setConnectionUri}
             onScanQR={() => setShowQRScanner(true)}
           />
-          <DialogFooter className="px-4 pt-2">
+          <DialogFooter className="pt-2">
             <Button
               onClick={handleAddConnection}
               disabled={isConnecting || !connectionUri.trim()}
@@ -503,6 +506,7 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
               {isConnecting ? 'Connecting...' : 'Connect'}
             </Button>
           </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
       <DataSourcesDialog open={showDataSources} onOpenChange={setShowDataSources} />

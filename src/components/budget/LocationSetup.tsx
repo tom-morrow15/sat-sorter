@@ -402,17 +402,19 @@ export function LocationSetup({ open, onOpenChange, onLocationSet }: LocationSet
   // Force centered modal behavior, not drawer-like popup from bottom
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[95vw] max-w-[420px] max-h-[85vh] overflow-y-auto rounded-lg fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 p-6">
-        <DialogHeader className="sticky top-0 bg-background z-20 pb-2">
-          <DialogTitle className="flex items-center gap-2">
-            <MapPin className="h-5 w-5 text-primary" />
-            Find Bitcoin Merchants
-          </DialogTitle>
-          <DialogDescription className="mt-1">
-            Select your location to discover nearby Bitcoin-friendly businesses
-          </DialogDescription>
-        </DialogHeader>
-        <LocationSetupContent onClose={handleClose} onLocationSet={onLocationSet} />
+      <DialogContent className="w-[95vw] max-w-[420px] max-h-[85vh] rounded-lg sm:rounded-lg p-0 overflow-hidden">
+        <div className="p-6 overflow-y-auto max-h-[85vh]">
+          <DialogHeader className="pb-2 pr-8">
+            <DialogTitle className="flex items-center gap-2">
+              <MapPin className="h-5 w-5 text-primary" />
+              Find Bitcoin Merchants
+            </DialogTitle>
+            <DialogDescription className="mt-1">
+              Select your location to discover nearby Bitcoin-friendly businesses
+            </DialogDescription>
+          </DialogHeader>
+          <LocationSetupContent onClose={handleClose} onLocationSet={onLocationSet} />
+        </div>
       </DialogContent>
     </Dialog>
   );
