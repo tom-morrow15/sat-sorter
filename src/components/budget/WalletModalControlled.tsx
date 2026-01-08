@@ -37,7 +37,7 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
   const [connectionUri, setConnectionUri] = useState('');
   const [alias, setAlias] = useState('');
   const [isConnecting, setIsConnecting] = useState(false);
-  
+
   // LNbits state
   const [lnbitsUrl, setLnbitsUrl] = useState('');
   const [lnbitsKey, setLnbitsKey] = useState('');
@@ -515,7 +515,7 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
                 onClick={() => setShowDataSources(true)}
               >
                 <FileSpreadsheet className="h-4 w-4 mr-2" />
-                Import from CSV or other sources
+                Import from CSV file
               </Button>
             </div>
 
