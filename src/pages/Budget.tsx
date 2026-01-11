@@ -45,10 +45,6 @@ export default function Budget() {
   const [walletPromptDismissed, setWalletPromptDismissed] = useLocalStorage('wallet-prompt-dismissed', false);
   const { toast } = useToast();
 
-  // Initialize NWC sync - this must be called at the top level (not conditionally)
-  // so that auto-sync runs even when the wallet modal is closed
-  useNWCSync();
-
   // Check if user has any wallet connected
   const hasWalletConnected = hasAlbyHub || hasLNbits;
 
@@ -132,6 +128,13 @@ export default function Budget() {
     ],
   });
 
+  // State to track when initial cloud load is complete
+  const [initialLoadComplete, setInitialLoadComplete] = useState(!canSync);
+
+  // Initialize NWC sync - only after initial budget load is complete
+  // This prevents NWC-imported transactions from being overwritten by cloud sync
+  useNWCSync({ enabled: initialLoadComplete });
+
   // Load budget from cloud when user logs in
   useEffect(() => {
     if (!canSync || initialLoadCompleteRef.current) return;
@@ -151,11 +154,13 @@ export default function Budget() {
           }
         }
         initialLoadCompleteRef.current = true;
+        setInitialLoadComplete(true);
         setSyncStatus('synced');
         syncTimeoutRef.current = setTimeout(() => setSyncStatus('idle'), 2000);
       } catch (error) {
         console.error('[Budget] Failed to load cloud budget:', error);
         initialLoadCompleteRef.current = true;
+        setInitialLoadComplete(true);
         setSyncStatus('error');
         syncTimeoutRef.current = setTimeout(() => setSyncStatus('idle'), 3000);
       }

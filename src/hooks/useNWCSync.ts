@@ -56,7 +56,14 @@ const DEFAULT_SYNC_STATE: SyncState = {
   syncedPaymentHashes: [],
 };
 
-export function useNWCSync() {
+interface UseNWCSyncOptions {
+  /** Whether the sync is enabled (set to true after initial budget load) */
+  enabled?: boolean;
+}
+
+export function useNWCSync(options: UseNWCSyncOptions = {}) {
+  const { enabled = true } = options;
+
   const { toast } = useToast();
   const { getActiveConnection, connections } = useNWC();
   const { addTransaction, currentBudget } = useBudget();
@@ -187,13 +194,16 @@ export function useNWCSync() {
 
       console.log(`[NWCSync] Found ${nwcTransactions.length} transactions`);
 
-      // Track which payment hashes we've already synced
-      const existingHashes = new Set([
-        ...syncState.syncedPaymentHashes,
-        ...currentBudget.transactions
+      // Track which payment hashes actually exist in the current budget's transactions
+      // We only skip if the transaction is actually IN the budget, not just if we've synced it before
+      // This handles the case where cloud sync may have overwritten local data
+      const budgetPaymentHashes = new Set(
+        currentBudget.transactions
           .filter(t => t.paymentHash)
-          .map(t => t.paymentHash!),
-      ]);
+          .map(t => t.paymentHash!)
+      );
+
+      console.log('[NWCSync] Current budget has', budgetPaymentHashes.size, 'transactions with payment hashes');
 
       let imported = 0;
       let skipped = 0;
@@ -202,14 +212,18 @@ export function useNWCSync() {
 
       for (const nwcTx of nwcTransactions) {
         try {
-          // Skip if we've already synced this transaction
-          if (existingHashes.has(nwcTx.payment_hash)) {
+          // Skip if this transaction is already in the budget
+          // NOTE: We only check the budget, not syncedPaymentHashes, because cloud sync
+          // might have overwritten local data while the hashes remained in localStorage
+          if (budgetPaymentHashes.has(nwcTx.payment_hash)) {
+            console.log('[NWCSync] Skipping transaction already in budget:', nwcTx.payment_hash.slice(0, 16) + '...');
             skipped++;
             continue;
           }
 
           // Skip pending/expired/failed transactions
           if (nwcTx.state && nwcTx.state !== 'settled') {
+            console.log('[NWCSync] Skipping non-settled transaction:', nwcTx.state);
             skipped++;
             continue;
           }
@@ -219,6 +233,7 @@ export function useNWCSync() {
 
           // Skip zero-amount transactions
           if (amountSats === 0) {
+            console.log('[NWCSync] Skipping zero-amount transaction');
             skipped++;
             continue;
           }
@@ -245,6 +260,14 @@ export function useNWCSync() {
             preimage: nwcTx.preimage,
           };
 
+          console.log('[NWCSync] Importing transaction:', {
+            amount: amountSats,
+            description,
+            date: transaction.date,
+            isIncome: transaction.isIncome,
+            paymentHash: nwcTx.payment_hash,
+          });
+
           addTransaction(transaction);
           imported++;
 
@@ -263,6 +286,8 @@ export function useNWCSync() {
       result.imported = imported;
       result.skipped = skipped;
       result.success = true;
+
+      console.log('[NWCSync] Sync results:', { imported, skipped, total: nwcTransactions.length });
 
       // Always update lastSyncedAt to current time (this is when we actually synced)
       // Update lastTransactionTimestamp if we found newer transactions
@@ -389,9 +414,11 @@ export function useNWCSync() {
   }, [getActiveConnection, checkWalletCapabilities]);
 
   // Auto-sync on app load if wallet supports list_transactions
+  // Only runs after the initial budget load is complete (enabled = true)
   const initialSyncDoneRef = useRef(false);
   useEffect(() => {
     if (
+      enabled &&
       !initialSyncDoneRef.current &&
       walletInfo?.methods?.includes('list_transactions') &&
       connections.length > 0
@@ -399,12 +426,12 @@ export function useNWCSync() {
       initialSyncDoneRef.current = true;
       // Small delay to let the app settle
       const timer = setTimeout(() => {
-        console.log('[NWCSync] Auto-syncing on app load...');
+        console.log('[NWCSync] Auto-syncing on app load (after budget loaded)...');
         syncTransactions(false);
-      }, 2000);
+      }, 500);
       return () => clearTimeout(timer);
     }
-  }, [walletInfo, connections.length, syncTransactions]);
+  }, [enabled, walletInfo, connections.length, syncTransactions]);
 
   // Store the sync function in a ref to avoid stale closures in the interval
   const syncTransactionsRef = useRef(syncTransactions);
@@ -413,15 +440,16 @@ export function useNWCSync() {
   }, [syncTransactions]);
 
   // Auto-start polling if enabled and wallet is connected
+  // Only runs after the initial budget load is complete (enabled = true)
   useEffect(() => {
-    if (autoSyncEnabled && connections.length > 0) {
+    if (enabled && autoSyncEnabled && connections.length > 0) {
       console.log('[NWCSync] Auto-sync enabled, starting polling every', POLL_INTERVAL_MS / 1000, 'seconds');
 
       // Initial sync on mount (with a small delay to let the app settle)
       const initialSyncTimer = setTimeout(() => {
         console.log('[NWCSync] Running initial auto-sync...');
         syncTransactionsRef.current(false);
-      }, 1000);
+      }, 500);
 
       // Start polling
       pollIntervalRef.current = setInterval(() => {
@@ -444,7 +472,7 @@ export function useNWCSync() {
         pollIntervalRef.current = null;
       }
     };
-  }, [autoSyncEnabled, connections.length]);
+  }, [enabled, autoSyncEnabled, connections.length]);
 
   return {
     isSyncing,
