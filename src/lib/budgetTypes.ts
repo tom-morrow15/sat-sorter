@@ -144,7 +144,7 @@ export function formatMonth(monthStr: string): string {
   return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 }
 
-// Calculate totals
+// Calculate totals (in sats)
 export function calculateBucketTotal(bucket: Bucket): number {
   return bucket.lineItems.reduce((sum, item) => sum + item.plannedAmount, 0);
 }
@@ -163,6 +163,33 @@ export function calculateTotalExpenses(buckets: Bucket[]): number {
 
 export function calculateRemainingToBudget(buckets: Bucket[]): number {
   return calculateTotalIncome(buckets) - calculateTotalExpenses(buckets);
+}
+
+// Calculate totals in USD (using stored USD amounts when available)
+export function calculateBucketTotalUsd(bucket: Bucket, usdPerBtc: number): number {
+  return bucket.lineItems.reduce((sum, item) => {
+    // Use stored USD amount if available, otherwise convert from sats
+    if (item.usdAmount !== undefined) {
+      return sum + item.usdAmount;
+    }
+    return sum + (item.plannedAmount / 100_000_000) * usdPerBtc;
+  }, 0);
+}
+
+export function calculateTotalIncomeUsd(buckets: Bucket[], usdPerBtc: number): number {
+  return buckets
+    .filter(b => b.isIncome)
+    .reduce((sum, bucket) => sum + calculateBucketTotalUsd(bucket, usdPerBtc), 0);
+}
+
+export function calculateTotalExpensesUsd(buckets: Bucket[], usdPerBtc: number): number {
+  return buckets
+    .filter(b => !b.isIncome)
+    .reduce((sum, bucket) => sum + calculateBucketTotalUsd(bucket, usdPerBtc), 0);
+}
+
+export function calculateRemainingToBudgetUsd(buckets: Bucket[], usdPerBtc: number): number {
+  return calculateTotalIncomeUsd(buckets, usdPerBtc) - calculateTotalExpensesUsd(buckets, usdPerBtc);
 }
 
 // Calculate spent amount for a line item

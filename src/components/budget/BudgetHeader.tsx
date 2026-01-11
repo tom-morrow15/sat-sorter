@@ -24,6 +24,9 @@ import {
   calculateTotalIncome,
   calculateTotalExpenses,
   calculateRemainingToBudget,
+  calculateTotalIncomeUsd,
+  calculateTotalExpensesUsd,
+  calculateRemainingToBudgetUsd,
   formatMonth,
 } from '@/lib/budgetTypes';
 import type { Bucket } from '@/lib/budgetTypes';
@@ -98,21 +101,40 @@ export function BudgetHeader({
     return months;
   };
 
-  const totalIncome = calculateTotalIncome(buckets);
-  const totalExpenses = calculateTotalExpenses(buckets);
-  const remaining = calculateRemainingToBudget(buckets);
+  // Calculate totals - use USD functions when in USD mode to respect stored USD amounts
+  const totalIncomeSats = calculateTotalIncome(buckets);
+  const totalExpensesSats = calculateTotalExpenses(buckets);
+  const remainingSats = calculateRemainingToBudget(buckets);
 
-  const formatAmount = (sats: number) => {
-    if (currency === 'usd' && priceData) {
-      return formatUsd(satsToUsd(sats, priceData.usdPerBtc));
+  // USD totals (using stored USD amounts where available)
+  const totalIncomeUsd = priceData ? calculateTotalIncomeUsd(buckets, priceData.usdPerBtc) : 0;
+  const totalExpensesUsd = priceData ? calculateTotalExpensesUsd(buckets, priceData.usdPerBtc) : 0;
+  const remainingUsd = priceData ? calculateRemainingToBudgetUsd(buckets, priceData.usdPerBtc) : 0;
+
+  // Format amounts based on currency mode
+  const formatAmount = (sats: number, usdValue?: number) => {
+    if (currency === 'usd') {
+      if (usdValue !== undefined) {
+        return formatUsd(usdValue);
+      }
+      if (priceData) {
+        return formatUsd(satsToUsd(sats, priceData.usdPerBtc));
+      }
+      return '$0.00';
     }
     return `${formatSats(sats)} sats`;
   };
 
   // Compact format for mobile
-  const formatAmountCompact = (sats: number) => {
-    if (currency === 'usd' && priceData) {
-      return formatUsd(satsToUsd(sats, priceData.usdPerBtc));
+  const formatAmountCompact = (sats: number, usdValue?: number) => {
+    if (currency === 'usd') {
+      if (usdValue !== undefined) {
+        return formatUsd(usdValue);
+      }
+      if (priceData) {
+        return formatUsd(satsToUsd(sats, priceData.usdPerBtc));
+      }
+      return '$0.00';
     }
     // Compact format: 1.2M, 50K, etc.
     if (sats >= 1_000_000) {
@@ -124,7 +146,12 @@ export function BudgetHeader({
     return formatSats(sats);
   };
 
-  const isZeroed = remaining === 0 && totalIncome > 0;
+  // Use appropriate totals based on currency
+  const totalIncome = currency === 'usd' ? totalIncomeUsd : totalIncomeSats;
+  const totalExpenses = currency === 'usd' ? totalExpensesUsd : totalExpensesSats;
+  const remaining = currency === 'usd' ? remainingUsd : remainingSats;
+
+  const isZeroed = Math.abs(remaining) < 0.01 && totalIncome > 0;
   const isOver = remaining < 0;
   const isUnder = remaining > 0 && totalIncome > 0;
 
@@ -373,16 +400,24 @@ export function BudgetHeader({
             <div className="space-y-0.5 sm:space-y-1">
               <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wide">Income</p>
               <p className="text-sm sm:text-lg font-bold text-success tabular-nums">
-                <span className="sm:hidden">{formatAmountCompact(totalIncome)}</span>
-                <span className="hidden sm:inline">{formatAmount(totalIncome)}</span>
+                <span className="sm:hidden">
+                  {currency === 'usd' ? formatUsd(totalIncomeUsd) : formatAmountCompact(totalIncomeSats)}
+                </span>
+                <span className="hidden sm:inline">
+                  {currency === 'usd' ? formatUsd(totalIncomeUsd) : `${formatSats(totalIncomeSats)} sats`}
+                </span>
               </p>
             </div>
 
             <div className="space-y-0.5 sm:space-y-1">
               <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wide">Planned</p>
               <p className="text-sm sm:text-lg font-bold tabular-nums">
-                <span className="sm:hidden">{formatAmountCompact(totalExpenses)}</span>
-                <span className="hidden sm:inline">{formatAmount(totalExpenses)}</span>
+                <span className="sm:hidden">
+                  {currency === 'usd' ? formatUsd(totalExpensesUsd) : formatAmountCompact(totalExpensesSats)}
+                </span>
+                <span className="hidden sm:inline">
+                  {currency === 'usd' ? formatUsd(totalExpensesUsd) : `${formatSats(totalExpensesSats)} sats`}
+                </span>
               </p>
             </div>
 
@@ -399,8 +434,12 @@ export function BudgetHeader({
                   isUnder && 'text-primary'
                 )}
               >
-                <span className="sm:hidden">{formatAmountCompact(Math.abs(remaining))}</span>
-                <span className="hidden sm:inline">{formatAmount(remaining)}</span>
+                <span className="sm:hidden">
+                  {currency === 'usd' ? formatUsd(Math.abs(remainingUsd)) : formatAmountCompact(Math.abs(remainingSats))}
+                </span>
+                <span className="hidden sm:inline">
+                  {currency === 'usd' ? formatUsd(remainingUsd) : `${formatSats(remainingSats)} sats`}
+                </span>
               </p>
             </div>
           </div>
