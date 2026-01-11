@@ -69,6 +69,12 @@ export function useBudgetSync() {
         const decrypted = await user.signer.nip44.decrypt(user.pubkey, latestEvent.content);
         const budgetData: BudgetState = JSON.parse(decrypted);
 
+        // Validate the decrypted data
+        if (!budgetData || !Array.isArray(budgetData.budgets)) {
+          console.warn('[BudgetSync] Decrypted budget data is invalid', { budgetData });
+          return null;
+        }
+
         console.log('[BudgetSync] Budget decrypted successfully', {
           budgetCount: budgetData.budgets.length,
           currentMonth: budgetData.currentMonth,
@@ -97,8 +103,8 @@ export function useBudgetSync() {
     }
 
     // Validate the budget state structure
-    if (!budgetState || !Array.isArray(budgetState.budgets)) {
-      console.warn('[BudgetSync] Invalid budget state structure');
+    if (!budgetState || !Array.isArray(budgetState?.budgets)) {
+      console.warn('[BudgetSync] Invalid budget state structure', { budgetState, budgets: budgetState?.budgets });
       setSyncStatus(prev => ({ ...prev, error: 'Invalid budget data' }));
       return false;
     }
@@ -108,8 +114,9 @@ export function useBudgetSync() {
     try {
       // Serialize the budget data
       const plaintext = JSON.stringify(budgetState);
+      const budgetCount = Array.isArray(budgetState.budgets) ? budgetState.budgets.length : 0;
       console.log('[BudgetSync] Encrypting budget data...', {
-        budgetCount: budgetState.budgets.length,
+        budgetCount,
         currentMonth: budgetState.currentMonth,
         plaintextLength: plaintext.length,
       });
