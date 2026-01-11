@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   Wallet, Plus, Trash2, Zap, CheckCircle,
-  RefreshCw, FileSpreadsheet, QrCode, CreditCard, RotateCcw
+  RefreshCw, FileSpreadsheet, QrCode, CreditCard, RotateCcw, Clock
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -16,6 +16,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useNWC } from '@/hooks/useNWCContext';
@@ -52,7 +53,17 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
   const [lnbitsConfig, setLnbitsConfig] = useLocalStorage<LNbitsConfig | null>('lnbits-config', null);
 
   const { toast } = useToast();
-  const { isSyncing, syncTransactions, walletInfo, supportsListTransactions, checkWalletCapabilities } = useNWCSync();
+  const {
+    isSyncing,
+    syncTransactions,
+    walletInfo,
+    supportsListTransactions,
+    checkWalletCapabilities,
+    autoSyncEnabled,
+    startAutoSync,
+    stopAutoSync,
+    lastSyncTimestamp,
+  } = useNWCSync();
   const { addTransaction } = useBudget();
 
   const {
@@ -484,7 +495,7 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
                 <Alert className="border-amber-500/50 bg-amber-50 dark:bg-amber-950/30">
                   <Zap className="h-4 w-4 text-amber-600" />
                   <AlertDescription className="text-amber-700 dark:text-amber-400 text-sm">
-                    <strong>Requires list_transactions support.</strong> Compatible wallets: Alby Hub, Mutiny Wallet, Cashu.me. Most NWC wallets only support payments.
+                    <strong>Requires list_transactions support.</strong> Currently only Alby Hub is known to support this. Most NWC wallets only support payments.
                   </AlertDescription>
                 </Alert>
 
@@ -510,6 +521,7 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
                               size="sm"
                               onClick={() => syncTransactions(true)}
                               disabled={isSyncing}
+                              title="Sync transactions now"
                             >
                               {isSyncing ? (
                                 <RefreshCw className="h-3 w-3 animate-spin" />
@@ -541,6 +553,33 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
                                 ⚠ Payments only
                               </Badge>
                             )}
+                          </div>
+                        )}
+
+                        {/* Auto-sync toggle - only show if wallet supports list_transactions */}
+                        {supportsListTransactions && (
+                          <div className="flex items-center justify-between border-t pt-2 mt-1">
+                            <div className="flex items-center gap-2">
+                              <Clock className="h-3 w-3 text-muted-foreground" />
+                              <span className="text-xs">Auto-sync every 5 min</span>
+                            </div>
+                            <Switch
+                              checked={autoSyncEnabled}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  startAutoSync();
+                                } else {
+                                  stopAutoSync();
+                                }
+                              }}
+                            />
+                          </div>
+                        )}
+
+                        {/* Last sync time */}
+                        {lastSyncTimestamp && (
+                          <div className="text-xs text-muted-foreground">
+                            Last synced: {new Date(lastSyncTimestamp * 1000).toLocaleString()}
                           </div>
                         )}
 
