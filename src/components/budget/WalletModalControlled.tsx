@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
-  Wallet, Plus, Trash2, Zap, CheckCircle,
-  RefreshCw, FileSpreadsheet, QrCode, CreditCard, RotateCcw, Clock
+  Wallet, Trash2, Zap, CheckCircle,
+  RefreshCw, FileSpreadsheet, QrCode, RotateCcw, Clock
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -22,16 +22,9 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useNWC } from '@/hooks/useNWCContext';
 import { useToast } from '@/hooks/useToast';
 import { useNWCSync } from '@/hooks/useNWCSync';
-import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { DataSourcesDialog } from './DataSourcesDialog';
 import { QRScanner } from './QRScanner';
-import { useBudget } from '@/hooks/useBudget';
 import type { NWCConnection } from '@/hooks/useNWC';
-
-interface LNbitsConfig {
-  url: string;
-  adminKey: string;
-}
 
 interface WalletModalControlledProps {
   open: boolean;
@@ -45,42 +38,23 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
   const [alias, setAlias] = useState('');
   const [isConnecting, setIsConnecting] = useState(false);
 
-  // LNbits state
-  const [lnbitsUrl, setLnbitsUrl] = useState('');
-  const [lnbitsKey, setLnbitsKey] = useState('');
-  const [lnbitsLoading, setLnbitsLoading] = useState(false);
-  const [lnbitsSyncing, setLnbitsSyncing] = useState(false);
-  const [lnbitsConfig, setLnbitsConfig] = useLocalStorage<LNbitsConfig | null>('lnbits-config', null);
-
   const { toast } = useToast();
-  const {
-    isSyncing,
-    syncTransactions,
-    walletInfo,
-    supportsListTransactions,
-    checkWalletCapabilities,
+  const { 
+    isSyncing, 
+    syncTransactions, 
+    walletInfo, 
+    supportsListTransactions, 
     autoSyncEnabled,
     startAutoSync,
     stopAutoSync,
     lastSyncTimestamp,
   } = useNWCSync();
-  const { addTransaction } = useBudget();
 
   const {
     connections,
-    activeConnection,
     addConnection,
     removeConnection,
-    setActiveConnection
   } = useNWC();
-
-  // Load saved LNbits config
-  useEffect(() => {
-    if (lnbitsConfig) {
-      setLnbitsUrl(lnbitsConfig.url);
-      setLnbitsKey(lnbitsConfig.adminKey);
-    }
-  }, [lnbitsConfig]);
 
   const handleQRScan = (result: string) => {
     if (result.startsWith('nostr+walletconnect://') || result.startsWith('nostrwalletconnect://')) {
@@ -105,7 +79,7 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
       if (success) {
         toast({
           title: 'Wallet connected!',
-          description: 'Your Alby Hub wallet has been connected.',
+          description: 'Your wallet has been connected.',
         });
         setConnectionUri('');
         setAlias('');
@@ -125,204 +99,8 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
     removeConnection(connectionString);
   };
 
-  const handleSetActive = (connectionString: string) => {
-    setActiveConnection(connectionString);
-    toast({
-      title: 'Active wallet changed',
-      description: 'The selected wallet is now active.',
-    });
-  };
-
-  // CORS proxy for LNbits requests
-  const proxyUrl = (url: string) => `https://proxy.shakespeare.diy/?url=${encodeURIComponent(url)}`;
-
-  // LNbits handlers
-  const handleLNbitsConnect = async () => {
-    if (!lnbitsUrl || !lnbitsKey) {
-      toast({
-        title: 'Missing fields',
-        description: 'Please enter both URL and admin key.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    setLnbitsLoading(true);
-    try {
-      // Normalize URL - remove trailing slash and ensure https
-      let normalizedUrl = lnbitsUrl.trim().replace(/\/$/, '');
-
-      // Add https if no protocol specified
-      if (!normalizedUrl.startsWith('http://') && !normalizedUrl.startsWith('https://')) {
-        normalizedUrl = 'https://' + normalizedUrl;
-      }
-
-      // Test connection via CORS proxy with timeout
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000);
-
-      const response = await fetch(proxyUrl(`${normalizedUrl}/api/v1/wallet`), {
-        headers: { 'X-Api-Key': lnbitsKey },
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        if (response.status === 401 || response.status === 403) {
-          throw new Error('Invalid API key. Make sure you\'re using the Admin Key, not the Invoice Key.');
-        }
-        throw new Error(errorText || `Server returned status ${response.status}`);
-      }
-
-      const data = await response.json();
-
-      // Save config with normalized URL
-      setLnbitsConfig({ url: normalizedUrl, adminKey: lnbitsKey });
-
-      toast({
-        title: 'LNbits connected!',
-        description: `Connected to wallet: ${data.name || 'LNbits Wallet'}`,
-      });
-    } catch (error) {
-      console.error('[LNbits] Connection error:', error);
-      let description = 'Connection failed';
-
-      if (error instanceof Error) {
-        if (error.name === 'AbortError') {
-          description = 'Connection timed out. The LNbits server may be slow or unreachable.';
-        } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
-          description = 'Could not reach LNbits server. Check the URL is correct and the server is online.';
-        } else if (error.message.includes('<!DOCTYPE html>') || error.message.includes('Origin DNS error')) {
-          // Handle HTML error pages (e.g., Cloudflare errors)
-          description = 'Could not reach LNbits server. The server may be offline or the URL may be incorrect.';
-        } else if (error.message.length > 200) {
-          // Truncate very long error messages (likely HTML)
-          description = 'Connection failed. Check the URL and make sure the server is accessible.';
-        } else {
-          description = error.message;
-        }
-      }
-
-      toast({
-        title: 'Connection failed',
-        description,
-        variant: 'destructive',
-      });
-    } finally {
-      setLnbitsLoading(false);
-    }
-  };
-
-  const handleLNbitsDisconnect = () => {
-    setLnbitsConfig(null);
-    setLnbitsUrl('');
-    setLnbitsKey('');
-    toast({
-      title: 'LNbits disconnected',
-      description: 'Your LNbits configuration has been removed.',
-    });
-  };
-
-  const handleLNbitsSync = async () => {
-    if (!lnbitsConfig) {
-      toast({
-        title: 'Not connected',
-        description: 'Please connect to LNbits first.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    setLnbitsSyncing(true);
-    try {
-      // Fetch payments from LNbits via CORS proxy
-      const response = await fetch(proxyUrl(`${lnbitsConfig.url}/api/v1/payments`), {
-        headers: { 'X-Api-Key': lnbitsConfig.adminKey },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch transactions');
-      }
-
-      const payments = await response.json();
-
-      if (!Array.isArray(payments) || payments.length === 0) {
-        toast({
-          title: 'No transactions found',
-          description: 'No transactions found in your LNbits wallet.',
-        });
-        setLnbitsSyncing(false);
-        return;
-      }
-
-      // Get existing payment hashes to avoid duplicates
-      const existingHashes = new Set(
-        JSON.parse(localStorage.getItem('lnbits-synced-hashes') || '[]')
-      );
-
-      let imported = 0;
-      let skipped = 0;
-
-      for (const payment of payments) {
-        // Skip if already synced
-        if (existingHashes.has(payment.payment_hash)) {
-          skipped++;
-          continue;
-        }
-
-        // Skip pending payments
-        if (!payment.pending === false && payment.status !== 'success') {
-          skipped++;
-          continue;
-        }
-
-        const amountSats = Math.abs(Math.round(payment.amount / 1000)); // Convert from msats
-        if (amountSats === 0) {
-          skipped++;
-          continue;
-        }
-
-        const isIncome = payment.amount > 0;
-
-        addTransaction({
-          amount: amountSats,
-          description: payment.memo || payment.description || 'LNbits payment',
-          date: new Date(payment.time * 1000).toISOString(),
-          lineItemId: null,
-          bucketId: null,
-          isIncome,
-          source: 'nwc',
-          paymentHash: payment.payment_hash,
-        });
-
-        existingHashes.add(payment.payment_hash);
-        imported++;
-      }
-
-      // Save synced hashes
-      localStorage.setItem('lnbits-synced-hashes', JSON.stringify([...existingHashes]));
-
-      toast({
-        title: 'Sync complete',
-        description: `Imported ${imported} transaction${imported !== 1 ? 's' : ''}${skipped > 0 ? ` (${skipped} skipped)` : ''}`,
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Sync failed';
-      toast({
-        title: 'Sync failed',
-        description: message,
-        variant: 'destructive',
-      });
-    } finally {
-      setLnbitsSyncing(false);
-    }
-  };
-
   // Check connection status
   const hasAlbyHub = connections.length > 0;
-  const hasLNbits = !!lnbitsConfig;
 
   return (
     <>
@@ -340,35 +118,23 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
             </DialogHeader>
 
             {/* Connection Status */}
-            {(hasAlbyHub || hasLNbits) && (
+            {hasAlbyHub && (
               <div className="rounded-lg border bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800 p-3 mb-4">
                 <p className="text-xs font-medium text-green-800 dark:text-green-200 mb-2">Connected:</p>
                 <div className="flex flex-wrap gap-2">
-                  {hasAlbyHub && (
-                    <Badge className="bg-green-600">
-                      <Zap className="h-3 w-3 mr-1" />
-                      Alby Hub
-                    </Badge>
-                  )}
-                  {hasLNbits && (
-                    <Badge className="bg-green-600">
-                      <CreditCard className="h-3 w-3 mr-1" />
-                      LNbits
-                    </Badge>
-                  )}
+                  <Badge className="bg-green-600">
+                    <Zap className="h-3 w-3 mr-1" />
+                    NWC Wallet
+                  </Badge>
                 </div>
               </div>
             )}
 
             <Tabs defaultValue="csv" className="w-full">
-              <TabsList className="grid w-full grid-cols-3 mb-4">
+              <TabsList className="grid w-full grid-cols-2 mb-4">
                 <TabsTrigger value="csv" className="text-xs">
                   <FileSpreadsheet className="h-3 w-3 mr-1" />
                   CSV Import
-                </TabsTrigger>
-                <TabsTrigger value="lnbits" className="text-xs">
-                  <CreditCard className="h-3 w-3 mr-1" />
-                  LNbits
                 </TabsTrigger>
                 <TabsTrigger value="alby" className="text-xs">
                   <Zap className="h-3 w-3 mr-1" />
@@ -405,85 +171,6 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
                     <li><strong>Zeus:</strong> History → Export</li>
                   </ul>
                 </div>
-              </TabsContent>
-
-              {/* LNbits Tab */}
-              <TabsContent value="lnbits" className="space-y-4">
-                <div className="text-sm text-muted-foreground">
-                  Connect to LNbits for automatic transaction import. Works with any LNbits instance.
-                </div>
-
-                {lnbitsConfig ? (
-                  <div className="space-y-4">
-                    <Alert className="border-green-500/50 bg-green-50 dark:bg-green-950/30">
-                      <CheckCircle className="h-4 w-4 text-green-600" />
-                      <AlertDescription className="text-green-700 dark:text-green-400">
-                        Connected to LNbits
-                      </AlertDescription>
-                    </Alert>
-
-                    <div className="flex gap-2">
-                      <Button
-                        className="flex-1"
-                        onClick={handleLNbitsSync}
-                        disabled={lnbitsSyncing}
-                      >
-                        {lnbitsSyncing ? (
-                          <>
-                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                            Syncing...
-                          </>
-                        ) : (
-                          <>
-                            <RotateCcw className="h-4 w-4 mr-2" />
-                            Import Transactions
-                          </>
-                        )}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={handleLNbitsDisconnect}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    <div>
-                      <Label htmlFor="lnbits-url" className="text-xs">LNbits URL</Label>
-                      <Input
-                        id="lnbits-url"
-                        placeholder="https://legend.lnbits.com"
-                        value={lnbitsUrl}
-                        onChange={(e) => setLnbitsUrl(e.target.value)}
-                        className="mt-1"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="lnbits-key" className="text-xs">Admin Key (not Invoice Key)</Label>
-                      <Input
-                        id="lnbits-key"
-                        type="password"
-                        placeholder="Your admin key"
-                        value={lnbitsKey}
-                        onChange={(e) => setLnbitsKey(e.target.value)}
-                        className="mt-1"
-                      />
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Find this in your LNbits wallet under "API Info"
-                      </p>
-                    </div>
-                    <Button
-                      onClick={handleLNbitsConnect}
-                      disabled={lnbitsLoading || !lnbitsUrl || !lnbitsKey}
-                      className="w-full"
-                    >
-                      {lnbitsLoading ? 'Connecting...' : 'Connect to LNbits'}
-                    </Button>
-                  </div>
-                )}
               </TabsContent>
 
               {/* Alby Hub Tab */}

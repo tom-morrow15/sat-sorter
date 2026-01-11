@@ -497,7 +497,7 @@ export function BudgetHeader({
             )}
           </div>
 
-          {/* Zero-based budget indicator */}
+          {/* Zero-based budget indicator - only show for special states */}
           <div className="flex justify-center">
             {isZeroed ? (
               <Badge className="bg-success text-success-foreground text-xs">
@@ -508,16 +508,11 @@ export function BudgetHeader({
                 <span className="sm:hidden">Over by {formatAmountCompact(Math.abs(remaining))}</span>
                 <span className="hidden sm:inline">⚠ Over budget by {formatAmount(Math.abs(remaining))}</span>
               </Badge>
-            ) : totalIncome > 0 ? (
-              <Badge variant="secondary" className="text-primary text-xs">
-                <span className="sm:hidden">{formatAmountCompact(remaining)} left</span>
-                <span className="hidden sm:inline">{formatAmount(remaining)} left to assign</span>
-              </Badge>
-            ) : (
+            ) : totalIncome === 0 ? (
               <Badge variant="secondary" className="text-xs">
                 Start by adding your income
               </Badge>
-            )}
+            ) : null}
           </div>
         </div>
       </div>
@@ -935,20 +930,6 @@ export function BudgetHeader({
 
                   <div className="p-4 border rounded-lg bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800">
                     <h4 className="font-semibold text-green-800 dark:text-green-200 mb-2">
-                      ⚡ LNbits (Auto-Import)
-                    </h4>
-                    <p className="text-sm text-green-700 dark:text-green-300 mb-2">
-                      Connect to your LNbits wallet for automatic transaction import:
-                    </p>
-                    <ul className="text-sm text-green-700 dark:text-green-300 space-y-1 list-disc list-inside">
-                      <li>Works with any LNbits instance (self-hosted or public)</li>
-                      <li>Requires your wallet's Admin Key</li>
-                      <li>Click "Import Transactions" to sync</li>
-                    </ul>
-                  </div>
-
-                  <div className="p-4 border rounded-lg bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800">
-                    <h4 className="font-semibold text-green-800 dark:text-green-200 mb-2">
                       🐝 Alby Hub (Auto-Import)
                     </h4>
                     <p className="text-sm text-green-700 dark:text-green-300 mb-2">
@@ -995,7 +976,7 @@ export function BudgetHeader({
                   </div>
 
                   <p className="text-sm text-muted-foreground">
-                    When you connect LNbits or Alby Hub, data flows directly from your wallet to your browser.
+                    When you connect Alby Hub, data flows directly from your wallet to your browser.
                     Sat Sorter never sees, stores, or transmits your transaction data to any server.
                   </p>
                 </div>
