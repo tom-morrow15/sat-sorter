@@ -60,6 +60,7 @@ export default function Budget() {
     updateLineItem,
     deleteLineItem,
     addTransaction,
+    updateTransaction,
     assignTransaction,
     deleteTransaction,
     duplicateFromMonth,
@@ -395,6 +396,7 @@ export default function Budget() {
                 currency={currency}
                 onAddTransaction={addTransaction}
                 onAssignTransaction={assignTransaction}
+                onUpdateTransaction={updateTransaction}
                 onDeleteTransaction={deleteTransaction}
                 onOpenWallet={() => setShowWalletModal(true)}
               />

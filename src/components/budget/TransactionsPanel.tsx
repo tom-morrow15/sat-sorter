@@ -45,6 +45,7 @@ interface TransactionsPanelProps {
   currency: 'sats' | 'usd';
   onAddTransaction: (transaction: Omit<Transaction, 'id'>) => void;
   onAssignTransaction: (transactionId: string, bucketId: string, lineItemId: string) => void;
+  onUpdateTransaction: (transactionId: string, updates: Partial<Transaction>) => void;
   onDeleteTransaction: (transactionId: string) => void;
   onOpenWallet?: () => void;
 }
@@ -55,12 +56,14 @@ export function TransactionsPanel({
   currency,
   onAddTransaction,
   onAssignTransaction,
+  onUpdateTransaction,
   onDeleteTransaction,
   onOpenWallet,
 }: TransactionsPanelProps) {
   const { data: priceData } = useBitcoinPrice();
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showAssignDialog, setShowAssignDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
   const [showDataSources, setShowDataSources] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [filteredTransactions, setFilteredTransactions] = useState<Transaction[]>([]);
@@ -73,6 +76,12 @@ export function TransactionsPanel({
   // Assign form state
   const [selectedBucketId, setSelectedBucketId] = useState<string>('');
   const [selectedLineItemId, setSelectedLineItemId] = useState<string>('');
+
+  // Edit transaction form state
+  const [editAmount, setEditAmount] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editBucketId, setEditBucketId] = useState<string>('');
+  const [editLineItemId, setEditLineItemId] = useState<string>('');
 
   const unassigned = getUnassignedTransactions(transactions);
   const assigned = transactions.filter(t => t.lineItemId !== null);
@@ -156,7 +165,39 @@ export function TransactionsPanel({
     }
   };
 
+  const handleOpenEdit = (transaction: Transaction) => {
+    setSelectedTransaction(transaction);
+    setEditDescription(transaction.description);
+    setEditAmount(
+      currency === 'usd' && transaction.usdAmount !== undefined
+        ? transaction.usdAmount.toFixed(2)
+        : transaction.amount.toString()
+    );
+    setEditBucketId(transaction.bucketId || '');
+    setEditLineItemId(transaction.lineItemId || '');
+    setShowEditDialog(true);
+  };
+
+  const handleSaveEdit = () => {
+    if (!selectedTransaction) return;
+
+    const { sats, usdAmount, usdPerBtcAtEntry } = parseInputAmount(editAmount);
+    if (sats > 0) {
+      onUpdateTransaction(selectedTransaction.id, {
+        amount: sats,
+        usdAmount,
+        usdPerBtcAtEntry,
+        description: editDescription.trim() || selectedTransaction.description,
+        bucketId: editBucketId || null,
+        lineItemId: editLineItemId || null,
+      });
+      setShowEditDialog(false);
+      setSelectedTransaction(null);
+    }
+  };
+
   const selectedBucket = buckets.find(b => b.id === selectedBucketId);
+  const editBucket = buckets.find(b => b.id === editBucketId);
   const expenseBuckets = buckets.filter(b => !b.isIncome);
 
   const formatDate = (dateStr: string) => {
@@ -266,9 +307,10 @@ export function TransactionsPanel({
                       l => l.id === transaction.lineItemId
                     );
                     return (
-                      <div
+                      <button
                         key={transaction.id}
-                        className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 group"
+                        onClick={() => handleOpenEdit(transaction)}
+                        className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 group transition-colors text-left"
                       >
                         <div
                           className={cn(
@@ -320,12 +362,15 @@ export function TransactionsPanel({
                             size="icon"
                             variant="ghost"
                             className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
-                            onClick={() => onDeleteTransaction(transaction.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onDeleteTransaction(transaction.id);
+                            }}
                           >
                             <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
                           </Button>
                         </div>
-                      </div>
+                      </button>
                     );
                   })}
                 </div>
@@ -601,6 +646,98 @@ export function TransactionsPanel({
               disabled={!selectedBucketId || !selectedLineItemId}
             >
               Assign
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Transaction Dialog */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Edit Transaction</DialogTitle>
+            <DialogDescription>
+              Update the transaction details and categorization.
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedTransaction && (
+            <div className="space-y-4 py-4">
+              {/* Description */}
+              <div className="space-y-2">
+                <Label>Description</Label>
+                <Input
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  placeholder="e.g., Coffee shop, Grocery store..."
+                />
+              </div>
+
+              {/* Amount */}
+              <div className="space-y-2">
+                <Label>Amount ({currency === 'usd' ? 'USD' : 'sats'})</Label>
+                <Input
+                  type="number"
+                  value={editAmount}
+                  onChange={(e) => setEditAmount(e.target.value)}
+                  placeholder="0"
+                  min="0"
+                  step={currency === 'usd' ? '0.01' : '1'}
+                />
+              </div>
+
+              {/* Category selection */}
+              <div className="space-y-2">
+                <Label>Category (Optional)</Label>
+                <Select value={editBucketId} onValueChange={(value) => {
+                  setEditBucketId(value);
+                  setEditLineItemId('');
+                }}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a category..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Unassigned</SelectItem>
+                    {expenseBuckets.map((bucket) => (
+                      <SelectItem key={bucket.id} value={bucket.id}>
+                        {bucket.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Line item selection */}
+              {editBucket && editBucket.lineItems.length > 0 && (
+                <div className="space-y-2">
+                  <Label>Subcategory (Optional)</Label>
+                  <Select value={editLineItemId} onValueChange={setEditLineItemId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a subcategory..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">None</SelectItem>
+                      {editBucket.lineItems.map((item) => (
+                        <SelectItem key={item.id} value={item.id}>
+                          {item.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEditDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveEdit}
+              disabled={!editAmount || parseFloat(editAmount) === 0}
+            >
+              Save Changes
             </Button>
           </DialogFooter>
         </DialogContent>
