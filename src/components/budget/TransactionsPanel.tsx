@@ -173,8 +173,8 @@ export function TransactionsPanel({
         ? transaction.usdAmount.toFixed(2)
         : transaction.amount.toString()
     );
-    setEditBucketId(transaction.bucketId || '');
-    setEditLineItemId(transaction.lineItemId || '');
+    setEditBucketId(transaction.bucketId || '__UNASSIGNED__');
+    setEditLineItemId(transaction.lineItemId || '__NONE__');
     setShowEditDialog(true);
   };
 
@@ -188,8 +188,8 @@ export function TransactionsPanel({
         usdAmount,
         usdPerBtcAtEntry,
         description: editDescription.trim() || selectedTransaction.description,
-        bucketId: editBucketId || null,
-        lineItemId: editLineItemId || null,
+        bucketId: editBucketId === '__UNASSIGNED__' ? null : editBucketId || null,
+        lineItemId: editLineItemId === '__NONE__' ? null : editLineItemId || null,
       });
       setShowEditDialog(false);
       setSelectedTransaction(null);
@@ -697,7 +697,7 @@ export function TransactionsPanel({
                     <SelectValue placeholder="Select a category..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Unassigned</SelectItem>
+                    <SelectItem value="__UNASSIGNED__">Unassigned</SelectItem>
                     {expenseBuckets.map((bucket) => (
                       <SelectItem key={bucket.id} value={bucket.id}>
                         {bucket.name}
@@ -716,7 +716,7 @@ export function TransactionsPanel({
                       <SelectValue placeholder="Select a subcategory..." />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">None</SelectItem>
+                      <SelectItem value="__NONE__">None</SelectItem>
                       {editBucket.lineItems.map((item) => (
                         <SelectItem key={item.id} value={item.id}>
                           {item.name}
