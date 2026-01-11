@@ -77,8 +77,20 @@ export function useAppUpdate() {
         names.forEach(name => caches.delete(name));
       });
     }
+    
+    // Unregister any service workers
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(registrations => {
+        registrations.forEach(registration => {
+          registration.unregister();
+        });
+      });
+    }
+    
     // Update the stored hash after reload
     localStorage.removeItem('sat-sorter-bundle-hash');
+    
+    // Force a hard reload bypassing cache
     window.location.reload();
   }, []);
 
