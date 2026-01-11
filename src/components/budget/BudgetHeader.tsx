@@ -54,6 +54,9 @@ interface BudgetHeaderProps {
   onSelectMonth?: (month: string) => void;
   unassignedCount?: number;
   syncStatus?: 'idle' | 'syncing' | 'synced' | 'error';
+  hasUnsyncedChanges?: boolean;
+  onManualSync?: () => void;
+  canSync?: boolean;
 }
 
 export function BudgetHeader({
@@ -67,6 +70,9 @@ export function BudgetHeader({
   onSelectMonth,
   unassignedCount = 0,
   syncStatus = 'idle',
+  hasUnsyncedChanges = false,
+  onManualSync,
+  canSync = false,
 }: BudgetHeaderProps) {
   const { data: priceData, isLoading: priceLoading } = useBitcoinPrice();
   const { isDark, toggle: toggleTheme } = useTheme();
@@ -445,7 +451,7 @@ export function BudgetHeader({
           </div>
 
           {/* Nostr Relay Sync Status - Always present to prevent layout jump */}
-          <div className="flex justify-center h-5">
+          <div className="flex justify-center items-center gap-2 h-7">
             {syncStatus === 'syncing' && (
               <Badge variant="outline" className="text-xs gap-1.5">
                 <Loader2 className="h-3 w-3 animate-spin" />
@@ -463,6 +469,31 @@ export function BudgetHeader({
                 <AlertCircle className="h-3 w-3" />
                 Sync failed
               </Badge>
+            )}
+            {/* Show sync button when logged in and there are unsynced changes or idle */}
+            {canSync && syncStatus === 'idle' && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant={hasUnsyncedChanges ? 'default' : 'ghost'}
+                    size="sm"
+                    className={cn(
+                      "h-7 text-xs gap-1.5",
+                      hasUnsyncedChanges && "animate-pulse"
+                    )}
+                    onClick={onManualSync}
+                  >
+                    <Wifi className="h-3 w-3" />
+                    {hasUnsyncedChanges ? 'Sync Now' : 'Sync'}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {hasUnsyncedChanges
+                    ? 'You have unsaved changes. Click to sync now.'
+                    : 'Manually sync your budget to Nostr relays'
+                  }
+                </TooltipContent>
+              </Tooltip>
             )}
           </div>
 

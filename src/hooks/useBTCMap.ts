@@ -327,12 +327,6 @@ export function lineItemMatchesMerchant(lineItemName: string, merchants: BTCMapE
     return keywordMatch || categoryMatch;
   });
 
-  // Log for debugging if we found matches
-  if (matches.length > 0) {
-    console.log(`[BTCMap] Matched "${lineItemName}" to ${matches.length} merchant(s):`,
-      matches.map(m => m.osm_json.tags.name || m.osm_json.tags['name:en']).slice(0, 3));
-  }
-
   return matches;
 }
 
@@ -378,9 +372,6 @@ async function fetchAllMerchants(): Promise<BTCMapElement[]> {
 
   // Filter out deleted merchants
   const activeMerchants = elements.filter(el => !el.deleted_at || el.deleted_at === '');
-
-  // Log stats for debugging
-  console.log(`[BTCMap] Fetched ${activeMerchants.length} active merchants out of ${elements.length} total`);
 
   return activeMerchants;
 }

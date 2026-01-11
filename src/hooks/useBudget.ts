@@ -292,12 +292,34 @@ export function useBudget() {
     return false;
   }, [setState]);
 
+  // Get the full budget state for cloud sync
+  // This includes all budgets across all months
+  const getFullBudgetState = useCallback((): BudgetState => {
+    // Make sure the current budget is included in the state
+    const existingIndex = state.budgets.findIndex(b => b.month === state.currentMonth);
+    if (existingIndex < 0) {
+      // Current budget doesn't exist in state yet, add it
+      return {
+        ...state,
+        budgets: [...state.budgets, currentBudget],
+      };
+    }
+    // Update the current budget in state (in case it was modified)
+    const updatedBudgets = [...state.budgets];
+    updatedBudgets[existingIndex] = currentBudget;
+    return {
+      ...state,
+      budgets: updatedBudgets,
+    };
+  }, [state, currentBudget]);
+
   return {
     // State
     currentBudget,
     currentMonth: state.currentMonth,
     currency: state.currency,
     availableMonths,
+    getFullBudgetState,
 
     // Month actions
     setCurrentMonth,

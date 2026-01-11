@@ -1,5 +1,5 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
-import { Plus, Bitcoin, Zap, Wallet, Info, Copy, Cloud, Loader2, X } from 'lucide-react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { Plus, Bitcoin, Zap, Wallet, Info, Copy, Cloud, Loader2, X, RefreshCw } from 'lucide-react';
 import { useSeoMeta, useHead } from '@unhead/react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -21,6 +21,9 @@ import { useBTCMap } from '@/hooks/useBTCMap';
 import { useBudgetSync } from '@/hooks/useBudgetSync';
 import { useOnboarding } from '@/hooks/useOnboarding';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { useToast } from '@/hooks/useToast';
+
+const AUTO_SYNC_INTERVAL_MS = 30000; // 30 seconds
 
 export default function Budget() {
   const [showAddBucket, setShowAddBucket] = useState(false);
@@ -28,13 +31,18 @@ export default function Budget() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showTourPrompt, setShowTourPrompt] = useState(true);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'synced' | 'error'>('idle');
+  const [hasUnsyncedChanges, setHasUnsyncedChanges] = useState(false);
   const syncTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const autoSyncIntervalRef = useRef<ReturnType<typeof setInterval>>();
+  const lastSyncedStateRef = useRef<string>('');
+  const initialLoadCompleteRef = useRef(false);
 
   const { user } = useCurrentUser();
   const { hasAlbyHub, hasLNbits } = useWallet();
   const { merchants } = useBTCMap();
   const { shouldShowOnboarding, hasCompletedOnboarding, completeOnboarding } = useOnboarding();
   const [walletPromptDismissed, setWalletPromptDismissed] = useLocalStorage('wallet-prompt-dismissed', false);
+  const { toast } = useToast();
 
   // Check if user has any wallet connected
   const hasWalletConnected = hasAlbyHub || hasLNbits;
@@ -58,9 +66,45 @@ export default function Budget() {
     getPreviousMonth,
     hasPreviousMonthBudget,
     mergeBudgetFromCloud,
+    getFullBudgetState,
   } = useBudget();
 
   const { uploadBudget, downloadBudget, canSync, remoteTimestamp } = useBudgetSync();
+
+  // Manual sync function
+  const performSync = useCallback(async (showToast = true) => {
+    if (!canSync) return false;
+
+    try {
+      setSyncStatus('syncing');
+      const fullState = getFullBudgetState();
+      const success = await uploadBudget(fullState);
+
+      if (success) {
+        localStorage.setItem('sat-sorter-last-sync', Math.floor(Date.now() / 1000).toString());
+        lastSyncedStateRef.current = JSON.stringify(fullState);
+        setHasUnsyncedChanges(false);
+        setSyncStatus('synced');
+        if (showToast) {
+          toast({
+            title: 'Budget synced',
+            description: 'Your budget has been saved to Nostr relays.',
+          });
+        }
+        syncTimeoutRef.current = setTimeout(() => setSyncStatus('idle'), 2000);
+        return true;
+      } else {
+        setSyncStatus('error');
+        syncTimeoutRef.current = setTimeout(() => setSyncStatus('idle'), 3000);
+        return false;
+      }
+    } catch (error) {
+      console.error('[Budget] Sync failed:', error);
+      setSyncStatus('error');
+      syncTimeoutRef.current = setTimeout(() => setSyncStatus('idle'), 3000);
+      return false;
+    }
+  }, [canSync, getFullBudgetState, uploadBudget, toast]);
 
   // Show onboarding for new users
   useEffect(() => {
@@ -84,7 +128,7 @@ export default function Budget() {
 
   // Load budget from cloud when user logs in
   useEffect(() => {
-    if (!canSync) return;
+    if (!canSync || initialLoadCompleteRef.current) return;
 
     const loadCloudBudget = async () => {
       try {
@@ -96,13 +140,16 @@ export default function Budget() {
           const wasApplied = mergeBudgetFromCloud(cloudBudget, remoteTimestamp);
           if (wasApplied) {
             console.log('[Budget] Cloud budget applied successfully');
+            // Update the reference to prevent detecting this as a change
+            lastSyncedStateRef.current = JSON.stringify(cloudBudget);
           }
         }
+        initialLoadCompleteRef.current = true;
         setSyncStatus('synced');
-        // Show synced status for 2 seconds
         syncTimeoutRef.current = setTimeout(() => setSyncStatus('idle'), 2000);
       } catch (error) {
         console.error('[Budget] Failed to load cloud budget:', error);
+        initialLoadCompleteRef.current = true;
         setSyncStatus('error');
         syncTimeoutRef.current = setTimeout(() => setSyncStatus('idle'), 3000);
       }
@@ -115,35 +162,42 @@ export default function Budget() {
     };
   }, [canSync, downloadBudget, mergeBudgetFromCloud, remoteTimestamp]);
 
-  // Auto-save budget to cloud when it changes
+  // Detect changes to the budget state
+  useEffect(() => {
+    if (!initialLoadCompleteRef.current) return;
+
+    const currentStateStr = JSON.stringify(getFullBudgetState());
+    if (lastSyncedStateRef.current && currentStateStr !== lastSyncedStateRef.current) {
+      setHasUnsyncedChanges(true);
+    }
+  }, [currentBudget, getFullBudgetState]);
+
+  // Auto-save every 30 seconds if there are unsynced changes
   useEffect(() => {
     if (!canSync) return;
 
-    // Debounce cloud sync to avoid too many API calls
-    const debounceTimer = setTimeout(async () => {
-      try {
-        setSyncStatus('syncing');
-        const success = await uploadBudget(currentBudget);
-        if (success) {
-          // Update the local sync timestamp
-          localStorage.setItem('sat-sorter-last-sync', Math.floor(Date.now() / 1000).toString());
-          console.log('[Budget] Budget synced to cloud');
-        }
-        setSyncStatus('synced');
-        // Show synced status for 2 seconds
-        syncTimeoutRef.current = setTimeout(() => setSyncStatus('idle'), 2000);
-      } catch (error) {
-        console.error('[Budget] Failed to sync budget to cloud:', error);
-        setSyncStatus('error');
-        syncTimeoutRef.current = setTimeout(() => setSyncStatus('idle'), 3000);
+    // Clear any existing interval
+    if (autoSyncIntervalRef.current) {
+      clearInterval(autoSyncIntervalRef.current);
+    }
+
+    // Set up the 30-second auto-save interval
+    autoSyncIntervalRef.current = setInterval(async () => {
+      if (hasUnsyncedChanges && syncStatus !== 'syncing') {
+        console.log('[Budget] Auto-syncing budget (30s interval)...');
+        await performSync(false); // Silent sync (no toast)
       }
-    }, 2000); // Increase debounce to 2 seconds to avoid race conditions
+    }, AUTO_SYNC_INTERVAL_MS);
 
     return () => {
-      clearTimeout(debounceTimer);
-      if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
+      if (autoSyncIntervalRef.current) {
+        clearInterval(autoSyncIntervalRef.current);
+      }
+      if (syncTimeoutRef.current) {
+        clearTimeout(syncTimeoutRef.current);
+      }
     };
-  }, [currentBudget, canSync, uploadBudget]);
+  }, [canSync, hasUnsyncedChanges, syncStatus, performSync]);
 
   // Month navigation
   const handlePreviousMonth = () => {
@@ -190,6 +244,9 @@ export default function Budget() {
         onSelectMonth={setCurrentMonth}
         unassignedCount={unassignedCount}
         syncStatus={syncStatus}
+        hasUnsyncedChanges={hasUnsyncedChanges}
+        onManualSync={() => performSync(true)}
+        canSync={canSync}
       />
 
       <main className="container mx-auto px-3 sm:px-4 py-4 lg:py-6">

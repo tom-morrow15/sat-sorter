@@ -4,6 +4,7 @@ export interface Transaction {
   id: string;
   amount: number; // in sats (derived from USD if usdAmount is set)
   usdAmount?: number; // if set, this is the "source of truth" and sats are recalculated
+  usdPerBtcAtEntry?: number; // Exchange rate at time of entry (for USD drift prevention)
   description: string;
   date: string; // ISO date string
   lineItemId: string | null; // null means unassigned
@@ -21,6 +22,7 @@ export interface LineItem {
   name: string;
   plannedAmount: number; // in sats (derived from USD if usdAmount is set)
   usdAmount?: number; // if set, this is the "source of truth" and sats are recalculated
+  usdPerBtcAtEntry?: number; // Exchange rate at time of entry (for USD drift prevention)
   order: number;
 }
 

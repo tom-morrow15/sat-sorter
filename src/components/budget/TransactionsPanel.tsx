@@ -104,27 +104,30 @@ export function TransactionsPanel({
     return `${formatSats(sats)} sats`;
   };
 
-  // Parse input amount - returns both sats and USD
-  const parseInputAmount = (value: string): { sats: number; usdAmount?: number } => {
+  // Parse input amount - returns both sats, USD, and exchange rate
+  const parseInputAmount = (value: string): { sats: number; usdAmount?: number; usdPerBtcAtEntry?: number } => {
     const num = parseFloat(value) || 0;
     if (currency === 'usd' && priceData) {
       return {
         sats: Math.round(usdToSats(num, priceData.usdPerBtc)),
         usdAmount: num,
+        usdPerBtcAtEntry: priceData.usdPerBtc, // Store exchange rate at entry time
       };
     }
     return {
       sats: Math.round(num),
       usdAmount: undefined,
+      usdPerBtcAtEntry: undefined,
     };
   };
 
   const handleAddTransaction = () => {
-    const { sats, usdAmount } = parseInputAmount(newAmount);
+    const { sats, usdAmount, usdPerBtcAtEntry } = parseInputAmount(newAmount);
     if (sats > 0 && newDescription.trim()) {
       onAddTransaction({
         amount: sats,
         usdAmount,
+        usdPerBtcAtEntry,
         description: newDescription.trim(),
         date: new Date().toISOString(),
         lineItemId: null,

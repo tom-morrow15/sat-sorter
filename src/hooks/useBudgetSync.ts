@@ -96,6 +96,13 @@ export function useBudgetSync() {
       return false;
     }
 
+    // Validate the budget state structure
+    if (!budgetState || !Array.isArray(budgetState.budgets)) {
+      console.warn('[BudgetSync] Invalid budget state structure');
+      setSyncStatus(prev => ({ ...prev, error: 'Invalid budget data' }));
+      return false;
+    }
+
     setSyncStatus(prev => ({ ...prev, isSyncing: true, error: null }));
 
     try {

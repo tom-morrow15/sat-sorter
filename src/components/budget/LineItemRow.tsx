@@ -85,20 +85,22 @@ export function LineItemRow({
     return lineItem.plannedAmount.toString();
   };
 
-  // Parse input amount - returns both sats and USD values
-  const parseInputAmount = (value: string): { sats: number; usdAmount?: number } => {
+  // Parse input amount - returns sats, USD, and exchange rate
+  const parseInputAmount = (value: string): { sats: number; usdAmount?: number; usdPerBtcAtEntry?: number } => {
     const num = parseFloat(value) || 0;
     if (currency === 'usd' && priceData) {
-      // Store the exact USD amount and convert to sats
+      // Store the exact USD amount, exchange rate, and convert to sats
       return {
         sats: Math.round(usdToSats(num, priceData.usdPerBtc)),
         usdAmount: num,
+        usdPerBtcAtEntry: priceData.usdPerBtc,
       };
     }
     // When entering sats, clear the USD amount so sats becomes the source of truth
     return {
       sats: Math.round(num),
       usdAmount: undefined,
+      usdPerBtcAtEntry: undefined,
     };
   };
 
@@ -109,11 +111,12 @@ export function LineItemRow({
   };
 
   const handleSave = () => {
-    const { sats, usdAmount } = parseInputAmount(editAmount);
+    const { sats, usdAmount, usdPerBtcAtEntry } = parseInputAmount(editAmount);
     onUpdate(bucketId, lineItem.id, {
       name: editName.trim() || lineItem.name,
       plannedAmount: sats >= 0 ? sats : 0,
       usdAmount: usdAmount,
+      usdPerBtcAtEntry: usdPerBtcAtEntry,
     });
     setIsEditing(false);
   };
