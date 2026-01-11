@@ -19,6 +19,7 @@ import { useWallet } from '@/hooks/useWallet';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useBTCMap } from '@/hooks/useBTCMap';
 import { useBudgetSync } from '@/hooks/useBudgetSync';
+import { useNWCSync } from '@/hooks/useNWCSync';
 import { useOnboarding } from '@/hooks/useOnboarding';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useToast } from '@/hooks/useToast';
@@ -43,6 +44,10 @@ export default function Budget() {
   const { shouldShowOnboarding, hasCompletedOnboarding, completeOnboarding } = useOnboarding();
   const [walletPromptDismissed, setWalletPromptDismissed] = useLocalStorage('wallet-prompt-dismissed', false);
   const { toast } = useToast();
+
+  // Initialize NWC sync - this must be called at the top level (not conditionally)
+  // so that auto-sync runs even when the wallet modal is closed
+  useNWCSync();
 
   // Check if user has any wallet connected
   const hasWalletConnected = hasAlbyHub || hasLNbits;
