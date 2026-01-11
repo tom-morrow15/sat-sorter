@@ -42,7 +42,7 @@ import {
 } from '@/components/ui/collapsible';
 import { LineItemRow } from './LineItemRow';
 import { useBitcoinPrice, formatSats, satsToUsd, formatUsd } from '@/hooks/useBitcoinPrice';
-import { calculateBucketTotal, calculateSpentForBucket } from '@/lib/budgetTypes';
+import { calculateBucketTotal, calculateSpentForBucket, calculateBucketTotalForDisplay } from '@/lib/budgetTypes';
 import type { Bucket, LineItem, Transaction } from '@/lib/budgetTypes';
 import type { BTCMapElement } from '@/hooks/useBTCMap';
 import { cn } from '@/lib/utils';
@@ -113,8 +113,15 @@ export function BucketCard({
   const total = calculateBucketTotal(bucket);
   const spent = calculateSpentForBucket(bucket, transactions);
 
-  const formatAmount = (sats: number, compact = false) => {
+  // Get display totals that respect stored USD amounts
+  const displayTotals = priceData ? calculateBucketTotalForDisplay(bucket, priceData.usdPerBtc, currency) : { sats: total, usd: 0 };
+
+  const formatAmount = (sats: number, compact = false, lineItem?: LineItem) => {
     if (currency === 'usd' && priceData) {
+      // Use stored USD amount if available (preserves original USD input)
+      if (lineItem?.usdAmount !== undefined) {
+        return formatUsd(lineItem.usdAmount);
+      }
       return formatUsd(satsToUsd(sats, priceData.usdPerBtc));
     }
     if (compact && sats >= 1_000_000) {
@@ -199,8 +206,17 @@ export function BucketCard({
                     bucket.isIncome && 'text-success'
                   )}
                 >
-                  <span className="sm:hidden">{formatAmount(total, true)}</span>
-                  <span className="hidden sm:inline">{formatAmount(total)}</span>
+                  {currency === 'usd' && priceData ? (
+                    <>
+                      <span className="sm:hidden">{formatUsd(displayTotals.usd)}</span>
+                      <span className="hidden sm:inline">{formatUsd(displayTotals.usd)}</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="sm:hidden">{formatAmount(total, true)}</span>
+                      <span className="hidden sm:inline">{formatAmount(total)}</span>
+                    </>
+                  )}
                 </p>
                 {!bucket.isIncome && total > 0 && (
                   <p className="text-[10px] sm:text-xs text-muted-foreground tabular-nums">

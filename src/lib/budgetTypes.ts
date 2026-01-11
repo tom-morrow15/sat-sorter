@@ -151,6 +151,24 @@ export function calculateBucketTotal(bucket: Bucket): number {
   return bucket.lineItems.reduce((sum, item) => sum + item.plannedAmount, 0);
 }
 
+// Calculate bucket total in USD respecting stored USD amounts
+export function calculateBucketTotalForDisplay(bucket: Bucket, usdPerBtc: number, currency: 'sats' | 'usd'): { sats: number; usd: number } {
+  let totalSats = 0;
+  let totalUsd = 0;
+
+  bucket.lineItems.forEach(item => {
+    totalSats += item.plannedAmount;
+    // Use stored USD amount if available, otherwise convert from sats
+    if (item.usdAmount !== undefined) {
+      totalUsd += item.usdAmount;
+    } else {
+      totalUsd += (item.plannedAmount / 100_000_000) * usdPerBtc;
+    }
+  });
+
+  return { sats: totalSats, usd: totalUsd };
+}
+
 export function calculateTotalIncome(buckets: Bucket[]): number {
   return buckets
     .filter(b => b.isIncome)
@@ -194,11 +212,24 @@ export function calculateRemainingToBudgetUsd(buckets: Bucket[], usdPerBtc: numb
   return calculateTotalIncomeUsd(buckets, usdPerBtc) - calculateTotalExpensesUsd(buckets, usdPerBtc);
 }
 
-// Calculate spent amount for a line item
+// Calculate spent amount for a line item (in sats)
 export function calculateSpentForLineItem(lineItemId: string, transactions: Transaction[]): number {
   return transactions
     .filter(t => t.lineItemId === lineItemId && !t.isIncome)
     .reduce((sum, t) => sum + t.amount, 0);
+}
+
+// Calculate spent amount for a line item in USD respecting stored USD amounts
+export function calculateSpentForLineItemUsd(lineItemId: string, transactions: Transaction[], usdPerBtc: number): number {
+  return transactions
+    .filter(t => t.lineItemId === lineItemId && !t.isIncome)
+    .reduce((sum, t) => {
+      // Use stored USD amount if available, otherwise convert from sats
+      if (t.usdAmount !== undefined) {
+        return sum + t.usdAmount;
+      }
+      return sum + (t.amount / 100_000_000) * usdPerBtc;
+    }, 0);
 }
 
 // Calculate spent amount for a bucket
