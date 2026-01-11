@@ -138,17 +138,31 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
 
     setLnbitsLoading(true);
     try {
-      // Normalize URL - remove trailing slash
-      const normalizedUrl = lnbitsUrl.replace(/\/$/, '');
+      // Normalize URL - remove trailing slash and ensure https
+      let normalizedUrl = lnbitsUrl.trim().replace(/\/$/, '');
 
-      // Test connection via CORS proxy
+      // Add https if no protocol specified
+      if (!normalizedUrl.startsWith('http://') && !normalizedUrl.startsWith('https://')) {
+        normalizedUrl = 'https://' + normalizedUrl;
+      }
+
+      // Test connection via CORS proxy with timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
+
       const response = await fetch(proxyUrl(`${normalizedUrl}/api/v1/wallet`), {
         headers: { 'X-Api-Key': lnbitsKey },
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(errorText || 'Invalid credentials or connection failed');
+        if (response.status === 401 || response.status === 403) {
+          throw new Error('Invalid API key. Make sure you\'re using the Admin Key, not the Invoice Key.');
+        }
+        throw new Error(errorText || `Server returned status ${response.status}`);
       }
 
       const data = await response.json();
@@ -161,12 +175,22 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
         description: `Connected to wallet: ${data.name || 'LNbits Wallet'}`,
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Connection failed';
+      console.error('[LNbits] Connection error:', error);
+      let description = 'Connection failed';
+
+      if (error instanceof Error) {
+        if (error.name === 'AbortError') {
+          description = 'Connection timed out. The LNbits server may be slow or unreachable.';
+        } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+          description = 'Could not reach LNbits server. Check the URL is correct and the server is online.';
+        } else {
+          description = error.message;
+        }
+      }
+
       toast({
         title: 'Connection failed',
-        description: message.includes('Failed to fetch')
-          ? 'Could not reach LNbits server. Check the URL and try again.'
-          : message,
+        description,
         variant: 'destructive',
       });
     } finally {

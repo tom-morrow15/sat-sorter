@@ -19,6 +19,8 @@ interface QuickAddFABProps {
     date: string;
     description: string;
     amount: number;
+    usdAmount?: number;
+    usdPerBtcAtEntry?: number;
     isIncome: boolean;
     bucketId: string | null;
     lineItemId: string | null;
@@ -39,19 +41,30 @@ export function QuickAddFAB({ onAddTransaction, currency }: QuickAddFABProps) {
     }
 
     const numAmount = parseFloat(amount) || 0;
-    const satsAmount =
-      currency === 'usd' && priceData
-        ? usdToSats(numAmount, priceData.usdPerBtc)
-        : numAmount;
+
+    // Calculate sats amount and store USD info if in USD mode
+    let satsAmount: number;
+    let usdAmount: number | undefined;
+    let usdPerBtcAtEntry: number | undefined;
+
+    if (currency === 'usd' && priceData) {
+      satsAmount = usdToSats(numAmount, priceData.usdPerBtc);
+      usdAmount = numAmount;
+      usdPerBtcAtEntry = priceData.usdPerBtc;
+    } else {
+      satsAmount = numAmount;
+    }
 
     if (satsAmount <= 0) {
       return;
     }
 
     onAddTransaction({
-      date: new Date().toISOString().split('T')[0],
+      date: new Date().toISOString(),
       description: description.trim(),
       amount: Math.round(satsAmount),
+      usdAmount,
+      usdPerBtcAtEntry,
       isIncome,
       bucketId: null,
       lineItemId: null,
@@ -69,14 +82,6 @@ export function QuickAddFAB({ onAddTransaction, currency }: QuickAddFABProps) {
       handleAddTransaction();
     }
   };
-
-  // Quick amount buttons for common amounts
-  const quickAmounts = [
-    { label: '$5', sats: priceData ? usdToSats(5, priceData.usdPerBtc) : 500 },
-    { label: '$10', sats: priceData ? usdToSats(10, priceData.usdPerBtc) : 1000 },
-    { label: '$20', sats: priceData ? usdToSats(20, priceData.usdPerBtc) : 2000 },
-    { label: '$50', sats: priceData ? usdToSats(50, priceData.usdPerBtc) : 5000 },
-  ];
 
   const formatAmount = (sats: number) => {
     if (currency === 'usd' && priceData) {
@@ -140,29 +145,44 @@ export function QuickAddFAB({ onAddTransaction, currency }: QuickAddFABProps) {
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 onKeyDown={handleKeyDown}
-                step="0.01"
+                step={currency === 'usd' ? '0.01' : '1'}
                 min="0"
               />
             </div>
 
-            {/* Quick amounts for USD */}
-            {currency === 'usd' && (
-              <div className="space-y-2">
-                <Label className="text-xs">Quick amounts:</Label>
-                <div className="flex flex-wrap gap-2">
-                  {quickAmounts.map((qa) => (
-                    <Badge
-                      key={qa.label}
-                      variant="outline"
-                      className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
-                      onClick={() => setAmount(qa.label.substring(1))}
-                    >
-                      {qa.label}
-                    </Badge>
-                  ))}
-                </div>
+            {/* Quick amounts */}
+            <div className="space-y-2">
+              <Label className="text-xs">Quick amounts:</Label>
+              <div className="flex flex-wrap gap-2">
+                {currency === 'usd' ? (
+                  <>
+                    {['5', '10', '20', '50', '100'].map((amt) => (
+                      <Badge
+                        key={amt}
+                        variant="outline"
+                        className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
+                        onClick={() => setAmount(amt)}
+                      >
+                        ${amt}
+                      </Badge>
+                    ))}
+                  </>
+                ) : (
+                  <>
+                    {['1000', '5000', '10000', '50000', '100000'].map((amt) => (
+                      <Badge
+                        key={amt}
+                        variant="outline"
+                        className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
+                        onClick={() => setAmount(amt)}
+                      >
+                        {parseInt(amt).toLocaleString()} sats
+                      </Badge>
+                    ))}
+                  </>
+                )}
               </div>
-            )}
+            </div>
 
             {/* Income/Expense toggle */}
             <div className="space-y-2">

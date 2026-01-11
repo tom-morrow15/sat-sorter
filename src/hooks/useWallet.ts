@@ -22,8 +22,10 @@ export function useWallet() {
   const activeNWC = getActiveConnection();
 
   // Check connection status
+  // We consider a wallet connected if we have the connectionString stored
+  // The actual connection is established on-demand when making payments
   const hasAlbyHub = useMemo(() => {
-    return connections.length > 0 && connections.some(c => c.isConnected);
+    return connections.length > 0 && connections.some(c => c.connectionString);
   }, [connections]);
 
   const hasLNbits = useMemo(() => {
