@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useToast } from '@/hooks/useToast';
 import { LN } from '@getalby/sdk';
@@ -19,10 +19,38 @@ export interface NWCInfo {
   notifications?: string[];
 }
 
+// Debug helper to check localStorage state
+function debugLocalStorage(prefix: string) {
+  if (typeof window === 'undefined') return;
+
+  try {
+    const connections = localStorage.getItem('nwc-connections');
+    const active = localStorage.getItem('nwc-active-connection');
+    console.log(`[NWC Debug] ${prefix}:`, {
+      connections: connections ? JSON.parse(connections) : null,
+      connectionsRaw: connections?.slice(0, 100),
+      active: active ? JSON.parse(active) : null,
+      activeRaw: active?.slice(0, 50),
+    });
+  } catch (e) {
+    console.log(`[NWC Debug] ${prefix}: Error reading localStorage:`, e);
+  }
+}
+
 export function useNWCInternal() {
   const { toast } = useToast();
   const [connections, setConnections] = useLocalStorage<NWCConnection[]>('nwc-connections', []);
   const [activeConnection, setActiveConnection] = useLocalStorage<string | null>('nwc-active-connection', null);
+
+  // Debug: Log connection state on mount and changes
+  useEffect(() => {
+    debugLocalStorage('Hook mounted/updated');
+    console.log('[NWC Debug] Current state:', {
+      connectionsCount: connections.length,
+      hasActiveConnection: !!activeConnection,
+      connectionAliases: connections.map(c => c.alias),
+    });
+  }, [connections, activeConnection]);
   const [connectionInfo, setConnectionInfo] = useState<Record<string, NWCInfo>>({});
 
   // Add new connection
@@ -97,10 +125,21 @@ export function useNWCInternal() {
       }));
 
       const newConnections = [...connections, connection];
+      console.log('[NWC Debug] Saving new connections:', {
+        count: newConnections.length,
+        aliases: newConnections.map(c => c.alias),
+      });
       setConnections(newConnections);
 
-      if (connections.length === 0 || !activeConnection)
+      if (connections.length === 0 || !activeConnection) {
+        console.log('[NWC Debug] Setting active connection:', parsed.connectionString.slice(0, 50) + '...');
         setActiveConnection(parsed.connectionString);
+      }
+
+      // Verify the save worked
+      setTimeout(() => {
+        debugLocalStorage('After save verification');
+      }, 100);
 
       toast({
         title: 'Wallet connected',
