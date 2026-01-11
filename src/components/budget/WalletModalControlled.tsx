@@ -183,6 +183,12 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
           description = 'Connection timed out. The LNbits server may be slow or unreachable.';
         } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
           description = 'Could not reach LNbits server. Check the URL is correct and the server is online.';
+        } else if (error.message.includes('<!DOCTYPE html>') || error.message.includes('Origin DNS error')) {
+          // Handle HTML error pages (e.g., Cloudflare errors)
+          description = 'Could not reach LNbits server. The server may be offline or the URL may be incorrect.';
+        } else if (error.message.length > 200) {
+          // Truncate very long error messages (likely HTML)
+          description = 'Connection failed. Check the URL and make sure the server is accessible.';
         } else {
           description = error.message;
         }
