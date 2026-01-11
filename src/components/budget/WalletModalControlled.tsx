@@ -122,6 +122,9 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
     });
   };
 
+  // CORS proxy for LNbits requests
+  const proxyUrl = (url: string) => `https://proxy.shakespeare.diy/?url=${encodeURIComponent(url)}`;
+
   // LNbits handlers
   const handleLNbitsConnect = async () => {
     if (!lnbitsUrl || !lnbitsKey) {
@@ -135,20 +138,24 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
 
     setLnbitsLoading(true);
     try {
-      // Test connection
-      const response = await fetch(`${lnbitsUrl}/api/v1/wallet`, {
+      // Normalize URL - remove trailing slash
+      const normalizedUrl = lnbitsUrl.replace(/\/$/, '');
+
+      // Test connection via CORS proxy
+      const response = await fetch(proxyUrl(`${normalizedUrl}/api/v1/wallet`), {
         headers: { 'X-Api-Key': lnbitsKey },
       });
 
       if (!response.ok) {
-        throw new Error('Invalid credentials or connection failed');
+        const errorText = await response.text();
+        throw new Error(errorText || 'Invalid credentials or connection failed');
       }
 
       const data = await response.json();
-      
-      // Save config
-      setLnbitsConfig({ url: lnbitsUrl, adminKey: lnbitsKey });
-      
+
+      // Save config with normalized URL
+      setLnbitsConfig({ url: normalizedUrl, adminKey: lnbitsKey });
+
       toast({
         title: 'LNbits connected!',
         description: `Connected to wallet: ${data.name || 'LNbits Wallet'}`,
@@ -157,7 +164,9 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
       const message = error instanceof Error ? error.message : 'Connection failed';
       toast({
         title: 'Connection failed',
-        description: message,
+        description: message.includes('Failed to fetch')
+          ? 'Could not reach LNbits server. Check the URL and try again.'
+          : message,
         variant: 'destructive',
       });
     } finally {
@@ -187,8 +196,8 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
 
     setLnbitsSyncing(true);
     try {
-      // Fetch payments from LNbits
-      const response = await fetch(`${lnbitsConfig.url}/api/v1/payments`, {
+      // Fetch payments from LNbits via CORS proxy
+      const response = await fetch(proxyUrl(`${lnbitsConfig.url}/api/v1/payments`), {
         headers: { 'X-Api-Key': lnbitsConfig.adminKey },
       });
 
@@ -197,7 +206,7 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
       }
 
       const payments = await response.json();
-      
+
       if (!Array.isArray(payments) || payments.length === 0) {
         toast({
           title: 'No transactions found',

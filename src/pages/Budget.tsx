@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
-import { Plus, Bitcoin, Zap, Wallet, Info, Copy, Cloud, Loader2 } from 'lucide-react';
+import { Plus, Bitcoin, Zap, Wallet, Info, Copy, Cloud, Loader2, X } from 'lucide-react';
 import { useSeoMeta, useHead } from '@unhead/react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -20,6 +20,7 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useBTCMap } from '@/hooks/useBTCMap';
 import { useBudgetSync } from '@/hooks/useBudgetSync';
 import { useOnboarding } from '@/hooks/useOnboarding';
+import { useLocalStorage } from '@/hooks/useLocalStorage';
 
 export default function Budget() {
   const [showAddBucket, setShowAddBucket] = useState(false);
@@ -30,9 +31,13 @@ export default function Budget() {
   const syncTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
 
   const { user } = useCurrentUser();
-  const { hasNWC } = useWallet();
+  const { hasAlbyHub, hasLNbits } = useWallet();
   const { merchants } = useBTCMap();
   const { shouldShowOnboarding, hasCompletedOnboarding, completeOnboarding } = useOnboarding();
+  const [walletPromptDismissed, setWalletPromptDismissed] = useLocalStorage('wallet-prompt-dismissed', false);
+
+  // Check if user has any wallet connected
+  const hasWalletConnected = hasAlbyHub || hasLNbits;
 
   const {
     currentBudget,
@@ -203,13 +208,13 @@ export default function Budget() {
             </Alert>
           )}
 
-          {/* NWC connection prompt */}
-          {user && !hasNWC && (
-            <Alert className="border-primary/30 bg-primary/5">
+          {/* Wallet connection prompt - only show if not connected and not dismissed */}
+          {user && !hasWalletConnected && !walletPromptDismissed && (
+            <Alert className="border-primary/30 bg-primary/5 relative">
               <Zap className="h-4 w-4 text-primary" />
-              <AlertDescription className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <AlertDescription className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pr-8">
                 <span className="text-sm">
-                  Connect your Lightning wallet to track transactions automatically.
+                  Import transactions from your wallet or add them manually.
                 </span>
                 <Button
                   variant="outline"
@@ -218,9 +223,16 @@ export default function Budget() {
                   className="shrink-0"
                 >
                   <Wallet className="h-4 w-4 mr-2" />
-                  Connect
+                  Import
                 </Button>
               </AlertDescription>
+              <button
+                onClick={() => setWalletPromptDismissed(true)}
+                className="absolute top-2 right-2 p-1 rounded hover:bg-muted"
+                aria-label="Dismiss"
+              >
+                <X className="h-4 w-4 text-muted-foreground" />
+              </button>
             </Alert>
           )}
         </div>

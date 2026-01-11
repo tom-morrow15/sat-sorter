@@ -38,6 +38,7 @@ import { BackupRestoreDialog } from './BackupRestoreDialog';
 import { DataExportDialog } from './DataExportDialog';
 import { OnboardingWelcome } from './OnboardingWelcome';
 import { useOnboarding } from '@/hooks/useOnboarding';
+import { useAppUpdate } from '@/hooks/useAppUpdate';
 
 interface BudgetHeaderProps {
   buckets: Bucket[];
@@ -78,6 +79,7 @@ export function BudgetHeader({
   const [showOnboardingTour, setShowOnboardingTour] = useState(false);
 
   const { completeOnboarding } = useOnboarding();
+  const { updateAvailable, performUpdate } = useAppUpdate();
 
   // Generate list of months for picker (current month + 11 months back + 6 months forward)
   const getAvailableMonths = () => {
@@ -256,9 +258,12 @@ export function BudgetHeader({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8 sm:h-9 sm:w-9"
+                  className="h-8 w-8 sm:h-9 sm:w-9 relative"
                 >
                   <Menu className="h-4 w-4" />
+                  {updateAvailable && (
+                    <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-500" />
+                  )}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
@@ -315,6 +320,18 @@ export function BudgetHeader({
                   <span className="mr-2 text-base">🤙</span>
                   Follow on Nostr
                 </DropdownMenuItem>
+                {updateAvailable && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={performUpdate} className="text-primary">
+                      <span className="relative mr-2">
+                        <Download className="h-4 w-4" />
+                        <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-red-500" />
+                      </span>
+                      Update App
+                    </DropdownMenuItem>
+                  </>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -388,29 +405,27 @@ export function BudgetHeader({
             </div>
           </div>
 
-          {/* Nostr Relay Sync Status - Show when syncing, synced, or error */}
-          {syncStatus !== 'idle' && (
-            <div className="flex justify-center">
-              {syncStatus === 'syncing' && (
-                <Badge variant="outline" className="text-xs gap-1.5">
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                  Syncing to relays...
-                </Badge>
-              )}
-              {syncStatus === 'synced' && (
-                <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-xs gap-1.5">
-                  <Check className="h-3 w-3" />
-                  Synced to Nostr
-                </Badge>
-              )}
-              {syncStatus === 'error' && (
-                <Badge variant="destructive" className="text-xs gap-1.5">
-                  <AlertCircle className="h-3 w-3" />
-                  Sync failed
-                </Badge>
-              )}
-            </div>
-          )}
+          {/* Nostr Relay Sync Status - Always present to prevent layout jump */}
+          <div className="flex justify-center h-5">
+            {syncStatus === 'syncing' && (
+              <Badge variant="outline" className="text-xs gap-1.5">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Syncing...
+              </Badge>
+            )}
+            {syncStatus === 'synced' && (
+              <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-xs gap-1.5">
+                <Check className="h-3 w-3" />
+                Synced
+              </Badge>
+            )}
+            {syncStatus === 'error' && (
+              <Badge variant="destructive" className="text-xs gap-1.5">
+                <AlertCircle className="h-3 w-3" />
+                Sync failed
+              </Badge>
+            )}
+          </div>
 
           {/* Zero-based budget indicator */}
           <div className="flex justify-center">
@@ -656,19 +671,14 @@ export function BudgetHeader({
                 <div className="space-y-2">
                   <h3 className="font-semibold">⚡ Send Sats via Lightning</h3>
                   <p className="text-sm text-muted-foreground">
-                    The fastest way to support us. Send any amount instantly with no fees.
-                  </p>
-                  <p className="text-sm font-mono bg-muted p-2 rounded break-all">
-                    devin@primal.net
+                    The fastest way to support us. Send any amount instantly.
                   </p>
                   <Button
                     className="w-full"
-                    onClick={() => {
-                      navigator.clipboard.writeText('devin@primal.net');
-                    }}
+                    onClick={() => window.open('https://getalby.com/p/satsorter', '_blank')}
                   >
                     <Zap className="h-4 w-4 mr-2" />
-                    Copy Lightning Address
+                    Donate via Alby
                   </Button>
                 </div>
               </div>
