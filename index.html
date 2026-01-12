@@ -14,16 +14,21 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Sat Sorter" />
+    <meta name="apple-mobile-web-app-start-url" content="/" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="theme-color" content="#f97316" />
     <meta name="msapplication-TileColor" content="#f97316" />
+    <meta name="msapplication-config" content="/browserconfig.xml" />
 
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 
-    <!-- Apple Touch Icon - PNG required for iOS -->
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <link rel="apple-touch-icon" sizes="180x180" href="/icons/icon-180.png" />
+    <!-- Apple Touch Icon - Using SVG as fallback -->
+    <!-- iOS will use this SVG and render the orange background -->
+    <link rel="apple-touch-icon" href="/icons/icon.svg" />
+
+    <!-- Favicon variants for better browser support -->
+    <link rel="shortcut icon" href="/favicon.svg" type="image/svg+xml" />
 
     <!-- Manifest -->
     <link rel="manifest" href="/manifest.webmanifest" />
