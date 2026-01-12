@@ -139,10 +139,10 @@ export function TransactionDetailsDialog({
             <div className="flex items-start gap-3">
               <div className="mt-0.5">{getSourceIcon()}</div>
               <div className="flex-1 min-w-0">
-                <p className="text-xs uppercase tracking-wide font-medium opacity-70">Source</p>
-                <p className="font-medium">{getSourceLabel()}</p>
-                {transaction.sourceWallet && (
-                  <p className="text-sm opacity-75">{transaction.source === 'nwc' ? 'Lightning Wallet' : transaction.source}</p>
+                <p className="text-xs uppercase tracking-wide font-medium opacity-70">Wallet Source</p>
+                <p className="text-lg font-bold">{getSourceLabel()}</p>
+                {transaction.source === 'nwc' && (
+                  <p className="text-xs opacity-75 mt-0.5">Lightning Wallet Connection</p>
                 )}
               </div>
             </div>

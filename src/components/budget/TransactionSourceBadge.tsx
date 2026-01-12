@@ -6,10 +6,9 @@ import type { Transaction } from '@/lib/budgetTypes';
 interface TransactionSourceBadgeProps {
   transaction: Transaction;
   className?: string;
-  showWallet?: boolean;
 }
 
-export function TransactionSourceBadge({ transaction, className, showWallet = true }: TransactionSourceBadgeProps) {
+export function TransactionSourceBadge({ transaction, className }: TransactionSourceBadgeProps) {
   if (!transaction.source && !transaction.sourceWallet) {
     return null;
   }
@@ -30,9 +29,11 @@ export function TransactionSourceBadge({ transaction, className, showWallet = tr
   };
 
   const getSourceLabel = () => {
-    if (showWallet && transaction.sourceWallet) {
+    // Always prioritize showing the wallet name if available
+    if (transaction.sourceWallet) {
       return transaction.sourceWallet;
     }
+    // Fall back to source type if no wallet name
     switch (transaction.source) {
       case 'nwc':
         return 'Lightning';

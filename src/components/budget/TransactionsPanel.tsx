@@ -278,7 +278,6 @@ export function TransactionsPanel({
                           <TransactionSourceBadge
                             transaction={transaction}
                             className="text-xs px-1.5 py-0"
-                            showWallet={true}
                           />
                         )}
                         <p className="text-xs text-muted-foreground">
@@ -362,7 +361,6 @@ export function TransactionsPanel({
                               <TransactionSourceBadge
                                 transaction={transaction}
                                 className="text-xs px-1.5 py-0"
-                                showWallet={true}
                               />
                             )}
                             <span className="text-xs text-muted-foreground">
