@@ -308,15 +308,64 @@ export function useBudget() {
 
 
 
-  // Merge cloud budget - prefer cloud if it has more recent data
+  // Merge cloud budget - only apply if cloud data is newer AND has meaningful content
   const mergeBudgetFromCloud = useCallback((cloudState: BudgetState, cloudTimestamp: number): boolean => {
     // Get the stored sync timestamp
     const localTimestampStr = localStorage.getItem('sat-sorter-last-sync');
     const localTimestamp = localTimestampStr ? parseInt(localTimestampStr, 10) : 0;
 
-    // If cloud data is newer, use it
+    // Calculate local budget "weight" - how much data the user has locally
+    const localBudgetWeight = state.budgets.reduce((sum, budget) => {
+      // Count buckets with custom line items (beyond defaults)
+      const customBuckets = budget.buckets.filter(b =>
+        b.lineItems.some(li => li.plannedAmount > 0) || // Has planned amounts
+        b.lineItems.length > 0 // Has line items
+      ).length;
+      // Count transactions
+      const transactionCount = budget.transactions.length;
+      return sum + customBuckets + transactionCount;
+    }, 0);
+
+    // Calculate cloud budget "weight"
+    const cloudBudgetWeight = cloudState.budgets.reduce((sum, budget) => {
+      const customBuckets = budget.buckets.filter(b =>
+        b.lineItems.some(li => li.plannedAmount > 0) ||
+        b.lineItems.length > 0
+      ).length;
+      const transactionCount = budget.transactions.length;
+      return sum + customBuckets + transactionCount;
+    }, 0);
+
+    console.log('[Budget] Merge comparison:', {
+      cloudTimestamp,
+      localTimestamp,
+      cloudNewer: cloudTimestamp > localTimestamp,
+      localBudgetWeight,
+      cloudBudgetWeight,
+      localBudgetCount: state.budgets.length,
+      cloudBudgetCount: cloudState.budgets.length,
+    });
+
+    // Safety check: Don't replace if local has significantly more data
+    // This prevents accidental data loss when cloud has stale/empty data
+    if (localBudgetWeight > 0 && cloudBudgetWeight === 0) {
+      console.log('[Budget] Cloud has no meaningful data, keeping local budget');
+      return false;
+    }
+
+    // If local has substantial data and cloud has much less, be cautious
+    if (localBudgetWeight > 5 && cloudBudgetWeight < localBudgetWeight * 0.5) {
+      console.log('[Budget] Local has significantly more data than cloud, keeping local budget');
+      // Still update the sync timestamp to prevent repeated merge attempts
+      if (cloudTimestamp > localTimestamp) {
+        localStorage.setItem('sat-sorter-last-sync', cloudTimestamp.toString());
+      }
+      return false;
+    }
+
+    // If cloud data is newer and has reasonable content, use it
     if (cloudTimestamp > localTimestamp) {
-      console.log('[Budget] Cloud data is newer, importing cloud budget');
+      console.log('[Budget] Cloud data is newer and has content, importing cloud budget');
       setState(cloudState);
       localStorage.setItem('sat-sorter-last-sync', cloudTimestamp.toString());
       return true;
@@ -324,7 +373,7 @@ export function useBudget() {
 
     console.log('[Budget] Local data is up-to-date, keeping local budget');
     return false;
-  }, [setState]);
+  }, [setState, state.budgets]);
 
   // Get the full budget state for cloud sync
   const getFullBudgetState = useCallback((): BudgetState => {

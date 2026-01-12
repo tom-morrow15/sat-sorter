@@ -271,33 +271,9 @@ export default function Budget() {
     };
   }, [currentBudget, getFullBudgetState, nwcConnections, canSync, syncStatus, performSync]);
 
-  // Track previous NWC connection count to detect changes
-  const prevNwcConnectionsCountRef = useRef(nwcConnections.length);
-
-  // Immediately sync when NWC connections change (add/remove wallet)
-  // This ensures wallet connections persist across devices right away
-  useEffect(() => {
-    if (!initialLoadCompleteRef.current || !canSync) return;
-
-    const prevCount = prevNwcConnectionsCountRef.current;
-    const currentCount = nwcConnections.length;
-
-    // Check if connections actually changed (not just a re-render)
-    if (prevCount !== currentCount) {
-      console.log('[Budget] NWC connections changed:', prevCount, '->', currentCount);
-      prevNwcConnectionsCountRef.current = currentCount;
-
-      // Trigger immediate sync (debounced to avoid rapid-fire syncs)
-      const syncTimer = setTimeout(async () => {
-        if (syncStatus !== 'syncing') {
-          console.log('[Budget] Syncing NWC connection changes to cloud...');
-          await performSync(false);
-        }
-      }, 1000); // 1 second debounce
-
-      return () => clearTimeout(syncTimer);
-    }
-  }, [nwcConnections.length, canSync, syncStatus, performSync]);
+  // Note: NWC connections are synced separately via useNWCSync's uploadNWCConnections
+  // We intentionally do NOT trigger budget sync when wallet connections change
+  // to prevent cloud sync from overwriting local budget data
 
   // Cleanup timers on unmount
   useEffect(() => {
