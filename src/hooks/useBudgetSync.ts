@@ -5,6 +5,7 @@ import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { BudgetState } from '@/lib/budgetTypes';
 import { getSafeNip44 } from '@/lib/utils';
+import { useExtensionReady } from '@/hooks/useExtensionReady';
 
 const APP_IDENTIFIER = 'sat-sorter/budget-data';
 const BUDGET_KIND = 30078; // NIP-78 Application-specific data
@@ -26,8 +27,16 @@ export function useBudgetSync() {
     error: null,
   });
 
+  // Wait for extension to be ready before trying to use it
+  // This handles the race condition where the page loads before the extension injects window.nostr
+  const { isReady: isExtensionReady, isChecking: isWaitingForExtension } = useExtensionReady();
+
   // Safely check for NIP-44 support (handles extension not installed case)
-  const nip44 = useMemo(() => getSafeNip44(user), [user]);
+  // Only check after extension is ready to avoid false negatives
+  const nip44 = useMemo(() => {
+    if (!isExtensionReady) return null;
+    return getSafeNip44(user);
+  }, [user, isExtensionReady]);
   const hasNip44 = nip44 !== null;
 
   // Fetch existing budget data from Nostr
@@ -205,5 +214,6 @@ export function useBudgetSync() {
     // Status
     syncStatus,
     canSync: !!user?.pubkey && hasNip44,
+    isWaitingForExtension,
   };
 }

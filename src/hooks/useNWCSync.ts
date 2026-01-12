@@ -8,6 +8,7 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostr } from '@nostrify/react';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { getSafeNip44 } from '@/lib/utils';
+import { useExtensionReady } from '@/hooks/useExtensionReady';
 
 interface SyncState {
   /** Timestamp of when we last performed a sync (current time at sync) */
@@ -84,8 +85,15 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
 
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Wait for extension to be ready before trying to use it
+  const { isReady: isExtensionReady } = useExtensionReady();
+
   // Safely check for NIP-44 support (handles extension not installed case)
-  const nip44 = useMemo(() => getSafeNip44(user), [user]);
+  // Only check after extension is ready to avoid false negatives
+  const nip44 = useMemo(() => {
+    if (!isExtensionReady) return null;
+    return getSafeNip44(user);
+  }, [user, isExtensionReady]);
 
   /**
    * Upload NWC connections to Nostr for cloud sync

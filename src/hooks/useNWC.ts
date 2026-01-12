@@ -5,6 +5,7 @@ import { LN } from '@getalby/sdk';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostr } from '@nostrify/react';
 import { getSafeNip44 } from '@/lib/utils';
+import { useExtensionReady } from '@/hooks/useExtensionReady';
 
 export interface NWCConnection {
   connectionString: string;
@@ -51,8 +52,15 @@ export function useNWCInternal() {
   const { nostr } = useNostr();
   const [hasDownloadedCloudConnections, setHasDownloadedCloudConnections] = useState(false);
 
+  // Wait for extension to be ready before trying to use it
+  const { isReady: isExtensionReady } = useExtensionReady();
+
   // Safely check for NIP-44 support (handles extension not installed case)
-  const nip44 = useMemo(() => getSafeNip44(user), [user]);
+  // Only check after extension is ready to avoid false negatives
+  const nip44 = useMemo(() => {
+    if (!isExtensionReady) return null;
+    return getSafeNip44(user);
+  }, [user, isExtensionReady]);
 
   // Debug: Log connection state on mount and changes
   useEffect(() => {
