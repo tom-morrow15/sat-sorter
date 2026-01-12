@@ -1,7 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <!-- Orange rounded square background -->
-  <rect x="0" y="0" width="512" height="512" rx="102" ry="102" fill="#f97316"/>
+  <!-- Orange rounded square background - matching the app logo -->
+  <rect x="0" y="0" width="512" height="512" rx="108" ry="108" fill="#f97316"/>
   
-  <!-- White lightning bolt -->
-  <path d="M290 96L176 256h80l-40 160 144-192h-96l26-128z" fill="white" stroke="white" stroke-width="8" stroke-linejoin="round" stroke-linecap="round"/>
+  <!-- White lightning bolt - styled to match Lucide Zap icon -->
+  <path 
+    d="M292 80L156 272h100l-52 160 188-224H284l8-128z" 
+    fill="white"
+  />
 </svg>

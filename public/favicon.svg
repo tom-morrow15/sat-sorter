@@ -1,7 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <!-- Orange rounded square background -->
-  <rect x="0" y="0" width="32" height="32" rx="6" ry="6" fill="#f97316"/>
+  <rect x="0" y="0" width="512" height="512" rx="108" ry="108" fill="#f97316"/>
   
-  <!-- White lightning bolt - optimized for small size -->
-  <path d="M18 6L11 16h5l-2.5 10 9-12h-6l1.5-8z" fill="white"/>
+  <!-- White lightning bolt -->
+  <path 
+    d="M292 80L156 272h100l-52 160 188-224H284l8-128z" 
+    fill="white"
+  />
 </svg>
