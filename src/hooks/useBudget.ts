@@ -175,21 +175,53 @@ export function useBudget() {
     saveBudget(updatedBudget);
   }, [currentBudget, saveBudget]);
 
-  // Add a transaction
+  // Add a transaction to the correct month's budget based on transaction date
   const addTransaction = useCallback((transaction: Omit<Transaction, 'id'>) => {
     const newTransaction: Transaction = {
       ...transaction,
       id: generateId(),
     };
 
-    const updatedBudget = {
-      ...currentBudget,
-      transactions: [...currentBudget.transactions, newTransaction],
-    };
+    // Determine which month this transaction belongs to based on its date
+    const txDate = new Date(transaction.date);
+    const txMonth = `${txDate.getFullYear()}-${String(txDate.getMonth() + 1).padStart(2, '0')}`;
 
-    saveBudget(updatedBudget);
+    // If transaction is for current month, add to current budget
+    if (txMonth === state.currentMonth) {
+      const updatedBudget = {
+        ...currentBudget,
+        transactions: [...currentBudget.transactions, newTransaction],
+      };
+      saveBudget(updatedBudget);
+    } else {
+      // Transaction is for a different month - add to that month's budget
+      setState(prev => {
+        const existingBudgetIndex = prev.budgets.findIndex(b => b.month === txMonth);
+
+        if (existingBudgetIndex >= 0) {
+          // Budget for that month exists, add transaction to it
+          const newBudgets = [...prev.budgets];
+          const targetBudget = newBudgets[existingBudgetIndex];
+          newBudgets[existingBudgetIndex] = {
+            ...targetBudget,
+            transactions: [...targetBudget.transactions, newTransaction],
+          };
+          return { ...prev, budgets: newBudgets };
+        } else {
+          // Create a new budget for that month with default buckets
+          const newBudget: MonthlyBudget = {
+            id: generateId(),
+            month: txMonth,
+            buckets: createDefaultBuckets(),
+            transactions: [newTransaction],
+          };
+          return { ...prev, budgets: [...prev.budgets, newBudget] };
+        }
+      });
+    }
+
     return newTransaction;
-  }, [currentBudget, saveBudget]);
+  }, [currentBudget, state.currentMonth, saveBudget, setState]);
 
   // Update a transaction (assign to line item)
   const updateTransaction = useCallback((
