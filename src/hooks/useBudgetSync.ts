@@ -1,9 +1,10 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useMemo } from 'react';
 import { useNostr } from '@nostrify/react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { BudgetState } from '@/lib/budgetTypes';
+import { getSafeNip44 } from '@/lib/utils';
 
 const APP_IDENTIFIER = 'sat-sorter/budget-data';
 const BUDGET_KIND = 30078; // NIP-78 Application-specific data
@@ -25,11 +26,15 @@ export function useBudgetSync() {
     error: null,
   });
 
+  // Safely check for NIP-44 support (handles extension not installed case)
+  const nip44 = useMemo(() => getSafeNip44(user), [user]);
+  const hasNip44 = nip44 !== null;
+
   // Fetch existing budget data from Nostr
   const { data: remoteBudget, isLoading: isLoadingRemote, refetch } = useQuery({
     queryKey: ['budget-sync', user?.pubkey],
     queryFn: async ({ signal }) => {
-      if (!user?.pubkey) return null;
+      if (!user?.pubkey || !nip44) return null;
 
       const combinedSignal = AbortSignal.any([signal, AbortSignal.timeout(10000)]);
 
@@ -59,14 +64,8 @@ export function useBudgetSync() {
       });
 
       try {
-        // Content is encrypted with NIP-44
-        if (!user.signer.nip44) {
-          console.warn('[BudgetSync] Signer does not support NIP-44 encryption');
-          return null;
-        }
-
         console.log('[BudgetSync] Decrypting budget data...');
-        const decrypted = await user.signer.nip44.decrypt(user.pubkey, latestEvent.content);
+        const decrypted = await nip44.decrypt(user.pubkey, latestEvent.content);
         const budgetData: BudgetState = JSON.parse(decrypted);
 
         // Validate the decrypted data
@@ -89,14 +88,14 @@ export function useBudgetSync() {
         return null;
       }
     },
-    enabled: !!user?.pubkey && !!user?.signer?.nip44,
+    enabled: !!user?.pubkey && hasNip44,
     staleTime: 60000, // 1 minute
     refetchOnWindowFocus: false,
   });
 
   // Upload budget data to Nostr
   const uploadBudget = useCallback(async (budgetState: BudgetState): Promise<boolean> => {
-    if (!user?.pubkey || !user?.signer?.nip44) {
+    if (!user?.pubkey || !nip44) {
       console.warn('[BudgetSync] Cannot sync: user not logged in or signer lacks NIP-44 support');
       setSyncStatus(prev => ({ ...prev, error: 'Not logged in or signer unavailable' }));
       return false;
@@ -123,7 +122,7 @@ export function useBudgetSync() {
 
       // Encrypt the budget data with NIP-44 (to self)
       // This uses the user's own pubkey, so only they can decrypt it
-      const encrypted = await user.signer.nip44.encrypt(
+      const encrypted = await nip44.encrypt(
         user.pubkey,
         plaintext
       );
@@ -164,7 +163,7 @@ export function useBudgetSync() {
       }));
       return false;
     }
-  }, [user, publish, queryClient]);
+  }, [user, nip44, publish, queryClient]);
 
   // Download budget data from Nostr
   const downloadBudget = useCallback(async (): Promise<BudgetState | null> => {
@@ -205,6 +204,6 @@ export function useBudgetSync() {
 
     // Status
     syncStatus,
-    canSync: !!user?.pubkey && !!user?.signer?.nip44,
+    canSync: !!user?.pubkey && hasNip44,
   };
 }

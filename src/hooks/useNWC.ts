@@ -1,9 +1,10 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useToast } from '@/hooks/useToast';
 import { LN } from '@getalby/sdk';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostr } from '@nostrify/react';
+import { getSafeNip44 } from '@/lib/utils';
 
 export interface NWCConnection {
   connectionString: string;
@@ -49,6 +50,9 @@ export function useNWCInternal() {
   const { user } = useCurrentUser();
   const { nostr } = useNostr();
   const [hasDownloadedCloudConnections, setHasDownloadedCloudConnections] = useState(false);
+
+  // Safely check for NIP-44 support (handles extension not installed case)
+  const nip44 = useMemo(() => getSafeNip44(user), [user]);
 
   // Debug: Log connection state on mount and changes
   useEffect(() => {
@@ -192,10 +196,10 @@ export function useNWCInternal() {
 
   // Download NWC connections from cloud (Nostr)
   const downloadCloudConnections = useCallback(async () => {
-    if (!user?.pubkey || !user?.signer?.nip44 || hasDownloadedCloudConnections) {
+    if (!user?.pubkey || !nip44 || hasDownloadedCloudConnections) {
       console.log('[NWC] Cloud download skipped:', {
         hasUser: !!user?.pubkey,
-        hasNip44: !!user?.signer?.nip44,
+        hasNip44: !!nip44,
         alreadyDownloaded: hasDownloadedCloudConnections,
       });
       return;
@@ -227,7 +231,7 @@ export function useNWCInternal() {
 
       try {
         console.log('[NWC] Decrypting cloud connections...');
-        const decrypted = await user.signer.nip44.decrypt(user.pubkey, latestEvent.content);
+        const decrypted = await nip44.decrypt(user.pubkey, latestEvent.content);
         const remoteData = JSON.parse(decrypted);
 
         if (!Array.isArray(remoteData.connections)) {
@@ -270,7 +274,7 @@ export function useNWCInternal() {
       console.error('[NWC] Failed to download cloud connections:', error);
       setHasDownloadedCloudConnections(true);
     }
-  }, [user, nostr, connections, setConnections, hasDownloadedCloudConnections, toast]);
+  }, [user, nip44, nostr, connections, setConnections, hasDownloadedCloudConnections, toast]);
 
   // Get active connection
   const getActiveConnection = useCallback((): NWCConnection | null => {

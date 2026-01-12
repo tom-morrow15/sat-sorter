@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { useBudget } from '@/hooks/useBudget';
 import { useToast } from '@/hooks/useToast';
 import { useNWC } from '@/hooks/useNWCContext';
@@ -7,6 +7,7 @@ import { listTransactions, getWalletInfo, fetchWalletInfo, parseNWCUri, type NWC
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostr } from '@nostrify/react';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
+import { getSafeNip44 } from '@/lib/utils';
 
 interface SyncState {
   /** Timestamp of when we last performed a sync (current time at sync) */
@@ -83,11 +84,14 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
 
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Safely check for NIP-44 support (handles extension not installed case)
+  const nip44 = useMemo(() => getSafeNip44(user), [user]);
+
   /**
    * Upload NWC connections to Nostr for cloud sync
    */
   const uploadNWCConnections = useCallback(async (): Promise<boolean> => {
-    if (!user?.pubkey || !user?.signer?.nip44) {
+    if (!user?.pubkey || !nip44) {
       console.log('[NWCSync] Cloud sync disabled: user not logged in or signer lacks NIP-44');
       return false;
     }
@@ -118,7 +122,7 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
       console.log('[NWCSync] Encrypting NWC connections for cloud sync...');
 
       // Encrypt the connection data with NIP-44 (to self)
-      const encrypted = await user.signer.nip44.encrypt(user.pubkey, plaintext);
+      const encrypted = await nip44.encrypt(user.pubkey, plaintext);
 
       // Publish as NIP-78 event (application-specific data)
       await publish({
@@ -136,13 +140,13 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
       console.error('[NWCSync] Failed to upload NWC connections:', error);
       return false;
     }
-  }, [user, connections, publish]);
+  }, [user, nip44, connections, publish]);
 
   /**
    * Download NWC connections from Nostr for cloud sync
    */
   const downloadNWCConnections = useCallback(async (): Promise<boolean> => {
-    if (!user?.pubkey || !user?.signer?.nip44) {
+    if (!user?.pubkey || !nip44) {
       console.log('[NWCSync] Cloud sync disabled: user not logged in or signer lacks NIP-44');
       return false;
     }
@@ -171,7 +175,7 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
 
       try {
         console.log('[NWCSync] Decrypting remote NWC connections...');
-        const decrypted = await user.signer.nip44.decrypt(user.pubkey, latestEvent.content);
+        const decrypted = await nip44.decrypt(user.pubkey, latestEvent.content);
         const remoteData = JSON.parse(decrypted);
 
         if (!Array.isArray(remoteData.connections)) {
@@ -202,7 +206,7 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
       console.error('[NWCSync] Failed to download NWC connections:', error);
       return false;
     }
-  }, [user, nostr, connections, addConnectionToState]);
+  }, [user, nip44, nostr, connections, addConnectionToState]);
 
   /**
    * Check wallet capabilities on connection
