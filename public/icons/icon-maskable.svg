@@ -1,9 +1,14 @@
-<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
-  <!-- Lightning bolt for maskable (no background, will be applied by system) -->
-  <!-- Centered in a 512x512 viewbox with proper margins for safe zone -->
-  <path d="M 256 96 L 160 288 L 304 288 L 208 448 L 352 192 L 224 192 Z" 
-        fill="white" 
-        stroke="white" 
-        stroke-width="2" 
-        stroke-linejoin="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ff9500"/>
+      <stop offset="100%" stop-color="#ea580c"/>
+    </linearGradient>
+  </defs>
+  <!-- Full background for maskable (system applies mask) -->
+  <rect width="512" height="512" fill="url(#gradient)"/>
+  <!-- Lucide Zap lightning bolt - centered in safe zone (80% = 410px, so 51px margin) -->
+  <g transform="translate(145, 92) scale(9.2)">
+    <polygon points="13,2 3,14 12,14 11,22 21,10 12,10 13,2" fill="#fff" stroke="#fff" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+  </g>
 </svg>

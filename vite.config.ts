@@ -2,6 +2,7 @@ import path from "node:path";
 
 import react from "@vitejs/plugin-react-swc";
 import { defineConfig } from "vitest/config";
+import { generateIconsPlugin } from "./vite-plugin-generate-icons";
 
 // https://vitejs.dev/config/
 export default defineConfig(() => ({
@@ -11,6 +12,7 @@ export default defineConfig(() => ({
   },
   plugins: [
     react(),
+    generateIconsPlugin(),
   ],
   test: {
     globals: true,
