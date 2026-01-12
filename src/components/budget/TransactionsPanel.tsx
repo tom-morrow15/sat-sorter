@@ -39,12 +39,14 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useBitcoinPrice, formatSats, satsToUsd, usdToSats, formatUsd } from '@/hooks/useBitcoinPrice';
 import { getUnassignedTransactions } from '@/lib/budgetTypes';
 import type { Transaction, Bucket } from '@/lib/budgetTypes';
+import type { NWCConnection } from '@/hooks/useNWC';
 import { cn } from '@/lib/utils';
 
 interface TransactionsPanelProps {
   transactions: Transaction[];
   buckets: Bucket[];
   currency: 'sats' | 'usd';
+  walletConnections?: NWCConnection[];
   onAddTransaction: (transaction: Omit<Transaction, 'id'>) => void;
   onAssignTransaction: (transactionId: string, bucketId: string, lineItemId: string) => void;
   onUpdateTransaction: (transactionId: string, updates: Partial<Transaction>) => void;
@@ -56,6 +58,7 @@ export function TransactionsPanel({
   transactions,
   buckets,
   currency,
+  walletConnections = [],
   onAddTransaction,
   onAssignTransaction,
   onUpdateTransaction,
@@ -277,6 +280,7 @@ export function TransactionsPanel({
                         {transaction.source === 'nwc' && (
                           <TransactionSourceBadge
                             transaction={transaction}
+                            walletConnections={walletConnections}
                             className="text-xs px-1.5 py-0"
                           />
                         )}
@@ -360,6 +364,7 @@ export function TransactionsPanel({
                             {transaction.source === 'nwc' && (
                               <TransactionSourceBadge
                                 transaction={transaction}
+                                walletConnections={walletConnections}
                                 className="text-xs px-1.5 py-0"
                               />
                             )}

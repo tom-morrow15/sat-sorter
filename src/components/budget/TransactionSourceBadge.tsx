@@ -2,16 +2,33 @@ import { Badge } from '@/components/ui/badge';
 import { Wallet, Zap, Link2, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Transaction } from '@/lib/budgetTypes';
+import type { NWCConnection } from '@/hooks/useNWC';
 
 interface TransactionSourceBadgeProps {
   transaction: Transaction;
   className?: string;
+  walletConnections?: NWCConnection[];
 }
 
-export function TransactionSourceBadge({ transaction, className }: TransactionSourceBadgeProps) {
+export function TransactionSourceBadge({ transaction, className, walletConnections = [] }: TransactionSourceBadgeProps) {
   if (!transaction.source && !transaction.sourceWallet) {
     return null;
   }
+
+  // Try to look up wallet name from connections by connection string ID
+  const lookupWalletName = (): string | null => {
+    if (transaction.sourceWalletId && walletConnections.length > 0) {
+      const wallet = walletConnections.find(w => w.connectionString === transaction.sourceWalletId);
+      if (wallet && wallet.alias) {
+        return wallet.alias;
+      }
+    }
+    // Fall back to stored wallet name if lookup fails
+    if (transaction.sourceWallet) {
+      return transaction.sourceWallet;
+    }
+    return null;
+  };
 
   const getSourceIcon = () => {
     switch (transaction.source) {
@@ -29,11 +46,12 @@ export function TransactionSourceBadge({ transaction, className }: TransactionSo
   };
 
   const getSourceLabel = () => {
-    // Always prioritize showing the wallet name if available
-    if (transaction.sourceWallet) {
-      return transaction.sourceWallet;
+    // First try to look up the wallet name from connected wallets
+    const walletName = lookupWalletName();
+    if (walletName) {
+      return walletName;
     }
-    // Fall back to source type if no wallet name
+    // Fall back to source type if no wallet name found
     switch (transaction.source) {
       case 'nwc':
         return 'Lightning';

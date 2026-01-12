@@ -448,6 +448,7 @@ export default function Budget() {
                 transactions={currentBudget.transactions}
                 buckets={currentBudget.buckets}
                 currency={currency}
+                walletConnections={nwcConnections}
                 onAddTransaction={addTransaction}
                 onAssignTransaction={assignTransaction}
                 onUpdateTransaction={updateTransaction}
