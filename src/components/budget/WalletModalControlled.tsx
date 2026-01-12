@@ -39,11 +39,11 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
   const [isConnecting, setIsConnecting] = useState(false);
 
   const { toast } = useToast();
-  const { 
-    isSyncing, 
-    syncTransactions, 
-    walletInfo, 
-    supportsListTransactions, 
+  const {
+    isSyncing,
+    syncTransactions,
+    walletInfo,
+    supportsListTransactions,
     autoSyncEnabled,
     startAutoSync,
     stopAutoSync,
@@ -243,8 +243,8 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
                           </div>
                         )}
 
-                        {/* Auto-sync toggle - only show if wallet supports list_transactions */}
-                        {supportsListTransactions && (
+                        {/* Auto-sync toggle - show if wallet info says it supports list_transactions OR if we couldn't fetch wallet info (assume it might work) */}
+                        {(supportsListTransactions || !walletInfo) && (
                           <div className="flex items-center justify-between border-t pt-2 mt-1">
                             <div className="flex items-center gap-2">
                               <Clock className="h-3 w-3 text-muted-foreground" />
@@ -270,8 +270,8 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
                           </div>
                         )}
 
-                        {/* Warning if list_transactions not supported */}
-                        {walletInfo && !supportsListTransactions && (
+                        {/* Warning if list_transactions explicitly not supported */}
+                        {walletInfo && walletInfo.methods && walletInfo.methods.length > 0 && !supportsListTransactions && (
                           <Alert className="border-amber-500/50 bg-amber-50/50 dark:bg-amber-950/30 py-2">
                             <AlertDescription className="text-amber-700 dark:text-amber-400 text-xs">
                               This wallet doesn't support transaction listing. Use CSV import instead, or try a different wallet like Alby Hub.
