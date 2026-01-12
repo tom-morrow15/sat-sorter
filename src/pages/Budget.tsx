@@ -20,6 +20,7 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useBTCMap } from '@/hooks/useBTCMap';
 import { useBudgetSync } from '@/hooks/useBudgetSync';
 import { useNWCSync } from '@/hooks/useNWCSync';
+import { useNWC } from '@/hooks/useNWCContext';
 import { useOnboarding } from '@/hooks/useOnboarding';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useToast } from '@/hooks/useToast';
@@ -40,13 +41,14 @@ export default function Budget() {
 
   const { user } = useCurrentUser();
   const { hasAlbyHub, hasLNbits } = useWallet();
+  const { connections: nwcConnections } = useNWC();
   const { merchants } = useBTCMap();
   const { shouldShowOnboarding, hasCompletedOnboarding, completeOnboarding } = useOnboarding();
   const [walletPromptDismissed, setWalletPromptDismissed] = useLocalStorage('wallet-prompt-dismissed', false);
   const { toast } = useToast();
 
   // Check if user has any wallet connected
-  const hasWalletConnected = hasAlbyHub || hasLNbits;
+  const hasWalletConnected = hasAlbyHub || hasLNbits || nwcConnections.length > 0;
 
   const {
     currentBudget,
@@ -187,7 +189,7 @@ export default function Budget() {
     };
   }, [canSync, downloadBudget, mergeBudgetFromCloud, remoteTimestamp]);
 
-  // Detect changes to the budget state
+  // Detect changes to the budget state (including NWC connections)
   useEffect(() => {
     if (!initialLoadCompleteRef.current) return;
 
@@ -195,7 +197,35 @@ export default function Budget() {
     if (lastSyncedStateRef.current && currentStateStr !== lastSyncedStateRef.current) {
       setHasUnsyncedChanges(true);
     }
-  }, [currentBudget, getFullBudgetState]);
+  }, [currentBudget, getFullBudgetState, nwcConnections]);
+
+  // Track previous NWC connection count to detect changes
+  const prevNwcConnectionsCountRef = useRef(nwcConnections.length);
+
+  // Immediately sync when NWC connections change (add/remove wallet)
+  // This ensures wallet connections persist across devices right away
+  useEffect(() => {
+    if (!initialLoadCompleteRef.current || !canSync) return;
+
+    const prevCount = prevNwcConnectionsCountRef.current;
+    const currentCount = nwcConnections.length;
+
+    // Check if connections actually changed (not just a re-render)
+    if (prevCount !== currentCount) {
+      console.log('[Budget] NWC connections changed:', prevCount, '->', currentCount);
+      prevNwcConnectionsCountRef.current = currentCount;
+
+      // Trigger immediate sync (debounced to avoid rapid-fire syncs)
+      const syncTimer = setTimeout(async () => {
+        if (syncStatus !== 'syncing') {
+          console.log('[Budget] Syncing NWC connection changes to cloud...');
+          await performSync(false);
+        }
+      }, 1000); // 1 second debounce
+
+      return () => clearTimeout(syncTimer);
+    }
+  }, [nwcConnections.length, canSync, syncStatus, performSync]);
 
   // Auto-save every 30 seconds if there are unsynced changes
   useEffect(() => {
