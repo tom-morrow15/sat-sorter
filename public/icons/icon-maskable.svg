@@ -1,10 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <!-- Full orange background for maskable (safe zone is inner 80%) -->
-  <rect x="0" y="0" width="512" height="512" fill="#f97316"/>
-  
-  <!-- White lightning bolt - sized for safe zone -->
-  <path 
-    d="M284 100L168 272h88l-44 140 164-196H284l0-116z" 
-    fill="white"
-  />
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- Lightning bolt for maskable (no background, will be applied by system) -->
+  <!-- Centered in a 512x512 viewbox with proper margins for safe zone -->
+  <path d="M 256 96 L 160 288 L 304 288 L 208 448 L 352 192 L 224 192 Z" 
+        fill="white" 
+        stroke="white" 
+        stroke-width="2" 
+        stroke-linejoin="round"/>
 </svg>
