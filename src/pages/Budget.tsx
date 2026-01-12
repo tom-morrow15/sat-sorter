@@ -11,9 +11,11 @@ import { TransactionsPanel } from '@/components/budget/TransactionsPanel';
 import { BTCMapBanner } from '@/components/budget/BTCMapBanner';
 import { WalletModalControlled } from '@/components/budget/WalletModalControlled';
 import { QuickAddFAB } from '@/components/budget/QuickAddFAB';
+import { SyncFAB } from '@/components/budget/SyncFAB';
 import { OnboardingWelcome } from '@/components/budget/OnboardingWelcome';
 import { FirstTimeBudgetPrompt, EmptyBudgetCategories } from '@/components/budget/EmptyStates';
 import { LoginArea } from '@/components/auth/LoginArea';
+import LoginDialog from '@/components/auth/LoginDialog';
 import { useBudget } from '@/hooks/useBudget';
 import { useWallet } from '@/hooks/useWallet';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
@@ -25,17 +27,22 @@ import { useOnboarding } from '@/hooks/useOnboarding';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useToast } from '@/hooks/useToast';
 
-const AUTO_SYNC_INTERVAL_MS = 30000; // 30 seconds
+const AUTO_SYNC_DEBOUNCE_MS = 3000; // 3 seconds after changes
 
 export default function Budget() {
   const [showAddBucket, setShowAddBucket] = useState(false);
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showTourPrompt, setShowTourPrompt] = useState(true);
+  const [showLoginDialog, setShowLoginDialog] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'synced' | 'error'>('idle');
   const [hasUnsyncedChanges, setHasUnsyncedChanges] = useState(false);
+  const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(() => {
+    const stored = localStorage.getItem('sat-sorter-last-sync');
+    return stored ? parseInt(stored, 10) : null;
+  });
   const syncTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
-  const autoSyncIntervalRef = useRef<ReturnType<typeof setInterval>>();
+  const autoSyncDebounceRef = useRef<ReturnType<typeof setTimeout>>();
   const lastSyncedStateRef = useRef<string>('');
   const initialLoadCompleteRef = useRef(false);
 
@@ -99,7 +106,9 @@ export default function Budget() {
       const success = await uploadBudget(fullState);
 
       if (success) {
-        localStorage.setItem('sat-sorter-last-sync', Math.floor(Date.now() / 1000).toString());
+        const now = Math.floor(Date.now() / 1000);
+        localStorage.setItem('sat-sorter-last-sync', now.toString());
+        setLastSyncedAt(now);
         lastSyncedStateRef.current = JSON.stringify(fullState);
         setHasUnsyncedChanges(false);
         setSyncStatus('synced');
@@ -123,6 +132,49 @@ export default function Budget() {
       return false;
     }
   }, [canSync, getFullBudgetState, uploadBudget, downloadBudget, mergeBudgetFromCloud, remoteTimestamp, toast]);
+
+  // Pull-only sync function (download from cloud without uploading)
+  const performPull = useCallback(async () => {
+    if (!canSync) return false;
+
+    try {
+      setSyncStatus('syncing');
+
+      const cloudBudget = await downloadBudget();
+      if (cloudBudget && remoteTimestamp) {
+        console.log('[Budget] Pulling budget from cloud...');
+        const wasApplied = mergeBudgetFromCloud(cloudBudget, remoteTimestamp);
+        if (wasApplied) {
+          console.log('[Budget] Cloud budget applied successfully');
+          lastSyncedStateRef.current = JSON.stringify(cloudBudget);
+          setHasUnsyncedChanges(false);
+          toast({
+            title: 'Budget pulled',
+            description: 'Your budget has been updated from Nostr relays.',
+          });
+        } else {
+          toast({
+            title: 'Already up to date',
+            description: 'Your local budget is the latest version.',
+          });
+        }
+      } else {
+        toast({
+          title: 'No cloud backup found',
+          description: 'No budget data found on Nostr relays.',
+        });
+      }
+
+      setSyncStatus('synced');
+      syncTimeoutRef.current = setTimeout(() => setSyncStatus('idle'), 2000);
+      return true;
+    } catch (error) {
+      console.error('[Budget] Pull failed:', error);
+      setSyncStatus('error');
+      syncTimeoutRef.current = setTimeout(() => setSyncStatus('idle'), 3000);
+      return false;
+    }
+  }, [canSync, downloadBudget, mergeBudgetFromCloud, remoteTimestamp, toast]);
 
   // Show onboarding for new users
   useEffect(() => {
@@ -189,15 +241,35 @@ export default function Budget() {
     };
   }, [canSync, downloadBudget, mergeBudgetFromCloud, remoteTimestamp]);
 
-  // Detect changes to the budget state (including NWC connections)
+  // Detect changes to the budget state and trigger auto-sync with debounce
   useEffect(() => {
     if (!initialLoadCompleteRef.current) return;
 
     const currentStateStr = JSON.stringify(getFullBudgetState());
     if (lastSyncedStateRef.current && currentStateStr !== lastSyncedStateRef.current) {
       setHasUnsyncedChanges(true);
+
+      // Auto-sync after a short debounce period (if logged in)
+      if (canSync && syncStatus !== 'syncing') {
+        // Clear any existing debounce timer
+        if (autoSyncDebounceRef.current) {
+          clearTimeout(autoSyncDebounceRef.current);
+        }
+
+        // Set new debounce timer - auto-save 3 seconds after last change
+        autoSyncDebounceRef.current = setTimeout(async () => {
+          console.log('[Budget] Auto-syncing budget after changes...');
+          await performSync(false); // Silent sync (no toast)
+        }, AUTO_SYNC_DEBOUNCE_MS);
+      }
     }
-  }, [currentBudget, getFullBudgetState, nwcConnections]);
+
+    return () => {
+      if (autoSyncDebounceRef.current) {
+        clearTimeout(autoSyncDebounceRef.current);
+      }
+    };
+  }, [currentBudget, getFullBudgetState, nwcConnections, canSync, syncStatus, performSync]);
 
   // Track previous NWC connection count to detect changes
   const prevNwcConnectionsCountRef = useRef(nwcConnections.length);
@@ -227,32 +299,17 @@ export default function Budget() {
     }
   }, [nwcConnections.length, canSync, syncStatus, performSync]);
 
-  // Auto-save every 30 seconds if there are unsynced changes
+  // Cleanup timers on unmount
   useEffect(() => {
-    if (!canSync) return;
-
-    // Clear any existing interval
-    if (autoSyncIntervalRef.current) {
-      clearInterval(autoSyncIntervalRef.current);
-    }
-
-    // Set up the 30-second auto-save interval
-    autoSyncIntervalRef.current = setInterval(async () => {
-      if (hasUnsyncedChanges && syncStatus !== 'syncing') {
-        console.log('[Budget] Auto-syncing budget (30s interval)...');
-        await performSync(false); // Silent sync (no toast)
-      }
-    }, AUTO_SYNC_INTERVAL_MS);
-
     return () => {
-      if (autoSyncIntervalRef.current) {
-        clearInterval(autoSyncIntervalRef.current);
+      if (autoSyncDebounceRef.current) {
+        clearTimeout(autoSyncDebounceRef.current);
       }
       if (syncTimeoutRef.current) {
         clearTimeout(syncTimeoutRef.current);
       }
     };
-  }, [canSync, hasUnsyncedChanges, syncStatus, performSync]);
+  }, []);
 
   // Month navigation
   const handlePreviousMonth = () => {
@@ -498,10 +555,29 @@ export default function Budget() {
         />
       )}
 
+      {/* Sync FAB - positioned above Quick Add FAB */}
+      <SyncFAB
+        syncStatus={syncStatus}
+        hasUnsyncedChanges={hasUnsyncedChanges}
+        canSync={canSync}
+        onSync={() => performSync(true)}
+        onPull={performPull}
+        isLoggedIn={!!user}
+        onLoginClick={() => setShowLoginDialog(true)}
+        lastSyncedAt={lastSyncedAt}
+      />
+
       {/* Quick Add FAB */}
       <QuickAddFAB
         onAddTransaction={addTransaction}
         currency={currency}
+      />
+
+      {/* Login Dialog */}
+      <LoginDialog
+        isOpen={showLoginDialog}
+        onClose={() => setShowLoginDialog(false)}
+        onLogin={() => setShowLoginDialog(false)}
       />
 
       {/* Onboarding Welcome Dialog */}
