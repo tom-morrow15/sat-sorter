@@ -4,6 +4,9 @@ import { useToast } from '@/hooks/useToast';
 import { useNWC } from '@/hooks/useNWCContext';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { listTransactions, getWalletInfo, fetchWalletInfo, parseNWCUri, type NWCTransaction, type NWCInfo } from '@/lib/nwcClient';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useNostr } from '@nostrify/react';
+import { useNostrPublish } from '@/hooks/useNostrPublish';
 
 interface SyncState {
   /** Timestamp of when we last performed a sync (current time at sync) */
@@ -22,6 +25,8 @@ export interface NWCSyncResult {
 
 const POLL_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 const MAX_STORED_HASHES = 1000; // Limit stored hashes to prevent localStorage bloat
+const NWC_CONNECTIONS_KIND = 30079; // NIP-78 Application-specific data for NWC
+const NWC_CONNECTIONS_IDENTIFIER = 'sat-sorter/nwc-connections';
 
 // Migration helper: convert old sync state format to new format
 // This runs once when the module loads
@@ -65,8 +70,11 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
   const { enabled = true } = options;
 
   const { toast } = useToast();
-  const { getActiveConnection, connections } = useNWC();
+  const { getActiveConnection, connections, addConnection: addConnectionToState } = useNWC();
   const { addTransaction, currentBudget } = useBudget();
+  const { user } = useCurrentUser();
+  const { nostr } = useNostr();
+  const { mutateAsync: publish } = useNostrPublish();
 
   const [isSyncing, setIsSyncing] = useState(false);
   const [walletInfo, setWalletInfo] = useState<NWCInfo | null>(null);
@@ -74,6 +82,127 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
   const [autoSyncEnabled, setAutoSyncEnabled] = useLocalStorage<boolean>('nwc-auto-sync', false);
 
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  /**
+   * Upload NWC connections to Nostr for cloud sync
+   */
+  const uploadNWCConnections = useCallback(async (): Promise<boolean> => {
+    if (!user?.pubkey || !user?.signer?.nip44) {
+      console.log('[NWCSync] Cloud sync disabled: user not logged in or signer lacks NIP-44');
+      return false;
+    }
+
+    if (connections.length === 0) {
+      console.log('[NWCSync] No connections to sync');
+      return false;
+    }
+
+    try {
+      // Only include the essentials for security (no raw connection strings in plain metadata)
+      const connectionsData = {
+        version: 1,
+        lastUpdated: Math.floor(Date.now() / 1000),
+        // Store encrypted connection data in Nostr
+        connectionCount: connections.length,
+      };
+
+      const plaintext = JSON.stringify({
+        version: 1,
+        lastUpdated: Math.floor(Date.now() / 1000),
+        connections: connections.map(c => ({
+          connectionString: c.connectionString,
+          alias: c.alias,
+        })),
+      });
+
+      console.log('[NWCSync] Encrypting NWC connections for cloud sync...');
+
+      // Encrypt the connection data with NIP-44 (to self)
+      const encrypted = await user.signer.nip44.encrypt(user.pubkey, plaintext);
+
+      // Publish as NIP-78 event (application-specific data)
+      await publish({
+        kind: NWC_CONNECTIONS_KIND,
+        content: encrypted,
+        tags: [
+          ['d', NWC_CONNECTIONS_IDENTIFIER],
+          ['alt', 'Sat Sorter NWC connections (encrypted)'],
+        ],
+      });
+
+      console.log('[NWCSync] NWC connections synced to cloud');
+      return true;
+    } catch (error) {
+      console.error('[NWCSync] Failed to upload NWC connections:', error);
+      return false;
+    }
+  }, [user, connections, publish]);
+
+  /**
+   * Download NWC connections from Nostr for cloud sync
+   */
+  const downloadNWCConnections = useCallback(async (): Promise<boolean> => {
+    if (!user?.pubkey || !user?.signer?.nip44) {
+      console.log('[NWCSync] Cloud sync disabled: user not logged in or signer lacks NIP-44');
+      return false;
+    }
+
+    try {
+      const combinedSignal = AbortSignal.any([AbortSignal.timeout(10000)]);
+
+      const events = await nostr.query([
+        {
+          kinds: [NWC_CONNECTIONS_KIND],
+          authors: [user.pubkey],
+          '#d': [NWC_CONNECTIONS_IDENTIFIER],
+          limit: 1,
+        },
+      ], { signal: combinedSignal });
+
+      console.log('[NWCSync] Query returned', events.length, 'NWC connection events');
+
+      if (events.length === 0) {
+        console.log('[NWCSync] No remote NWC connections found');
+        return false;
+      }
+
+      // Get the most recent event
+      const latestEvent = events.sort((a, b) => b.created_at - a.created_at)[0];
+
+      try {
+        console.log('[NWCSync] Decrypting remote NWC connections...');
+        const decrypted = await user.signer.nip44.decrypt(user.pubkey, latestEvent.content);
+        const remoteData = JSON.parse(decrypted);
+
+        if (!Array.isArray(remoteData.connections)) {
+          console.warn('[NWCSync] Invalid remote connection data');
+          return false;
+        }
+
+        console.log('[NWCSync] Found', remoteData.connections.length, 'remote connections');
+
+        // Add any remote connections that don't exist locally
+        let addedCount = 0;
+        for (const remoteConn of remoteData.connections) {
+          const exists = connections.some(c => c.connectionString === remoteConn.connectionString);
+          if (!exists) {
+            console.log('[NWCSync] Adding remote connection:', remoteConn.alias);
+            await addConnectionToState(remoteConn.connectionString, remoteConn.alias);
+            addedCount++;
+          }
+        }
+
+        console.log('[NWCSync] Added', addedCount, 'remote connections');
+        return addedCount > 0;
+      } catch (error) {
+        console.error('[NWCSync] Failed to decrypt remote connections:', error);
+        return false;
+      }
+    } catch (error) {
+      console.error('[NWCSync] Failed to download NWC connections:', error);
+      return false;
+    }
+  }, [user, nostr, connections, addConnectionToState]);
 
   /**
    * Check wallet capabilities on connection
@@ -413,6 +542,17 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
     }
   }, [getActiveConnection, checkWalletCapabilities]);
 
+  // Sync NWC connections to cloud when user logs in or connections change
+  useEffect(() => {
+    if (user?.pubkey && connections.length > 0) {
+      // Small delay to avoid spamming syncs
+      const timer = setTimeout(() => {
+        uploadNWCConnections();
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [user?.pubkey, connections, uploadNWCConnections]);
+
   // Auto-sync on app load if wallet supports list_transactions
   // Only runs after the initial budget load is complete (enabled = true)
   const initialSyncDoneRef = useRef(false);
@@ -489,5 +629,8 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
     clearSyncHistory,
     checkWalletCapabilities,
     hasWalletConnected: connections.length > 0,
+    // Cloud sync functions
+    uploadNWCConnections,
+    downloadNWCConnections,
   };
 }

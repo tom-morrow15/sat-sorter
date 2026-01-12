@@ -2,6 +2,8 @@ import { useState, useCallback, useEffect } from 'react';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useToast } from '@/hooks/useToast';
 import { LN } from '@getalby/sdk';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useNostr } from '@nostrify/react';
 
 export interface NWCConnection {
   connectionString: string;
@@ -18,6 +20,9 @@ export interface NWCInfo {
   methods?: string[];
   notifications?: string[];
 }
+
+const NWC_CONNECTIONS_KIND = 30079; // NIP-78 Application-specific data for NWC
+const NWC_CONNECTIONS_IDENTIFIER = 'sat-sorter/nwc-connections';
 
 // Debug helper to check localStorage state
 function debugLocalStorage(prefix: string) {
@@ -41,6 +46,9 @@ export function useNWCInternal() {
   const { toast } = useToast();
   const [connections, setConnections] = useLocalStorage<NWCConnection[]>('nwc-connections', []);
   const [activeConnection, setActiveConnection] = useLocalStorage<string | null>('nwc-active-connection', null);
+  const { user } = useCurrentUser();
+  const { nostr } = useNostr();
+  const [hasDownloadedCloudConnections, setHasDownloadedCloudConnections] = useState(false);
 
   // Debug: Log connection state on mount and changes
   useEffect(() => {
@@ -182,6 +190,88 @@ export function useNWCInternal() {
     });
   };
 
+  // Download NWC connections from cloud (Nostr)
+  const downloadCloudConnections = useCallback(async () => {
+    if (!user?.pubkey || !user?.signer?.nip44 || hasDownloadedCloudConnections) {
+      console.log('[NWC] Cloud download skipped:', {
+        hasUser: !!user?.pubkey,
+        hasNip44: !!user?.signer?.nip44,
+        alreadyDownloaded: hasDownloadedCloudConnections,
+      });
+      return;
+    }
+
+    try {
+      console.log('[NWC] Downloading NWC connections from cloud...');
+      const combinedSignal = AbortSignal.any([AbortSignal.timeout(10000)]);
+
+      const events = await nostr.query([
+        {
+          kinds: [NWC_CONNECTIONS_KIND],
+          authors: [user.pubkey],
+          '#d': [NWC_CONNECTIONS_IDENTIFIER],
+          limit: 1,
+        },
+      ], { signal: combinedSignal });
+
+      console.log('[NWC] Cloud query returned', events.length, 'connection events');
+
+      if (events.length === 0) {
+        console.log('[NWC] No cloud connections found');
+        setHasDownloadedCloudConnections(true);
+        return;
+      }
+
+      // Get the most recent event
+      const latestEvent = events.sort((a, b) => b.created_at - a.created_at)[0];
+
+      try {
+        console.log('[NWC] Decrypting cloud connections...');
+        const decrypted = await user.signer.nip44.decrypt(user.pubkey, latestEvent.content);
+        const remoteData = JSON.parse(decrypted);
+
+        if (!Array.isArray(remoteData.connections)) {
+          console.warn('[NWC] Invalid cloud connection data');
+          setHasDownloadedCloudConnections(true);
+          return;
+        }
+
+        console.log('[NWC] Found', remoteData.connections.length, 'cloud connections');
+
+        // Add any cloud connections that don't exist locally
+        let addedCount = 0;
+        for (const remoteConn of remoteData.connections) {
+          const exists = connections.some(c => c.connectionString === remoteConn.connectionString);
+          if (!exists) {
+            console.log('[NWC] Adding cloud connection:', remoteConn.alias);
+            const newConnection: NWCConnection = {
+              connectionString: remoteConn.connectionString,
+              alias: remoteConn.alias,
+              isConnected: true,
+            };
+            setConnections(prev => [...prev, newConnection]);
+            addedCount++;
+          }
+        }
+
+        if (addedCount > 0) {
+          toast({
+            title: 'Cloud sync',
+            description: `Restored ${addedCount} wallet connection${addedCount !== 1 ? 's' : ''} from cloud.`,
+          });
+        }
+
+        setHasDownloadedCloudConnections(true);
+      } catch (error) {
+        console.error('[NWC] Failed to decrypt cloud connections:', error);
+        setHasDownloadedCloudConnections(true);
+      }
+    } catch (error) {
+      console.error('[NWC] Failed to download cloud connections:', error);
+      setHasDownloadedCloudConnections(true);
+    }
+  }, [user, nostr, connections, setConnections, hasDownloadedCloudConnections, toast]);
+
   // Get active connection
   const getActiveConnection = useCallback((): NWCConnection | null => {
     if (!activeConnection && connections.length > 0) {
@@ -194,6 +284,13 @@ export function useNWCInternal() {
     const found = connections.find(c => c.connectionString === activeConnection);
     return found || null;
   }, [activeConnection, connections, setActiveConnection]);
+
+  // Download cloud connections on user login
+  useEffect(() => {
+    if (user?.pubkey && !hasDownloadedCloudConnections) {
+      downloadCloudConnections();
+    }
+  }, [user?.pubkey, hasDownloadedCloudConnections, downloadCloudConnections]);
 
   // Send payment using the SDK
   const sendPayment = useCallback(async (
