@@ -73,9 +73,18 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
       return;
     }
 
+    if (!alias.trim()) {
+      toast({
+        title: 'Wallet name required',
+        description: 'Please enter a name for this wallet (e.g., "Alby Hub", "Mutiny"). This will help you identify transactions from each wallet.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setIsConnecting(true);
     try {
-      const success = await addConnection(connectionUri.trim(), alias.trim() || undefined);
+      const success = await addConnection(connectionUri.trim(), alias.trim());
       if (success) {
         toast({
           title: 'Wallet connected!',
@@ -289,14 +298,19 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
                     {connections.length > 0 ? 'Add Another Wallet:' : 'Connect Alby Hub:'}
                   </p>
                   <div>
-                    <Label htmlFor="nwc-alias" className="text-xs">Wallet Name (optional)</Label>
+                    <Label htmlFor="nwc-alias" className="text-xs">
+                      Wallet Name <span className="text-red-500">*</span>
+                    </Label>
                     <Input
                       id="nwc-alias"
-                      placeholder="My Alby Hub"
+                      placeholder="e.g., Alby Hub, Mutiny, Zeus"
                       value={alias}
                       onChange={(e) => setAlias(e.target.value)}
                       className="mt-1"
                     />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      This name will appear on all transactions from this wallet, helping you identify which wallet each payment came from.
+                    </p>
                   </div>
                   <div>
                     <Label htmlFor="nwc-uri" className="text-xs">NWC Connection URI</Label>
@@ -315,7 +329,7 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
                   <div className="flex gap-2">
                     <Button
                       onClick={handleAddNWCConnection}
-                      disabled={isConnecting || !connectionUri.trim()}
+                      disabled={isConnecting || !connectionUri.trim() || !alias.trim()}
                       className="flex-1"
                     >
                       {isConnecting ? 'Connecting...' : 'Connect'}

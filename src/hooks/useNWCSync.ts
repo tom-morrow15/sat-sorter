@@ -397,6 +397,7 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
           }
 
           // Create transaction with wallet source info
+          const walletName = activeConnection.alias || 'Lightning Wallet';
           const transaction = {
             amount: amountSats,
             description,
@@ -405,7 +406,7 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
             bucketId: null,
             isIncome: nwcTx.type === 'incoming',
             source: 'nwc' as const,
-            sourceWallet: activeConnection.alias,
+            sourceWallet: walletName,
             sourceWalletId: activeConnection.connectionString,
             paymentHash: nwcTx.payment_hash,
             preimage: nwcTx.preimage,
@@ -417,6 +418,8 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
             date: transaction.date,
             isIncome: transaction.isIncome,
             paymentHash: nwcTx.payment_hash,
+            sourceWallet: walletName,
+            hasAlias: !!activeConnection.alias,
           });
 
           addTransaction(transaction);
