@@ -6,6 +6,7 @@ import {
   Bucket,
   LineItem,
   Transaction,
+  SyncedNWCConnection,
   createDefaultBuckets,
   getCurrentMonth,
   generateId,
@@ -280,38 +281,93 @@ export function useBudget() {
     const localTimestampStr = localStorage.getItem('sat-sorter-last-sync');
     const localTimestamp = localTimestampStr ? parseInt(localTimestampStr, 10) : 0;
 
+    // Always restore NWC connections if they exist in cloud (merge, not replace)
+    if (cloudState.nwcConnections && cloudState.nwcConnections.length > 0) {
+      restoreNWCConnections(cloudState.nwcConnections);
+    }
+
     // If cloud data is newer, use it
     if (cloudTimestamp > localTimestamp) {
       console.log('[Budget] Cloud data is newer, importing cloud budget');
-      setState(cloudState);
+      // Remove nwcConnections from state (they're stored separately in localStorage)
+      const { nwcConnections: _, ...budgetData } = cloudState;
+      setState(budgetData as BudgetState);
       localStorage.setItem('sat-sorter-last-sync', cloudTimestamp.toString());
       return true;
     }
 
     console.log('[Budget] Local data is up-to-date, keeping local budget');
     return false;
-  }, [setState]);
+  }, [setState, restoreNWCConnections]);
+
+  // Get NWC connections from localStorage to include in sync
+  const getNWCConnections = useCallback((): SyncedNWCConnection[] => {
+    try {
+      const stored = localStorage.getItem('nwc-connections');
+      if (!stored) return [];
+      const connections = JSON.parse(stored);
+      // Only sync the essential data (not isConnected which is runtime state)
+      return connections.map((c: { connectionString: string; alias: string }) => ({
+        connectionString: c.connectionString,
+        alias: c.alias,
+      }));
+    } catch {
+      return [];
+    }
+  }, []);
+
+  // Restore NWC connections from synced state
+  const restoreNWCConnections = useCallback((connections: SyncedNWCConnection[]) => {
+    if (!connections || connections.length === 0) return;
+
+    try {
+      // Get existing connections
+      const existingStr = localStorage.getItem('nwc-connections');
+      const existing = existingStr ? JSON.parse(existingStr) : [];
+
+      // Merge - add any connections from cloud that don't exist locally
+      const existingStrings = new Set(existing.map((c: { connectionString: string }) => c.connectionString));
+      const toAdd = connections.filter(c => !existingStrings.has(c.connectionString));
+
+      if (toAdd.length > 0) {
+        const merged = [
+          ...existing,
+          ...toAdd.map(c => ({
+            connectionString: c.connectionString,
+            alias: c.alias,
+            isConnected: false, // Will be connected on next use
+          })),
+        ];
+        localStorage.setItem('nwc-connections', JSON.stringify(merged));
+        console.log('[Budget] Restored', toAdd.length, 'NWC connections from cloud');
+      }
+    } catch (e) {
+      console.error('[Budget] Failed to restore NWC connections:', e);
+    }
+  }, []);
 
   // Get the full budget state for cloud sync
-  // This includes all budgets across all months
+  // This includes all budgets across all months AND NWC connections
   const getFullBudgetState = useCallback((): BudgetState => {
     // Make sure the current budget is included in the state
     const existingIndex = state.budgets.findIndex(b => b.month === state.currentMonth);
+    let budgets: MonthlyBudget[];
+
     if (existingIndex < 0) {
       // Current budget doesn't exist in state yet, add it
-      return {
-        ...state,
-        budgets: [...state.budgets, currentBudget],
-      };
+      budgets = [...state.budgets, currentBudget];
+    } else {
+      // Update the current budget in state (in case it was modified)
+      budgets = [...state.budgets];
+      budgets[existingIndex] = currentBudget;
     }
-    // Update the current budget in state (in case it was modified)
-    const updatedBudgets = [...state.budgets];
-    updatedBudgets[existingIndex] = currentBudget;
+
     return {
       ...state,
-      budgets: updatedBudgets,
+      budgets,
+      nwcConnections: getNWCConnections(),
     };
-  }, [state, currentBudget]);
+  }, [state, currentBudget, getNWCConnections]);
 
   return {
     // State

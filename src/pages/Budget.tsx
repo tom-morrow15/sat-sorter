@@ -73,12 +73,26 @@ export default function Budget() {
 
   const { uploadBudget, downloadBudget, canSync, remoteTimestamp } = useBudgetSync();
 
-  // Manual sync function
+  // Manual sync function - bidirectional: download first, then upload
   const performSync = useCallback(async (showToast = true) => {
     if (!canSync) return false;
 
     try {
       setSyncStatus('syncing');
+
+      // Step 1: Download from cloud and merge (in case another device has newer data)
+      const cloudBudget = await downloadBudget();
+      if (cloudBudget && remoteTimestamp) {
+        console.log('[Budget] Checking for cloud updates before uploading...');
+        const wasApplied = mergeBudgetFromCloud(cloudBudget, remoteTimestamp);
+        if (wasApplied) {
+          console.log('[Budget] Applied updates from cloud');
+          // Update reference since we got new data
+          lastSyncedStateRef.current = JSON.stringify(cloudBudget);
+        }
+      }
+
+      // Step 2: Upload current state (which may now include merged cloud data)
       const fullState = getFullBudgetState();
       const success = await uploadBudget(fullState);
 
@@ -90,7 +104,7 @@ export default function Budget() {
         if (showToast) {
           toast({
             title: 'Budget synced',
-            description: 'Your budget has been saved to Nostr relays.',
+            description: 'Your budget has been synced with Nostr relays.',
           });
         }
         syncTimeoutRef.current = setTimeout(() => setSyncStatus('idle'), 2000);
@@ -106,7 +120,7 @@ export default function Budget() {
       syncTimeoutRef.current = setTimeout(() => setSyncStatus('idle'), 3000);
       return false;
     }
-  }, [canSync, getFullBudgetState, uploadBudget, toast]);
+  }, [canSync, getFullBudgetState, uploadBudget, downloadBudget, mergeBudgetFromCloud, remoteTimestamp, toast]);
 
   // Show onboarding for new users
   useEffect(() => {
