@@ -22,8 +22,6 @@
   "type": "module",
   "scripts": {
     "dev": "npm i --silent && vite",
-    "generate-icons": "node scripts/generate-icons.js",
-    "prebuild": "node scripts/generate-icons.js",
     "build": "npm i --silent && vite build -l error && cp dist/index.html dist/404.html && echo 'Project built successfully!'",
     "test": "npm i --silent && tsc --noEmit && eslint && vitest run --reporter=dot --silent && vite build -l error && cp dist/index.html dist/404.html && echo 'All tests passed!'",
     "deploy": "npm run build && npx -y nostr-deploy-cli deploy --skip-setup"
@@ -110,7 +108,6 @@
     "globals": "^15.9.0",
     "jsdom": "^26.1.0",
     "postcss": "^8.4.47",
-    "sharp": "^0.34.5",
     "tailwindcss": "^3.4.11",
     "typescript": "^5.5.3",
     "typescript-eslint": "^8.0.1",
