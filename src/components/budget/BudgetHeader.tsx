@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bitcoin, DollarSign, ChevronLeft, ChevronRight, Wallet, Moon, Sun, Zap, Calendar, Menu, Info, Heart, ExternalLink, Shield, Globe, GraduationCap, LogIn, Wifi, Loader2, Check, AlertCircle, HelpCircle, Download, BookOpen } from 'lucide-react';
+import { Bitcoin, DollarSign, ChevronLeft, ChevronRight, Wallet, Moon, Sun, Zap, Calendar, Menu, Info, Heart, ExternalLink, Shield, Globe, GraduationCap, LogIn, Wifi, Loader2, Check, AlertCircle, HelpCircle, Download, BookOpen, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -86,6 +86,7 @@ export function BudgetHeader({
   const [showFAQ, setShowFAQ] = useState(false);
   const [showDataExport, setShowDataExport] = useState(false);
   const [showOnboardingTour, setShowOnboardingTour] = useState(false);
+  const [showFeedback, setShowFeedback] = useState(false);
 
   const { completeOnboarding } = useOnboarding();
   const { updateAvailable, performUpdate } = useAppUpdate();
@@ -342,6 +343,10 @@ export function BudgetHeader({
                   {isDark ? 'Light Mode' : 'Dark Mode'}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setShowFeedback(true)}>
+                  <MessageSquare className="h-4 w-4 mr-2" />
+                  Feedback & Requests
+                </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => window.open('https://primal.net/p/npub1hq4rd0xalt9swws546kk9mm70uda4n64e30qc09uukvn9uz4dylqw6zqmg', '_blank')}
                 >
@@ -893,6 +898,57 @@ export function BudgetHeader({
         onOpenChange={setShowOnboardingTour}
         onComplete={completeOnboarding}
       />
+
+      {/* Feedback Dialog */}
+      <Dialog open={showFeedback} onOpenChange={setShowFeedback}>
+        <DialogContent className="sm:max-w-[450px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MessageSquare className="h-5 w-5 text-primary" />
+              Feedback & Feature Requests
+            </DialogTitle>
+            <DialogDescription>
+              We'd love to hear from you!
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-muted-foreground">
+              Have a bug to report, a feature request, or just want to say hi?
+              Reach out to us on Nostr — you can send a direct message or post publicly.
+            </p>
+
+            <div className="space-y-3">
+              <Button
+                className="w-full"
+                onClick={() => window.open('https://primal.net/messages/npub1hq4rd0xalt9swws546kk9mm70uda4n64e30qc09uukvn9uz4dylqw6zqmg', '_blank')}
+              >
+                <MessageSquare className="h-4 w-4 mr-2" />
+                Send a Direct Message
+              </Button>
+
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => window.open('https://primal.net/p/npub1hq4rd0xalt9swws546kk9mm70uda4n64e30qc09uukvn9uz4dylqw6zqmg', '_blank')}
+              >
+                <ExternalLink className="h-4 w-4 mr-2" />
+                Post Publicly on Nostr
+              </Button>
+            </div>
+
+            <div className="p-3 bg-muted rounded-lg">
+              <p className="text-xs text-muted-foreground">
+                <strong>Tip:</strong> When reporting a bug, please include:
+              </p>
+              <ul className="text-xs text-muted-foreground mt-1 list-disc list-inside">
+                <li>What you were trying to do</li>
+                <li>What happened instead</li>
+                <li>Your device and browser</li>
+              </ul>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* FAQ & Help Dialog */}
       <Dialog open={showFAQ} onOpenChange={setShowFAQ}>
