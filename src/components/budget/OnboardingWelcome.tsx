@@ -10,6 +10,7 @@ import {
   Shield,
   PiggyBank,
   ListChecks,
+  Cloud,
 } from 'lucide-react';
 import {
   Dialog,
@@ -225,6 +226,23 @@ export function OnboardingWelcome({ open, onOpenChange, onComplete }: Onboarding
                 <p className="text-sm text-green-800 dark:text-green-300 text-center">
                   ✓ When your budget is <strong>"zeroed out"</strong>, every sat has a job!
                 </p>
+              </div>
+
+              {/* Sync tip */}
+              <div className="p-4 bg-primary/5 rounded-xl border border-primary/20">
+                <div className="flex items-start gap-3">
+                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <Cloud className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-sm mb-1">Save Your Changes</h4>
+                    <p className="text-xs text-muted-foreground">
+                      See the <strong>cloud button</strong> in the bottom-right corner? Tap it to sync
+                      your budget to Nostr relays. Your changes auto-save after a few seconds, but you
+                      can tap it anytime to save immediately. Log in with Nostr to sync across all your devices!
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           )}
