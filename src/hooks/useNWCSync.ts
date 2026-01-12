@@ -74,7 +74,7 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
   const { toast } = useToast();
   const { getActiveConnection, connections, addConnection: addConnectionToState } = useNWC();
   const { addTransaction, currentBudget } = useBudget();
-  const { user } = useCurrentUser();
+  const { user, loginType } = useCurrentUser();
   const { nostr } = useNostr();
   const { mutateAsync: publish } = useNostrPublish();
 
@@ -85,15 +85,17 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
 
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Wait for extension to be ready before trying to use it
+  // Only wait for extension if user logged in via extension
+  const needsExtension = loginType === 'extension';
   const { isReady: isExtensionReady } = useExtensionReady();
 
   // Safely check for NIP-44 support (handles extension not installed case)
-  // Only check after extension is ready to avoid false negatives
+  // For extension logins: wait for extension to be ready first
+  // For nsec/bunker logins: check immediately (no extension needed)
   const nip44 = useMemo(() => {
-    if (!isExtensionReady) return null;
+    if (needsExtension && !isExtensionReady) return null;
     return getSafeNip44(user);
-  }, [user, isExtensionReady]);
+  }, [user, needsExtension, isExtensionReady]);
 
   /**
    * Upload NWC connections to Nostr for cloud sync

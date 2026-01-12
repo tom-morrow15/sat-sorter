@@ -48,19 +48,21 @@ export function useNWCInternal() {
   const { toast } = useToast();
   const [connections, setConnections] = useLocalStorage<NWCConnection[]>('nwc-connections', []);
   const [activeConnection, setActiveConnection] = useLocalStorage<string | null>('nwc-active-connection', null);
-  const { user } = useCurrentUser();
+  const { user, loginType } = useCurrentUser();
   const { nostr } = useNostr();
   const [hasDownloadedCloudConnections, setHasDownloadedCloudConnections] = useState(false);
 
-  // Wait for extension to be ready before trying to use it
+  // Only wait for extension if user logged in via extension
+  const needsExtension = loginType === 'extension';
   const { isReady: isExtensionReady } = useExtensionReady();
 
   // Safely check for NIP-44 support (handles extension not installed case)
-  // Only check after extension is ready to avoid false negatives
+  // For extension logins: wait for extension to be ready first
+  // For nsec/bunker logins: check immediately (no extension needed)
   const nip44 = useMemo(() => {
-    if (!isExtensionReady) return null;
+    if (needsExtension && !isExtensionReady) return null;
     return getSafeNip44(user);
-  }, [user, isExtensionReady]);
+  }, [user, needsExtension, isExtensionReady]);
 
   // Debug: Log connection state on mount and changes
   useEffect(() => {

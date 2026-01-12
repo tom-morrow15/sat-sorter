@@ -18,7 +18,7 @@ interface SyncStatus {
 
 export function useBudgetSync() {
   const { nostr } = useNostr();
-  const { user } = useCurrentUser();
+  const { user, loginType } = useCurrentUser();
   const { mutateAsync: publish } = useNostrPublish();
   const queryClient = useQueryClient();
   const [syncStatus, setSyncStatus] = useState<SyncStatus>({
@@ -27,16 +27,18 @@ export function useBudgetSync() {
     error: null,
   });
 
-  // Wait for extension to be ready before trying to use it
-  // This handles the race condition where the page loads before the extension injects window.nostr
+  // Only wait for extension if user logged in via extension
+  // For nsec/bunker logins, we don't need the extension at all
+  const needsExtension = loginType === 'extension';
   const { isReady: isExtensionReady, isChecking: isWaitingForExtension } = useExtensionReady();
 
   // Safely check for NIP-44 support (handles extension not installed case)
-  // Only check after extension is ready to avoid false negatives
+  // For extension logins: wait for extension to be ready first
+  // For nsec/bunker logins: check immediately (no extension needed)
   const nip44 = useMemo(() => {
-    if (!isExtensionReady) return null;
+    if (needsExtension && !isExtensionReady) return null;
     return getSafeNip44(user);
-  }, [user, isExtensionReady]);
+  }, [user, needsExtension, isExtensionReady]);
   const hasNip44 = nip44 !== null;
 
   // Fetch existing budget data from Nostr
@@ -214,6 +216,6 @@ export function useBudgetSync() {
     // Status
     syncStatus,
     canSync: !!user?.pubkey && hasNip44,
-    isWaitingForExtension,
+    isWaitingForExtension: needsExtension && isWaitingForExtension,
   };
 }

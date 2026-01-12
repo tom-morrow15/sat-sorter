@@ -4,6 +4,8 @@ import { useCallback, useMemo } from 'react';
 
 import { useAuthor } from './useAuthor.ts';
 
+export type LoginType = 'nsec' | 'bunker' | 'extension' | undefined;
+
 export function useCurrentUser() {
   const { nostr } = useNostr();
   const { logins } = useNostrLogin();
@@ -38,11 +40,13 @@ export function useCurrentUser() {
   }, [logins, loginToUser]);
 
   const user = users[0] as NUser | undefined;
+  const loginType: LoginType = logins[0]?.type as LoginType;
   const author = useAuthor(user?.pubkey);
 
   return {
     user,
     users,
+    loginType,
     ...author.data,
   };
 }
