@@ -275,31 +275,6 @@ export function useBudget() {
     setState(newState);
   }, [setState]);
 
-  // Merge cloud budget - prefer cloud if it has more recent data
-  const mergeBudgetFromCloud = useCallback((cloudState: BudgetState, cloudTimestamp: number): boolean => {
-    // Get the stored sync timestamp
-    const localTimestampStr = localStorage.getItem('sat-sorter-last-sync');
-    const localTimestamp = localTimestampStr ? parseInt(localTimestampStr, 10) : 0;
-
-    // Always restore NWC connections if they exist in cloud (merge, not replace)
-    if (cloudState.nwcConnections && cloudState.nwcConnections.length > 0) {
-      restoreNWCConnections(cloudState.nwcConnections);
-    }
-
-    // If cloud data is newer, use it
-    if (cloudTimestamp > localTimestamp) {
-      console.log('[Budget] Cloud data is newer, importing cloud budget');
-      // Remove nwcConnections from state (they're stored separately in localStorage)
-      const { nwcConnections: _, ...budgetData } = cloudState;
-      setState(budgetData as BudgetState);
-      localStorage.setItem('sat-sorter-last-sync', cloudTimestamp.toString());
-      return true;
-    }
-
-    console.log('[Budget] Local data is up-to-date, keeping local budget');
-    return false;
-  }, [setState, restoreNWCConnections]);
-
   // Get NWC connections from localStorage to include in sync
   const getNWCConnections = useCallback((): SyncedNWCConnection[] => {
     try {
@@ -345,6 +320,31 @@ export function useBudget() {
       console.error('[Budget] Failed to restore NWC connections:', e);
     }
   }, []);
+
+  // Merge cloud budget - prefer cloud if it has more recent data
+  const mergeBudgetFromCloud = useCallback((cloudState: BudgetState, cloudTimestamp: number): boolean => {
+    // Get the stored sync timestamp
+    const localTimestampStr = localStorage.getItem('sat-sorter-last-sync');
+    const localTimestamp = localTimestampStr ? parseInt(localTimestampStr, 10) : 0;
+
+    // Always restore NWC connections if they exist in cloud (merge, not replace)
+    if (cloudState.nwcConnections && cloudState.nwcConnections.length > 0) {
+      restoreNWCConnections(cloudState.nwcConnections);
+    }
+
+    // If cloud data is newer, use it
+    if (cloudTimestamp > localTimestamp) {
+      console.log('[Budget] Cloud data is newer, importing cloud budget');
+      // Remove nwcConnections from state (they're stored separately in localStorage)
+      const { nwcConnections: _, ...budgetData } = cloudState;
+      setState(budgetData as BudgetState);
+      localStorage.setItem('sat-sorter-last-sync', cloudTimestamp.toString());
+      return true;
+    }
+
+    console.log('[Budget] Local data is up-to-date, keeping local budget');
+    return false;
+  }, [setState, restoreNWCConnections]);
 
   // Get the full budget state for cloud sync
   // This includes all budgets across all months AND NWC connections
