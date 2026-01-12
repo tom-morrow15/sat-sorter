@@ -13,6 +13,8 @@ export interface Transaction {
   preimage?: string;
   isIncome: boolean;
   source?: 'manual' | 'strike' | 'nwc' | 'zap'; // Track transaction source
+  sourceWallet?: string; // Which wallet connection this came from (NWC alias)
+  sourceWalletId?: string; // The connection string ID for the wallet
   merchantName?: string; // Merchant name from Strike or payment processor
   categoryHint?: string; // Auto-detected category hint from merchant data
 }

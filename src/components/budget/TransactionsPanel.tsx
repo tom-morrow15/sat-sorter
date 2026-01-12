@@ -13,6 +13,8 @@ import {
 } from 'lucide-react';
 import { TransactionSearchFilter } from './TransactionSearchFilter';
 import { DataSourcesDialog } from './DataSourcesDialog';
+import { TransactionSourceBadge } from './TransactionSourceBadge';
+import { TransactionDetailsDialog } from './TransactionDetailsDialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -64,6 +66,7 @@ export function TransactionsPanel({
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showAssignDialog, setShowAssignDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [showDataSources, setShowDataSources] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [filteredTransactions, setFilteredTransactions] = useState<Transaction[]>([]);
@@ -270,9 +273,18 @@ export function TransactionsPanel({
                       <p className="text-sm font-medium truncate">
                         {transaction.description}
                       </p>
-                      <p className="text-xs text-muted-foreground">
-                        {formatDate(transaction.date)}
-                      </p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {transaction.source === 'nwc' && (
+                          <TransactionSourceBadge
+                            transaction={transaction}
+                            className="text-xs px-1.5 py-0"
+                            showWallet={true}
+                          />
+                        )}
+                        <p className="text-xs text-muted-foreground">
+                          {formatDate(transaction.date)}
+                        </p>
+                      </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <span
@@ -309,7 +321,10 @@ export function TransactionsPanel({
                     return (
                       <button
                         key={transaction.id}
-                        onClick={() => handleOpenEdit(transaction)}
+                        onClick={() => {
+                          setSelectedTransaction(transaction);
+                          setShowDetailsDialog(true);
+                        }}
                         className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 group transition-colors text-left"
                       >
                         <div
@@ -330,7 +345,7 @@ export function TransactionsPanel({
                           <p className="text-sm truncate">
                             {transaction.description}
                           </p>
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-1.5 flex-wrap">
                             <Badge
                               variant="secondary"
                               className="text-xs px-1.5 py-0"
@@ -343,6 +358,13 @@ export function TransactionsPanel({
                             >
                               {lineItem?.name || 'Unknown'}
                             </Badge>
+                            {transaction.source === 'nwc' && (
+                              <TransactionSourceBadge
+                                transaction={transaction}
+                                className="text-xs px-1.5 py-0"
+                                showWallet={true}
+                              />
+                            )}
                             <span className="text-xs text-muted-foreground">
                               {formatDate(transaction.date)}
                             </span>
@@ -748,6 +770,19 @@ export function TransactionsPanel({
         open={showDataSources}
         onOpenChange={setShowDataSources}
       />
+
+      {/* Transaction Details Dialog */}
+      {selectedTransaction && (
+        <TransactionDetailsDialog
+          open={showDetailsDialog}
+          onOpenChange={setShowDetailsDialog}
+          transaction={selectedTransaction}
+          bucketName={buckets.find(b => b.id === selectedTransaction.bucketId)?.name}
+          lineItemName={buckets
+            .find(b => b.id === selectedTransaction.bucketId)
+            ?.lineItems.find(l => l.id === selectedTransaction.lineItemId)?.name}
+        />
+      )}
     </>
   );
 }

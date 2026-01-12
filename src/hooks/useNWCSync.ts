@@ -396,7 +396,7 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
             description = nwcTx.metadata.comment;
           }
 
-          // Create transaction
+          // Create transaction with wallet source info
           const transaction = {
             amount: amountSats,
             description,
@@ -405,6 +405,8 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
             bucketId: null,
             isIncome: nwcTx.type === 'incoming',
             source: 'nwc' as const,
+            sourceWallet: activeConnection.alias,
+            sourceWalletId: activeConnection.connectionString,
             paymentHash: nwcTx.payment_hash,
             preimage: nwcTx.preimage,
           };
