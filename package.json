@@ -1,7 +1,24 @@
 {
-  "name": "mkstack",
-  "private": true,
-  "version": "0.0.0",
+  "name": "sat-sorter",
+  "version": "1.0.0",
+  "description": "Zero-based budgeting on a Bitcoin standard. Give every sat a job.",
+  "license": "MIT",
+  "author": "Sat Sorter Contributors",
+  "homepage": "https://satsorter.com",
+  "repository": {
+    "type": "git",
+    "url": "nostr://npub1acu2u940prfg429x4axskgu2e5auvjx4y6ejme8y8t4ns4tz82pqs5l3q0/git.shakespeare.diy/sat-sorter"
+  },
+  "keywords": [
+    "bitcoin",
+    "budgeting",
+    "nostr",
+    "lightning",
+    "sats",
+    "zero-based-budgeting",
+    "privacy",
+    "open-source"
+  ],
   "type": "module",
   "scripts": {
     "dev": "npm i --silent && vite",
