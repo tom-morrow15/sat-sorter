@@ -43,18 +43,10 @@ export interface MonthlyBudget {
   transactions: Transaction[];
 }
 
-// NWC Connection stored in budget sync
-export interface SyncedNWCConnection {
-  connectionString: string;
-  alias: string;
-}
-
 export interface BudgetState {
   currentMonth: string;
   budgets: MonthlyBudget[];
   currency: 'sats' | 'usd';
-  // NWC connections are synced so they persist across devices
-  nwcConnections?: SyncedNWCConnection[];
 }
 
 // Helper to generate unique IDs
