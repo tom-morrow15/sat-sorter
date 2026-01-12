@@ -71,8 +71,13 @@ export function useNWCInternal() {
       connectionsCount: connections.length,
       hasActiveConnection: !!activeConnection,
       connectionAliases: connections.map(c => c.alias),
+      loginType,
+      needsExtension,
+      isExtensionReady,
+      hasNip44: !!nip44,
+      hasUser: !!user?.pubkey,
     });
-  }, [connections, activeConnection]);
+  }, [connections, activeConnection, loginType, needsExtension, isExtensionReady, nip44, user?.pubkey]);
   const [connectionInfo, setConnectionInfo] = useState<Record<string, NWCInfo>>({});
 
   // Add new connection
@@ -299,12 +304,12 @@ export function useNWCInternal() {
     return found || null;
   }, [activeConnection, connections, setActiveConnection]);
 
-  // Download cloud connections on user login
+  // Download cloud connections on user login (when NIP-44 is available)
   useEffect(() => {
-    if (user?.pubkey && !hasDownloadedCloudConnections) {
+    if (user?.pubkey && nip44 && !hasDownloadedCloudConnections) {
       downloadCloudConnections();
     }
-  }, [user?.pubkey, hasDownloadedCloudConnections, downloadCloudConnections]);
+  }, [user?.pubkey, nip44, hasDownloadedCloudConnections, downloadCloudConnections]);
 
   // Send payment using the SDK
   const sendPayment = useCallback(async (
