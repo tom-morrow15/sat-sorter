@@ -268,16 +268,6 @@ export function BudgetHeader({
               </TooltipContent>
             </Tooltip>
 
-            {/* Theme Toggle */}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleTheme}
-              className="h-8 w-8 sm:h-9 sm:w-9"
-            >
-              {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-            </Button>
-
             {/* Account Switcher (when logged in) */}
             {user && (
               <div className="ml-1">
@@ -345,6 +335,11 @@ export function BudgetHeader({
                 <DropdownMenuItem onClick={() => setShowFAQ(true)}>
                   <HelpCircle className="h-4 w-4 mr-2" />
                   FAQ & Help
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={toggleTheme}>
+                  {isDark ? <Sun className="h-4 w-4 mr-2" /> : <Moon className="h-4 w-4 mr-2" />}
+                  {isDark ? 'Light Mode' : 'Dark Mode'}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
