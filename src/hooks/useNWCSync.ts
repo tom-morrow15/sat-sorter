@@ -277,8 +277,9 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
       }
 
       // Check if list_transactions is supported
-      if (!info?.methods?.includes('list_transactions')) {
-        const supportedMethods = info?.methods?.join(', ') || 'unknown';
+      // If we couldn't fetch wallet info (info is null), we'll try anyway and handle errors
+      if (info && !info.methods?.includes('list_transactions')) {
+        const supportedMethods = info.methods?.join(', ') || 'unknown';
         const errorMsg = `This wallet doesn't support transaction listing (list_transactions).\n\nSupported methods: ${supportedMethods}\n\nCompatible wallets: Alby Hub, Mutiny (with full NWC). Other wallets may only support pay_invoice.`;
 
         if (showToast) {
@@ -291,6 +292,11 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
         result.errors.push(errorMsg);
         setIsSyncing(false);
         return result;
+      }
+
+      // If info is null, we'll try to fetch transactions anyway
+      if (!info) {
+        console.log('[NWCSync] Could not fetch wallet info, attempting to list transactions anyway...');
       }
 
       console.log('[NWCSync] Fetching transactions...');
@@ -552,9 +558,10 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
   useEffect(() => {
     const activeConnection = getActiveConnection();
     if (activeConnection?.connectionString) {
+      console.log('[NWCSync] Checking wallet capabilities for:', activeConnection.alias);
       checkWalletCapabilities(activeConnection.connectionString);
     }
-  }, [getActiveConnection, checkWalletCapabilities]);
+  }, [connections, getActiveConnection, checkWalletCapabilities]);
 
   // Sync NWC connections to cloud when user logs in or connections change
   useEffect(() => {
@@ -567,22 +574,36 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
     }
   }, [user?.pubkey, connections, uploadNWCConnections]);
 
-  // Auto-sync on app load if wallet supports list_transactions
+  // Auto-sync on app load if wallet is connected
   // Only runs after the initial budget load is complete (enabled = true)
+  // If we have wallet info and it doesn't support list_transactions, skip auto-sync
+  // If we don't have wallet info (couldn't fetch), try anyway
   const initialSyncDoneRef = useRef(false);
   useEffect(() => {
+    console.log('[NWCSync] Auto-sync check:', {
+      enabled,
+      initialSyncDone: initialSyncDoneRef.current,
+      hasWalletInfo: !!walletInfo,
+      methods: walletInfo?.methods,
+      supportsListTx: walletInfo?.methods?.includes('list_transactions'),
+      connectionsCount: connections.length,
+    });
+
+    // Skip if wallet info explicitly says list_transactions is not supported
+    const explicitlyUnsupported = walletInfo && !walletInfo.methods?.includes('list_transactions');
+
     if (
       enabled &&
       !initialSyncDoneRef.current &&
-      walletInfo?.methods?.includes('list_transactions') &&
+      !explicitlyUnsupported &&
       connections.length > 0
     ) {
       initialSyncDoneRef.current = true;
-      // Small delay to let the app settle
+      // Small delay to let the app settle and wallet info to load
       const timer = setTimeout(() => {
         console.log('[NWCSync] Auto-syncing on app load (after budget loaded)...');
         syncTransactions(false);
-      }, 500);
+      }, 1500); // Increased delay to give wallet info time to load
       return () => clearTimeout(timer);
     }
   }, [enabled, walletInfo, connections.length, syncTransactions]);

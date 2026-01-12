@@ -80,8 +80,11 @@ export async function fetchWalletInfo(
   params: NWCConnectionParams,
   signal?: AbortSignal
 ): Promise<NWCInfo | null> {
+  console.log('[NWC] Fetching wallet info from:', params.relay, 'for wallet:', params.walletPubkey.slice(0, 16) + '...');
+
   return new Promise((resolve) => {
     const timeout = setTimeout(() => {
+      console.log('[NWC] Wallet info fetch timed out');
       ws.close();
       resolve(null);
     }, 10000);
@@ -89,6 +92,7 @@ export async function fetchWalletInfo(
     const ws = new WebSocket(params.relay);
 
     ws.onopen = () => {
+      console.log('[NWC] WebSocket connected to', params.relay);
       // Subscribe to the wallet's info event (kind 13194)
       const subId = crypto.randomUUID().slice(0, 8);
       ws.send(JSON.stringify([
@@ -105,6 +109,7 @@ export async function fetchWalletInfo(
     ws.onmessage = async (event) => {
       try {
         const data = JSON.parse(event.data);
+        console.log('[NWC] Received message:', data[0], data[0] === 'EVENT' ? 'kind:' + data[2]?.kind : '');
 
         if (data[0] === 'EVENT') {
           const infoEvent = data[2] as NostrEvent;
@@ -115,12 +120,15 @@ export async function fetchWalletInfo(
           const methods = infoEvent.content.split(' ').filter(Boolean);
           const notificationsTag = infoEvent.tags.find(t => t[0] === 'notifications');
 
+          console.log('[NWC] Wallet methods:', methods);
+
           resolve({
             methods,
             notifications: notificationsTag ? notificationsTag[1]?.split(' ') : undefined,
           });
         } else if (data[0] === 'EOSE') {
           // No info event found
+          console.log('[NWC] EOSE received - no wallet info event found');
           clearTimeout(timeout);
           ws.close();
           resolve(null);
@@ -130,7 +138,8 @@ export async function fetchWalletInfo(
       }
     };
 
-    ws.onerror = () => {
+    ws.onerror = (err) => {
+      console.error('[NWC] WebSocket error:', err);
       clearTimeout(timeout);
       resolve(null);
     };
@@ -195,18 +204,16 @@ async function makeNWCRequest<T>(
           content: encryptedContent,
         }, secretBytes);
 
-        // Subscribe to responses
+        // Subscribe to responses - use a wider time window and log the filter
         const subId = crypto.randomUUID().slice(0, 8);
-        ws.send(JSON.stringify([
-          'REQ',
-          subId,
-          {
-            kinds: [23195],
-            '#p': [clientPubkey],
-            '#e': [requestEvent.id],
-            since: Math.floor(Date.now() / 1000) - 10,
-          }
-        ]));
+        const responseFilter = {
+          kinds: [23195],
+          '#p': [clientPubkey],
+          '#e': [requestEvent.id],
+          since: Math.floor(Date.now() / 1000) - 60, // 1 minute buffer
+        };
+        console.log(`[NWC] Subscribing for ${method} response:`, { subId, clientPubkey: clientPubkey.slice(0, 16) + '...', eventId: requestEvent.id.slice(0, 16) + '...' });
+        ws.send(JSON.stringify(['REQ', subId, responseFilter]));
 
         // Publish the request
         ws.send(JSON.stringify(['EVENT', requestEvent]));
@@ -222,6 +229,7 @@ async function makeNWCRequest<T>(
     ws.onmessage = async (event) => {
       try {
         const data = JSON.parse(event.data);
+        console.log(`[NWC] ${method} received message:`, data[0], data[0] === 'EVENT' ? `kind:${data[2]?.kind}` : data[0] === 'OK' ? `success:${data[2]}` : '');
 
         if (data[0] === 'OK' && data[1] && data[2] === false) {
           // Request was rejected by relay
@@ -297,14 +305,20 @@ export async function listTransactions(
     throw new Error('Invalid NWC connection string');
   }
 
-  // First check if the wallet supports list_transactions
+  // Try to check if the wallet supports list_transactions
+  // If we can't fetch wallet info, we'll try anyway and handle errors from the request
   const info = await fetchWalletInfo(params, signal);
   console.log('[NWC] Wallet info:', info);
 
-  if (info?.methods && !info.methods.includes('list_transactions')) {
+  // Only block if wallet info explicitly shows list_transactions is not supported
+  if (info?.methods && info.methods.length > 0 && !info.methods.includes('list_transactions')) {
     throw new Error(
       `This wallet doesn't support transaction listing. Supported methods: ${info.methods.join(', ')}`
     );
+  }
+
+  if (!info) {
+    console.log('[NWC] Could not fetch wallet info, attempting list_transactions anyway...');
   }
 
   return makeNWCRequest<{ transactions: NWCTransaction[] }>(
