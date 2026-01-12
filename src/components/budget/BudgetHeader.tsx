@@ -691,6 +691,14 @@ export function BudgetHeader({
                   <Button
                     variant="outline"
                     size="sm"
+                    onClick={() => window.open('https://bitcoin.rocks', '_blank')}
+                  >
+                    <ExternalLink className="h-3 w-3 mr-1" />
+                    Bitcoin.rocks
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={() => window.open('https://hope.com', '_blank')}
                   >
                     <ExternalLink className="h-3 w-3 mr-1" />
@@ -905,40 +913,79 @@ export function BudgetHeader({
           </DialogHeader>
           <ScrollArea className="max-h-[65vh] pr-4">
             <div className="space-y-6 py-4">
+              {/* What is Zero-Based Budgeting */}
+              <div className="space-y-3">
+                <h3 className="font-semibold text-lg">💰 What is zero-based budgeting?</h3>
+                <div className="p-4 border rounded-lg">
+                  <p className="text-sm text-muted-foreground">
+                    Zero-based budgeting means giving every satoshi a job <strong>before</strong> you spend it.
+                    Your income minus your planned expenses should equal zero. This doesn't mean you spend
+                    everything — savings and investments are categories too! The goal is intentionality:
+                    knowing exactly where every sat goes.
+                  </p>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Why No Credit Card Tracking */}
+              <div className="space-y-3">
+                <h3 className="font-semibold text-lg">💳 Why doesn't Sat Sorter connect to my bank or credit cards?</h3>
+                <div className="p-4 border rounded-lg bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800">
+                  <p className="text-sm text-amber-800 dark:text-amber-200 mb-3">
+                    <strong>Privacy is the reason.</strong> Traditional bank and credit card integrations require
+                    sharing your login credentials or connecting through third-party services like Plaid.
+                  </p>
+                  <p className="text-sm text-amber-700 dark:text-amber-300 mb-3">
+                    These services can see, store, and analyze all your financial data — where you shop,
+                    what you buy, your spending patterns, and your net worth. This data is often sold
+                    to advertisers, used for credit scoring, or shared with partners.
+                  </p>
+                  <p className="text-sm text-amber-700 dark:text-amber-300">
+                    Sat Sorter is built on the principle that <strong>your financial data belongs to you</strong>.
+                    We don't have servers that store your data, and we never will. For fiat expenses, you can
+                    manually enter transactions or import CSV exports from your bank.
+                  </p>
+                </div>
+              </div>
+
+              <Separator />
+
               {/* Transaction Import Methods */}
               <div className="space-y-3">
                 <h3 className="font-semibold text-lg flex items-center gap-2">
                   <Wallet className="h-5 w-5 text-primary" />
-                  How to Import Transactions
+                  How do I import transactions?
                 </h3>
 
                 <div className="space-y-4">
-                  <div className="p-4 border rounded-lg bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800">
-                    <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-2">
-                      📁 CSV Import (Any Wallet)
-                    </h4>
-                    <p className="text-sm text-blue-700 dark:text-blue-300 mb-2">
-                      Export transactions from your wallet and import the CSV file. Works with:
-                    </p>
-                    <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1 list-disc list-inside">
-                      <li><strong>Phoenix</strong> - Settings → Payment History → Export</li>
-                      <li><strong>BlueWallet</strong> - Wallet → ••• → Export Transactions</li>
-                      <li><strong>Zeus</strong> - History → Export</li>
-                      <li><strong>Breez, Muun, etc.</strong> - Check for export option</li>
-                    </ul>
-                  </div>
-
                   <div className="p-4 border rounded-lg bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800">
                     <h4 className="font-semibold text-green-800 dark:text-green-200 mb-2">
                       🐝 Alby Hub (Auto-Import)
                     </h4>
                     <p className="text-sm text-green-700 dark:text-green-300 mb-2">
-                      Connect via NWC for automatic transaction import:
+                      Connect via NWC for automatic Lightning transaction import:
                     </p>
                     <ul className="text-sm text-green-700 dark:text-green-300 space-y-1 list-disc list-inside">
                       <li><strong>Alby Hub only</strong> - Other NWC wallets don't support transaction listing</li>
                       <li>Get your NWC URI from Alby Hub settings</li>
                       <li>Scan QR code or paste the connection string</li>
+                      <li>New transactions sync automatically</li>
+                    </ul>
+                  </div>
+
+                  <div className="p-4 border rounded-lg bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800">
+                    <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-2">
+                      📁 CSV Import
+                    </h4>
+                    <p className="text-sm text-blue-700 dark:text-blue-300 mb-2">
+                      Export transactions from your wallet and import the CSV file:
+                    </p>
+                    <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1 list-disc list-inside">
+                      <li><strong>Phoenix</strong> - Settings → Payment History → Export</li>
+                      <li><strong>BlueWallet</strong> - Wallet → ••• → Export Transactions</li>
+                      <li><strong>Zeus</strong> - History → Export</li>
+                      <li><strong>Bank statements</strong> - Most banks offer CSV export</li>
                     </ul>
                   </div>
 
@@ -947,8 +994,8 @@ export function BudgetHeader({
                       ✏️ Manual Entry
                     </h4>
                     <p className="text-sm text-muted-foreground">
-                      You can always add transactions manually from the main screen.
-                      This works for any wallet or payment method.
+                      You can always add transactions manually. This works for cash, any wallet,
+                      or payment method. Tap the + button to add income or expenses.
                     </p>
                   </div>
                 </div>
@@ -960,7 +1007,7 @@ export function BudgetHeader({
               <div className="space-y-3">
                 <h3 className="font-semibold text-lg flex items-center gap-2">
                   <Shield className="h-5 w-5 text-primary" />
-                  Privacy & Security
+                  How does Sat Sorter protect my privacy?
                 </h3>
 
                 <div className="p-4 border rounded-lg space-y-3">
@@ -988,7 +1035,7 @@ export function BudgetHeader({
               <div className="space-y-3">
                 <h3 className="font-semibold text-lg flex items-center gap-2">
                   <Wifi className="h-5 w-5 text-primary" />
-                  Nostr Relay Sync
+                  How does syncing across devices work?
                 </h3>
 
                 <div className="p-4 border rounded-lg space-y-3">
@@ -1012,20 +1059,74 @@ export function BudgetHeader({
 
               <Separator />
 
+              {/* Why Bitcoin */}
+              <div className="space-y-3">
+                <h3 className="font-semibold text-lg">₿ Why budget in sats instead of dollars?</h3>
+                <div className="p-4 border rounded-lg">
+                  <p className="text-sm text-muted-foreground mb-2">
+                    The dollar loses purchasing power every year due to inflation. What costs $100 today
+                    might cost $105 next year. Bitcoin has a fixed supply of 21 million coins — no one can
+                    print more.
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    By budgeting in sats, you're thinking in terms of sound money. You can still view
+                    everything in USD using the currency toggle — Sat Sorter supports both! But building
+                    the habit of thinking in sats helps you transition to a Bitcoin standard.
+                  </p>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Do I need Nostr */}
+              <div className="space-y-3">
+                <h3 className="font-semibold text-lg">🔑 Do I need a Nostr account?</h3>
+                <div className="p-4 border rounded-lg">
+                  <p className="text-sm text-muted-foreground mb-2">
+                    <strong>No!</strong> You can use Sat Sorter without logging in. Your data will be
+                    stored locally in your browser.
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    However, if you want to sync your budget across devices or back it up to the cloud,
+                    you'll need to log in with Nostr. This gives you encrypted backup and sync without
+                    trusting any central server with your data.
+                  </p>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* What if I lose my data */}
+              <div className="space-y-3">
+                <h3 className="font-semibold text-lg">💾 What if I clear my browser data?</h3>
+                <div className="p-4 border rounded-lg">
+                  <p className="text-sm text-muted-foreground mb-2">
+                    If you're logged in with Nostr and have synced your data, you can recover it by
+                    logging in again on any device. Your encrypted budget will be downloaded from
+                    Nostr relays.
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    If you're not logged in, we recommend using <strong>Menu → Export & Backup Data</strong>
+                    to regularly download a backup file. You can also install Sat Sorter as a PWA (Progressive
+                    Web App) for a more app-like experience.
+                  </p>
+                </div>
+              </div>
+
+              <Separator />
+
               {/* Getting Started Section */}
               <div className="space-y-3">
-                <h3 className="font-semibold text-lg">🚀 Quick Start</h3>
+                <h3 className="font-semibold text-lg">🚀 Quick Start Guide</h3>
 
                 <div className="p-4 border rounded-lg space-y-3">
-                  <p className="text-sm font-medium">To enable automatic transaction import:</p>
-
                   <ol className="text-sm text-muted-foreground space-y-2 list-decimal list-inside">
-                    <li>Get a compatible wallet (Alby recommended)</li>
-                    <li>Create an NWC connection in your wallet</li>
-                    <li>Click the Wallet icon in Sat Sorter</li>
-                    <li>Paste your NWC connection string</li>
-                    <li>Enable "Auto-sync" for automatic imports</li>
-                    <li>Transactions will appear for categorizing!</li>
+                    <li><strong>Add your income</strong> - Tap the + button and add your monthly income</li>
+                    <li><strong>Create buckets</strong> - Add categories like Rent, Food, Savings, etc.</li>
+                    <li><strong>Assign every sat</strong> - Distribute your income until "Left to Budget" is zero</li>
+                    <li><strong>Track spending</strong> - Add transactions as you spend throughout the month</li>
+                    <li><strong>Connect a wallet</strong> - (Optional) Link Alby Hub for automatic tracking</li>
+                    <li><strong>Log in with Nostr</strong> - (Optional) Enable encrypted cloud backup</li>
                   </ol>
                 </div>
               </div>
@@ -1052,6 +1153,14 @@ export function BudgetHeader({
                   >
                     <ExternalLink className="h-3 w-3 mr-1" />
                     Get Alby Wallet
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => window.open('https://nostr.how', '_blank')}
+                  >
+                    <ExternalLink className="h-3 w-3 mr-1" />
+                    Learn About Nostr
                   </Button>
                 </div>
               </div>
