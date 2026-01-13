@@ -82,27 +82,23 @@ export default function Budget() {
 
   const { uploadBudget, downloadBudget, canSync, remoteTimestamp } = useBudgetSync();
 
-  // Manual sync function - bidirectional: download first, then upload
+  // Manual sync function - uploads local state to cloud (push-only)
+  // This is safe because we always preserve local changes
   const performSync = useCallback(async (showToast = true) => {
     if (!canSync) return false;
 
     try {
       setSyncStatus('syncing');
 
-      // Step 1: Download from cloud and merge (in case another device has newer data)
-      const cloudBudget = await downloadBudget();
-      if (cloudBudget && remoteTimestamp) {
-        console.log('[Budget] Checking for cloud updates before uploading...');
-        const wasApplied = mergeBudgetFromCloud(cloudBudget, remoteTimestamp);
-        if (wasApplied) {
-          console.log('[Budget] Applied updates from cloud');
-          // Update reference since we got new data
-          lastSyncedStateRef.current = JSON.stringify(cloudBudget);
-        }
-      }
-
-      // Step 2: Upload current state (which may now include merged cloud data)
+      // Get current local state FIRST before any network operations
       const fullState = getFullBudgetState();
+
+      console.log('[Budget] Uploading local budget to cloud...', {
+        budgetCount: fullState.budgets.length,
+        currentMonth: fullState.currentMonth,
+      });
+
+      // Upload current state to cloud
       const success = await uploadBudget(fullState);
 
       if (success) {
@@ -115,7 +111,7 @@ export default function Budget() {
         if (showToast) {
           toast({
             title: 'Budget synced',
-            description: 'Your budget has been synced with Nostr relays.',
+            description: 'Your budget has been saved to Nostr relays.',
           });
         }
         syncTimeoutRef.current = setTimeout(() => setSyncStatus('idle'), 2000);
@@ -131,33 +127,50 @@ export default function Budget() {
       syncTimeoutRef.current = setTimeout(() => setSyncStatus('idle'), 3000);
       return false;
     }
-  }, [canSync, getFullBudgetState, uploadBudget, downloadBudget, mergeBudgetFromCloud, remoteTimestamp, toast]);
+  }, [canSync, getFullBudgetState, uploadBudget, toast]);
 
-  // Pull-only sync function (download from cloud without uploading)
+  // Pull-only sync function (download from cloud - DESTRUCTIVE, replaces local data)
+  // This should only be used when the user explicitly wants to restore from cloud
   const performPull = useCallback(async () => {
     if (!canSync) return false;
+
+    // Warn user if they have unsaved local changes
+    if (hasUnsyncedChanges) {
+      const confirmed = window.confirm(
+        'You have unsaved local changes. Pulling from cloud will replace your local budget with the cloud version. Are you sure?'
+      );
+      if (!confirmed) {
+        return false;
+      }
+    }
 
     try {
       setSyncStatus('syncing');
 
       const cloudBudget = await downloadBudget();
-      if (cloudBudget && remoteTimestamp) {
-        console.log('[Budget] Pulling budget from cloud...');
-        const wasApplied = mergeBudgetFromCloud(cloudBudget, remoteTimestamp);
-        if (wasApplied) {
-          console.log('[Budget] Cloud budget applied successfully');
-          lastSyncedStateRef.current = JSON.stringify(cloudBudget);
-          setHasUnsyncedChanges(false);
-          toast({
-            title: 'Budget pulled',
-            description: 'Your budget has been updated from Nostr relays.',
-          });
-        } else {
-          toast({
-            title: 'Already up to date',
-            description: 'Your local budget is the latest version.',
-          });
-        }
+      if (cloudBudget) {
+        console.log('[Budget] Pulling budget from cloud (user-initiated)...');
+        // Force apply the cloud budget, bypassing the safety checks
+        // since the user explicitly requested this
+        const fullState = getFullBudgetState();
+        const localWeight = fullState.budgets.reduce((sum, b) =>
+          sum + b.transactions.length + b.buckets.reduce((bs, bucket) =>
+            bs + bucket.lineItems.filter(li => li.plannedAmount > 0).length, 0), 0);
+
+        console.log('[Budget] Replacing local budget with cloud version', {
+          localWeight,
+          cloudBudgetCount: cloudBudget.budgets.length,
+        });
+
+        // Directly import the cloud state
+        mergeBudgetFromCloud(cloudBudget, Math.floor(Date.now() / 1000) + 1); // Use future timestamp to force apply
+
+        lastSyncedStateRef.current = JSON.stringify(cloudBudget);
+        setHasUnsyncedChanges(false);
+        toast({
+          title: 'Budget restored',
+          description: 'Your local budget has been replaced with the cloud version.',
+        });
       } else {
         toast({
           title: 'No cloud backup found',
@@ -174,7 +187,7 @@ export default function Budget() {
       syncTimeoutRef.current = setTimeout(() => setSyncStatus('idle'), 3000);
       return false;
     }
-  }, [canSync, downloadBudget, mergeBudgetFromCloud, remoteTimestamp, toast]);
+  }, [canSync, downloadBudget, mergeBudgetFromCloud, hasUnsyncedChanges, getFullBudgetState, toast]);
 
   // Show onboarding for new users
   useEffect(() => {
