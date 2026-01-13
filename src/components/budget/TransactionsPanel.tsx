@@ -662,16 +662,32 @@ export function TransactionsPanel({
             </div>
           )}
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAssignDialog(false)}>
-              Cancel
-            </Button>
+          <DialogFooter className="flex-row justify-between sm:justify-between">
             <Button
-              onClick={handleAssign}
-              disabled={!selectedBucketId || !selectedLineItemId}
+              variant="ghost"
+              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+              onClick={() => {
+                if (selectedTransaction) {
+                  onDeleteTransaction(selectedTransaction.id);
+                  setShowAssignDialog(false);
+                  setSelectedTransaction(null);
+                }
+              }}
             >
-              Assign
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete
             </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setShowAssignDialog(false)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleAssign}
+                disabled={!selectedBucketId || !selectedLineItemId}
+              >
+                Assign
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
