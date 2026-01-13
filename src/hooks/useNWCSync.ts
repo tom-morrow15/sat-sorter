@@ -425,13 +425,17 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
       for (const nwcTx of nwcTransactions) {
         try {
           // Skip if this transaction already exists in ANY budget month
+          // OR if we've already imported it in this sync batch (from another wallet)
           // NOTE: We check all budgets, not just current month, because transactions
           // are routed to their respective months based on transaction date
           if (allPaymentHashes.has(nwcTx.payment_hash)) {
-            console.log('[NWCSync] Skipping transaction already in budget:', nwcTx.payment_hash.slice(0, 16) + '...');
+            console.log('[NWCSync] Skipping duplicate transaction:', nwcTx.payment_hash.slice(0, 16) + '...');
             skipped++;
             continue;
           }
+
+          // Add to the set immediately to prevent duplicates from other wallets in this sync
+          allPaymentHashes.add(nwcTx.payment_hash);
 
           // Skip pending/expired/failed transactions
           if (nwcTx.state && nwcTx.state !== 'settled') {
