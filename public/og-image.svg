@@ -7,6 +7,12 @@
       <stop offset="100%" style="stop-color:#0f172a"/>
     </linearGradient>
     
+    <!-- Logo gradient -->
+    <linearGradient id="logoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f97316"/>
+      <stop offset="100%" stop-color="#ea580c"/>
+    </linearGradient>
+    
     <!-- Glow effect for logo -->
     <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
       <feGaussianBlur stdDeviation="8" result="coloredBlur"/>
@@ -36,8 +42,18 @@
   <g transform="translate(600, 280)">
     <!-- Logo with glow -->
     <g transform="translate(-200, -80)" filter="url(#glow)">
-      <rect x="0" y="0" width="140" height="140" rx="28" ry="28" fill="#f97316"/>
-      <path d="M79 24L48 70h22l-11 44 40-53h-26l7-37z" fill="white" stroke="white" stroke-width="2" stroke-linejoin="round"/>
+      <rect x="0" y="0" width="140" height="140" rx="28" ry="28" fill="url(#logoGradient)"/>
+      <!-- Lucide Zap icon - stroke style matching the app header -->
+      <g transform="translate(35, 26) scale(2.9)">
+        <path 
+          d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z" 
+          fill="none" 
+          stroke="white" 
+          stroke-width="2" 
+          stroke-linecap="round" 
+          stroke-linejoin="round"
+        />
+      </g>
     </g>
     
     <!-- App name -->
