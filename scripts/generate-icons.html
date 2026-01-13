@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Sat Sorter Icon Generator</title>
+  <style>
+    body { font-family: system-ui; padding: 20px; background: #1a1a2e; color: white; }
+    canvas { border: 1px solid #444; margin: 10px; background: #333; }
+    .icon-row { display: flex; gap: 20px; align-items: end; margin-bottom: 20px; flex-wrap: wrap; }
+    .icon-item { text-align: center; }
+    button { padding: 10px 20px; font-size: 14px; cursor: pointer; background: #f97316; color: white; border: none; border-radius: 8px; margin-top: 8px; }
+    button:hover { background: #ea580c; }
+    h1, h2 { color: #f97316; }
+    .download-all { font-size: 18px; padding: 15px 30px; margin-bottom: 30px; }
+  </style>
+</head>
+<body>
+  <h1>⚡ Sat Sorter Icon Generator</h1>
+  <p>Click the buttons below to download each icon, or use "Download All" to get all icons at once.</p>
+
+  <button class="download-all" onclick="downloadAll()">📥 Download All Icons</button>
+
+  <h2>App Icons (with rounded corners)</h2>
+  <div class="icon-row">
+    <div class="icon-item">
+      <canvas id="icon-512" width="512" height="512"></canvas>
+      <p>512x512</p>
+      <button onclick="download('icon-512', 'icon-512.png')">Download</button>
+    </div>
+    <div class="icon-item">
+      <canvas id="icon-192" width="192" height="192"></canvas>
+      <p>192x192</p>
+      <button onclick="download('icon-192', 'icon-192.png')">Download</button>
+    </div>
+    <div class="icon-item">
+      <canvas id="icon-180" width="180" height="180"></canvas>
+      <p>180x180 (Apple Touch Icon)</p>
+      <button onclick="download('icon-180', 'apple-touch-icon.png')">Download</button>
+    </div>
+  </div>
+
+  <h2>Maskable Icons (full bleed for Android)</h2>
+  <div class="icon-row">
+    <div class="icon-item">
+      <canvas id="maskable-512" width="512" height="512"></canvas>
+      <p>512x512</p>
+      <button onclick="download('maskable-512', 'icon-maskable-512.png')">Download</button>
+    </div>
+    <div class="icon-item">
+      <canvas id="maskable-192" width="192" height="192"></canvas>
+      <p>192x192</p>
+      <button onclick="download('maskable-192', 'icon-maskable-192.png')">Download</button>
+    </div>
+  </div>
+
+  <h2>Instructions</h2>
+  <ol>
+    <li>Download all icons using the buttons above</li>
+    <li>Place them in your <code>public/icons/</code> folder</li>
+    <li>The manifest.webmanifest is already configured to use these files</li>
+  </ol>
+
+  <script>
+    function drawIcon(canvas, size, rounded = true, safePadding = false) {
+      const ctx = canvas.getContext('2d');
+      const cornerRadius = rounded ? size * 0.21 : 0;
+
+      // Create gradient
+      const gradient = ctx.createLinearGradient(0, 0, size, size);
+      gradient.addColorStop(0, '#f97316');
+      gradient.addColorStop(1, '#ea580c');
+
+      // Draw rounded rectangle background
+      ctx.beginPath();
+      if (rounded && ctx.roundRect) {
+        ctx.roundRect(0, 0, size, size, cornerRadius);
+      } else {
+        ctx.rect(0, 0, size, size);
+      }
+      ctx.fillStyle = gradient;
+      ctx.fill();
+
+      // Draw lightning bolt
+      ctx.fillStyle = 'white';
+      ctx.beginPath();
+
+      // Scale and optionally add safe padding for maskable icons
+      const scale = size / 512;
+      const padding = safePadding ? size * 0.1 : 0;
+      const innerScale = safePadding ? 0.8 : 1;
+      const offsetX = padding;
+      const offsetY = padding;
+
+      // Lightning bolt path
+      const points = [
+        [290, 56],
+        [152, 272],
+        [248, 272],
+        [216, 456],
+        [360, 232],
+        [264, 232],
+        [290, 56]
+      ];
+
+      ctx.moveTo(points[0][0] * scale * innerScale + offsetX, points[0][1] * scale * innerScale + offsetY);
+      for (let i = 1; i < points.length; i++) {
+        ctx.lineTo(points[i][0] * scale * innerScale + offsetX, points[i][1] * scale * innerScale + offsetY);
+      }
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    function download(canvasId, filename) {
+      const canvas = document.getElementById(canvasId);
+      const link = document.createElement('a');
+      link.download = filename;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    }
+
+    function downloadAll() {
+      const icons = [
+        ['icon-512', 'icon-512.png'],
+        ['icon-192', 'icon-192.png'],
+        ['icon-180', 'apple-touch-icon.png'],
+        ['maskable-512', 'icon-maskable-512.png'],
+        ['maskable-192', 'icon-maskable-192.png']
+      ];
+
+      icons.forEach(([id, name], index) => {
+        setTimeout(() => download(id, name), index * 200);
+      });
+    }
+
+    // Draw all icons
+    drawIcon(document.getElementById('icon-512'), 512, true);
+    drawIcon(document.getElementById('icon-192'), 192, true);
+    drawIcon(document.getElementById('icon-180'), 180, true);
+    drawIcon(document.getElementById('maskable-512'), 512, false, true);
+    drawIcon(document.getElementById('maskable-192'), 192, false, true);
+  </script>
+</body>
+</html>

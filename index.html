@@ -23,9 +23,12 @@
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 
-    <!-- Apple Touch Icon - Using SVG as fallback -->
-    <!-- iOS will use this SVG and render the orange background -->
-    <link rel="apple-touch-icon" href="/icons/icon.svg" />
+    <!-- Apple Touch Icon -->
+    <!-- Note: For best iOS support, generate PNG from /scripts/generate-icons.html -->
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon-180.png" />
+    <!-- Fallback to SVG if PNG not available -->
+    <link rel="apple-touch-icon-precomposed" href="/icons/icon.svg" />
 
     <!-- Favicon variants for better browser support -->
     <link rel="shortcut icon" href="/favicon.svg" type="image/svg+xml" />
