@@ -84,6 +84,7 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
   const [autoSyncEnabled, setAutoSyncEnabled] = useLocalStorage<boolean>('nwc-auto-sync', false);
 
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const syncInProgressRef = useRef(false); // Mutex to prevent concurrent syncs
 
   // Only wait for extension if user logged in via extension
   const needsExtension = loginType === 'extension';
@@ -245,6 +246,8 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
 
   /**
    * Sync transactions from a single NWC wallet
+   * Note: listTransactions already handles wallet info fetching internally,
+   * so we don't need to call fetchWalletInfo separately here.
    */
   const syncSingleWallet = useCallback(async (
     connection: { connectionString: string; alias?: string },
@@ -253,26 +256,16 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
     const walletAlias = connection.alias || 'Lightning Wallet';
 
     try {
-      // Check wallet capabilities
+      // Validate connection string
       const params = parseNWCUri(connection.connectionString);
       if (!params) {
         return { transactions: [], walletAlias, error: 'Invalid connection string' };
       }
 
-      const info = await fetchWalletInfo(params);
+      console.log(`[NWCSync] Fetching transactions from ${walletAlias} (wallet: ${params.walletPubkey.slice(0, 12)}...)...`);
 
-      // Check if list_transactions is supported
-      if (info && !info.methods?.includes('list_transactions')) {
-        console.log(`[NWCSync] Wallet ${walletAlias} doesn't support list_transactions`);
-        return {
-          transactions: [],
-          walletAlias,
-          error: `Wallet doesn't support transaction listing`
-        };
-      }
-
-      console.log(`[NWCSync] Fetching transactions from ${walletAlias}...`);
-
+      // listTransactions handles wallet info fetching internally
+      // and includes retry logic for timeouts
       const response = await listTransactions(
         connection.connectionString,
         {
@@ -280,6 +273,8 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
           limit: 200,
         }
       );
+
+      console.log(`[NWCSync] ${walletAlias}: received ${response.transactions?.length || 0} transactions`);
 
       return {
         transactions: response.transactions || [],
@@ -294,14 +289,23 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
 
   /**
    * Sync transactions from ALL connected NWC wallets
+   * @param showToast - Whether to show toast notifications
+   * @param forceFullSync - If true, fetches ALL transactions ignoring the lastTransactionTimestamp
    */
-  const syncTransactions = useCallback(async (showToast = true): Promise<NWCSyncResult> => {
+  const syncTransactions = useCallback(async (showToast = true, forceFullSync = false): Promise<NWCSyncResult> => {
     const result: NWCSyncResult = {
       success: false,
       imported: 0,
       skipped: 0,
       errors: [],
     };
+
+    // Prevent concurrent syncs using a mutex
+    if (syncInProgressRef.current) {
+      console.log('[NWCSync] Sync already in progress, skipping...');
+      result.errors.push('Sync already in progress');
+      return result;
+    }
 
     if (connections.length === 0) {
       if (showToast) {
@@ -315,24 +319,40 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
       return result;
     }
 
+    syncInProgressRef.current = true;
     setIsSyncing(true);
 
     try {
       // Fetch transactions from the wallet using our direct NWC implementation
       // Use a buffer of 1 hour before the last transaction timestamp to catch any stragglers
       // This helps with transactions that may have been settling while we synced
-      const fromTimestamp = syncState.lastTransactionTimestamp
-        ? syncState.lastTransactionTimestamp - 3600 // Go back 1 hour from last transaction
-        : undefined;
+      // If forceFullSync is true, fetch ALL transactions regardless of previous sync state
+      const fromTimestamp = forceFullSync
+        ? undefined
+        : (syncState.lastTransactionTimestamp
+            ? syncState.lastTransactionTimestamp - 3600 // Go back 1 hour from last transaction
+            : undefined);
 
       console.log('[NWCSync] Syncing ALL wallets (' + connections.length + ' connected)');
       console.log('[NWCSync] Fetching from timestamp:', fromTimestamp,
-        fromTimestamp ? new Date(fromTimestamp * 1000).toISOString() : 'all time');
+        fromTimestamp ? new Date(fromTimestamp * 1000).toISOString() : 'all time',
+        forceFullSync ? '(FULL SYNC)' : '');
 
-      // Sync all wallets in parallel
-      const walletResults = await Promise.all(
-        connections.map(conn => syncSingleWallet(conn, fromTimestamp))
-      );
+      // Sync wallets with staggered execution to avoid overwhelming the relay
+      // This helps with reliability, especially for self-hosted nodes
+      const walletResults: Array<{ transactions: NWCTransaction[]; walletAlias: string; error?: string }> = [];
+
+      for (let i = 0; i < connections.length; i++) {
+        const conn = connections[i];
+
+        // Add a small delay between wallet syncs (except for the first one)
+        if (i > 0) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+
+        const result = await syncSingleWallet(conn, fromTimestamp);
+        walletResults.push(result);
+      }
 
       // Collect all transactions from all wallets
       const allTransactions: Array<NWCTransaction & { walletAlias: string; connectionString: string }> = [];
@@ -530,6 +550,7 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
         });
       }
     } finally {
+      syncInProgressRef.current = false;
       setIsSyncing(false);
     }
 
@@ -584,9 +605,9 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
   }, [setAutoSyncEnabled, toast]);
 
   /**
-   * Clear sync history (useful for re-importing all transactions)
+   * Clear sync history and trigger a full re-sync
    */
-  const clearSyncHistory = useCallback(() => {
+  const clearSyncHistory = useCallback(async () => {
     setSyncState({
       lastSyncedAt: null,
       lastTransactionTimestamp: null,
@@ -595,9 +616,24 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
 
     toast({
       title: 'Sync history cleared',
-      description: 'Next sync will import all available transactions.',
+      description: 'Starting full transaction sync...',
     });
-  }, [setSyncState, toast]);
+
+    // Trigger a full sync after clearing
+    // Small delay to let state update
+    setTimeout(() => {
+      syncTransactions(true, true);
+    }, 100);
+  }, [setSyncState, toast, syncTransactions]);
+
+  /**
+   * Force a full sync that fetches ALL transactions from all time
+   * This ignores the lastTransactionTimestamp and re-checks everything
+   */
+  const forceFullSync = useCallback(async (showToast = true): Promise<NWCSyncResult> => {
+    console.log('[NWCSync] Starting FULL sync (ignoring timestamp filter)...');
+    return syncTransactions(showToast, true);
+  }, [syncTransactions]);
 
   // Check wallet capabilities when connection changes
   useEffect(() => {
@@ -646,12 +682,19 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
       initialSyncDoneRef.current = true;
       // Small delay to let the app settle and wallet info to load
       const timer = setTimeout(() => {
-        console.log('[NWCSync] Auto-syncing on app load (after budget loaded)...');
-        syncTransactions(false);
+        // If we've never synced before (no lastTransactionTimestamp), do a full sync
+        const isFirstSync = !syncState.lastTransactionTimestamp;
+        if (isFirstSync) {
+          console.log('[NWCSync] First sync ever - fetching ALL transactions...');
+          syncTransactions(false, true); // Full sync
+        } else {
+          console.log('[NWCSync] Auto-syncing on app load (after budget loaded)...');
+          syncTransactions(false);
+        }
       }, 1500); // Increased delay to give wallet info time to load
       return () => clearTimeout(timer);
     }
-  }, [enabled, walletInfo, connections.length, syncTransactions]);
+  }, [enabled, walletInfo, connections.length, syncTransactions, syncState.lastTransactionTimestamp]);
 
   // Store the sync function in a ref to avoid stale closures in the interval
   const syncTransactionsRef = useRef(syncTransactions);
@@ -661,24 +704,19 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
 
   // Auto-start polling if enabled and wallet is connected
   // Only runs after the initial budget load is complete (enabled = true)
+  // Note: The initial sync is handled by the "auto-sync on app load" effect above,
+  // so we only set up the polling interval here (no initial sync)
   useEffect(() => {
     if (enabled && autoSyncEnabled && connections.length > 0) {
       console.log('[NWCSync] Auto-sync enabled, starting polling every', POLL_INTERVAL_MS / 1000, 'seconds');
 
-      // Initial sync on mount (with a small delay to let the app settle)
-      const initialSyncTimer = setTimeout(() => {
-        console.log('[NWCSync] Running initial auto-sync...');
-        syncTransactionsRef.current(false);
-      }, 500);
-
-      // Start polling
+      // Start polling (initial sync is handled by the other effect)
       pollIntervalRef.current = setInterval(() => {
         console.log('[NWCSync] Running scheduled auto-sync...');
         syncTransactionsRef.current(false);
       }, POLL_INTERVAL_MS);
 
       return () => {
-        clearTimeout(initialSyncTimer);
         if (pollIntervalRef.current) {
           clearInterval(pollIntervalRef.current);
           pollIntervalRef.current = null;
@@ -704,6 +742,7 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
     walletInfo,
     supportsListTransactions: supportsListTransactions(),
     syncTransactions,
+    forceFullSync,
     startAutoSync,
     stopAutoSync,
     clearSyncHistory,

@@ -80,19 +80,30 @@ export async function fetchWalletInfo(
   params: NWCConnectionParams,
   signal?: AbortSignal
 ): Promise<NWCInfo | null> {
-  console.log('[NWC] Fetching wallet info from:', params.relay, 'for wallet:', params.walletPubkey.slice(0, 16) + '...');
+  const walletId = params.walletPubkey.slice(0, 16);
+  console.log('[NWC] Fetching wallet info from:', params.relay, 'for wallet:', walletId + '...');
 
   return new Promise((resolve) => {
+    let hasResolved = false;
+    let ws: WebSocket;
+
+    const cleanup = () => {
+      if (!hasResolved) {
+        hasResolved = true;
+      }
+    };
+
     const timeout = setTimeout(() => {
-      console.log('[NWC] Wallet info fetch timed out');
+      console.log(`[NWC] Wallet info fetch timed out for ${walletId}`);
+      cleanup();
       ws.close();
       resolve(null);
-    }, 10000);
+    }, 15000); // Increased timeout for slower nodes
 
-    const ws = new WebSocket(params.relay);
+    ws = new WebSocket(params.relay);
 
     ws.onopen = () => {
-      console.log('[NWC] WebSocket connected to', params.relay);
+      console.log(`[NWC] WebSocket connected to ${params.relay} for wallet ${walletId}`);
       // Subscribe to the wallet's info event (kind 13194)
       const subId = crypto.randomUUID().slice(0, 8);
       ws.send(JSON.stringify([
@@ -107,12 +118,15 @@ export async function fetchWalletInfo(
     };
 
     ws.onmessage = async (event) => {
+      if (hasResolved) return;
+
       try {
         const data = JSON.parse(event.data);
-        console.log('[NWC] Received message:', data[0], data[0] === 'EVENT' ? 'kind:' + data[2]?.kind : '');
+        console.log(`[NWC] [${walletId}] Received message:`, data[0], data[0] === 'EVENT' ? 'kind:' + data[2]?.kind : '');
 
         if (data[0] === 'EVENT') {
           const infoEvent = data[2] as NostrEvent;
+          cleanup();
           clearTimeout(timeout);
           ws.close();
 
@@ -120,31 +134,42 @@ export async function fetchWalletInfo(
           const methods = infoEvent.content.split(' ').filter(Boolean);
           const notificationsTag = infoEvent.tags.find(t => t[0] === 'notifications');
 
-          console.log('[NWC] Wallet methods:', methods);
+          console.log(`[NWC] [${walletId}] Wallet methods:`, methods);
 
           resolve({
             methods,
             notifications: notificationsTag ? notificationsTag[1]?.split(' ') : undefined,
           });
         } else if (data[0] === 'EOSE') {
-          // No info event found
-          console.log('[NWC] EOSE received - no wallet info event found');
-          clearTimeout(timeout);
-          ws.close();
-          resolve(null);
+          // No info event found - but wait a bit longer for the event to arrive
+          // Some relays send EOSE before the event
+          console.log(`[NWC] [${walletId}] EOSE received - waiting briefly for possible delayed event...`);
+
+          // Wait 2 seconds for a possible delayed event before giving up
+          setTimeout(() => {
+            if (!hasResolved) {
+              console.log(`[NWC] [${walletId}] No wallet info event found after EOSE wait`);
+              cleanup();
+              clearTimeout(timeout);
+              ws.close();
+              resolve(null);
+            }
+          }, 2000);
         }
       } catch (error) {
-        console.error('[NWC] Error parsing info response:', error);
+        console.error(`[NWC] [${walletId}] Error parsing info response:`, error);
       }
     };
 
     ws.onerror = (err) => {
-      console.error('[NWC] WebSocket error:', err);
+      console.error(`[NWC] [${walletId}] WebSocket error:`, err);
+      cleanup();
       clearTimeout(timeout);
       resolve(null);
     };
 
     signal?.addEventListener('abort', () => {
+      cleanup();
       clearTimeout(timeout);
       ws.close();
       resolve(null);
@@ -159,11 +184,14 @@ async function makeNWCRequest<T>(
   params: NWCConnectionParams,
   method: string,
   requestParams: Record<string, unknown>,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  timeoutMs: number = 45000 // Increased default timeout for self-hosted nodes
 ): Promise<T> {
   // Pre-compute secret bytes and pubkey before async operations
   const secretBytes = hexToBytes(params.secret);
   const clientPubkey = getPublicKey(secretBytes);
+
+  console.log(`[NWC] Starting ${method} request to wallet ${params.walletPubkey.slice(0, 16)}...`);
 
   return new Promise((resolve, reject) => {
     const ws = new WebSocket(params.relay);
@@ -177,10 +205,11 @@ async function makeNWCRequest<T>(
     };
 
     const timeout = setTimeout(() => {
+      console.log(`[NWC] ${method} timed out after ${timeoutMs}ms for wallet ${params.walletPubkey.slice(0, 16)}...`);
       cleanup();
       ws.close();
       reject(new Error('Request timed out'));
-    }, 30000);
+    }, timeoutMs);
 
     ws.onopen = async () => {
       try {
@@ -351,12 +380,25 @@ async function makeNWCRequest<T>(
       }
     };
 
-    ws.onerror = () => {
+    ws.onerror = (error) => {
+      console.error(`[NWC] WebSocket error for ${method}:`, error);
+      cleanup();
       clearTimeout(timeout);
       reject(new Error('WebSocket connection failed'));
     };
 
+    ws.onclose = (event) => {
+      if (!hasResolved) {
+        console.log(`[NWC] WebSocket closed unexpectedly for ${method}:`, {
+          code: event.code,
+          reason: event.reason,
+          wasClean: event.wasClean,
+        });
+      }
+    };
+
     signal?.addEventListener('abort', () => {
+      cleanup();
       clearTimeout(timeout);
       ws.close();
       reject(new Error('Request aborted'));
@@ -365,7 +407,7 @@ async function makeNWCRequest<T>(
 }
 
 /**
- * List transactions from an NWC wallet
+ * List transactions from an NWC wallet with retry logic
  */
 export async function listTransactions(
   connectionString: string,
@@ -400,19 +442,45 @@ export async function listTransactions(
     console.log('[NWC] Could not fetch wallet info, attempting list_transactions anyway...');
   }
 
-  return makeNWCRequest<{ transactions: NWCTransaction[] }>(
-    params,
-    'list_transactions',
-    {
-      from: options?.from,
-      until: options?.until,
-      limit: options?.limit ?? 100,
-      offset: options?.offset ?? 0,
-      type: options?.type,
-      unpaid: options?.unpaid ?? false,
-    },
-    signal
-  );
+  // Retry logic for list_transactions
+  const maxRetries = 2;
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      if (attempt > 0) {
+        console.log(`[NWC] Retry attempt ${attempt}/${maxRetries} for list_transactions...`);
+        // Add a small delay between retries to avoid hammering the relay
+        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+      }
+
+      const result = await makeNWCRequest<{ transactions: NWCTransaction[] }>(
+        params,
+        'list_transactions',
+        {
+          from: options?.from,
+          until: options?.until,
+          limit: options?.limit ?? 100,
+          offset: options?.offset ?? 0,
+          type: options?.type,
+          unpaid: options?.unpaid ?? false,
+        },
+        signal
+      );
+
+      return result;
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      console.warn(`[NWC] list_transactions attempt ${attempt + 1} failed:`, lastError.message);
+
+      // Don't retry if it's a non-timeout error or if aborted
+      if (!lastError.message.includes('timed out') || signal?.aborted) {
+        throw lastError;
+      }
+    }
+  }
+
+  throw lastError || new Error('list_transactions failed after retries');
 }
 
 /**

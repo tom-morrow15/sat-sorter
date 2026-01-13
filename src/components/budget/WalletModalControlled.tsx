@@ -42,6 +42,8 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
   const {
     isSyncing,
     syncTransactions,
+    forceFullSync,
+    clearSyncHistory,
     walletInfo,
     supportsListTransactions,
     autoSyncEnabled,
@@ -278,6 +280,22 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
                             Last synced: {new Date(lastSyncTimestamp * 1000).toLocaleString()}
                           </div>
                         )}
+
+                        {/* Full resync button */}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full mt-2"
+                          onClick={() => forceFullSync(true)}
+                          disabled={isSyncing}
+                        >
+                          {isSyncing ? (
+                            <RefreshCw className="h-3 w-3 mr-2 animate-spin" />
+                          ) : (
+                            <RefreshCw className="h-3 w-3 mr-2" />
+                          )}
+                          Full Resync (All Transactions)
+                        </Button>
 
                         {/* Warning if list_transactions explicitly not supported */}
                         {walletInfo && walletInfo.methods && walletInfo.methods.length > 0 && !supportsListTransactions && (
