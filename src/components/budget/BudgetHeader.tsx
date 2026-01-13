@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bitcoin, DollarSign, ChevronLeft, ChevronRight, Wallet, Moon, Sun, Zap, Calendar, Menu, Info, Heart, ExternalLink, Shield, Globe, GraduationCap, LogIn, Wifi, Loader2, Check, AlertCircle, HelpCircle, Download, BookOpen, MessageSquare } from 'lucide-react';
+import { Bitcoin, DollarSign, ChevronLeft, ChevronRight, Wallet, Moon, Sun, Zap, Calendar, Menu, Info, Heart, ExternalLink, Shield, Globe, GraduationCap, LogIn, Wifi, Loader2, Check, AlertCircle, HelpCircle, Download, BookOpen, MessageSquare, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -42,6 +42,7 @@ import { DataExportDialog } from './DataExportDialog';
 import { OnboardingWelcome } from './OnboardingWelcome';
 import { useOnboarding } from '@/hooks/useOnboarding';
 import { useAppUpdate } from '@/hooks/useAppUpdate';
+import { useNWCSync } from '@/hooks/useNWCSync';
 
 interface BudgetHeaderProps {
   buckets: Bucket[];
@@ -87,9 +88,11 @@ export function BudgetHeader({
   const [showDataExport, setShowDataExport] = useState(false);
   const [showOnboardingTour, setShowOnboardingTour] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
+  const [showClearSyncHistory, setShowClearSyncHistory] = useState(false);
 
   const { completeOnboarding } = useOnboarding();
   const { updateAvailable, performUpdate } = useAppUpdate();
+  const { clearSyncHistory, isSyncing } = useNWCSync();
 
   // Generate list of months for picker (current month + 11 months back + 6 months forward)
   const getAvailableMonths = () => {
@@ -327,6 +330,10 @@ export function BudgetHeader({
                 <DropdownMenuItem onClick={() => setShowDataExport(true)}>
                   <Download className="h-4 w-4 mr-2" />
                   Export & Backup Data
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setShowClearSyncHistory(true)}>
+                  <RotateCcw className="h-4 w-4 mr-2" />
+                  Clear Wallet Sync History
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => setShowOnboardingTour(true)}>
@@ -945,6 +952,80 @@ export function BudgetHeader({
                 <li>What happened instead</li>
                 <li>Your device and browser</li>
               </ul>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Clear Wallet Sync History Dialog */}
+      <Dialog open={showClearSyncHistory} onOpenChange={setShowClearSyncHistory}>
+        <DialogContent className="sm:max-w-[450px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <RotateCcw className="h-5 w-5 text-primary" />
+              Clear Wallet Sync History
+            </DialogTitle>
+            <DialogDescription>
+              Re-import all transactions from your connected wallets
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="p-4 border rounded-lg bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800">
+              <p className="text-sm text-amber-800 dark:text-amber-200">
+                <strong>When to use this:</strong>
+              </p>
+              <ul className="text-sm text-amber-700 dark:text-amber-300 mt-2 space-y-1 list-disc list-inside">
+                <li>Your budget was reset but wallet sync history wasn't</li>
+                <li>Transactions are being skipped that shouldn't be</li>
+                <li>You want to re-import all transactions from scratch</li>
+              </ul>
+            </div>
+
+            <div className="p-4 border rounded-lg space-y-2">
+              <p className="text-sm font-medium">What this does:</p>
+              <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+                <li>Clears the record of previously synced transactions</li>
+                <li>Resets the "last synced" timestamp</li>
+                <li>Triggers a full re-sync from all connected wallets</li>
+              </ul>
+            </div>
+
+            <div className="p-4 border rounded-lg bg-muted">
+              <p className="text-sm text-muted-foreground">
+                <strong>Note:</strong> This will NOT delete any existing transactions from your budget.
+                If you have duplicates after clearing, you may need to manually remove them.
+              </p>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setShowClearSyncHistory(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="default"
+                className="flex-1"
+                onClick={() => {
+                  clearSyncHistory();
+                  setShowClearSyncHistory(false);
+                }}
+                disabled={isSyncing}
+              >
+                {isSyncing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Syncing...
+                  </>
+                ) : (
+                  <>
+                    <RotateCcw className="h-4 w-4 mr-2" />
+                    Clear & Re-sync
+                  </>
+                )}
+              </Button>
             </div>
           </div>
         </DialogContent>
