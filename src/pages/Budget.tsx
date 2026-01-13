@@ -77,6 +77,7 @@ export default function Budget() {
     getPreviousMonth,
     hasPreviousMonthBudget,
     mergeBudgetFromCloud,
+    importBudgetState,
     getFullBudgetState,
   } = useBudget();
 
@@ -134,14 +135,12 @@ export default function Budget() {
   const performPull = useCallback(async () => {
     if (!canSync) return false;
 
-    // Warn user if they have unsaved local changes
-    if (hasUnsyncedChanges) {
-      const confirmed = window.confirm(
-        'You have unsaved local changes. Pulling from cloud will replace your local budget with the cloud version. Are you sure?'
-      );
-      if (!confirmed) {
-        return false;
-      }
+    // Always warn user since this is destructive
+    const confirmed = window.confirm(
+      'This will replace your local budget with the cloud version. Any local changes will be lost. Are you sure?'
+    );
+    if (!confirmed) {
+      return false;
     }
 
     try {
@@ -150,20 +149,29 @@ export default function Budget() {
       const cloudBudget = await downloadBudget();
       if (cloudBudget) {
         console.log('[Budget] Pulling budget from cloud (user-initiated)...');
-        // Force apply the cloud budget, bypassing the safety checks
-        // since the user explicitly requested this
-        const fullState = getFullBudgetState();
-        const localWeight = fullState.budgets.reduce((sum, b) =>
+
+        const localState = getFullBudgetState();
+        const localWeight = localState.budgets.reduce((sum, b) =>
+          sum + b.transactions.length + b.buckets.reduce((bs, bucket) =>
+            bs + bucket.lineItems.filter(li => li.plannedAmount > 0).length, 0), 0);
+        const cloudWeight = cloudBudget.budgets.reduce((sum, b) =>
           sum + b.transactions.length + b.buckets.reduce((bs, bucket) =>
             bs + bucket.lineItems.filter(li => li.plannedAmount > 0).length, 0), 0);
 
         console.log('[Budget] Replacing local budget with cloud version', {
           localWeight,
+          cloudWeight,
           cloudBudgetCount: cloudBudget.budgets.length,
         });
 
-        // Directly import the cloud state
-        mergeBudgetFromCloud(cloudBudget, Math.floor(Date.now() / 1000) + 1); // Use future timestamp to force apply
+        // FORCE import - bypass mergeBudgetFromCloud safety checks
+        // User explicitly requested this via "Pull from Nostr"
+        importBudgetState(cloudBudget);
+
+        // Update sync timestamp
+        const now = Math.floor(Date.now() / 1000);
+        localStorage.setItem('sat-sorter-last-sync', now.toString());
+        setLastSyncedAt(now);
 
         lastSyncedStateRef.current = JSON.stringify(cloudBudget);
         setHasUnsyncedChanges(false);
