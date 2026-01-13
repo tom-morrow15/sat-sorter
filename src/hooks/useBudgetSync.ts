@@ -144,16 +144,27 @@ export function useBudgetSync() {
       });
 
       // Publish as NIP-78 event (application-specific data)
-      await publish({
-        kind: BUDGET_KIND,
-        content: encrypted,
-        tags: [
-          ['d', APP_IDENTIFIER],
-          ['alt', 'Sat Sorter budget data (encrypted)'],
-        ],
-      });
+      console.log('[BudgetSync] Publishing to relays...');
 
-      console.log('[BudgetSync] Budget published to relays successfully');
+      try {
+        await publish({
+          kind: BUDGET_KIND,
+          content: encrypted,
+          tags: [
+            ['d', APP_IDENTIFIER],
+            ['alt', 'Sat Sorter budget data (encrypted)'],
+          ],
+        });
+        console.log('[BudgetSync] Budget published to relays successfully');
+      } catch (publishError) {
+        // Log more details about the publish failure
+        console.error('[BudgetSync] Publish failed:', {
+          error: publishError instanceof Error ? publishError.message : publishError,
+          errorName: publishError instanceof Error ? publishError.name : 'Unknown',
+          encryptedLength: encrypted.length,
+        });
+        throw publishError;
+      }
 
       setSyncStatus({
         lastSynced: Math.floor(Date.now() / 1000),
