@@ -48,7 +48,7 @@ export function parseNWCUri(uri: string): NWCConnectionParams | null {
     const normalizedUri = uri.replace('nostrwalletconnect://', 'nostr+walletconnect://');
 
     if (!normalizedUri.startsWith('nostr+walletconnect://')) {
-      console.error('[NWC] Invalid URI protocol');
+      console.warn('[NWC] Invalid URI protocol');
       return null;
     }
 
@@ -58,7 +58,7 @@ export function parseNWCUri(uri: string): NWCConnectionParams | null {
     const relay = url.searchParams.get('relay');
 
     if (!walletPubkey || !secret || !relay) {
-      console.error('[NWC] Missing required parameters', { walletPubkey: !!walletPubkey, secret: !!secret, relay: !!relay });
+      console.warn('[NWC] Missing required parameters in URI');
       return null;
     }
 
@@ -68,7 +68,7 @@ export function parseNWCUri(uri: string): NWCConnectionParams | null {
       relay: decodeURIComponent(relay),
     };
   } catch (error) {
-    console.error('[NWC] Failed to parse URI:', error);
+    console.warn('[NWC] Failed to parse URI');
     return null;
   }
 }
@@ -157,12 +157,13 @@ export async function fetchWalletInfo(
           }, 2000);
         }
       } catch (error) {
-        console.error(`[NWC] [${walletId}] Error parsing info response:`, error);
+        console.warn(`[NWC] [${walletId}] Error parsing info response`);
       }
     };
 
-    ws.onerror = (err) => {
-      console.error(`[NWC] [${walletId}] WebSocket error:`, err);
+    ws.onerror = () => {
+      // WebSocket errors are expected when relay is unavailable - log as warning
+      console.warn(`[NWC] [${walletId}] WebSocket connection failed (relay may be unavailable)`);
       cleanup();
       clearTimeout(timeout);
       resolve(null);
@@ -376,12 +377,14 @@ async function makeNWCRequest<T>(
           }
         }
       } catch (error) {
-        console.error('[NWC] Error processing response:', error);
+        // Response processing error - log only in debug scenarios
+        // console.warn('[NWC] Error processing response');
       }
     };
 
-    ws.onerror = (error) => {
-      console.error(`[NWC] WebSocket error for ${method}:`, error);
+    ws.onerror = () => {
+      // WebSocket errors are expected when relay is unavailable - don't log as error
+      console.warn(`[NWC] WebSocket connection failed for ${method} (relay may be unavailable)`);
       cleanup();
       clearTimeout(timeout);
       reject(new Error('WebSocket connection failed'));

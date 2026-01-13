@@ -1,14 +1,14 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
-import { useBudget } from '@/hooks/useBudget';
 import { useToast } from '@/hooks/useToast';
 import { useNWC } from '@/hooks/useNWCContext';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
-import { listTransactions, getWalletInfo, fetchWalletInfo, parseNWCUri, type NWCTransaction, type NWCInfo } from '@/lib/nwcClient';
+import { listTransactions, fetchWalletInfo, parseNWCUri, type NWCTransaction, type NWCInfo } from '@/lib/nwcClient';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostr } from '@nostrify/react';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { getSafeNip44 } from '@/lib/utils';
 import { useExtensionReady } from '@/hooks/useExtensionReady';
+import { useBudgetStoreContext } from '@/contexts/BudgetStoreContext';
 
 interface SyncState {
   /** Timestamp of when we last performed a sync (current time at sync) */
@@ -73,7 +73,7 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
 
   const { toast } = useToast();
   const { getActiveConnection, connections, addConnection: addConnectionToState } = useNWC();
-  const { addTransaction, currentBudget, getFullBudgetState } = useBudget();
+  const budgetStore = useBudgetStoreContext();
   const { user, loginType } = useCurrentUser();
   const { nostr } = useNostr();
   const { mutateAsync: publish } = useNostrPublish();
@@ -147,10 +147,9 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
 
       console.log('[NWCSync] NWC connections synced to cloud');
       return true;
-    } catch (error) {
-      // Log as warning instead of error to reduce console noise
-      // This is expected to fail sometimes when relays are unavailable
-      console.warn('[NWCSync] Could not sync NWC connections to cloud (relays may be unavailable)');
+    } catch {
+      // Silently fail - this is expected when relays are unavailable
+      // User can manually trigger sync if needed
       return false;
     }
   }, [user, nip44, connections, publish]);
@@ -211,12 +210,13 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
 
         console.log('[NWCSync] Added', addedCount, 'remote connections');
         return addedCount > 0;
-      } catch (error) {
-        console.error('[NWCSync] Failed to decrypt remote connections:', error);
+      } catch {
+        // Decryption failed - likely corrupted data or key mismatch
+        console.warn('[NWCSync] Could not decrypt remote connections');
         return false;
       }
-    } catch (error) {
-      console.error('[NWCSync] Failed to download NWC connections:', error);
+    } catch {
+      // Download failed - expected when relays are unavailable
       return false;
     }
   }, [user, nip44, nostr, connections, addConnectionToState]);
@@ -233,8 +233,8 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
       console.log('[NWCSync] Wallet capabilities:', info);
       setWalletInfo(info);
       return info;
-    } catch (error) {
-      console.error('[NWCSync] Failed to fetch wallet info:', error);
+    } catch {
+      // Wallet info fetch failed - wallet may be offline
       return null;
     }
   }, []);
@@ -284,7 +284,8 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
       };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      console.error(`[NWCSync] Failed to sync wallet ${walletAlias}:`, errorMsg);
+      // Log as warning - wallet timeouts are common for self-hosted nodes
+      console.warn(`[NWCSync] Could not sync ${walletAlias}: ${errorMsg}`);
       return { transactions: [], walletAlias, error: errorMsg };
     }
   }, []);
@@ -406,7 +407,7 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
 
       // Track which payment hashes already exist in ANY budget (not just current month)
       // This prevents importing the same transaction twice across different months
-      const fullBudgetState = getFullBudgetState();
+      const fullBudgetState = budgetStore.getFullBudgetState();
       const allPaymentHashes = new Set<string>();
 
       for (const budget of fullBudgetState.budgets) {
@@ -489,7 +490,7 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
             sourceWallet: nwcTx.walletAlias,
           });
 
-          addTransaction(transaction);
+          budgetStore.addTransaction(transaction);
           imported++;
 
           // Track the latest transaction timestamp (for API filtering on next sync)
@@ -546,7 +547,7 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
       result.errors.push(errorMsg);
       result.success = false;
 
-      console.error('[NWCSync] Sync failed:', error);
+      console.warn('[NWCSync] Sync failed:', errorMsg);
 
       if (showToast) {
         toast({
@@ -566,8 +567,7 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
     syncSingleWallet,
     syncState,
     setSyncState,
-    getFullBudgetState,
-    addTransaction,
+    budgetStore,
     toast,
   ]);
 

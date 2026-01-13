@@ -15,7 +15,7 @@ import { SyncStatusIndicator } from '@/components/budget/SyncStatusIndicator';
 import { OnboardingWelcome } from '@/components/budget/OnboardingWelcome';
 import { FirstTimeBudgetPrompt, EmptyBudgetCategories } from '@/components/budget/EmptyStates';
 import { LoginArea } from '@/components/auth/LoginArea';
-import { useBudgetStore } from '@/hooks/useBudgetStore';
+import { useBudgetStoreContext } from '@/contexts/BudgetStoreContext';
 import { useWallet } from '@/hooks/useWallet';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useBTCMap } from '@/hooks/useBTCMap';
@@ -40,7 +40,7 @@ export default function Budget() {
   // Check if user has any wallet connected
   const hasWalletConnected = hasAlbyHub || hasLNbits || nwcConnections.length > 0;
 
-  // Use the new relay-first budget store
+  // Use the relay-first budget store from context
   const {
     currentBudget,
     currentMonth,
@@ -65,7 +65,7 @@ export default function Budget() {
     isLoggedIn,
     isInitialLoadComplete,
     refreshFromRelays,
-  } = useBudgetStore();
+  } = useBudgetStoreContext();
 
   // Initialize NWC sync - only after initial budget load is complete
   useNWCSync({ enabled: isInitialLoadComplete });
@@ -122,8 +122,8 @@ export default function Budget() {
   );
 
   // Convert sync status for header component
-  const headerSyncStatus = syncStatus === 'loading' || syncStatus === 'saving' ? 'syncing' : 
-                           syncStatus === 'synced' ? 'synced' : 
+  const headerSyncStatus = syncStatus === 'loading' || syncStatus === 'saving' ? 'syncing' :
+                           syncStatus === 'synced' ? 'synced' :
                            syncStatus === 'error' ? 'error' : 'idle';
 
   return (

@@ -31,12 +31,12 @@ type SyncStatus = 'idle' | 'loading' | 'saving' | 'synced' | 'error' | 'offline'
 
 /**
  * Relay-first budget store
- * 
+ *
  * When logged in:
  * - Loads budget from Nostr relays on startup
  * - Auto-saves to relays after every change (debounced)
  * - Local storage is just a cache for speed
- * 
+ *
  * When logged out:
  * - Uses local storage only
  * - No sync, pure local mode
@@ -49,7 +49,7 @@ export function useBudgetStore() {
 
   // Local storage for caching and offline/logged-out mode
   const [localState, setLocalState] = useLocalStorage<BudgetState>('sat-sorter-budget', DEFAULT_STATE);
-  
+
   // Sync status
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
   const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null);
@@ -63,7 +63,7 @@ export function useBudgetStore() {
   // Check for NIP-44 support
   const needsExtension = loginType === 'extension';
   const { isReady: isExtensionReady } = useExtensionReady();
-  
+
   const nip44 = useMemo(() => {
     if (needsExtension && !isExtensionReady) return null;
     return getSafeNip44(user);
@@ -114,8 +114,9 @@ export function useBudgetStore() {
 
       setLastSyncedAt(latestEvent.created_at);
       return budgetData;
-    } catch (e) {
-      console.error('[BudgetStore] Failed to fetch from relays:', e);
+    } catch {
+      // Silently fail - expected when relays are unavailable
+      // Will fall back to local storage
       return null;
     }
   }, [user?.pubkey, nip44, nostr]);
@@ -145,15 +146,16 @@ export function useBudgetStore() {
       setLastSyncedAt(now);
       lastSavedStateRef.current = plaintext;
       setSyncStatus('synced');
-      
+
       console.log('[BudgetStore] Saved to relays successfully');
-      
+
       // Reset to idle after a moment
       setTimeout(() => setSyncStatus('idle'), 2000);
-      
+
       return true;
-    } catch (e) {
-      console.error('[BudgetStore] Failed to save to relays:', e);
+    } catch {
+      // Save failed - likely relay connectivity issue
+      // Status indicator will show error state for user feedback
       setSyncStatus('error');
       setTimeout(() => setSyncStatus('idle'), 3000);
       return false;
@@ -175,7 +177,7 @@ export function useBudgetStore() {
       console.log('[BudgetStore] Loading budget from relays...');
 
       const relayData = await fetchFromRelays();
-      
+
       if (relayData) {
         // Relay has data - use it and update local cache
         setLocalState(relayData);
@@ -183,10 +185,10 @@ export function useBudgetStore() {
         console.log('[BudgetStore] Using relay data as source of truth');
       } else {
         // No relay data - check if we have local data to upload
-        const localWeight = localState.budgets.reduce((sum, b) => 
-          sum + b.transactions.length + b.buckets.reduce((bs, bucket) => 
+        const localWeight = localState.budgets.reduce((sum, b) =>
+          sum + b.transactions.length + b.buckets.reduce((bs, bucket) =>
             bs + bucket.lineItems.filter(li => li.plannedAmount > 0).length, 0), 0);
-        
+
         if (localWeight > 0) {
           // Upload existing local data to relays
           console.log('[BudgetStore] No relay data found, uploading local data...');
@@ -221,7 +223,7 @@ export function useBudgetStore() {
     if (!isLoggedIn || !isInitialLoadComplete) return;
 
     const currentStateStr = JSON.stringify(localState);
-    
+
     // Skip if nothing changed
     if (currentStateStr === lastSavedStateRef.current) return;
 
@@ -543,7 +545,7 @@ export function useBudgetStore() {
 
     setSyncStatus('loading');
     const relayData = await fetchFromRelays();
-    
+
     if (relayData) {
       setLocalState(relayData);
       lastSavedStateRef.current = JSON.stringify(relayData);

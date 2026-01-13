@@ -33,10 +33,9 @@ export function useNostrPublish(): UseMutationResult<NostrEvent> {
         throw new Error("User is not logged in");
       }
     },
-    onError: (error) => {
-      // Use warn instead of error to reduce console noise for expected failures
-      // (e.g., relay timeouts, network issues)
-      console.warn("Failed to publish event:", error instanceof Error ? error.message : error);
+    onError: () => {
+      // Silently handle publish errors - they're expected when relays are unavailable
+      // The calling code should handle errors if user feedback is needed
     },
   });
 }

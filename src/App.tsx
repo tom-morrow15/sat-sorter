@@ -14,6 +14,7 @@ import { UpdatePrompt } from "@/components/UpdatePrompt";
 import { NostrLoginProvider } from '@nostrify/react/login';
 import { AppProvider } from '@/components/AppProvider';
 import { NWCProvider } from '@/contexts/NWCContext';
+import { BudgetStoreProvider } from '@/contexts/BudgetStoreContext';
 import { AppConfig } from '@/contexts/AppContext';
 import AppRouter from './AppRouter';
 
@@ -54,16 +55,18 @@ export function App() {
           <NostrLoginProvider storageKey='nostr:login'>
             <NostrProvider>
               <NostrSync />
-              <NWCProvider>
-                <TooltipProvider>
-                  <Toaster />
-                  <OfflineIndicator />
-                  <UpdatePrompt />
-                  <Suspense>
-                    <AppRouter />
-                  </Suspense>
-                </TooltipProvider>
-              </NWCProvider>
+              <BudgetStoreProvider>
+                <NWCProvider>
+                  <TooltipProvider>
+                    <Toaster />
+                    <OfflineIndicator />
+                    <UpdatePrompt />
+                    <Suspense>
+                      <AppRouter />
+                    </Suspense>
+                  </TooltipProvider>
+                </NWCProvider>
+              </BudgetStoreProvider>
             </NostrProvider>
           </NostrLoginProvider>
         </QueryClientProvider>
