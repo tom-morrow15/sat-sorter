@@ -1,5 +1,5 @@
-import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { Plus, Bitcoin, Zap, Wallet, Info, Copy, Cloud, Loader2, X, RefreshCw } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { Plus, Zap, Wallet, Info, X } from 'lucide-react';
 import { useSeoMeta, useHead } from '@unhead/react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -11,40 +11,24 @@ import { TransactionsPanel } from '@/components/budget/TransactionsPanel';
 import { BTCMapBanner } from '@/components/budget/BTCMapBanner';
 import { WalletModalControlled } from '@/components/budget/WalletModalControlled';
 import { QuickAddFAB } from '@/components/budget/QuickAddFAB';
-import { SyncFAB } from '@/components/budget/SyncFAB';
+import { SyncStatusIndicator } from '@/components/budget/SyncStatusIndicator';
 import { OnboardingWelcome } from '@/components/budget/OnboardingWelcome';
 import { FirstTimeBudgetPrompt, EmptyBudgetCategories } from '@/components/budget/EmptyStates';
 import { LoginArea } from '@/components/auth/LoginArea';
-import LoginDialog from '@/components/auth/LoginDialog';
-import { useBudget } from '@/hooks/useBudget';
+import { useBudgetStore } from '@/hooks/useBudgetStore';
 import { useWallet } from '@/hooks/useWallet';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useBTCMap } from '@/hooks/useBTCMap';
-import { useBudgetSync } from '@/hooks/useBudgetSync';
 import { useNWCSync } from '@/hooks/useNWCSync';
 import { useNWC } from '@/hooks/useNWCContext';
 import { useOnboarding } from '@/hooks/useOnboarding';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
-import { useToast } from '@/hooks/useToast';
-
-const AUTO_SYNC_DEBOUNCE_MS = 3000; // 3 seconds after changes
 
 export default function Budget() {
   const [showAddBucket, setShowAddBucket] = useState(false);
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showTourPrompt, setShowTourPrompt] = useState(true);
-  const [showLoginDialog, setShowLoginDialog] = useState(false);
-  const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'synced' | 'error'>('idle');
-  const [hasUnsyncedChanges, setHasUnsyncedChanges] = useState(false);
-  const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(() => {
-    const stored = localStorage.getItem('sat-sorter-last-sync');
-    return stored ? parseInt(stored, 10) : null;
-  });
-  const syncTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
-  const autoSyncDebounceRef = useRef<ReturnType<typeof setTimeout>>();
-  const lastSyncedStateRef = useRef<string>('');
-  const initialLoadCompleteRef = useRef(false);
 
   const { user } = useCurrentUser();
   const { hasAlbyHub, hasLNbits } = useWallet();
@@ -52,11 +36,11 @@ export default function Budget() {
   const { merchants } = useBTCMap();
   const { shouldShowOnboarding, hasCompletedOnboarding, completeOnboarding } = useOnboarding();
   const [walletPromptDismissed, setWalletPromptDismissed] = useLocalStorage('wallet-prompt-dismissed', false);
-  const { toast } = useToast();
 
   // Check if user has any wallet connected
   const hasWalletConnected = hasAlbyHub || hasLNbits || nwcConnections.length > 0;
 
+  // Use the new relay-first budget store
   const {
     currentBudget,
     currentMonth,
@@ -76,131 +60,19 @@ export default function Budget() {
     duplicateFromMonth,
     getPreviousMonth,
     hasPreviousMonthBudget,
-    mergeBudgetFromCloud,
-    importBudgetState,
-    getFullBudgetState,
-  } = useBudget();
+    syncStatus,
+    lastSyncedAt,
+    isLoggedIn,
+    isInitialLoadComplete,
+    refreshFromRelays,
+  } = useBudgetStore();
 
-  const { uploadBudget, downloadBudget, canSync, remoteTimestamp } = useBudgetSync();
-
-  // Manual sync function - uploads local state to cloud (push-only)
-  // This is safe because we always preserve local changes
-  const performSync = useCallback(async (showToast = true) => {
-    if (!canSync) return false;
-
-    try {
-      setSyncStatus('syncing');
-
-      // Get current local state FIRST before any network operations
-      const fullState = getFullBudgetState();
-
-      console.log('[Budget] Uploading local budget to cloud...', {
-        budgetCount: fullState.budgets.length,
-        currentMonth: fullState.currentMonth,
-      });
-
-      // Upload current state to cloud
-      const success = await uploadBudget(fullState);
-
-      if (success) {
-        const now = Math.floor(Date.now() / 1000);
-        localStorage.setItem('sat-sorter-last-sync', now.toString());
-        setLastSyncedAt(now);
-        lastSyncedStateRef.current = JSON.stringify(fullState);
-        setHasUnsyncedChanges(false);
-        setSyncStatus('synced');
-        if (showToast) {
-          toast({
-            title: 'Budget synced',
-            description: 'Your budget has been saved to Nostr relays.',
-          });
-        }
-        syncTimeoutRef.current = setTimeout(() => setSyncStatus('idle'), 2000);
-        return true;
-      } else {
-        setSyncStatus('error');
-        syncTimeoutRef.current = setTimeout(() => setSyncStatus('idle'), 3000);
-        return false;
-      }
-    } catch (error) {
-      console.error('[Budget] Sync failed:', error);
-      setSyncStatus('error');
-      syncTimeoutRef.current = setTimeout(() => setSyncStatus('idle'), 3000);
-      return false;
-    }
-  }, [canSync, getFullBudgetState, uploadBudget, toast]);
-
-  // Pull-only sync function (download from cloud - DESTRUCTIVE, replaces local data)
-  // This should only be used when the user explicitly wants to restore from cloud
-  const performPull = useCallback(async () => {
-    if (!canSync) return false;
-
-    // Always warn user since this is destructive
-    const confirmed = window.confirm(
-      'This will replace your local budget with the cloud version. Any local changes will be lost. Are you sure?'
-    );
-    if (!confirmed) {
-      return false;
-    }
-
-    try {
-      setSyncStatus('syncing');
-
-      const cloudBudget = await downloadBudget();
-      if (cloudBudget) {
-        console.log('[Budget] Pulling budget from cloud (user-initiated)...');
-
-        const localState = getFullBudgetState();
-        const localWeight = localState.budgets.reduce((sum, b) =>
-          sum + b.transactions.length + b.buckets.reduce((bs, bucket) =>
-            bs + bucket.lineItems.filter(li => li.plannedAmount > 0).length, 0), 0);
-        const cloudWeight = cloudBudget.budgets.reduce((sum, b) =>
-          sum + b.transactions.length + b.buckets.reduce((bs, bucket) =>
-            bs + bucket.lineItems.filter(li => li.plannedAmount > 0).length, 0), 0);
-
-        console.log('[Budget] Replacing local budget with cloud version', {
-          localWeight,
-          cloudWeight,
-          cloudBudgetCount: cloudBudget.budgets.length,
-        });
-
-        // FORCE import - bypass mergeBudgetFromCloud safety checks
-        // User explicitly requested this via "Pull from Nostr"
-        importBudgetState(cloudBudget);
-
-        // Update sync timestamp
-        const now = Math.floor(Date.now() / 1000);
-        localStorage.setItem('sat-sorter-last-sync', now.toString());
-        setLastSyncedAt(now);
-
-        lastSyncedStateRef.current = JSON.stringify(cloudBudget);
-        setHasUnsyncedChanges(false);
-        toast({
-          title: 'Budget restored',
-          description: 'Your local budget has been replaced with the cloud version.',
-        });
-      } else {
-        toast({
-          title: 'No cloud backup found',
-          description: 'No budget data found on Nostr relays.',
-        });
-      }
-
-      setSyncStatus('synced');
-      syncTimeoutRef.current = setTimeout(() => setSyncStatus('idle'), 2000);
-      return true;
-    } catch (error) {
-      console.error('[Budget] Pull failed:', error);
-      setSyncStatus('error');
-      syncTimeoutRef.current = setTimeout(() => setSyncStatus('idle'), 3000);
-      return false;
-    }
-  }, [canSync, downloadBudget, mergeBudgetFromCloud, hasUnsyncedChanges, getFullBudgetState, toast]);
+  // Initialize NWC sync - only after initial budget load is complete
+  useNWCSync({ enabled: isInitialLoadComplete });
 
   // Show onboarding for new users
   useEffect(() => {
     if (shouldShowOnboarding) {
-      // Small delay for smoother UX
       const timer = setTimeout(() => setShowOnboarding(true), 500);
       return () => clearTimeout(timer);
     }
@@ -216,97 +88,6 @@ export default function Budget() {
       { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
     ],
   });
-
-  // State to track when initial cloud load is complete
-  const [initialLoadComplete, setInitialLoadComplete] = useState(!canSync);
-
-  // Initialize NWC sync - only after initial budget load is complete
-  // This prevents NWC-imported transactions from being overwritten by cloud sync
-  useNWCSync({ enabled: initialLoadComplete });
-
-  // Load budget from cloud when user logs in
-  useEffect(() => {
-    if (!canSync || initialLoadCompleteRef.current) return;
-
-    const loadCloudBudget = async () => {
-      try {
-        setSyncStatus('syncing');
-        const cloudBudget = await downloadBudget();
-        if (cloudBudget && remoteTimestamp) {
-          console.log('[Budget] Loaded budget from cloud, merging...');
-          // Merge the cloud budget into local state
-          const wasApplied = mergeBudgetFromCloud(cloudBudget, remoteTimestamp);
-          if (wasApplied) {
-            console.log('[Budget] Cloud budget applied successfully');
-            // Update the reference to prevent detecting this as a change
-            lastSyncedStateRef.current = JSON.stringify(cloudBudget);
-          }
-        }
-        initialLoadCompleteRef.current = true;
-        setInitialLoadComplete(true);
-        setSyncStatus('synced');
-        syncTimeoutRef.current = setTimeout(() => setSyncStatus('idle'), 2000);
-      } catch (error) {
-        console.error('[Budget] Failed to load cloud budget:', error);
-        initialLoadCompleteRef.current = true;
-        setInitialLoadComplete(true);
-        setSyncStatus('error');
-        syncTimeoutRef.current = setTimeout(() => setSyncStatus('idle'), 3000);
-      }
-    };
-
-    loadCloudBudget();
-
-    return () => {
-      if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
-    };
-  }, [canSync, downloadBudget, mergeBudgetFromCloud, remoteTimestamp]);
-
-  // Detect changes to the budget state and trigger auto-sync with debounce
-  useEffect(() => {
-    if (!initialLoadCompleteRef.current) return;
-
-    const currentStateStr = JSON.stringify(getFullBudgetState());
-    if (lastSyncedStateRef.current && currentStateStr !== lastSyncedStateRef.current) {
-      setHasUnsyncedChanges(true);
-
-      // Auto-sync after a short debounce period (if logged in)
-      if (canSync && syncStatus !== 'syncing') {
-        // Clear any existing debounce timer
-        if (autoSyncDebounceRef.current) {
-          clearTimeout(autoSyncDebounceRef.current);
-        }
-
-        // Set new debounce timer - auto-save 3 seconds after last change
-        autoSyncDebounceRef.current = setTimeout(async () => {
-          console.log('[Budget] Auto-syncing budget after changes...');
-          await performSync(false); // Silent sync (no toast)
-        }, AUTO_SYNC_DEBOUNCE_MS);
-      }
-    }
-
-    return () => {
-      if (autoSyncDebounceRef.current) {
-        clearTimeout(autoSyncDebounceRef.current);
-      }
-    };
-  }, [currentBudget, getFullBudgetState, nwcConnections, canSync, syncStatus, performSync]);
-
-  // Note: NWC connections are synced separately via useNWCSync's uploadNWCConnections
-  // We intentionally do NOT trigger budget sync when wallet connections change
-  // to prevent cloud sync from overwriting local budget data
-
-  // Cleanup timers on unmount
-  useEffect(() => {
-    return () => {
-      if (autoSyncDebounceRef.current) {
-        clearTimeout(autoSyncDebounceRef.current);
-      }
-      if (syncTimeoutRef.current) {
-        clearTimeout(syncTimeoutRef.current);
-      }
-    };
-  }, []);
 
   // Month navigation
   const handlePreviousMonth = () => {
@@ -340,6 +121,11 @@ export default function Budget() {
     [currentBudget.transactions]
   );
 
+  // Convert sync status for header component
+  const headerSyncStatus = syncStatus === 'loading' || syncStatus === 'saving' ? 'syncing' : 
+                           syncStatus === 'synced' ? 'synced' : 
+                           syncStatus === 'error' ? 'error' : 'idle';
+
   return (
     <div className="min-h-screen bg-background">
       <BudgetHeader
@@ -352,10 +138,10 @@ export default function Budget() {
         onOpenWallet={() => setShowWalletModal(true)}
         onSelectMonth={setCurrentMonth}
         unassignedCount={unassignedCount}
-        syncStatus={syncStatus}
-        hasUnsyncedChanges={hasUnsyncedChanges}
-        onManualSync={() => performSync(true)}
-        canSync={canSync}
+        syncStatus={headerSyncStatus}
+        hasUnsyncedChanges={false}
+        onManualSync={refreshFromRelays}
+        canSync={isLoggedIn}
       />
 
       <main className="container mx-auto px-3 sm:px-4 py-4 lg:py-6">
@@ -552,29 +338,18 @@ export default function Budget() {
         />
       )}
 
-      {/* Sync FAB - positioned above Quick Add FAB */}
-      <SyncFAB
-        syncStatus={syncStatus}
-        hasUnsyncedChanges={hasUnsyncedChanges}
-        canSync={canSync}
-        onSync={() => performSync(true)}
-        onPull={performPull}
-        isLoggedIn={!!user}
-        onLoginClick={() => setShowLoginDialog(true)}
+      {/* Sync Status Indicator - simplified, shows sync status */}
+      <SyncStatusIndicator
+        status={syncStatus}
+        isLoggedIn={isLoggedIn}
         lastSyncedAt={lastSyncedAt}
+        onRefresh={refreshFromRelays}
       />
 
       {/* Quick Add FAB */}
       <QuickAddFAB
         onAddTransaction={addTransaction}
         currency={currency}
-      />
-
-      {/* Login Dialog */}
-      <LoginDialog
-        isOpen={showLoginDialog}
-        onClose={() => setShowLoginDialog(false)}
-        onLogin={() => setShowLoginDialog(false)}
       />
 
       {/* Onboarding Welcome Dialog */}
