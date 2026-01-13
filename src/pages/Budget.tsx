@@ -21,6 +21,7 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useBTCMap } from '@/hooks/useBTCMap';
 import { useNWCSync } from '@/hooks/useNWCSync';
 import { useNWC } from '@/hooks/useNWCContext';
+import { useNWCNotifications } from '@/hooks/useNWCNotifications';
 import { useOnboarding } from '@/hooks/useOnboarding';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 
@@ -69,6 +70,9 @@ export default function Budget() {
 
   // Initialize NWC sync - only after initial budget load is complete
   useNWCSync({ enabled: isInitialLoadComplete });
+
+  // Initialize real-time NWC notifications - listens for payments as they happen
+  useNWCNotifications({ enabled: isInitialLoadComplete });
 
   // Show onboarding for new users
   useEffect(() => {
