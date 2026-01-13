@@ -244,7 +244,56 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
   }, [walletInfo]);
 
   /**
-   * Sync transactions from NWC wallet
+   * Sync transactions from a single NWC wallet
+   */
+  const syncSingleWallet = useCallback(async (
+    connection: { connectionString: string; alias?: string },
+    fromTimestamp: number | undefined
+  ): Promise<{ transactions: NWCTransaction[]; walletAlias: string; error?: string }> => {
+    const walletAlias = connection.alias || 'Lightning Wallet';
+
+    try {
+      // Check wallet capabilities
+      const params = parseNWCUri(connection.connectionString);
+      if (!params) {
+        return { transactions: [], walletAlias, error: 'Invalid connection string' };
+      }
+
+      const info = await fetchWalletInfo(params);
+
+      // Check if list_transactions is supported
+      if (info && !info.methods?.includes('list_transactions')) {
+        console.log(`[NWCSync] Wallet ${walletAlias} doesn't support list_transactions`);
+        return {
+          transactions: [],
+          walletAlias,
+          error: `Wallet doesn't support transaction listing`
+        };
+      }
+
+      console.log(`[NWCSync] Fetching transactions from ${walletAlias}...`);
+
+      const response = await listTransactions(
+        connection.connectionString,
+        {
+          from: fromTimestamp,
+          limit: 200,
+        }
+      );
+
+      return {
+        transactions: response.transactions || [],
+        walletAlias
+      };
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error(`[NWCSync] Failed to sync wallet ${walletAlias}:`, errorMsg);
+      return { transactions: [], walletAlias, error: errorMsg };
+    }
+  }, []);
+
+  /**
+   * Sync transactions from ALL connected NWC wallets
    */
   const syncTransactions = useCallback(async (showToast = true): Promise<NWCSyncResult> => {
     const result: NWCSyncResult = {
@@ -254,8 +303,7 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
       errors: [],
     };
 
-    const activeConnection = getActiveConnection();
-    if (!activeConnection) {
+    if (connections.length === 0) {
       if (showToast) {
         toast({
           title: 'No wallet connected',
@@ -270,37 +318,6 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
     setIsSyncing(true);
 
     try {
-      // First, check wallet capabilities if we haven't already
-      let info = walletInfo;
-      if (!info) {
-        info = await checkWalletCapabilities(activeConnection.connectionString);
-      }
-
-      // Check if list_transactions is supported
-      // If we couldn't fetch wallet info (info is null), we'll try anyway and handle errors
-      if (info && !info.methods?.includes('list_transactions')) {
-        const supportedMethods = info.methods?.join(', ') || 'unknown';
-        const errorMsg = `This wallet doesn't support transaction listing (list_transactions).\n\nSupported methods: ${supportedMethods}\n\nCompatible wallets: Alby Hub, Mutiny (with full NWC). Other wallets may only support pay_invoice.`;
-
-        if (showToast) {
-          toast({
-            title: 'Transaction sync not supported',
-            description: 'This wallet doesn\'t support listing transactions. Try using Alby Hub or importing via CSV.',
-            variant: 'destructive',
-          });
-        }
-        result.errors.push(errorMsg);
-        setIsSyncing(false);
-        return result;
-      }
-
-      // If info is null, we'll try to fetch transactions anyway
-      if (!info) {
-        console.log('[NWCSync] Could not fetch wallet info, attempting to list transactions anyway...');
-      }
-
-      console.log('[NWCSync] Fetching transactions...');
-
       // Fetch transactions from the wallet using our direct NWC implementation
       // Use a buffer of 1 hour before the last transaction timestamp to catch any stragglers
       // This helps with transactions that may have been settling while we synced
@@ -308,20 +325,42 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
         ? syncState.lastTransactionTimestamp - 3600 // Go back 1 hour from last transaction
         : undefined;
 
+      console.log('[NWCSync] Syncing ALL wallets (' + connections.length + ' connected)');
       console.log('[NWCSync] Fetching from timestamp:', fromTimestamp,
         fromTimestamp ? new Date(fromTimestamp * 1000).toISOString() : 'all time');
 
-      const response = await listTransactions(
-        activeConnection.connectionString,
-        {
-          from: fromTimestamp,
-          limit: 200, // Increased limit to catch more transactions
-        }
+      // Sync all wallets in parallel
+      const walletResults = await Promise.all(
+        connections.map(conn => syncSingleWallet(conn, fromTimestamp))
       );
 
-      const nwcTransactions = response.transactions;
+      // Collect all transactions from all wallets
+      const allTransactions: Array<NWCTransaction & { walletAlias: string; connectionString: string }> = [];
 
-      if (!nwcTransactions || nwcTransactions.length === 0) {
+      for (let i = 0; i < walletResults.length; i++) {
+        const walletResult = walletResults[i];
+        const connection = connections[i];
+
+        if (walletResult.error) {
+          result.errors.push(`${walletResult.walletAlias}: ${walletResult.error}`);
+        }
+
+        // Add wallet info to each transaction
+        for (const tx of walletResult.transactions) {
+          allTransactions.push({
+            ...tx,
+            walletAlias: walletResult.walletAlias,
+            connectionString: connection.connectionString,
+          });
+        }
+
+        console.log(`[NWCSync] ${walletResult.walletAlias}: ${walletResult.transactions.length} transactions`);
+      }
+
+      // Use allTransactions as our combined list from all wallets
+      const nwcTransactions = allTransactions;
+
+      if (nwcTransactions.length === 0) {
         // Still update lastSyncedAt even when no transactions found
         const currentSyncTime = Math.floor(Date.now() / 1000);
         setSyncState({
@@ -396,8 +435,7 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
             description = nwcTx.metadata.comment;
           }
 
-          // Create transaction with wallet source info
-          const walletName = activeConnection.alias || 'Lightning Wallet';
+          // Create transaction with wallet source info from the transaction itself
           const transaction = {
             amount: amountSats,
             description,
@@ -406,8 +444,8 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
             bucketId: null,
             isIncome: nwcTx.type === 'incoming',
             source: 'nwc' as const,
-            sourceWallet: walletName,
-            sourceWalletId: activeConnection.connectionString,
+            sourceWallet: nwcTx.walletAlias,
+            sourceWalletId: nwcTx.connectionString,
             paymentHash: nwcTx.payment_hash,
             preimage: nwcTx.preimage,
           };
@@ -418,8 +456,7 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
             date: transaction.date,
             isIncome: transaction.isIncome,
             paymentHash: nwcTx.payment_hash,
-            sourceWallet: walletName,
-            hasAlias: !!activeConnection.alias,
+            sourceWallet: nwcTx.walletAlias,
           });
 
           addTransaction(transaction);
@@ -494,9 +531,8 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
 
     return result;
   }, [
-    getActiveConnection,
-    walletInfo,
-    checkWalletCapabilities,
+    connections,
+    syncSingleWallet,
     syncState,
     setSyncState,
     currentBudget.transactions,

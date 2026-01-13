@@ -167,8 +167,17 @@ async function makeNWCRequest<T>(
 
   return new Promise((resolve, reject) => {
     const ws = new WebSocket(params.relay);
+    let requestEventId: string | null = null;
+    let hasResolved = false;
+
+    const cleanup = () => {
+      if (!hasResolved) {
+        hasResolved = true;
+      }
+    };
 
     const timeout = setTimeout(() => {
+      cleanup();
       ws.close();
       reject(new Error('Request timed out'));
     }, 30000);
@@ -204,22 +213,61 @@ async function makeNWCRequest<T>(
           content: encryptedContent,
         }, secretBytes);
 
-        // Subscribe to responses - use a wider time window and log the filter
+        requestEventId = requestEvent.id;
+
+        // Subscribe to responses FIRST before sending the request
+        // Use a targeted filter that includes the specific request event ID
         const subId = crypto.randomUUID().slice(0, 8);
-        const responseFilter = {
+
+        // First, set up a broad subscription to catch any responses to our pubkey
+        const broadFilter = {
           kinds: [23195],
+          authors: [params.walletPubkey],
           '#p': [clientPubkey],
-          '#e': [requestEvent.id],
-          since: Math.floor(Date.now() / 1000) - 60, // 1 minute buffer
         };
-        console.log(`[NWC] Subscribing for ${method} response:`, { subId, clientPubkey: clientPubkey.slice(0, 16) + '...', eventId: requestEvent.id.slice(0, 16) + '...' });
-        ws.send(JSON.stringify(['REQ', subId, responseFilter]));
+
+        console.log(`[NWC] Subscribing for ${method} response:`, {
+          subId,
+          clientPubkey: clientPubkey.slice(0, 16) + '...',
+          walletPubkey: params.walletPubkey.slice(0, 16) + '...',
+          requestEventId: requestEvent.id.slice(0, 16) + '...'
+        });
+        ws.send(JSON.stringify(['REQ', subId, broadFilter]));
+
+        // Wait for subscription confirmation (EOSE) before publishing
+        // This ensures the relay is ready to send us events
+        await new Promise<void>((resolveWait) => {
+          const originalHandler = ws.onmessage;
+          const waitHandler = (event: MessageEvent) => {
+            try {
+              const data = JSON.parse(event.data);
+              if (data[0] === 'EOSE' && data[1] === subId) {
+                console.log(`[NWC] Subscription confirmed, now publishing request`);
+                ws.onmessage = originalHandler;
+                resolveWait();
+              } else if (originalHandler) {
+                // Pass through to original handler for any other messages
+                originalHandler.call(ws, event);
+              }
+            } catch {
+              if (originalHandler) originalHandler.call(ws, event);
+            }
+          };
+          ws.onmessage = waitHandler;
+
+          // Timeout after 2 seconds
+          setTimeout(() => {
+            ws.onmessage = originalHandler;
+            resolveWait();
+          }, 2000);
+        });
 
         // Publish the request
         ws.send(JSON.stringify(['EVENT', requestEvent]));
+        console.log(`[NWC] Published ${method} request:`, requestEvent.id);
 
-        console.log(`[NWC] Sent ${method} request:`, requestEvent.id);
       } catch (error) {
+        cleanup();
         clearTimeout(timeout);
         ws.close();
         reject(error);
@@ -227,12 +275,21 @@ async function makeNWCRequest<T>(
     };
 
     ws.onmessage = async (event) => {
+      if (hasResolved) return;
+
       try {
         const data = JSON.parse(event.data);
-        console.log(`[NWC] ${method} received message:`, data[0], data[0] === 'EVENT' ? `kind:${data[2]?.kind}` : data[0] === 'OK' ? `success:${data[2]}` : '');
+        const msgType = data[0];
+
+        if (msgType === 'EVENT') {
+          console.log(`[NWC] ${method} received EVENT:`, { kind: data[2]?.kind, id: data[2]?.id?.slice(0, 16) + '...' });
+        } else {
+          console.log(`[NWC] ${method} received message:`, msgType, msgType === 'OK' ? `success:${data[2]}` : '');
+        }
 
         if (data[0] === 'OK' && data[1] && data[2] === false) {
           // Request was rejected by relay
+          cleanup();
           clearTimeout(timeout);
           ws.close();
           reject(new Error(`Relay rejected request: ${data[3] || 'Unknown error'}`));
@@ -241,6 +298,22 @@ async function makeNWCRequest<T>(
 
         if (data[0] === 'EVENT' && data[2]?.kind === 23195) {
           const responseEvent = data[2] as NostrEvent;
+
+          // Check if this response is for our request by looking at the 'e' tag
+          const eTag = responseEvent.tags.find(t => t[0] === 'e');
+          const referencedEventId = eTag?.[1];
+
+          console.log(`[NWC] Response event references:`, {
+            referencedEventId: referencedEventId?.slice(0, 16) + '...',
+            ourRequestId: requestEventId?.slice(0, 16) + '...',
+            matches: referencedEventId === requestEventId
+          });
+
+          // Only process if this response is for our specific request
+          if (referencedEventId !== requestEventId) {
+            console.log(`[NWC] Ignoring response for different request`);
+            return;
+          }
 
           // Decrypt the response
           let decryptedContent: string;
@@ -256,8 +329,14 @@ async function makeNWCRequest<T>(
           }
 
           const response = JSON.parse(decryptedContent);
-          console.log(`[NWC] Received ${method} response:`, response);
+          console.log(`[NWC] Decrypted ${method} response:`, {
+            hasResult: !!response.result,
+            hasError: !!response.error,
+            resultType: response.result ? typeof response.result : 'none',
+            transactionCount: response.result?.transactions?.length
+          });
 
+          cleanup();
           clearTimeout(timeout);
           ws.close();
 
