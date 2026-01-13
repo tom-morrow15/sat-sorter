@@ -148,7 +148,9 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
       console.log('[NWCSync] NWC connections synced to cloud');
       return true;
     } catch (error) {
-      console.error('[NWCSync] Failed to upload NWC connections:', error);
+      // Log as warning instead of error to reduce console noise
+      // This is expected to fail sometimes when relays are unavailable
+      console.warn('[NWCSync] Could not sync NWC connections to cloud (relays may be unavailable)');
       return false;
     }
   }, [user, nip44, connections, publish]);
@@ -648,15 +650,38 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
     }
   }, [connections, getActiveConnection, checkWalletCapabilities]);
 
+  // Track if we've already tried to upload connections this session
+  // to avoid spamming failed requests when relays are down
+  const hasAttemptedConnectionUploadRef = useRef(false);
+  const lastConnectionsHashRef = useRef<string>('');
+
   // Sync NWC connections to cloud when user logs in or connections change
   useEffect(() => {
-    if (user?.pubkey && connections.length > 0) {
-      // Small delay to avoid spamming syncs
-      const timer = setTimeout(() => {
-        uploadNWCConnections();
-      }, 1000);
-      return () => clearTimeout(timer);
+    if (!user?.pubkey || connections.length === 0) return;
+
+    // Create a simple hash of connections to detect actual changes
+    const connectionsHash = connections.map(c => c.connectionString).sort().join('|');
+
+    // Skip if connections haven't actually changed and we already tried
+    if (connectionsHash === lastConnectionsHashRef.current && hasAttemptedConnectionUploadRef.current) {
+      return;
     }
+
+    lastConnectionsHashRef.current = connectionsHash;
+
+    // Small delay to avoid spamming syncs
+    const timer = setTimeout(async () => {
+      const success = await uploadNWCConnections();
+      hasAttemptedConnectionUploadRef.current = true;
+
+      // If failed, don't keep retrying automatically
+      // User can manually trigger sync if needed
+      if (!success) {
+        console.log('[NWCSync] Connection upload failed, will retry on next connection change');
+      }
+    }, 1000);
+
+    return () => clearTimeout(timer);
   }, [user?.pubkey, connections, uploadNWCConnections]);
 
   // Auto-sync on app load if wallet is connected

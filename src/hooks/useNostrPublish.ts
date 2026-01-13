@@ -33,10 +33,9 @@ export function useNostrPublish(): UseMutationResult<NostrEvent> {
       }
     },
     onError: (error) => {
-      console.error("Failed to publish event:", error);
-    },
-    onSuccess: (data) => {
-      console.log("Event published successfully:", data);
+      // Use warn instead of error to reduce console noise for expected failures
+      // (e.g., relay timeouts, network issues)
+      console.warn("Failed to publish event:", error instanceof Error ? error.message : error);
     },
   });
 }
