@@ -73,7 +73,7 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
 
   const { toast } = useToast();
   const { getActiveConnection, connections, addConnection: addConnectionToState } = useNWC();
-  const { addTransaction, currentBudget } = useBudget();
+  const { addTransaction, currentBudget, getFullBudgetState } = useBudget();
   const { user, loginType } = useCurrentUser();
   const { nostr } = useNostr();
   const { mutateAsync: publish } = useNostrPublish();
@@ -382,16 +382,20 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
 
       console.log(`[NWCSync] Found ${nwcTransactions.length} transactions`);
 
-      // Track which payment hashes actually exist in the current budget's transactions
-      // We only skip if the transaction is actually IN the budget, not just if we've synced it before
-      // This handles the case where cloud sync may have overwritten local data
-      const budgetPaymentHashes = new Set(
-        currentBudget.transactions
-          .filter(t => t.paymentHash)
-          .map(t => t.paymentHash!)
-      );
+      // Track which payment hashes already exist in ANY budget (not just current month)
+      // This prevents importing the same transaction twice across different months
+      const fullBudgetState = getFullBudgetState();
+      const allPaymentHashes = new Set<string>();
 
-      console.log('[NWCSync] Current budget has', budgetPaymentHashes.size, 'transactions with payment hashes');
+      for (const budget of fullBudgetState.budgets) {
+        for (const tx of budget.transactions) {
+          if (tx.paymentHash) {
+            allPaymentHashes.add(tx.paymentHash);
+          }
+        }
+      }
+
+      console.log('[NWCSync] Total transactions with payment hashes across all budgets:', allPaymentHashes.size);
 
       let imported = 0;
       let skipped = 0;
@@ -400,10 +404,10 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
 
       for (const nwcTx of nwcTransactions) {
         try {
-          // Skip if this transaction is already in the budget
-          // NOTE: We only check the budget, not syncedPaymentHashes, because cloud sync
-          // might have overwritten local data while the hashes remained in localStorage
-          if (budgetPaymentHashes.has(nwcTx.payment_hash)) {
+          // Skip if this transaction already exists in ANY budget month
+          // NOTE: We check all budgets, not just current month, because transactions
+          // are routed to their respective months based on transaction date
+          if (allPaymentHashes.has(nwcTx.payment_hash)) {
             console.log('[NWCSync] Skipping transaction already in budget:', nwcTx.payment_hash.slice(0, 16) + '...');
             skipped++;
             continue;
@@ -535,7 +539,7 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
     syncSingleWallet,
     syncState,
     setSyncState,
-    currentBudget.transactions,
+    getFullBudgetState,
     addTransaction,
     toast,
   ]);
