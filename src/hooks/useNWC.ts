@@ -311,58 +311,6 @@ export function useNWCInternal() {
     }
   }, [user?.pubkey, nip44, hasDownloadedCloudConnections, downloadCloudConnections]);
 
-  // Send payment using the SDK
-  const sendPayment = useCallback(async (
-    connection: NWCConnection,
-    invoice: string
-  ): Promise<{ preimage: string }> => {
-    if (!connection.connectionString) {
-      throw new Error('Invalid connection: missing connection string');
-    }
-
-    let client: LN;
-    try {
-      client = new LN(connection.connectionString);
-    } catch (error) {
-      console.error('Failed to create NWC client:', error);
-      throw new Error(`Failed to create NWC client: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-
-    try {
-      let timeoutId: NodeJS.Timeout | undefined;
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        timeoutId = setTimeout(() => reject(new Error('Payment timeout after 15 seconds')), 15000);
-      });
-
-      const paymentPromise = client.pay(invoice);
-
-      try {
-        const response = await Promise.race([paymentPromise, timeoutPromise]) as { preimage: string };
-        if (timeoutId) clearTimeout(timeoutId);
-        return response;
-      } catch (error) {
-        if (timeoutId) clearTimeout(timeoutId);
-        throw error;
-      }
-    } catch (error) {
-      console.error('NWC payment failed:', error);
-
-      if (error instanceof Error) {
-        if (error.message.includes('timeout')) {
-          throw new Error('Payment timed out. Please try again.');
-        } else if (error.message.includes('insufficient')) {
-          throw new Error('Insufficient balance in connected wallet.');
-        } else if (error.message.includes('invalid')) {
-          throw new Error('Invalid invoice or connection. Please check your wallet.');
-        } else {
-          throw new Error(`Payment failed: ${error.message}`);
-        }
-      }
-
-      throw new Error('Payment failed with unknown error');
-    }
-  }, []);
-
   return {
     connections,
     activeConnection,
@@ -371,6 +319,5 @@ export function useNWCInternal() {
     removeConnection,
     setActiveConnection,
     getActiveConnection,
-    sendPayment,
   };
 }
