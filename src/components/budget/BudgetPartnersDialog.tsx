@@ -1,16 +1,17 @@
 import { useState } from 'react';
-import { 
-  Users, 
-  UserPlus, 
-  Send, 
-  Copy, 
-  Check, 
+import {
+  Users,
+  UserPlus,
+  Send,
+  Copy,
+  Check,
   Loader2,
   ExternalLink,
   Info,
   Crown,
   X,
   Menu,
+  ScanLine,
 } from 'lucide-react';
 import {
   Dialog,
@@ -28,6 +29,7 @@ import { Separator } from '@/components/ui/separator';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useAuthor } from '@/hooks/useAuthor';
 import { genUserName } from '@/lib/genUserName';
+import { QRScanner } from './QRScanner';
 
 interface BudgetPartnersDialogProps {
   open: boolean;
@@ -53,13 +55,25 @@ export function BudgetPartnersDialog({
   const [isInviting, setIsInviting] = useState(false);
   const [inviteError, setInviteError] = useState('');
   const [inviteSuccess, setInviteSuccess] = useState(false);
+  const [showQRScanner, setShowQRScanner] = useState(false);
 
   const isOwner = user?.pubkey === ownerPubkey;
   const hasPartners = partnerPubkeys.length > 0;
 
+  // Handle scanned QR code
+  const handleQRScan = (result: string) => {
+    // Clean up the result - handle nostr: URIs and raw npubs
+    let npub = result.trim();
+    if (npub.startsWith('nostr:')) {
+      npub = npub.replace('nostr:', '');
+    }
+    setInviteInput(npub);
+    setInviteError('');
+  };
+
   const handleInvite = async () => {
     if (!inviteInput.trim()) return;
-    
+
     setIsInviting(true);
     setInviteError('');
     setInviteSuccess(false);
@@ -81,6 +95,7 @@ export function BudgetPartnersDialog({
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px] max-h-[85vh] overflow-hidden flex flex-col p-0">
         <DialogHeader className="px-6 pt-6 pb-4">
@@ -109,7 +124,7 @@ export function BudgetPartnersDialog({
                     <li>• Your data stays encrypted — only you and your partner can read it</li>
                   </ul>
                   <p className="text-xs text-muted-foreground mt-2">
-                    💡 Learn more about Nostr in the <Menu className="h-3 w-3 inline mx-0.5" /> menu 
+                    💡 Learn more about Nostr in the <Menu className="h-3 w-3 inline mx-0.5" /> menu
                     under <strong>"Learn About Nostr"</strong>.
                   </p>
                 </div>
@@ -124,14 +139,14 @@ export function BudgetPartnersDialog({
               <div className="space-y-2">
                 {/* Owner */}
                 {ownerPubkey && (
-                  <PartnerRow 
-                    pubkey={ownerPubkey} 
+                  <PartnerRow
+                    pubkey={ownerPubkey}
                     isOwner={true}
                     isCurrentUser={user?.pubkey === ownerPubkey}
                     onRemove={undefined}
                   />
                 )}
-                
+
                 {/* Partners */}
                 {partnerPubkeys
                   .filter(pk => pk !== ownerPubkey)
@@ -182,8 +197,18 @@ export function BudgetPartnersDialog({
                       className="flex-1"
                       disabled={isInviting}
                     />
-                    <Button 
-                      onClick={handleInvite} 
+                    {/* QR Scan button - visible on tablet and mobile */}
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowQRScanner(true)}
+                      disabled={isInviting}
+                      className="lg:hidden"
+                      title="Scan QR code"
+                    >
+                      <ScanLine className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      onClick={handleInvite}
                       disabled={!inviteInput.trim() || isInviting}
                     >
                       {isInviting ? (
@@ -210,9 +235,9 @@ export function BudgetPartnersDialog({
                 <div className="p-3 rounded-lg bg-muted/50">
                   <p className="text-xs text-muted-foreground">
                     <strong>Don't have their Nostr address?</strong> Ask them to sign up at{' '}
-                    <a 
-                      href="https://primal.net/downloads" 
-                      target="_blank" 
+                    <a
+                      href="https://primal.net/downloads"
+                      target="_blank"
                       rel="noopener noreferrer"
                       className="text-primary hover:underline inline-flex items-center gap-0.5"
                     >
@@ -227,17 +252,27 @@ export function BudgetPartnersDialog({
         </div>
       </DialogContent>
     </Dialog>
+
+    {/* QR Scanner Dialog - placed outside main dialog to avoid nesting issues */}
+    <QRScanner
+      open={showQRScanner}
+      onOpenChange={setShowQRScanner}
+      onScan={handleQRScan}
+      title="Scan Partner's npub"
+      description="Scan a QR code containing your partner's Nostr address (npub)"
+    />
+    </>
   );
 }
 
 // Partner row component
-function PartnerRow({ 
-  pubkey, 
-  isOwner, 
+function PartnerRow({
+  pubkey,
+  isOwner,
   isCurrentUser,
-  onRemove 
-}: { 
-  pubkey: string; 
+  onRemove
+}: {
+  pubkey: string;
   isOwner: boolean;
   isCurrentUser: boolean;
   onRemove?: () => Promise<boolean>;
@@ -262,7 +297,7 @@ function PartnerRow({
         <AvatarImage src={picture} />
         <AvatarFallback>{displayName.slice(0, 2).toUpperCase()}</AvatarFallback>
       </Avatar>
-      
+
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <span className="font-medium text-sm truncate">{displayName}</span>
