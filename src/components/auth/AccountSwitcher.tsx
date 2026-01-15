@@ -20,6 +20,15 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useLoggedInAccounts, type Account } from '@/hooks/useLoggedInAccounts';
 import { genUserName } from '@/lib/genUserName';
 
+// LocalStorage keys that should be cleared on logout
+const LOGOUT_CLEAR_KEYS = [
+  'sat-sorter-budget',
+  'sat-sorter-onboarding',
+  'sat-sorter-location',
+  'sat-sorter-dismissed-invitations',
+  'sat-sorter-last-sync',
+];
+
 interface AccountSwitcherProps {
   onAddAccountClick?: () => void;
 }
@@ -52,7 +61,14 @@ export function AccountSwitcher({ onAddAccountClick: _onAddAccountClick }: Accou
       </DropdownMenuTrigger>
       <DropdownMenuContent className='w-56 p-2 animate-scale-in'>
         <DropdownMenuItem
-          onClick={() => removeLogin(currentUser.id)}
+          onClick={() => {
+            // Clear all user-specific budget data from localStorage
+            LOGOUT_CLEAR_KEYS.forEach(key => {
+              localStorage.removeItem(key);
+            });
+            // Remove the login
+            removeLogin(currentUser.id);
+          }}
           className='flex items-center gap-2 cursor-pointer p-2 rounded-md text-red-500'
         >
           <LogOut className='w-4 h-4' />
