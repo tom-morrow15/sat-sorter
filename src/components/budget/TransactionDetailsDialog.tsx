@@ -123,9 +123,9 @@ export function TransactionDetailsDialog({
     }
   };
 
-  // Get expense buckets (exclude income bucket)
-  const expenseBuckets = buckets.filter(b => !b.isIncome);
-  const selectedBucket = expenseBuckets.find(b => b.id === selectedBucketId);
+  // Get buckets based on transaction type (income or expense)
+  const relevantBuckets = buckets.filter(b => b.isIncome === transaction.isIncome);
+  const selectedBucket = relevantBuckets.find(b => b.id === selectedBucketId);
 
   const handleStartEdit = () => {
     // Pre-select current category if exists
@@ -149,7 +149,7 @@ export function TransactionDetailsDialog({
     }
   };
 
-  const canEdit = !!onUpdateCategory && expenseBuckets.length > 0;
+  const canEdit = !!onUpdateCategory && relevantBuckets.length > 0;
 
   return (
     <Dialog open={open} onOpenChange={(newOpen) => {
@@ -277,7 +277,12 @@ export function TransactionDetailsDialog({
 
                 {/* Category selection */}
                 <div className="space-y-2">
-                  <Label className="text-xs">Category</Label>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs">Category</Label>
+                    <span className="text-xs text-muted-foreground">
+                      {transaction.isIncome ? 'Income' : 'Expense'}
+                    </span>
+                  </div>
                   <Select
                     value={selectedBucketId}
                     onValueChange={(value) => {
@@ -289,7 +294,7 @@ export function TransactionDetailsDialog({
                       <SelectValue placeholder="Select a category..." />
                     </SelectTrigger>
                     <SelectContent>
-                      {expenseBuckets.map((bucket) => (
+                      {relevantBuckets.map((bucket) => (
                         <SelectItem key={bucket.id} value={bucket.id}>
                           <div className="flex items-center gap-2">
                             <div
