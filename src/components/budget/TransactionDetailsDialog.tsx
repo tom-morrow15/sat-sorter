@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -8,27 +9,52 @@ import {
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Copy, Check, ArrowDownLeft, ArrowUpRight, Wallet, Zap, Link2, Plus } from 'lucide-react';
-import { useState } from 'react';
-import type { Transaction } from '@/lib/budgetTypes';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Copy,
+  Check,
+  ArrowDownLeft,
+  ArrowUpRight,
+  Wallet,
+  Zap,
+  Link2,
+  Plus,
+  Pencil,
+  X,
+} from 'lucide-react';
+import type { Transaction, Bucket } from '@/lib/budgetTypes';
 import { cn } from '@/lib/utils';
 
 interface TransactionDetailsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   transaction: Transaction | null;
+  buckets?: Bucket[];
   bucketName?: string;
   lineItemName?: string;
+  onUpdateCategory?: (transactionId: string, bucketId: string, lineItemId: string) => void;
 }
 
 export function TransactionDetailsDialog({
   open,
   onOpenChange,
   transaction,
+  buckets = [],
   bucketName,
   lineItemName,
+  onUpdateCategory,
 }: TransactionDetailsDialogProps) {
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [isEditingCategory, setIsEditingCategory] = useState(false);
+  const [selectedBucketId, setSelectedBucketId] = useState<string>('');
+  const [selectedLineItemId, setSelectedLineItemId] = useState<string>('');
 
   if (!transaction) return null;
 
@@ -97,8 +123,44 @@ export function TransactionDetailsDialog({
     }
   };
 
+  // Get expense buckets (exclude income bucket)
+  const expenseBuckets = buckets.filter(b => !b.isIncome);
+  const selectedBucket = expenseBuckets.find(b => b.id === selectedBucketId);
+
+  const handleStartEdit = () => {
+    // Pre-select current category if exists
+    setSelectedBucketId(transaction.bucketId || '');
+    setSelectedLineItemId(transaction.lineItemId || '');
+    setIsEditingCategory(true);
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditingCategory(false);
+    setSelectedBucketId('');
+    setSelectedLineItemId('');
+  };
+
+  const handleSaveCategory = () => {
+    if (selectedBucketId && selectedLineItemId && onUpdateCategory) {
+      onUpdateCategory(transaction.id, selectedBucketId, selectedLineItemId);
+      setIsEditingCategory(false);
+      // Update the dialog display - close it to show the updated list
+      onOpenChange(false);
+    }
+  };
+
+  const canEdit = !!onUpdateCategory && expenseBuckets.length > 0;
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(newOpen) => {
+      if (!newOpen) {
+        // Reset edit state when closing
+        setIsEditingCategory(false);
+        setSelectedBucketId('');
+        setSelectedLineItemId('');
+      }
+      onOpenChange(newOpen);
+    }}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -135,21 +197,23 @@ export function TransactionDetailsDialog({
           </Card>
 
           {/* Source Information */}
-          <Card className={cn('p-4 border', getSourceColor())}>
-            <div className="flex items-start gap-3">
-              <div className="mt-0.5">{getSourceIcon()}</div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs uppercase tracking-wide font-medium opacity-70">Wallet Source</p>
-                <p className="text-lg font-bold">{getSourceLabel()}</p>
-                {transaction.source === 'nwc' && (
-                  <p className="text-xs opacity-75 mt-0.5">Lightning Wallet Connection</p>
-                )}
+          {transaction.source && (
+            <Card className={cn('p-4 border', getSourceColor())}>
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5">{getSourceIcon()}</div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs uppercase tracking-wide font-medium opacity-70">Wallet Source</p>
+                  <p className="text-lg font-bold">{getSourceLabel()}</p>
+                  {transaction.source === 'nwc' && (
+                    <p className="text-xs opacity-75 mt-0.5">Lightning Wallet Connection</p>
+                  )}
+                </div>
               </div>
-            </div>
-          </Card>
+            </Card>
+          )}
 
           {/* Payment Details (for NWC transactions) */}
-          {transaction.source === 'nwc' && (
+          {transaction.source === 'nwc' && transaction.paymentHash && (
             <Card className="p-4 bg-muted/30">
               <div className="space-y-3">
                 <div>
@@ -195,18 +259,114 @@ export function TransactionDetailsDialog({
             </Card>
           )}
 
-          {/* Category Assignment */}
-          {(bucketName || lineItemName) && (
-            <Card className="p-4 bg-muted/30">
+          {/* Category Assignment - Editable */}
+          <Card className="p-4 bg-muted/30">
+            {isEditingCategory ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide font-medium">Change Category</p>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 w-6 p-0"
+                    onClick={handleCancelEdit}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                {/* Category selection */}
+                <div className="space-y-2">
+                  <Label className="text-xs">Category</Label>
+                  <Select
+                    value={selectedBucketId}
+                    onValueChange={(value) => {
+                      setSelectedBucketId(value);
+                      setSelectedLineItemId('');
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a category..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {expenseBuckets.map((bucket) => (
+                        <SelectItem key={bucket.id} value={bucket.id}>
+                          <div className="flex items-center gap-2">
+                            <div
+                              className="h-3 w-3 rounded-full"
+                              style={{ backgroundColor: bucket.color }}
+                            />
+                            {bucket.name}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Line item selection */}
+                {selectedBucket && selectedBucket.lineItems.length > 0 && (
+                  <div className="space-y-2">
+                    <Label className="text-xs">Item</Label>
+                    <Select
+                      value={selectedLineItemId}
+                      onValueChange={setSelectedLineItemId}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select an item..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {selectedBucket.lineItems.map((item) => (
+                          <SelectItem key={item.id} value={item.id}>
+                            {item.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                <Button
+                  size="sm"
+                  onClick={handleSaveCategory}
+                  disabled={!selectedBucketId || !selectedLineItemId}
+                  className="w-full"
+                >
+                  <Check className="h-4 w-4 mr-2" />
+                  Save Category
+                </Button>
+              </div>
+            ) : (
               <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wide font-medium mb-2">Assigned To</p>
-                <div className="flex items-center gap-2">
-                  {bucketName && <Badge variant="secondary">{bucketName}</Badge>}
-                  {lineItemName && <Badge variant="secondary" className="font-normal">{lineItemName}</Badge>}
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide font-medium">Assigned To</p>
+                  {canEdit && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 px-2 text-xs"
+                      onClick={handleStartEdit}
+                    >
+                      <Pencil className="h-3 w-3 mr-1" />
+                      Change
+                    </Button>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {bucketName ? (
+                    <>
+                      <Badge variant="secondary">{bucketName}</Badge>
+                      {lineItemName && (
+                        <Badge variant="secondary" className="font-normal">{lineItemName}</Badge>
+                      )}
+                    </>
+                  ) : (
+                    <span className="text-sm text-muted-foreground italic">Not categorized</span>
+                  )}
                 </div>
               </div>
-            </Card>
-          )}
+            )}
+          </Card>
 
           {/* Transaction Status */}
           <div className="pt-2">

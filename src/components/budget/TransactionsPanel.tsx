@@ -855,10 +855,12 @@ export function TransactionsPanel({
           open={showDetailsDialog}
           onOpenChange={setShowDetailsDialog}
           transaction={selectedTransaction}
+          buckets={buckets}
           bucketName={buckets.find(b => b.id === selectedTransaction.bucketId)?.name}
           lineItemName={buckets
             .find(b => b.id === selectedTransaction.bucketId)
             ?.lineItems.find(l => l.id === selectedTransaction.lineItemId)?.name}
+          onUpdateCategory={onAssignTransaction}
         />
       )}
 
