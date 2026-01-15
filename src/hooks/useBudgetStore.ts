@@ -534,15 +534,13 @@ export function useBudgetStore() {
   // Subscribe to updates from partners when we have a shared budget
   useEffect(() => {
     if (!isLoggedIn || !isInitialLoadComplete || !nip44) return;
-    if (!state.isShared || !state.budgetId || !state.partnerPubkeys?.length) return;
+    if (!localState.isShared || !localState.budgetId || !localState.partnerPubkeys?.length) return;
 
     // Don't subscribe if we're currently saving (to avoid processing our own events)
     if (isSavingRef.current) return;
 
-    const myDTag = getSharedBudgetDTag(state.budgetId, user!.pubkey);
-
     // Get partner pubkeys (excluding ourselves)
-    const partnerAuthors = state.partnerPubkeys.filter(pk => pk !== user!.pubkey);
+    const partnerAuthors = localState.partnerPubkeys.filter(pk => pk !== user!.pubkey);
 
     if (partnerAuthors.length === 0) return;
 
@@ -578,7 +576,7 @@ export function useBudgetStore() {
               if (!remoteBudget || !Array.isArray(remoteBudget.budgets)) continue;
 
               const remoteVersion = remoteBudget.version || 1;
-              const localVersion = state.version || 1;
+              const localVersion = localState.version || 1;
 
               // Only process if this is actually newer
               if (remoteVersion > localVersion) {
@@ -589,7 +587,7 @@ export function useBudgetStore() {
                 });
 
                 // Check if we have unsaved local changes
-                const currentStateStr = JSON.stringify(state);
+                const currentStateStr = JSON.stringify(localState);
                 const hasLocalChanges = currentStateStr !== lastSavedStateRef.current;
 
                 if (hasLocalChanges) {
@@ -647,10 +645,11 @@ export function useBudgetStore() {
     nip44,
     nostr,
     user?.pubkey,
-    state.isShared,
-    state.budgetId,
-    state.partnerPubkeys?.join(','), // Use join to create stable dependency
-    state.version,
+    localState.isShared,
+    localState.budgetId,
+    localState.partnerPubkeys?.join(','), // Use join to create stable dependency
+    localState.version,
+    setLocalState,
   ]);
 
   // ============================================
