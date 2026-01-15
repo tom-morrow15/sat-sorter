@@ -96,6 +96,12 @@ export function useBudgetStore() {
   const isSavingRef = useRef(false);
   const isAcceptingInviteRef = useRef(false); // Prevent auto-save during invite acceptance
   const wasOfflineRef = useRef(!navigator.onLine);
+  const localStateRef = useRef(localState); // Ref to track current state for subscriptions
+
+  // Keep the ref updated with latest state
+  useEffect(() => {
+    localStateRef.current = localState;
+  }, [localState]);
 
   // Track online/offline status
   useEffect(() => {
@@ -623,7 +629,9 @@ export function useBudgetStore() {
               if (!remoteBudget || !Array.isArray(remoteBudget.budgets)) continue;
 
               const remoteVersion = remoteBudget.version || 1;
-              const localVersion = localState.version || 1;
+              // Use ref to get the CURRENT local state, not the stale closure value
+              const currentLocalState = localStateRef.current;
+              const localVersion = currentLocalState.version || 1;
 
               // Only process if this is actually newer
               if (remoteVersion > localVersion) {
@@ -633,12 +641,13 @@ export function useBudgetStore() {
                   localVersion,
                 });
 
-                // Check if we have unsaved local changes
-                const currentStateStr = JSON.stringify(localState);
+                // Check if we have unsaved local changes using the CURRENT state
+                const currentStateStr = JSON.stringify(currentLocalState);
                 const hasLocalChanges = currentStateStr !== lastSavedStateRef.current;
 
                 if (hasLocalChanges) {
                   // We have local changes AND remote is newer - conflict!
+                  console.log('[BudgetStore] Conflict detected - local changes exist');
                   setConflictInfo({
                     localVersion,
                     remoteVersion,
