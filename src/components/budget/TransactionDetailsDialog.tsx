@@ -127,6 +127,24 @@ export function TransactionDetailsDialog({
   const relevantBuckets = buckets.filter(b => b.isIncome === transaction.isIncome);
   const selectedBucket = relevantBuckets.find(b => b.id === selectedBucketId);
 
+  // Debug logging
+  console.log('[TransactionDetailsDialog] Dialog opened', {
+    transactionDescription: transaction.description,
+    transactionIsIncome: transaction.isIncome,
+    relevantBucketsCount: relevantBuckets.length,
+    relevantBuckets: relevantBuckets.map(b => ({ id: b.id, name: b.name, isIncome: b.isIncome })),
+    allBucketsCount: buckets.length,
+    allBuckets: buckets.map(b => ({ id: b.id, name: b.name, isIncome: b.isIncome })),
+  });
+
+  if (!relevantBuckets.length) {
+    console.warn('[TransactionDetailsDialog] No relevant buckets found!', {
+      transactionIsIncome: transaction.isIncome,
+      allBucketsCount: buckets.length,
+      allBuckets: buckets.map(b => ({ id: b.id, name: b.name, isIncome: b.isIncome })),
+    });
+  }
+
   const handleStartEdit = () => {
     // Pre-select current category if exists
     setSelectedBucketId(transaction.bucketId || '');
@@ -294,17 +312,25 @@ export function TransactionDetailsDialog({
                       <SelectValue placeholder="Select a category..." />
                     </SelectTrigger>
                     <SelectContent>
-                      {relevantBuckets.map((bucket) => (
-                        <SelectItem key={bucket.id} value={bucket.id}>
-                          <div className="flex items-center gap-2">
-                            <div
-                              className="h-3 w-3 rounded-full"
-                              style={{ backgroundColor: bucket.color }}
-                            />
-                            {bucket.name}
-                          </div>
-                        </SelectItem>
-                      ))}
+                      {relevantBuckets.length > 0 ? (
+                        relevantBuckets.map((bucket) => (
+                          <SelectItem key={bucket.id} value={bucket.id}>
+                            <div className="flex items-center gap-2">
+                              <div
+                                className="h-3 w-3 rounded-full"
+                                style={{ backgroundColor: bucket.color }}
+                              />
+                              {bucket.name}
+                            </div>
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                          {transaction.isIncome
+                            ? 'No income categories found. Create an Income bucket first.'
+                            : 'No expense categories found. Create an expense bucket first.'}
+                        </div>
+                      )}
                     </SelectContent>
                   </Select>
                 </div>

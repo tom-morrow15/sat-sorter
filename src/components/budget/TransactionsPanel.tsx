@@ -220,6 +220,11 @@ export function TransactionsPanel({
   const editBucket = buckets.find(b => b.id === editBucketId);
   const expenseBuckets = buckets.filter(b => !b.isIncome);
 
+  // Get relevant buckets based on selected transaction type (income or expense)
+  const relevantBuckets = selectedTransaction
+    ? buckets.filter(b => b.isIncome === selectedTransaction.isIncome)
+    : expenseBuckets;
+
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -654,7 +659,12 @@ export function TransactionsPanel({
 
               {/* Category selection */}
               <div className="space-y-2">
-                <Label>Category</Label>
+                <div className="flex items-center justify-between">
+                  <Label>Category</Label>
+                  <span className="text-xs text-muted-foreground">
+                    {selectedTransaction?.isIncome ? 'Income' : 'Expense'}
+                  </span>
+                </div>
                 <Select value={selectedBucketId} onValueChange={(value) => {
                   setSelectedBucketId(value);
                   setSelectedLineItemId('');
@@ -663,17 +673,25 @@ export function TransactionsPanel({
                     <SelectValue placeholder="Select a category..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {expenseBuckets.map((bucket) => (
-                      <SelectItem key={bucket.id} value={bucket.id}>
-                        <div className="flex items-center gap-2">
-                          <div
-                            className="h-3 w-3 rounded-full"
-                            style={{ backgroundColor: bucket.color }}
-                          />
-                          {bucket.name}
-                        </div>
-                      </SelectItem>
-                    ))}
+                    {relevantBuckets.length > 0 ? (
+                      relevantBuckets.map((bucket) => (
+                        <SelectItem key={bucket.id} value={bucket.id}>
+                          <div className="flex items-center gap-2">
+                            <div
+                              className="h-3 w-3 rounded-full"
+                              style={{ backgroundColor: bucket.color }}
+                            />
+                            {bucket.name}
+                          </div>
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                        {selectedTransaction?.isIncome
+                          ? 'No income categories found. Create an Income bucket first.'
+                          : 'No expense categories found. Create an expense bucket first.'}
+                      </div>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -798,7 +816,7 @@ export function TransactionsPanel({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__UNASSIGNED__">Unassigned</SelectItem>
-                    {expenseBuckets.map((bucket) => (
+                    {relevantBuckets.map((bucket) => (
                       <SelectItem key={bucket.id} value={bucket.id}>
                         {bucket.name}
                       </SelectItem>
