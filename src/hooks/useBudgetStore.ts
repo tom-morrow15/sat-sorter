@@ -1127,6 +1127,29 @@ export function useBudgetStore() {
   // INVITATION SYSTEM (Phase 2)
   // ============================================
 
+  // Track dismissed invitation IDs in localStorage to prevent them from reappearing
+  const getDismissedInvitationIds = useCallback((): string[] => {
+    try {
+      const stored = localStorage.getItem('sat-sorter-dismissed-invitations');
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  }, []);
+
+  const addDismissedInvitationId = useCallback((invitationId: string) => {
+    try {
+      const current = getDismissedInvitationIds();
+      if (!current.includes(invitationId)) {
+        // Keep only the last 50 dismissed IDs to prevent unbounded growth
+        const updated = [...current, invitationId].slice(-50);
+        localStorage.setItem('sat-sorter-dismissed-invitations', JSON.stringify(updated));
+      }
+    } catch {
+      // Ignore localStorage errors
+    }
+  }, [getDismissedInvitationIds]);
+
   // Fetch pending invitations for current user
   const fetchPendingInvitations = useCallback(async () => {
     if (!user?.pubkey || !nip44) return;
@@ -1140,14 +1163,27 @@ export function useBudgetStore() {
         },
       ], { signal: AbortSignal.timeout(10000) });
 
+      const dismissedIds = getDismissedInvitationIds();
       const invitations: PendingInvitation[] = [];
 
       for (const event of events) {
+        // Skip already dismissed invitations
+        if (dismissedIds.includes(event.id)) {
+          continue;
+        }
+
         try {
           const decrypted = await nip44.decrypt(event.pubkey, event.content);
           const invitation: BudgetInvitation = JSON.parse(decrypted);
 
           if (invitation.type === 'budget-invite') {
+            // Skip if we're already a partner in this budget (invitation was accepted)
+            if (state.budgetId === invitation.budgetId && state.partnerPubkeys?.includes(user.pubkey)) {
+              // Auto-dismiss this invitation since we're already part of the budget
+              addDismissedInvitationId(event.id);
+              continue;
+            }
+
             invitations.push({
               id: event.id,
               invitation,
@@ -1165,7 +1201,7 @@ export function useBudgetStore() {
     } catch {
       console.error('[BudgetStore] Failed to fetch invitations');
     }
-  }, [user?.pubkey, nip44, nostr]);
+  }, [user?.pubkey, nip44, nostr, state.budgetId, state.partnerPubkeys, getDismissedInvitationIds, addDismissedInvitationId]);
 
   // Send invitation to a partner and share the budget with them
   const invitePartner = useCallback(async (npubOrNip05: string): Promise<boolean> => {
@@ -1423,6 +1459,8 @@ export function useBudgetStore() {
         // CRITICAL: Set lastSavedStateRef to prevent auto-save from pushing empty budget
         lastSavedStateRef.current = JSON.stringify(fallbackState);
 
+        // Persist dismissal so it doesn't reappear after refresh
+        addDismissedInvitationId(invitation.id);
         setPendingInvitations(prev => prev.filter(inv => inv.id !== invitation.id));
         return true;
       }
@@ -1473,7 +1511,8 @@ export function useBudgetStore() {
         lastSavedStateRef.current = JSON.stringify(fallbackState);
       }
 
-      // Remove from pending invitations
+      // Remove from pending invitations and persist dismissal
+      addDismissedInvitationId(invitation.id);
       setPendingInvitations(prev => prev.filter(inv => inv.id !== invitation.id));
 
       console.log('[BudgetStore] Accepted invitation from', invitation.fromPubkey);
@@ -1487,14 +1526,16 @@ export function useBudgetStore() {
         isAcceptingInviteRef.current = false;
       }, 500);
     }
-  }, [user?.pubkey, nip44, nostr, setLocalState]);
+  }, [user?.pubkey, nip44, nostr, setLocalState, addDismissedInvitationId]);
 
   // Decline an invitation
   const declineInvitation = useCallback(async (invitation: PendingInvitation): Promise<boolean> => {
-    // Just remove from local list - we don't need to notify the sender
+    // Persist dismissal so it doesn't reappear after refresh
+    addDismissedInvitationId(invitation.id);
+    // Remove from local list - we don't need to notify the sender
     setPendingInvitations(prev => prev.filter(inv => inv.id !== invitation.id));
     return true;
-  }, []);
+  }, [addDismissedInvitationId]);
 
   // Remove a partner (owner only)
   const removePartner = useCallback(async (partnerPubkey: string): Promise<boolean> => {
