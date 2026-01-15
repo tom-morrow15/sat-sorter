@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Bitcoin, DollarSign, ChevronLeft, ChevronRight, Wallet, Moon, Sun, Zap, Calendar, Menu, Info, Heart, ExternalLink, Shield, Globe, GraduationCap, LogIn, Wifi, Loader2, Check, AlertCircle, HelpCircle, Download, BookOpen, MessageSquare, RotateCcw, Key, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { useAuthor } from '@/hooks/useAuthor';
+import { genUserName } from '@/lib/genUserName';
 import {
   Dialog,
   DialogContent,
@@ -63,6 +65,8 @@ interface BudgetHeaderProps {
   isShared?: boolean;
   ownerPubkey?: string;
   partnerPubkeys?: string[];
+  lastEditedBy?: string;
+  lastEditedAt?: number;
   onInvitePartner?: (npub: string) => Promise<boolean>;
   onRemovePartner?: (pubkey: string) => Promise<boolean>;
 }
@@ -84,6 +88,8 @@ export function BudgetHeader({
   isShared = false,
   ownerPubkey,
   partnerPubkeys = [],
+  lastEditedBy,
+  lastEditedAt,
   onInvitePartner,
   onRemovePartner,
 }: BudgetHeaderProps) {
@@ -524,6 +530,17 @@ export function BudgetHeader({
               </Tooltip>
             )}
           </div>
+
+          {/* Shared Budget Indicator */}
+          {isShared && partnerPubkeys.length > 1 && (
+            <SharedBudgetIndicator
+              partnerPubkeys={partnerPubkeys}
+              lastEditedBy={lastEditedBy}
+              lastEditedAt={lastEditedAt}
+              currentUserPubkey={user?.pubkey}
+              onOpenPartners={() => setShowBudgetPartners(true)}
+            />
+          )}
 
           {/* Zero-based budget indicator - only show for special states */}
           <div className="flex justify-center">
@@ -1337,5 +1354,69 @@ export function BudgetHeader({
         </DialogContent>
       </Dialog>
     </header>
+  );
+}
+
+// Helper component for shared budget indicator with last edited info
+function SharedBudgetIndicator({
+  partnerPubkeys,
+  lastEditedBy,
+  lastEditedAt,
+  currentUserPubkey,
+  onOpenPartners,
+}: {
+  partnerPubkeys: string[];
+  lastEditedBy?: string;
+  lastEditedAt?: number;
+  currentUserPubkey?: string;
+  onOpenPartners: () => void;
+}) {
+  // Fetch the name of the last editor
+  const lastEditor = useAuthor(lastEditedBy || '');
+  const lastEditorName = useMemo(() => {
+    if (!lastEditedBy) return null;
+    if (lastEditedBy === currentUserPubkey) return 'you';
+    return lastEditor.data?.metadata?.name ||
+           lastEditor.data?.metadata?.display_name ||
+           genUserName(lastEditedBy);
+  }, [lastEditedBy, currentUserPubkey, lastEditor.data]);
+
+  // Format relative time
+  const relativeTime = useMemo(() => {
+    if (!lastEditedAt) return null;
+    const now = Math.floor(Date.now() / 1000);
+    const diff = now - lastEditedAt;
+
+    if (diff < 60) return 'just now';
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+    if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
+    return new Date(lastEditedAt * 1000).toLocaleDateString();
+  }, [lastEditedAt]);
+
+  return (
+    <div className="flex justify-center">
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            onClick={onOpenPartners}
+            className="inline-flex flex-col items-center gap-0.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <span className="inline-flex items-center gap-1.5">
+              <Users className="h-3 w-3" />
+              <span>Shared with {partnerPubkeys.length - 1} {partnerPubkeys.length === 2 ? 'partner' : 'partners'}</span>
+            </span>
+            {lastEditorName && relativeTime && (
+              <span className="text-[10px] text-muted-foreground/70">
+                Last edited by {lastEditorName} • {relativeTime}
+              </span>
+            )}
+          </button>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>This is a shared budget. Click to manage partners.</p>
+        </TooltipContent>
+      </Tooltip>
+    </div>
   );
 }

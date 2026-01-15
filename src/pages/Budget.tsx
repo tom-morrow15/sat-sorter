@@ -84,6 +84,9 @@ export default function Budget() {
     acceptInvitation,
     declineInvitation,
     removePartner,
+    // Version info
+    lastEditedBy,
+    lastEditedAt,
   } = useBudgetStoreContext();
 
   // Initialize NWC sync - only after initial budget load is complete
@@ -169,6 +172,8 @@ export default function Budget() {
         isShared={isSharedBudget}
         ownerPubkey={ownerPubkey}
         partnerPubkeys={partnerPubkeys}
+        lastEditedBy={lastEditedBy}
+        lastEditedAt={lastEditedAt}
         onInvitePartner={invitePartner}
         onRemovePartner={removePartner}
       />

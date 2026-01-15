@@ -26,6 +26,10 @@ const BUDGET_KIND = 30078; // NIP-78 Application-specific data
 const INVITE_KIND = 10078; // Budget invitation events
 const AUTO_SAVE_DEBOUNCE_MS = 2000; // 2 seconds after last change
 
+// Helper to create d-tag for shared budgets (gift-wrapped to specific recipient)
+const getSharedBudgetDTag = (budgetId: string, forPubkey: string) =>
+  `sat-sorter/shared-budget/${budgetId}/for/${forPubkey}`;
+
 const DEFAULT_STATE: BudgetState = {
   currentMonth: getCurrentMonth(),
   budgets: [],
@@ -113,59 +117,184 @@ export function useBudgetStore() {
   // RELAY OPERATIONS
   // ============================================
 
-  // Fetch budget from relays
-  const fetchFromRelays = useCallback(async (): Promise<BudgetState | null> => {
+  // Fetch budget from relays (checks both personal and shared budgets)
+  const fetchFromRelays = useCallback(async (knownBudgetId?: string, knownPartners?: string[]): Promise<BudgetState | null> => {
     if (!user?.pubkey || !nip44) return null;
 
     try {
+      const queries: Promise<import('@nostrify/nostrify').NostrEvent[]>[] = [];
+
+      // Query 1: Personal budget (authored by us with our d-tag)
+      queries.push(
+        nostr.query([
+          {
+            kinds: [BUDGET_KIND],
+            authors: [user.pubkey],
+            '#d': [APP_IDENTIFIER],
+            limit: 1,
+          },
+        ], { signal: AbortSignal.timeout(15000) })
+      );
+
+      // Query 2: Shared budgets where we're tagged as a collaborator
+      queries.push(
+        nostr.query([
+          {
+            kinds: [BUDGET_KIND],
+            '#p': [user.pubkey],
+            limit: 10,
+          },
+        ], { signal: AbortSignal.timeout(15000) })
+      );
+
+      // Query 3: If we know the budget ID, also look for our specific copy
+      if (knownBudgetId) {
+        const mySharedDTag = getSharedBudgetDTag(knownBudgetId, user.pubkey);
+        queries.push(
+          nostr.query([
+            {
+              kinds: [BUDGET_KIND],
+              '#d': [mySharedDTag],
+              limit: 5,
+            },
+          ], { signal: AbortSignal.timeout(15000) })
+        );
+
+        // Also query for copies written by partners
+        if (knownPartners && knownPartners.length > 0) {
+          for (const partnerPubkey of knownPartners) {
+            if (partnerPubkey !== user.pubkey) {
+              queries.push(
+                nostr.query([
+                  {
+                    kinds: [BUDGET_KIND],
+                    authors: [partnerPubkey],
+                    '#p': [user.pubkey],
+                    limit: 3,
+                  },
+                ], { signal: AbortSignal.timeout(15000) })
+              );
+            }
+          }
+        }
+      }
+
+      const results = await Promise.all(queries);
+      const allEvents = results.flat();
+
+      console.log('[BudgetStore] Fetched', allEvents.length, 'total budget events from relays');
+
+      if (allEvents.length === 0) {
+        return null;
+      }
+
+      // Deduplicate events by ID
+      const uniqueEvents = Array.from(new Map(allEvents.map(e => [e.id, e])).values());
+
+      // Try to decrypt each event and find the best one
+      // Priority: highest version number among successfully decrypted budgets
+      let bestBudget: BudgetState | null = null;
+      let bestTimestamp = 0;
+      let bestVersion = 0;
+
+      for (const event of uniqueEvents) {
+        try {
+          // For personal budgets, decrypt with our own pubkey
+          // For shared budgets, the author encrypted it to us, so decrypt with author's pubkey
+          const decryptPubkey = event.pubkey === user.pubkey ? user.pubkey : event.pubkey;
+          const decrypted = await nip44.decrypt(decryptPubkey, event.content);
+          const budgetData: BudgetState = JSON.parse(decrypted);
+
+          if (!budgetData || !Array.isArray(budgetData.budgets)) {
+            continue;
+          }
+
+          // Ensure version is set
+          if (!budgetData.version) {
+            budgetData.version = 1;
+          }
+
+          // Ensure budgetId is set
+          if (!budgetData.budgetId) {
+            budgetData.budgetId = generateId();
+          }
+
+          const eventVersion = budgetData.version || 1;
+
+          // Prefer higher version, then newer timestamp
+          const isBetter = eventVersion > bestVersion ||
+            (eventVersion === bestVersion && event.created_at > bestTimestamp);
+
+          if (!bestBudget || isBetter) {
+            bestBudget = budgetData;
+            bestTimestamp = event.created_at;
+            bestVersion = eventVersion;
+          }
+        } catch (e) {
+          // Failed to decrypt this event - might not be for us, skip it
+          console.debug('[BudgetStore] Could not decrypt event', event.id);
+          continue;
+        }
+      }
+
+      if (bestBudget) {
+        console.log('[BudgetStore] Successfully loaded budget from relays', {
+          budgetCount: bestBudget.budgets.length,
+          currentMonth: bestBudget.currentMonth,
+          version: bestBudget.version,
+          isShared: bestBudget.isShared,
+          partners: bestBudget.partnerPubkeys?.length || 0,
+          timestamp: bestTimestamp,
+        });
+        setLastSyncedAt(bestTimestamp);
+      }
+
+      return bestBudget;
+    } catch (e) {
+      console.error('[BudgetStore] Error fetching from relays:', e);
+      return null;
+    }
+  }, [user?.pubkey, nip44, nostr]);
+
+  // Fetch the latest version of a specific shared budget
+  const fetchSharedBudget = useCallback(async (budgetId: string, collaboratorPubkeys: string[]): Promise<BudgetState | null> => {
+    if (!user?.pubkey || !nip44) return null;
+
+    try {
+      // Query for all collaborator copies of this budget
+      const dTags = collaboratorPubkeys.map(pk => getSharedBudgetDTag(budgetId, pk));
+
       const events = await nostr.query([
         {
           kinds: [BUDGET_KIND],
-          authors: [user.pubkey],
-          '#d': [APP_IDENTIFIER],
-          limit: 1,
+          '#d': dTags,
+          limit: collaboratorPubkeys.length * 2,
         },
       ], { signal: AbortSignal.timeout(15000) });
 
-      console.log('[BudgetStore] Fetched', events.length, 'events from relays');
+      if (events.length === 0) return null;
 
-      if (events.length === 0) {
-        return null;
+      // Find the newest version we can decrypt
+      let bestBudget: BudgetState | null = null;
+
+      for (const event of events.sort((a, b) => b.created_at - a.created_at)) {
+        try {
+          const decryptPubkey = event.pubkey === user.pubkey ? user.pubkey : event.pubkey;
+          const decrypted = await nip44.decrypt(decryptPubkey, event.content);
+          const budget: BudgetState = JSON.parse(decrypted);
+
+          if (budget && Array.isArray(budget.budgets)) {
+            if (!bestBudget || (budget.version || 0) > (bestBudget.version || 0)) {
+              bestBudget = budget;
+            }
+          }
+        } catch {
+          continue;
+        }
       }
 
-      // Get the most recent event
-      const latestEvent = events.sort((a, b) => b.created_at - a.created_at)[0];
-
-      const decrypted = await nip44.decrypt(user.pubkey, latestEvent.content);
-      const budgetData: BudgetState = JSON.parse(decrypted);
-
-      if (!budgetData || !Array.isArray(budgetData.budgets)) {
-        console.warn('[BudgetStore] Invalid budget data from relays');
-        return null;
-      }
-
-      // Ensure version is set (for backwards compatibility with existing budgets)
-      if (!budgetData.version) {
-        budgetData.version = 1;
-      }
-
-      // Ensure budgetId is set
-      if (!budgetData.budgetId) {
-        budgetData.budgetId = generateId();
-      }
-
-      console.log('[BudgetStore] Successfully loaded budget from relays', {
-        budgetCount: budgetData.budgets.length,
-        currentMonth: budgetData.currentMonth,
-        version: budgetData.version,
-        timestamp: latestEvent.created_at,
-      });
-
-      setLastSyncedAt(latestEvent.created_at);
-      return budgetData;
+      return bestBudget;
     } catch {
-      // Silently fail - expected when relays are unavailable
-      // Will fall back to local storage
       return null;
     }
   }, [user?.pubkey, nip44, nostr]);
@@ -175,7 +304,16 @@ export function useBudgetStore() {
     if (!user?.pubkey || !nip44) return null;
 
     try {
-      const remoteBudget = await fetchFromRelays();
+      let remoteBudget: BudgetState | null = null;
+
+      // For shared budgets, check all collaborator copies
+      if (localState.isShared && localState.budgetId && localState.partnerPubkeys?.length) {
+        remoteBudget = await fetchSharedBudget(localState.budgetId, localState.partnerPubkeys);
+      } else {
+        // Personal budget
+        remoteBudget = await fetchFromRelays();
+      }
+
       if (!remoteBudget) return null;
 
       const localVersion = localState.version || 1;
@@ -191,9 +329,9 @@ export function useBudgetStore() {
     } catch {
       return null;
     }
-  }, [user?.pubkey, nip44, fetchFromRelays]);
+  }, [user?.pubkey, nip44, fetchFromRelays, fetchSharedBudget]);
 
-  // Save budget to relays
+  // Save budget to relays (publishes to all collaborators if shared)
   const saveToRelays = useCallback(async (state: BudgetState, skipConflictCheck = false): Promise<boolean> => {
     if (!user?.pubkey || !nip44) return false;
     if (isSavingRef.current) return false; // Prevent concurrent saves
@@ -230,16 +368,52 @@ export function useBudgetStore() {
       };
 
       const plaintext = JSON.stringify(updatedState);
-      const encrypted = await nip44.encrypt(user.pubkey, plaintext);
 
-      await publish({
-        kind: BUDGET_KIND,
-        content: encrypted,
-        tags: [
-          ['d', APP_IDENTIFIER],
-          ['alt', 'Sat Sorter budget data (encrypted)'],
-        ],
-      });
+      // If shared, publish encrypted copies to ALL collaborators (gift-wrap pattern)
+      if (updatedState.isShared && updatedState.partnerPubkeys && updatedState.partnerPubkeys.length > 0) {
+        console.log('[BudgetStore] Publishing shared budget to', updatedState.partnerPubkeys.length, 'collaborators');
+
+        // Publish a copy for each collaborator
+        for (const collaboratorPubkey of updatedState.partnerPubkeys) {
+          try {
+            const encryptedForCollaborator = await nip44.encrypt(collaboratorPubkey, plaintext);
+
+            // Build tags - include all collaborators as 'p' tags for discoverability
+            const tags: string[][] = [
+              ['d', getSharedBudgetDTag(updatedState.budgetId!, collaboratorPubkey)],
+              ['alt', 'Sat Sorter shared budget data (encrypted)'],
+            ];
+
+            // Add all collaborators as p tags
+            for (const pk of updatedState.partnerPubkeys) {
+              tags.push(['p', pk]);
+            }
+
+            await publish({
+              kind: BUDGET_KIND,
+              content: encryptedForCollaborator,
+              tags,
+            });
+
+            console.log('[BudgetStore] Published shared budget copy for', collaboratorPubkey.slice(0, 8) + '...');
+          } catch (e) {
+            console.error('[BudgetStore] Failed to publish to collaborator', collaboratorPubkey.slice(0, 8), e);
+            // Continue with other collaborators even if one fails
+          }
+        }
+      } else {
+        // Personal budget - just encrypt to self
+        const encrypted = await nip44.encrypt(user.pubkey, plaintext);
+
+        await publish({
+          kind: BUDGET_KIND,
+          content: encrypted,
+          tags: [
+            ['d', APP_IDENTIFIER],
+            ['alt', 'Sat Sorter budget data (encrypted)'],
+          ],
+        });
+      }
 
       const now = Math.floor(Date.now() / 1000);
       setLastSyncedAt(now);
@@ -279,7 +453,11 @@ export function useBudgetStore() {
       setSyncStatus('loading');
       console.log('[BudgetStore] Loading budget from relays...');
 
-      const relayData = await fetchFromRelays();
+      // Pass known budget ID and partners if available from local cache
+      const relayData = await fetchFromRelays(
+        localState.budgetId,
+        localState.partnerPubkeys
+      );
 
       if (relayData) {
         // Relay has data - use it and update local cache
@@ -699,7 +877,12 @@ export function useBudgetStore() {
     if (!isLoggedIn) return false;
 
     setSyncStatus('loading');
-    const relayData = await fetchFromRelays();
+
+    // Pass known budget ID and partners for better shared budget discovery
+    const relayData = await fetchFromRelays(
+      state.budgetId,
+      state.partnerPubkeys
+    );
 
     if (relayData) {
       setLocalState(relayData);
@@ -712,7 +895,7 @@ export function useBudgetStore() {
       setTimeout(() => setSyncStatus('idle'), 3000);
       return false;
     }
-  }, [isLoggedIn, fetchFromRelays, setLocalState]);
+  }, [isLoggedIn, fetchFromRelays, setLocalState, state.budgetId, state.partnerPubkeys]);
 
   // Force save to relays (manual trigger)
   const forceSaveToRelays = useCallback(async () => {
@@ -799,7 +982,7 @@ export function useBudgetStore() {
     }
   }, [user?.pubkey, nip44, nostr]);
 
-  // Send invitation to a partner
+  // Send invitation to a partner and share the budget with them
   const invitePartner = useCallback(async (npubOrNip05: string): Promise<boolean> => {
     if (!user?.pubkey || !nip44) return false;
 
@@ -817,60 +1000,178 @@ export function useBudgetStore() {
         throw new Error('Please use an npub address for now');
       }
 
-      // Create invitation
+      // Prevent inviting yourself
+      if (partnerPubkey === user.pubkey) {
+        throw new Error("You can't invite yourself");
+      }
+
+      const budgetId = state.budgetId || generateId();
       const budgetName = `Budget - ${new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`;
+
+      // Create invitation event
       const invitation: BudgetInvitation = {
         type: 'budget-invite',
-        budgetId: state.budgetId || generateId(),
+        budgetId,
         budgetName,
         ownerPubkey: user.pubkey,
         createdAt: Math.floor(Date.now() / 1000),
       };
 
       // Encrypt and publish invitation
-      const encrypted = await nip44.encrypt(partnerPubkey, JSON.stringify(invitation));
+      const encryptedInvite = await nip44.encrypt(partnerPubkey, JSON.stringify(invitation));
 
       await publish({
         kind: INVITE_KIND,
-        content: encrypted,
+        content: encryptedInvite,
         tags: [
           ['p', partnerPubkey],
-          ['d', `budget-invite-${invitation.budgetId}`],
+          ['d', `budget-invite-${budgetId}`],
           ['alt', 'Sat Sorter budget invitation (encrypted)'],
         ],
       });
 
+      console.log('[BudgetStore] Invitation sent to', partnerPubkey.slice(0, 8) + '...');
+
       // Update local state to mark as shared and add partner
-      setLocalState(prev => ({
-        ...prev,
-        budgetId: invitation.budgetId,
+      const newPartnerPubkeys = [...(state.partnerPubkeys || []), user.pubkey, partnerPubkey]
+        .filter((v, i, a) => a.indexOf(v) === i);
+
+      const updatedState: BudgetState = {
+        ...state,
+        budgetId,
         isShared: true,
         ownerPubkey: user.pubkey,
-        partnerPubkeys: [...(prev.partnerPubkeys || []), user.pubkey, partnerPubkey].filter((v, i, a) => a.indexOf(v) === i),
-      }));
+        partnerPubkeys: newPartnerPubkeys,
+        version: (state.version || 0) + 1,
+        lastEditedBy: user.pubkey,
+        lastEditedAt: Math.floor(Date.now() / 1000),
+      };
 
-      console.log('[BudgetStore] Invitation sent to', partnerPubkey);
+      // CRITICAL: Immediately publish the budget encrypted to the new partner
+      // This is the "gift-wrap" pattern - they get their own encrypted copy
+      const plaintext = JSON.stringify(updatedState);
+
+      for (const collaboratorPubkey of newPartnerPubkeys) {
+        try {
+          const encryptedBudget = await nip44.encrypt(collaboratorPubkey, plaintext);
+
+          const tags: string[][] = [
+            ['d', getSharedBudgetDTag(budgetId, collaboratorPubkey)],
+            ['alt', 'Sat Sorter shared budget data (encrypted)'],
+          ];
+
+          // Add all collaborators as p tags for discoverability
+          for (const pk of newPartnerPubkeys) {
+            tags.push(['p', pk]);
+          }
+
+          await publish({
+            kind: BUDGET_KIND,
+            content: encryptedBudget,
+            tags,
+          });
+
+          console.log('[BudgetStore] Published shared budget to', collaboratorPubkey.slice(0, 8) + '...');
+        } catch (e) {
+          console.error('[BudgetStore] Failed to publish budget to', collaboratorPubkey.slice(0, 8), e);
+        }
+      }
+
+      // Update local state
+      setLocalState(updatedState);
+      lastSavedStateRef.current = plaintext;
+
+      console.log('[BudgetStore] Budget shared with partner successfully');
       return true;
     } catch (error) {
       console.error('[BudgetStore] Failed to send invitation:', error);
       return false;
     }
-  }, [user?.pubkey, nip44, state.budgetId, publish, setLocalState]);
+  }, [user?.pubkey, nip44, state, publish, setLocalState]);
 
-  // Accept an invitation
+  // Accept an invitation and fetch the shared budget
   const acceptInvitation = useCallback(async (invitation: PendingInvitation): Promise<boolean> => {
     if (!user?.pubkey || !nip44) return false;
 
     try {
-      // For now, just mark the budget as shared and add self as partner
-      // In Phase 3, we'll fetch the actual shared budget
-      setLocalState(prev => ({
-        ...prev,
-        budgetId: invitation.invitation.budgetId,
-        isShared: true,
-        ownerPubkey: invitation.invitation.ownerPubkey,
-        partnerPubkeys: [invitation.invitation.ownerPubkey, user.pubkey],
-      }));
+      const { budgetId, ownerPubkey } = invitation.invitation;
+
+      console.log('[BudgetStore] Accepting invitation for budget', budgetId, 'from', ownerPubkey.slice(0, 8) + '...');
+
+      // Fetch the shared budget that was encrypted to us
+      // The owner should have published a copy with our pubkey in the d-tag
+      const sharedBudgetDTag = getSharedBudgetDTag(budgetId, user.pubkey);
+
+      const events = await nostr.query([
+        {
+          kinds: [BUDGET_KIND],
+          authors: [ownerPubkey],
+          '#d': [sharedBudgetDTag],
+          limit: 1,
+        },
+      ], { signal: AbortSignal.timeout(15000) });
+
+      console.log('[BudgetStore] Found', events.length, 'shared budget events');
+
+      if (events.length === 0) {
+        // Budget not found - maybe owner hasn't published it yet, or relay issues
+        // Still mark as shared so user can try refreshing later
+        console.warn('[BudgetStore] Shared budget not found on relays, will sync on next refresh');
+
+        setLocalState(prev => ({
+          ...prev,
+          budgetId,
+          isShared: true,
+          ownerPubkey,
+          partnerPubkeys: [ownerPubkey, user.pubkey],
+        }));
+
+        setPendingInvitations(prev => prev.filter(inv => inv.id !== invitation.id));
+        return true;
+      }
+
+      // Decrypt the shared budget
+      const latestEvent = events.sort((a, b) => b.created_at - a.created_at)[0];
+
+      try {
+        const decrypted = await nip44.decrypt(ownerPubkey, latestEvent.content);
+        const sharedBudget: BudgetState = JSON.parse(decrypted);
+
+        if (!sharedBudget || !Array.isArray(sharedBudget.budgets)) {
+          throw new Error('Invalid budget data');
+        }
+
+        // Ensure we're added to the partner list
+        const partnerPubkeys = [...(sharedBudget.partnerPubkeys || []), user.pubkey]
+          .filter((v, i, a) => a.indexOf(v) === i);
+
+        const updatedBudget: BudgetState = {
+          ...sharedBudget,
+          partnerPubkeys,
+        };
+
+        // Update local state with the shared budget
+        setLocalState(updatedBudget);
+        lastSavedStateRef.current = JSON.stringify(updatedBudget);
+        setLastSyncedAt(latestEvent.created_at);
+
+        console.log('[BudgetStore] Successfully loaded shared budget', {
+          budgetId,
+          version: sharedBudget.version,
+          partners: partnerPubkeys.length,
+        });
+
+      } catch (e) {
+        console.error('[BudgetStore] Failed to decrypt shared budget:', e);
+        // Still mark as shared for manual retry
+        setLocalState(prev => ({
+          ...prev,
+          budgetId,
+          isShared: true,
+          ownerPubkey,
+          partnerPubkeys: [ownerPubkey, user.pubkey],
+        }));
+      }
 
       // Remove from pending invitations
       setPendingInvitations(prev => prev.filter(inv => inv.id !== invitation.id));
@@ -881,7 +1182,7 @@ export function useBudgetStore() {
       console.error('[BudgetStore] Failed to accept invitation:', error);
       return false;
     }
-  }, [user?.pubkey, nip44, setLocalState]);
+  }, [user?.pubkey, nip44, nostr, setLocalState]);
 
   // Decline an invitation
   const declineInvitation = useCallback(async (invitation: PendingInvitation): Promise<boolean> => {
@@ -893,15 +1194,56 @@ export function useBudgetStore() {
   // Remove a partner (owner only)
   const removePartner = useCallback(async (partnerPubkey: string): Promise<boolean> => {
     if (!user?.pubkey || user.pubkey !== state.ownerPubkey) return false;
+    if (!nip44) return false;
 
-    setLocalState(prev => ({
-      ...prev,
-      partnerPubkeys: (prev.partnerPubkeys || []).filter(pk => pk !== partnerPubkey),
-      isShared: (prev.partnerPubkeys || []).filter(pk => pk !== partnerPubkey).length > 1,
-    }));
+    const newPartnerPubkeys = (state.partnerPubkeys || []).filter(pk => pk !== partnerPubkey);
+    const isStillShared = newPartnerPubkeys.length > 1;
 
+    // Update local state first
+    const updatedState: BudgetState = {
+      ...state,
+      partnerPubkeys: newPartnerPubkeys,
+      isShared: isStillShared,
+      version: (state.version || 0) + 1,
+      lastEditedBy: user.pubkey,
+      lastEditedAt: Math.floor(Date.now() / 1000),
+    };
+
+    setLocalState(updatedState);
+
+    // Re-publish to remaining collaborators (excluding the removed one)
+    if (isStillShared && state.budgetId) {
+      const plaintext = JSON.stringify(updatedState);
+
+      for (const collaboratorPubkey of newPartnerPubkeys) {
+        try {
+          const encrypted = await nip44.encrypt(collaboratorPubkey, plaintext);
+
+          const tags: string[][] = [
+            ['d', getSharedBudgetDTag(state.budgetId, collaboratorPubkey)],
+            ['alt', 'Sat Sorter shared budget data (encrypted)'],
+          ];
+
+          for (const pk of newPartnerPubkeys) {
+            tags.push(['p', pk]);
+          }
+
+          await publish({
+            kind: BUDGET_KIND,
+            content: encrypted,
+            tags,
+          });
+        } catch (e) {
+          console.error('[BudgetStore] Failed to update budget for', collaboratorPubkey.slice(0, 8), e);
+        }
+      }
+
+      console.log('[BudgetStore] Removed partner and updated shared budget');
+    }
+
+    lastSavedStateRef.current = JSON.stringify(updatedState);
     return true;
-  }, [user?.pubkey, state.ownerPubkey, setLocalState]);
+  }, [user?.pubkey, state, nip44, publish, setLocalState]);
 
   // Check for invitations on login
   useEffect(() => {
