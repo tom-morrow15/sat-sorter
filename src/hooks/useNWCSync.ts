@@ -327,13 +327,14 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
 
     try {
       // Fetch transactions from the wallet using our direct NWC implementation
-      // Use a buffer of 1 hour before the last transaction timestamp to catch any stragglers
-      // This helps with transactions that may have been settling while we synced
+      // Use lastSyncedAt (when we last synced) as the starting point
+      // This ensures we only fetch NEW transactions since our last sync
+      // A small buffer of 5 minutes is added to catch any transactions that were settling
       // If forceFullSync is true, fetch ALL transactions regardless of previous sync state
       const fromTimestamp = forceFullSync
         ? undefined
-        : (syncState.lastTransactionTimestamp
-            ? syncState.lastTransactionTimestamp - 3600 // Go back 1 hour from last transaction
+        : (syncState.lastSyncedAt
+            ? syncState.lastSyncedAt - 300 // Go back 5 minutes from last sync time
             : undefined);
 
       console.log('[NWCSync] Syncing ALL wallets (' + connections.length + ' connected)');
@@ -405,11 +406,20 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
 
       console.log(`[NWCSync] Found ${nwcTransactions.length} transactions`);
 
-      // Track which payment hashes already exist in ANY budget (not just current month)
-      // This prevents importing the same transaction twice across different months
-      const fullBudgetState = budgetStore.getFullBudgetState();
+      // Track which payment hashes already exist using TWO sources:
+      // 1. Payment hashes from the sync state (localStorage) - primary source of truth
+      // 2. Payment hashes from the budget store (as a backup)
+      // This ensures we never re-import transactions even if budget state has issues
       const allPaymentHashes = new Set<string>();
 
+      // First, add all hashes from sync state (these are transactions we've seen before)
+      for (const hash of syncState.syncedPaymentHashes) {
+        allPaymentHashes.add(hash);
+      }
+      console.log('[NWCSync] Payment hashes from sync state:', syncState.syncedPaymentHashes.length);
+
+      // Also check the budget store as a backup
+      const fullBudgetState = budgetStore.getFullBudgetState();
       for (const budget of fullBudgetState.budgets) {
         for (const tx of budget.transactions) {
           if (tx.paymentHash) {
@@ -418,7 +428,7 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
         }
       }
 
-      console.log('[NWCSync] Total transactions with payment hashes across all budgets:', allPaymentHashes.size);
+      console.log('[NWCSync] Total unique payment hashes (sync state + budget):', allPaymentHashes.size);
 
       let imported = 0;
       let skipped = 0;
