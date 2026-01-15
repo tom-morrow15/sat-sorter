@@ -678,10 +678,12 @@ export function TransactionsPanel({
             </div>
           )}
 
-          <DialogFooter className="flex-row justify-between sm:justify-between">
-            <div className="flex gap-2">
+          <DialogFooter className="flex flex-col gap-3 sm:flex-row sm:justify-between">
+            {/* Action buttons row */}
+            <div className="flex gap-2 justify-center sm:justify-start order-2 sm:order-1">
               <Button
                 variant="ghost"
+                size="sm"
                 className="text-destructive hover:text-destructive hover:bg-destructive/10"
                 onClick={() => {
                   if (selectedTransaction) {
@@ -691,27 +693,30 @@ export function TransactionsPanel({
                   }
                 }}
               >
-                <Trash2 className="h-4 w-4 mr-2" />
+                <Trash2 className="h-4 w-4 mr-1" />
                 Delete
               </Button>
               {onSplitTransaction && selectedTransaction && !selectedTransaction.isSplitParent && !selectedTransaction.parentTransactionId && (
                 <Button
                   variant="outline"
+                  size="sm"
                   onClick={() => {
                     setShowAssignDialog(false);
                     setShowSplitDialog(true);
                   }}
                 >
-                  <Split className="h-4 w-4 mr-2" />
+                  <Split className="h-4 w-4 mr-1" />
                   Split
                 </Button>
               )}
             </div>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setShowAssignDialog(false)}>
+            {/* Primary buttons row */}
+            <div className="flex gap-2 justify-end order-1 sm:order-2">
+              <Button variant="outline" size="sm" onClick={() => setShowAssignDialog(false)}>
                 Cancel
               </Button>
               <Button
+                size="sm"
                 onClick={handleAssign}
                 disabled={!selectedBucketId || !selectedLineItemId}
               >

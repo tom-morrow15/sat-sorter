@@ -19,7 +19,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { useBitcoinPrice, formatSats, satsToUsd, usdToSats, formatUsd } from '@/hooks/useBitcoinPrice';
 import type { Transaction, Bucket, SplitAllocation } from '@/lib/budgetTypes';
 import { cn } from '@/lib/utils';
@@ -101,7 +100,7 @@ export function SplitTransactionDialog({
 
   // Update a split row
   const updateSplit = (id: string, updates: Partial<SplitRow>) => {
-    setSplits(prev => prev.map(s => 
+    setSplits(prev => prev.map(s =>
       s.id === id ? { ...s, ...updates } : s
     ));
   };
@@ -124,8 +123,8 @@ export function SplitTransactionDialog({
   const autoFillRemaining = () => {
     const lastEmptySplit = [...splits].reverse().find(s => !s.amount);
     if (lastEmptySplit && remaining > 0) {
-      updateSplit(lastEmptySplit.id, { 
-        amount: currency === 'usd' ? remaining.toFixed(2) : Math.round(remaining).toString() 
+      updateSplit(lastEmptySplit.id, {
+        amount: currency === 'usd' ? remaining.toFixed(2) : Math.round(remaining).toString()
       });
     }
   };
@@ -134,7 +133,7 @@ export function SplitTransactionDialog({
   const handleSubmit = () => {
     if (!transaction || !isBalanced) return;
 
-    const validSplits = splits.filter(s => 
+    const validSplits = splits.filter(s =>
       s.bucketId && s.lineItemId && parseFloat(s.amount) > 0
     );
 
@@ -145,7 +144,7 @@ export function SplitTransactionDialog({
       return {
         bucketId: s.bucketId,
         lineItemId: s.lineItemId,
-        amount: currency === 'usd' && priceData 
+        amount: currency === 'usd' && priceData
           ? Math.round(usdToSats(amount, priceData.usdPerBtc))
           : Math.round(amount),
         usdAmount: currency === 'usd' ? amount : undefined,
@@ -160,7 +159,7 @@ export function SplitTransactionDialog({
   // Check if form is valid
   const isValid = useMemo(() => {
     if (!isBalanced) return false;
-    const validSplits = splits.filter(s => 
+    const validSplits = splits.filter(s =>
       s.bucketId && s.lineItemId && parseFloat(s.amount) > 0
     );
     return validSplits.length >= 2;
@@ -170,8 +169,8 @@ export function SplitTransactionDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[550px] max-h-[90vh] flex flex-col">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-[500px] max-h-[85vh] overflow-hidden flex flex-col p-0">
+        <DialogHeader className="px-6 pt-6 pb-4 flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Split className="h-5 w-5 text-primary" />
             Split Transaction
@@ -181,40 +180,41 @@ export function SplitTransactionDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {/* Transaction Summary */}
-        <div className="p-4 rounded-lg bg-muted/50 space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
-                <ArrowUpRight className="h-4 w-4" />
+        {/* Scrollable content area */}
+        <div className="flex-1 overflow-y-auto px-6">
+          {/* Transaction Summary */}
+          <div className="p-3 rounded-lg bg-muted/50 mb-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                  <ArrowUpRight className="h-4 w-4" />
+                </div>
+                <div className="min-w-0">
+                  <p className="font-medium text-sm truncate">{transaction.description}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {new Date(transaction.date).toLocaleDateString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric',
+                    })}
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="font-medium text-sm">{transaction.description}</p>
-                <p className="text-xs text-muted-foreground">
-                  {new Date(transaction.date).toLocaleDateString('en-US', { 
-                    month: 'short', 
-                    day: 'numeric',
-                    year: 'numeric',
-                  })}
-                </p>
-              </div>
+              <p className="font-bold text-lg flex-shrink-0 ml-2">
+                {formatTransactionAmount(transaction)}
+              </p>
             </div>
-            <p className="font-bold text-lg">
-              {formatTransactionAmount(transaction)}
-            </p>
           </div>
-        </div>
 
-        {/* Split Rows */}
-        <ScrollArea className="flex-1 max-h-[350px] pr-4">
-          <div className="space-y-4 py-2">
+          {/* Split Rows */}
+          <div className="space-y-3 pb-4">
             {splits.map((split, index) => {
               const selectedBucket = expenseBuckets.find(b => b.id === split.bucketId);
-              
+
               return (
-                <div 
-                  key={split.id} 
-                  className="p-4 border rounded-lg space-y-3 bg-background"
+                <div
+                  key={split.id}
+                  className="p-3 border rounded-lg space-y-2 bg-background"
                 >
                   <div className="flex items-center justify-between">
                     <Badge variant="secondary" className="text-xs">
@@ -232,17 +232,18 @@ export function SplitTransactionDialog({
                     )}
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
+                  {/* All fields in a responsive grid */}
+                  <div className="grid grid-cols-2 gap-2">
                     {/* Category */}
                     <div className="space-y-1">
                       <Label className="text-xs">Category</Label>
-                      <Select 
-                        value={split.bucketId} 
+                      <Select
+                        value={split.bucketId}
                         onValueChange={(value) => {
                           updateSplit(split.id, { bucketId: value, lineItemId: '' });
                         }}
                       >
-                        <SelectTrigger className="h-9">
+                        <SelectTrigger className="h-8 text-sm">
                           <SelectValue placeholder="Select..." />
                         </SelectTrigger>
                         <SelectContent>
@@ -250,10 +251,10 @@ export function SplitTransactionDialog({
                             <SelectItem key={bucket.id} value={bucket.id}>
                               <div className="flex items-center gap-2">
                                 <div
-                                  className="h-2 w-2 rounded-full"
+                                  className="h-2 w-2 rounded-full flex-shrink-0"
                                   style={{ backgroundColor: bucket.color }}
                                 />
-                                {bucket.name}
+                                <span className="truncate">{bucket.name}</span>
                               </div>
                             </SelectItem>
                           ))}
@@ -269,7 +270,7 @@ export function SplitTransactionDialog({
                         onValueChange={(value) => updateSplit(split.id, { lineItemId: value })}
                         disabled={!selectedBucket}
                       >
-                        <SelectTrigger className="h-9">
+                        <SelectTrigger className="h-8 text-sm">
                           <SelectValue placeholder="Select..." />
                         </SelectTrigger>
                         <SelectContent>
@@ -281,9 +282,7 @@ export function SplitTransactionDialog({
                         </SelectContent>
                       </Select>
                     </div>
-                  </div>
 
-                  <div className="grid grid-cols-2 gap-3">
                     {/* Amount */}
                     <div className="space-y-1">
                       <Label className="text-xs">
@@ -294,92 +293,96 @@ export function SplitTransactionDialog({
                         value={split.amount}
                         onChange={(e) => updateSplit(split.id, { amount: e.target.value })}
                         placeholder="0"
-                        className="h-9"
+                        className="h-8 text-sm"
                         min="0"
                         step={currency === 'usd' ? '0.01' : '1'}
                       />
                     </div>
 
-                    {/* Description */}
+                    {/* Note */}
                     <div className="space-y-1">
                       <Label className="text-xs">Note (optional)</Label>
                       <Input
                         value={split.description}
                         onChange={(e) => updateSplit(split.id, { description: e.target.value })}
                         placeholder="e.g., Pet food"
-                        className="h-9"
+                        className="h-8 text-sm"
                       />
                     </div>
                   </div>
                 </div>
               );
             })}
-          </div>
-        </ScrollArea>
 
-        {/* Add Split Button */}
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={addSplit}
-          className="w-full"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Add Another Split
-        </Button>
-
-        {/* Balance Summary */}
-        <div className={cn(
-          "p-3 rounded-lg border-2 transition-colors",
-          isBalanced 
-            ? "bg-green-50 border-green-200 dark:bg-green-950/30 dark:border-green-800" 
-            : remaining < 0 
-              ? "bg-red-50 border-red-200 dark:bg-red-950/30 dark:border-red-800"
-              : "bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800"
-        )}>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              {!isBalanced && <AlertCircle className="h-4 w-4" />}
-              <span className="text-sm font-medium">
-                {isBalanced 
-                  ? "✓ Perfectly balanced!" 
-                  : remaining > 0 
-                    ? "Remaining to allocate"
-                    : "Over-allocated"
-                }
-              </span>
-            </div>
-            <div className="text-right">
-              <p className={cn(
-                "font-bold tabular-nums",
-                isBalanced ? "text-green-700 dark:text-green-400" : ""
-              )}>
-                {currency === 'usd' 
-                  ? formatUsd(Math.abs(remaining))
-                  : `${formatSats(Math.abs(remaining))} sats`
-                }
-              </p>
-              {!isBalanced && remaining > 0 && (
-                <button
-                  onClick={autoFillRemaining}
-                  className="text-xs text-primary hover:underline"
-                >
-                  Auto-fill remaining
-                </button>
-              )}
-            </div>
+            {/* Add Split Button - inside scrollable area */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={addSplit}
+              className="w-full"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Another Split
+            </Button>
           </div>
         </div>
 
-        <DialogFooter className="flex-row justify-between sm:justify-between gap-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button onClick={handleSubmit} disabled={!isValid}>
-            <Split className="h-4 w-4 mr-2" />
-            Split Transaction
-          </Button>
-        </DialogFooter>
+        {/* Fixed footer area */}
+        <div className="flex-shrink-0 px-6 pb-6 pt-3 space-y-3 border-t bg-background">
+          {/* Balance Summary */}
+          <div className={cn(
+            "p-3 rounded-lg border-2 transition-colors",
+            isBalanced
+              ? "bg-green-50 border-green-200 dark:bg-green-950/30 dark:border-green-800"
+              : remaining < 0
+                ? "bg-red-50 border-red-200 dark:bg-red-950/30 dark:border-red-800"
+                : "bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800"
+          )}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                {!isBalanced && <AlertCircle className="h-4 w-4 flex-shrink-0" />}
+                <span className="text-sm font-medium">
+                  {isBalanced
+                    ? "✓ Perfectly balanced!"
+                    : remaining > 0
+                      ? "Remaining to allocate"
+                      : "Over-allocated"
+                  }
+                </span>
+              </div>
+              <div className="text-right">
+                <p className={cn(
+                  "font-bold tabular-nums",
+                  isBalanced ? "text-green-700 dark:text-green-400" : ""
+                )}>
+                  {currency === 'usd'
+                    ? formatUsd(Math.abs(remaining))
+                    : `${formatSats(Math.abs(remaining))} sats`
+                  }
+                </p>
+                {!isBalanced && remaining > 0 && (
+                  <button
+                    onClick={autoFillRemaining}
+                    className="text-xs text-primary hover:underline"
+                  >
+                    Auto-fill remaining
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Action buttons */}
+          <div className="flex justify-between gap-2">
+            <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button size="sm" onClick={handleSubmit} disabled={!isValid}>
+              <Split className="h-4 w-4 mr-2" />
+              Split Transaction
+            </Button>
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
   );
