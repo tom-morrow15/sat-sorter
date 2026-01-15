@@ -97,6 +97,7 @@ export function useBudgetStore() {
   const isAcceptingInviteRef = useRef(false); // Prevent auto-save during invite acceptance
   const wasOfflineRef = useRef(!navigator.onLine);
   const localStateRef = useRef(localState); // Ref to track current state for subscriptions
+  const transactionUpdatedRef = useRef(false); // Flag to trigger immediate save on transaction update
 
   // Keep the ref updated with latest state
   useEffect(() => {
@@ -530,6 +531,7 @@ export function useBudgetStore() {
   // ============================================
 
   // Debounced auto-save when state changes
+  // Transaction updates get a shorter debounce (500ms) to ensure they're saved quickly
   useEffect(() => {
     if (!isLoggedIn || !isInitialLoadComplete) return;
 
@@ -544,6 +546,7 @@ export function useBudgetStore() {
     // Skip if nothing changed
     if (currentStateStr === lastSavedStateRef.current) {
       setHasUnsavedLocalChanges(false);
+      transactionUpdatedRef.current = false; // Clear the flag
       return;
     }
 
@@ -563,6 +566,11 @@ export function useBudgetStore() {
       clearTimeout(saveTimeoutRef.current);
     }
 
+    // Use shorter debounce for transaction updates, longer for other changes
+    const debounceMs = transactionUpdatedRef.current ? 500 : AUTO_SAVE_DEBOUNCE_MS;
+
+    console.log('[BudgetStore] Scheduling auto-save in', debounceMs, 'ms', transactionUpdatedRef.current ? '(transaction update)' : '');
+
     // Set new debounced save
     saveTimeoutRef.current = setTimeout(async () => {
       console.log('[BudgetStore] Auto-saving changes to relays...');
@@ -571,7 +579,8 @@ export function useBudgetStore() {
         setHasUnsavedLocalChanges(false);
         setOfflineChangesMade(false);
       }
-    }, AUTO_SAVE_DEBOUNCE_MS);
+      transactionUpdatedRef.current = false; // Clear the flag after save
+    }, debounceMs);
 
     return () => {
       if (saveTimeoutRef.current) {
@@ -911,15 +920,21 @@ export function useBudgetStore() {
   }, [currentBudget, state.currentMonth, saveBudget, setState]);
 
   // Update a transaction (searches across all months)
+  // IMPORTANT: This uses immediate state update to ensure changes are persisted
+  // before the user can navigate away or close the app
   const updateTransaction = useCallback((
     transactionId: string,
     updates: Partial<Transaction>
   ) => {
-    // Use functional setState to always work with the latest state
-    // This avoids race conditions with stale closures
-    setState(prev => {
+    console.log('[BudgetStore] Updating transaction:', transactionId, updates);
+
+    // Mark that a transaction was just updated - this will trigger an immediate save
+    transactionUpdatedRef.current = true;
+
+    // Get the latest state to avoid race conditions
+    const updateState = (prevState: BudgetState): BudgetState => {
       let found = false;
-      const newBudgets = prev.budgets.map(budget => {
+      const newBudgets = prevState.budgets.map(budget => {
         const hasTransaction = budget.transactions.some(t => t.id === transactionId);
         if (hasTransaction) {
           found = true;
@@ -935,20 +950,27 @@ export function useBudgetStore() {
 
       if (!found) {
         console.warn('[BudgetStore] Transaction not found for update:', transactionId);
-      } else {
-        console.log('[BudgetStore] Updated transaction:', transactionId, updates);
+        return prevState;
       }
 
-      return { ...prev, budgets: newBudgets };
-    });
+      return { ...prevState, budgets: newBudgets };
+    };
+
+    // Update state immediately to ensure it persists
+    setState(updateState);
   }, [setState]);
 
   // Delete a transaction (searches across all months)
+  // IMPORTANT: This uses immediate state update to ensure changes are persisted
   const deleteTransaction = useCallback((transactionId: string) => {
-    // Use functional setState to always work with the latest state
-    setState(prev => {
+    console.log('[BudgetStore] Deleting transaction:', transactionId);
+
+    // Mark that a transaction was just updated - this will trigger an immediate save
+    transactionUpdatedRef.current = true;
+
+    const updateState = (prevState: BudgetState): BudgetState => {
       let found = false;
-      const newBudgets = prev.budgets.map(budget => {
+      const newBudgets = prevState.budgets.map(budget => {
         const hasTransaction = budget.transactions.some(t => t.id === transactionId);
         if (hasTransaction) {
           found = true;
@@ -962,12 +984,14 @@ export function useBudgetStore() {
 
       if (!found) {
         console.warn('[BudgetStore] Transaction not found for delete:', transactionId);
-      } else {
-        console.log('[BudgetStore] Deleted transaction:', transactionId);
+        return prevState;
       }
 
-      return { ...prev, budgets: newBudgets };
-    });
+      return { ...prevState, budgets: newBudgets };
+    };
+
+    // Update state immediately to ensure it persists
+    setState(updateState);
   }, [setState]);
 
   // Assign transaction to a line item
@@ -976,6 +1000,7 @@ export function useBudgetStore() {
     bucketId: string,
     lineItemId: string
   ) => {
+    console.log('[BudgetStore] assignTransaction called:', { transactionId, bucketId, lineItemId });
     updateTransaction(transactionId, { bucketId, lineItemId });
   }, [updateTransaction]);
 
