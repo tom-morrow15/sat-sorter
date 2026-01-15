@@ -61,6 +61,34 @@ export interface BudgetState {
   currentMonth: string;
   budgets: MonthlyBudget[];
   currency: 'sats' | 'usd';
+
+  // Sharing & versioning (Phase 1+)
+  budgetId?: string;              // Unique identifier for this budget
+  version?: number;               // Incrementing version for conflict detection
+  lastEditedBy?: string;          // Pubkey of last editor
+  lastEditedAt?: number;          // Timestamp of last edit
+
+  // Budget partners (Phase 2+)
+  isShared?: boolean;             // Is this a collaborative budget?
+  ownerPubkey?: string;           // Who created/owns this budget
+  partnerPubkeys?: string[];      // All budget partners (including owner)
+}
+
+// Budget invitation for partner invites
+export interface BudgetInvitation {
+  type: 'budget-invite';
+  budgetId: string;
+  budgetName: string;
+  ownerPubkey: string;
+  createdAt: number;
+}
+
+// Pending invitation with metadata
+export interface PendingInvitation {
+  id: string;                     // Event ID
+  invitation: BudgetInvitation;
+  fromPubkey: string;
+  receivedAt: number;
 }
 
 // Helper to generate unique IDs

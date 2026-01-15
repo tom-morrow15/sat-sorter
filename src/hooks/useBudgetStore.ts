@@ -20,15 +20,32 @@ import {
 
 const APP_IDENTIFIER = 'sat-sorter/budget-data';
 const BUDGET_KIND = 30078; // NIP-78 Application-specific data
+const INVITE_KIND = 10078; // Budget invitation events
 const AUTO_SAVE_DEBOUNCE_MS = 2000; // 2 seconds after last change
 
 const DEFAULT_STATE: BudgetState = {
   currentMonth: getCurrentMonth(),
   budgets: [],
   currency: 'sats',
+  budgetId: undefined,
+  version: 1,
+  lastEditedBy: undefined,
+  lastEditedAt: undefined,
+  isShared: false,
+  ownerPubkey: undefined,
+  partnerPubkeys: [],
 };
 
-type SyncStatus = 'idle' | 'loading' | 'saving' | 'synced' | 'error' | 'offline';
+type SyncStatus = 'idle' | 'loading' | 'saving' | 'synced' | 'error' | 'offline' | 'conflict';
+
+// Conflict information when remote version is newer
+interface ConflictInfo {
+  localVersion: number;
+  remoteVersion: number;
+  remoteEditedBy: string;
+  remoteEditedAt: number;
+  remoteBudget: BudgetState;
+}
 
 /**
  * Relay-first budget store
@@ -55,6 +72,22 @@ export function useBudgetStore() {
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
   const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null);
   const [isInitialLoadComplete, setIsInitialLoadComplete] = useState(false);
+  const [conflictInfo, setConflictInfo] = useState<ConflictInfo | null>(null);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  // Track online/offline status
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   // Refs for debouncing and tracking
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
@@ -107,9 +140,20 @@ export function useBudgetStore() {
         return null;
       }
 
+      // Ensure version is set (for backwards compatibility with existing budgets)
+      if (!budgetData.version) {
+        budgetData.version = 1;
+      }
+
+      // Ensure budgetId is set
+      if (!budgetData.budgetId) {
+        budgetData.budgetId = generateId();
+      }
+
       console.log('[BudgetStore] Successfully loaded budget from relays', {
         budgetCount: budgetData.budgets.length,
         currentMonth: budgetData.currentMonth,
+        version: budgetData.version,
         timestamp: latestEvent.created_at,
       });
 
@@ -122,8 +166,31 @@ export function useBudgetStore() {
     }
   }, [user?.pubkey, nip44, nostr]);
 
+  // Check for conflicts before saving (returns remote state if conflict exists)
+  const checkForConflicts = useCallback(async (localState: BudgetState): Promise<BudgetState | null> => {
+    if (!user?.pubkey || !nip44) return null;
+
+    try {
+      const remoteBudget = await fetchFromRelays();
+      if (!remoteBudget) return null;
+
+      const localVersion = localState.version || 1;
+      const remoteVersion = remoteBudget.version || 1;
+
+      // If remote is newer, we have a conflict
+      if (remoteVersion > localVersion) {
+        console.log('[BudgetStore] Conflict detected', { localVersion, remoteVersion });
+        return remoteBudget;
+      }
+
+      return null;
+    } catch {
+      return null;
+    }
+  }, [user?.pubkey, nip44, fetchFromRelays]);
+
   // Save budget to relays
-  const saveToRelays = useCallback(async (state: BudgetState): Promise<boolean> => {
+  const saveToRelays = useCallback(async (state: BudgetState, skipConflictCheck = false): Promise<boolean> => {
     if (!user?.pubkey || !nip44) return false;
     if (isSavingRef.current) return false; // Prevent concurrent saves
 
@@ -131,7 +198,34 @@ export function useBudgetStore() {
     setSyncStatus('saving');
 
     try {
-      const plaintext = JSON.stringify(state);
+      // Check for conflicts first (unless skipped, e.g., when force-pushing)
+      if (!skipConflictCheck && state.isShared) {
+        const conflictingBudget = await checkForConflicts(state);
+        if (conflictingBudget) {
+          setConflictInfo({
+            localVersion: state.version || 1,
+            remoteVersion: conflictingBudget.version || 1,
+            remoteEditedBy: conflictingBudget.lastEditedBy || '',
+            remoteEditedAt: conflictingBudget.lastEditedAt || 0,
+            remoteBudget: conflictingBudget,
+          });
+          setSyncStatus('conflict');
+          isSavingRef.current = false;
+          return false;
+        }
+      }
+
+      // Increment version and set edit info
+      const updatedState: BudgetState = {
+        ...state,
+        version: (state.version || 0) + 1,
+        lastEditedBy: user.pubkey,
+        lastEditedAt: Math.floor(Date.now() / 1000),
+        budgetId: state.budgetId || generateId(),
+        ownerPubkey: state.ownerPubkey || user.pubkey,
+      };
+
+      const plaintext = JSON.stringify(updatedState);
       const encrypted = await nip44.encrypt(user.pubkey, plaintext);
 
       await publish({
@@ -146,9 +240,13 @@ export function useBudgetStore() {
       const now = Math.floor(Date.now() / 1000);
       setLastSyncedAt(now);
       lastSavedStateRef.current = plaintext;
+
+      // Update local state with new version info
+      setLocalState(updatedState);
+
       setSyncStatus('synced');
 
-      console.log('[BudgetStore] Saved to relays successfully');
+      console.log('[BudgetStore] Saved to relays successfully', { version: updatedState.version });
 
       // Reset to idle after a moment
       setTimeout(() => setSyncStatus('idle'), 2000);
@@ -618,6 +716,41 @@ export function useBudgetStore() {
     return saveToRelays(getFullBudgetState());
   }, [isLoggedIn, saveToRelays, getFullBudgetState]);
 
+  // Conflict resolution: Use remote version (discard local changes)
+  const resolveConflictUseRemote = useCallback(() => {
+    if (!conflictInfo) return;
+
+    setLocalState(conflictInfo.remoteBudget);
+    lastSavedStateRef.current = JSON.stringify(conflictInfo.remoteBudget);
+    setConflictInfo(null);
+    setSyncStatus('synced');
+    setTimeout(() => setSyncStatus('idle'), 2000);
+  }, [conflictInfo, setLocalState]);
+
+  // Conflict resolution: Keep local version (overwrite remote)
+  const resolveConflictKeepLocal = useCallback(async () => {
+    if (!conflictInfo) return false;
+
+    setConflictInfo(null);
+    // Force save with incremented version beyond remote
+    const stateToSave = {
+      ...getFullBudgetState(),
+      version: conflictInfo.remoteVersion + 1,
+    };
+    return saveToRelays(stateToSave, true); // Skip conflict check
+  }, [conflictInfo, getFullBudgetState, saveToRelays]);
+
+  // Dismiss conflict without action (user wants to review manually)
+  const dismissConflict = useCallback(() => {
+    setConflictInfo(null);
+    setSyncStatus('idle');
+  }, []);
+
+  // Check if budget is shared
+  const isSharedBudget = useMemo(() => {
+    return state.isShared && (state.partnerPubkeys?.length || 0) > 0;
+  }, [state.isShared, state.partnerPubkeys]);
+
   return {
     // State
     currentBudget,
@@ -657,6 +790,21 @@ export function useBudgetStore() {
     lastSyncedAt,
     isLoggedIn,
     isInitialLoadComplete,
+    isOnline,
+
+    // Conflict resolution
+    conflictInfo,
+    resolveConflictUseRemote,
+    resolveConflictKeepLocal,
+    dismissConflict,
+
+    // Sharing info
+    isSharedBudget,
+    budgetVersion: state.version,
+    lastEditedBy: state.lastEditedBy,
+    lastEditedAt: state.lastEditedAt,
+    ownerPubkey: state.ownerPubkey,
+    partnerPubkeys: state.partnerPubkeys,
 
     // Manual sync controls (for edge cases)
     refreshFromRelays,

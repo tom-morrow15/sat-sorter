@@ -14,6 +14,8 @@ import { QuickAddFAB } from '@/components/budget/QuickAddFAB';
 import { SyncStatusIndicator } from '@/components/budget/SyncStatusIndicator';
 import { OnboardingWelcome } from '@/components/budget/OnboardingWelcome';
 import { FirstTimeBudgetPrompt, EmptyBudgetCategories } from '@/components/budget/EmptyStates';
+import { ConflictResolutionDialog } from '@/components/budget/ConflictResolutionDialog';
+import { OfflineWarningBanner } from '@/components/budget/OfflineWarningBanner';
 import { LoginArea } from '@/components/auth/LoginArea';
 import { useBudgetStoreContext } from '@/contexts/BudgetStoreContext';
 import { useWallet } from '@/hooks/useWallet';
@@ -66,6 +68,12 @@ export default function Budget() {
     lastSyncedAt,
     isLoggedIn,
     isInitialLoadComplete,
+    isOnline,
+    conflictInfo,
+    resolveConflictUseRemote,
+    resolveConflictKeepLocal,
+    dismissConflict,
+    isSharedBudget,
     refreshFromRelays,
   } = useBudgetStoreContext();
 
@@ -153,6 +161,14 @@ export default function Budget() {
       <main className="container mx-auto px-3 sm:px-4 py-4 lg:py-6">
         {/* Alerts Section - Full width */}
         <div className="space-y-3 mb-4">
+          {/* Offline warning for shared budgets */}
+          {!isOnline && (
+            <OfflineWarningBanner
+              isSharedBudget={isSharedBudget}
+              hasPendingChanges={false}
+            />
+          )}
+
           {/* Login prompt for guests */}
           {!user && (
             <Alert className="border-primary/30 bg-primary/5">
@@ -364,6 +380,15 @@ export default function Budget() {
         open={showOnboarding}
         onOpenChange={setShowOnboarding}
         onComplete={completeOnboarding}
+      />
+
+      {/* Conflict Resolution Dialog */}
+      <ConflictResolutionDialog
+        open={syncStatus === 'conflict'}
+        conflictInfo={conflictInfo}
+        onUseRemote={resolveConflictUseRemote}
+        onKeepLocal={resolveConflictKeepLocal}
+        onDismiss={dismissConflict}
       />
     </div>
   );

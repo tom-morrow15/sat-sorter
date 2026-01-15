@@ -405,15 +405,15 @@ export function OnboardingWelcome({ open, onOpenChange, onComplete }: Onboarding
                   </li>
                   <li className="flex items-start gap-2">
                     <CheckCircle2 className="h-3 w-3 mt-0.5 text-green-500 flex-shrink-0" />
+                    <span><strong>Budget Partners</strong> — Share your budget with a spouse or partner</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircle2 className="h-3 w-3 mt-0.5 text-green-500 flex-shrink-0" />
                     <span><strong>End-to-end encrypted</strong> — Only your keys can read your data</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <CheckCircle2 className="h-3 w-3 mt-0.5 text-green-500 flex-shrink-0" />
                     <span><strong>No central server</strong> — Your data, your relays, your choice</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <CheckCircle2 className="h-3 w-3 mt-0.5 text-green-500 flex-shrink-0" />
-                    <span><strong>Never lose your budget</strong> — Recoverable with your Nostr key</span>
                   </li>
                 </ul>
               </div>
