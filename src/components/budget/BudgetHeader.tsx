@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bitcoin, DollarSign, ChevronLeft, ChevronRight, Wallet, Moon, Sun, Zap, Calendar, Menu, Info, Heart, ExternalLink, Shield, Globe, GraduationCap, LogIn, Wifi, Loader2, Check, AlertCircle, HelpCircle, Download, BookOpen, MessageSquare, RotateCcw } from 'lucide-react';
+import { Bitcoin, DollarSign, ChevronLeft, ChevronRight, Wallet, Moon, Sun, Zap, Calendar, Menu, Info, Heart, ExternalLink, Shield, Globe, GraduationCap, LogIn, Wifi, Loader2, Check, AlertCircle, HelpCircle, Download, BookOpen, MessageSquare, RotateCcw, Key } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -313,6 +313,10 @@ export function BudgetHeader({
                 <DropdownMenuItem onClick={() => setShowBitcoinEdu(true)}>
                   <GraduationCap className="h-4 w-4 mr-2" />
                   Learn About Bitcoin
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => window.open('https://nostr.how', '_blank')}>
+                  <Key className="h-4 w-4 mr-2" />
+                  Learn About Nostr
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setShowDonate(true)}>
                   <Heart className="h-4 w-4 mr-2" />

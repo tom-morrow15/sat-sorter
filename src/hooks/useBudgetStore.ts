@@ -12,6 +12,7 @@ import {
   Bucket,
   LineItem,
   Transaction,
+  SplitAllocation,
   createDefaultBuckets,
   getCurrentMonth,
   generateId,
@@ -479,6 +480,58 @@ export function useBudgetStore() {
     updateTransaction(transactionId, { bucketId, lineItemId });
   }, [updateTransaction]);
 
+  // Split a transaction into multiple allocations
+  const splitTransaction = useCallback((
+    originalTransactionId: string,
+    splits: SplitAllocation[]
+  ) => {
+    const originalTx = currentBudget.transactions.find(t => t.id === originalTransactionId);
+    if (!originalTx || splits.length < 2) return;
+
+    // Mark the original transaction as a split parent
+    const updatedOriginal: Transaction = {
+      ...originalTx,
+      isSplitParent: true,
+      // Clear assignment since splits handle the categorization
+      bucketId: null,
+      lineItemId: null,
+    };
+
+    // Create child transactions for each split
+    const splitTransactions: Transaction[] = splits.map((split, index) => ({
+      id: generateId(),
+      amount: split.amount,
+      usdAmount: split.usdAmount,
+      usdPerBtcAtEntry: originalTx.usdPerBtcAtEntry,
+      description: split.description
+        ? `${originalTx.description} - ${split.description}`
+        : `${originalTx.description} (Split ${index + 1}/${splits.length})`,
+      date: originalTx.date,
+      lineItemId: split.lineItemId,
+      bucketId: split.bucketId,
+      paymentHash: originalTx.paymentHash,
+      preimage: originalTx.preimage,
+      isIncome: originalTx.isIncome,
+      source: originalTx.source,
+      sourceWallet: originalTx.sourceWallet,
+      sourceWalletId: originalTx.sourceWalletId,
+      merchantName: originalTx.merchantName,
+      categoryHint: originalTx.categoryHint,
+      parentTransactionId: originalTransactionId,
+    }));
+
+    const updatedBudget = {
+      ...currentBudget,
+      transactions: [
+        ...currentBudget.transactions.filter(t => t.id !== originalTransactionId),
+        updatedOriginal,
+        ...splitTransactions,
+      ],
+    };
+
+    saveBudget(updatedBudget);
+  }, [currentBudget, saveBudget]);
+
   // Get available months
   const availableMonths = useMemo(() => {
     const months = new Set(state.budgets.map(b => b.month));
@@ -592,6 +645,7 @@ export function useBudgetStore() {
     updateTransaction,
     deleteTransaction,
     assignTransaction,
+    splitTransaction,
 
     // Budget duplication
     duplicateFromMonth,

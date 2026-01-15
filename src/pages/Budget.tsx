@@ -58,6 +58,7 @@ export default function Budget() {
     updateTransaction,
     assignTransaction,
     deleteTransaction,
+    splitTransaction,
     duplicateFromMonth,
     getPreviousMonth,
     hasPreviousMonthBudget,
@@ -120,8 +121,9 @@ export default function Budget() {
   const expenseBuckets = sortedBuckets.filter(b => !b.isIncome);
 
   // Count unassigned transactions
+  // Count unassigned transactions (excluding split parents since they're handled by their children)
   const unassignedCount = useMemo(() =>
-    currentBudget.transactions.filter(t => t.lineItemId === null).length,
+    currentBudget.transactions.filter(t => t.lineItemId === null && !t.isSplitParent).length,
     [currentBudget.transactions]
   );
 
@@ -297,6 +299,7 @@ export default function Budget() {
                 onAssignTransaction={assignTransaction}
                 onUpdateTransaction={updateTransaction}
                 onDeleteTransaction={deleteTransaction}
+                onSplitTransaction={splitTransaction}
                 onOpenWallet={() => setShowWalletModal(true)}
               />
             </div>

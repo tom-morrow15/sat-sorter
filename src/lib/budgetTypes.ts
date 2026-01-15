@@ -17,6 +17,18 @@ export interface Transaction {
   sourceWalletId?: string; // The connection string ID for the wallet
   merchantName?: string; // Merchant name from Strike or payment processor
   categoryHint?: string; // Auto-detected category hint from merchant data
+  // Split transaction support
+  parentTransactionId?: string; // If this is a split, references the original transaction
+  isSplitParent?: boolean; // True if this transaction has been split into multiple parts
+}
+
+// Represents a single split allocation
+export interface SplitAllocation {
+  bucketId: string;
+  lineItemId: string;
+  amount: number; // in sats
+  usdAmount?: number;
+  description?: string; // Optional note for this split portion
 }
 
 export interface LineItem {

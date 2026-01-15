@@ -11,6 +11,12 @@ import {
   PiggyBank,
   ListChecks,
   Cloud,
+  DollarSign,
+  TrendingDown,
+  Menu,
+  Key,
+  Globe,
+  ExternalLink,
 } from 'lucide-react';
 import {
   Dialog,
@@ -41,14 +47,19 @@ const STEPS = [
     subtitle: 'A proven method for financial freedom',
   },
   {
+    id: 'bitcoin-intro',
+    title: 'Why Bitcoin?',
+    subtitle: 'Sound money for sound budgeting',
+  },
+  {
     id: 'how-it-works',
     title: 'How It Works',
     subtitle: 'Give every sat a job',
   },
   {
-    id: 'get-started',
-    title: "Let's Get Started",
-    subtitle: 'Your first budget in 3 easy steps',
+    id: 'nostr-intro',
+    title: 'Sync with Nostr',
+    subtitle: 'Your data, your keys, your control',
   },
 ];
 
@@ -91,8 +102,9 @@ export function OnboardingWelcome({ open, onOpenChange, onComplete }: Onboarding
             <DialogTitle className="text-xl sm:text-2xl flex items-center gap-2">
               {currentStep === 0 && <Zap className="h-6 w-6 text-primary" />}
               {currentStep === 1 && <Target className="h-6 w-6 text-primary" />}
-              {currentStep === 2 && <ListChecks className="h-6 w-6 text-primary" />}
-              {currentStep === 3 && <Sparkles className="h-6 w-6 text-primary" />}
+              {currentStep === 2 && <Bitcoin className="h-6 w-6 text-primary" />}
+              {currentStep === 3 && <ListChecks className="h-6 w-6 text-primary" />}
+              {currentStep === 4 && <Key className="h-6 w-6 text-primary" />}
               {STEPS[currentStep].title}
             </DialogTitle>
             <DialogDescription className="text-base">
@@ -188,8 +200,97 @@ export function OnboardingWelcome({ open, onOpenChange, onComplete }: Onboarding
             </div>
           )}
 
-          {/* Step 3: How it works */}
+          {/* Step 3: Bitcoin Introduction */}
           {currentStep === 2 && (
+            <div className="space-y-5 py-4">
+              {/* Bitcoin vs Dollar comparison */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-4 rounded-lg bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-950/30 dark:to-amber-950/30 border border-orange-200 dark:border-orange-800">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="h-8 w-8 rounded-full bg-orange-500 flex items-center justify-center">
+                      <Bitcoin className="h-4 w-4 text-white" />
+                    </div>
+                    <span className="font-semibold text-orange-800 dark:text-orange-200">Bitcoin</span>
+                  </div>
+                  <ul className="text-xs text-orange-700 dark:text-orange-300 space-y-1.5">
+                    <li className="flex items-start gap-1.5">
+                      <CheckCircle2 className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                      <span>Fixed supply: 21 million</span>
+                    </li>
+                    <li className="flex items-start gap-1.5">
+                      <CheckCircle2 className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                      <span>Decentralized & borderless</span>
+                    </li>
+                    <li className="flex items-start gap-1.5">
+                      <CheckCircle2 className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                      <span>You own your money</span>
+                    </li>
+                    <li className="flex items-start gap-1.5">
+                      <CheckCircle2 className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                      <span>Scarce = value preserved</span>
+                    </li>
+                  </ul>
+                </div>
+
+                <div className="p-4 rounded-lg bg-gradient-to-br from-gray-50 to-slate-50 dark:from-gray-950/30 dark:to-slate-950/30 border border-gray-200 dark:border-gray-800">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="h-8 w-8 rounded-full bg-gray-500 flex items-center justify-center">
+                      <DollarSign className="h-4 w-4 text-white" />
+                    </div>
+                    <span className="font-semibold text-gray-800 dark:text-gray-200">US Dollar</span>
+                  </div>
+                  <ul className="text-xs text-gray-600 dark:text-gray-400 space-y-1.5">
+                    <li className="flex items-start gap-1.5">
+                      <TrendingDown className="h-3 w-3 mt-0.5 flex-shrink-0 text-red-500" />
+                      <span>Unlimited printing</span>
+                    </li>
+                    <li className="flex items-start gap-1.5">
+                      <TrendingDown className="h-3 w-3 mt-0.5 flex-shrink-0 text-red-500" />
+                      <span>Lost 96%+ value since 1913</span>
+                    </li>
+                    <li className="flex items-start gap-1.5">
+                      <TrendingDown className="h-3 w-3 mt-0.5 flex-shrink-0 text-red-500" />
+                      <span>Banks control access</span>
+                    </li>
+                    <li className="flex items-start gap-1.5">
+                      <TrendingDown className="h-3 w-3 mt-0.5 flex-shrink-0 text-red-500" />
+                      <span>Inflation erodes savings</span>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+
+              {/* What are Sats */}
+              <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
+                <div className="flex items-start gap-3">
+                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <Zap className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-sm mb-1">What's a "Sat"?</h4>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      A <strong>satoshi</strong> (or "sat") is the smallest unit of Bitcoin.
+                      Just like a dollar has 100 cents, 1 Bitcoin has 100,000,000 sats!
+                    </p>
+                    <div className="bg-muted p-2 rounded text-xs font-mono text-center">
+                      1 BTC = 100,000,000 sats
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Learn More callout */}
+              <div className="p-3 bg-muted/50 rounded-lg">
+                <p className="text-xs text-muted-foreground text-center">
+                  💡 Want to learn more about Bitcoin? Tap the <Menu className="h-3 w-3 inline mx-0.5" /> menu
+                  and select <strong>"Learn About Bitcoin"</strong> anytime!
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Step 4: How it works */}
+          {currentStep === 3 && (
             <div className="space-y-5 py-4">
               <div className="space-y-4">
                 <StepCard
@@ -247,44 +348,111 @@ export function OnboardingWelcome({ open, onOpenChange, onComplete }: Onboarding
             </div>
           )}
 
-          {/* Step 4: Get Started */}
-          {currentStep === 3 && (
-            <div className="space-y-6 py-4">
-              <div className="text-center">
-                <div className="h-16 w-16 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center mx-auto mb-4 shadow-lg">
-                  <Sparkles className="h-8 w-8 text-white" />
+          {/* Step 5: Nostr Introduction */}
+          {currentStep === 4 && (
+            <div className="space-y-5 py-4">
+              {/* What is Nostr */}
+              <div className="p-4 rounded-lg bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-950/30 dark:to-violet-950/30 border border-purple-200 dark:border-purple-800">
+                <div className="flex items-start gap-3">
+                  <div className="h-10 w-10 rounded-full bg-purple-500 flex items-center justify-center flex-shrink-0">
+                    <Key className="h-5 w-5 text-white" />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-purple-800 dark:text-purple-200 mb-1">
+                      What is Nostr?
+                    </h4>
+                    <p className="text-xs text-purple-700 dark:text-purple-300">
+                      Nostr is a simple, open protocol that enables truly censorship-resistant
+                      and decentralized social networking and data storage. Think of it as
+                      a universal login that <strong>you</strong> control.
+                    </p>
+                  </div>
                 </div>
-                <p className="text-muted-foreground">
-                  You're ready to start budgeting! Here's your quick-start checklist:
+              </div>
+
+              {/* Storage Options */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3 rounded-lg border bg-muted/50">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Shield className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm font-medium">Local Storage</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Without Nostr: Your budget is saved only in this browser.
+                    Works offline, but data stays on this device.
+                  </p>
+                </div>
+
+                <div className="p-3 rounded-lg border bg-primary/5 border-primary/20">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Globe className="h-4 w-4 text-primary" />
+                    <span className="text-sm font-medium">Nostr Backup</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    With Nostr: Your encrypted data syncs across all your devices
+                    via decentralized relays. Only you can decrypt it.
+                  </p>
+                </div>
+              </div>
+
+              {/* Benefits */}
+              <div className="space-y-2">
+                <h4 className="text-sm font-semibold">Why use Nostr with Sat Sorter?</h4>
+                <ul className="text-xs text-muted-foreground space-y-1.5">
+                  <li className="flex items-start gap-2">
+                    <CheckCircle2 className="h-3 w-3 mt-0.5 text-green-500 flex-shrink-0" />
+                    <span><strong>Sync across devices</strong> — Phone, tablet, desktop</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircle2 className="h-3 w-3 mt-0.5 text-green-500 flex-shrink-0" />
+                    <span><strong>End-to-end encrypted</strong> — Only your keys can read your data</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircle2 className="h-3 w-3 mt-0.5 text-green-500 flex-shrink-0" />
+                    <span><strong>No central server</strong> — Your data, your relays, your choice</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircle2 className="h-3 w-3 mt-0.5 text-green-500 flex-shrink-0" />
+                    <span><strong>Never lose your budget</strong> — Recoverable with your Nostr key</span>
+                  </li>
+                </ul>
+              </div>
+
+              {/* Learn More callout */}
+              <div className="p-3 bg-muted/50 rounded-lg">
+                <p className="text-xs text-muted-foreground text-center">
+                  💡 Learn more about Nostr in the <Menu className="h-3 w-3 inline mx-0.5" /> menu under
+                  <strong> "Nostr Relay Sync"</strong> or check out <strong>"FAQ & Help"</strong>!
                 </p>
               </div>
 
-              <div className="space-y-3">
-                <QuickStartItem
-                  step={1}
-                  title="Set your income"
-                  description="Click on the Income bucket and enter your monthly sats"
-                />
-                <QuickStartItem
-                  step={2}
-                  title="Plan your expenses"
-                  description="Assign amounts to each category until you hit zero"
-                />
-                <QuickStartItem
-                  step={3}
-                  title="Connect your wallet (optional)"
-                  description="Auto-import Lightning transactions with NWC"
-                />
-              </div>
-
-              <div className="p-4 bg-muted rounded-xl space-y-2">
-                <p className="text-sm font-medium">💡 Pro Tips:</p>
-                <ul className="text-sm text-muted-foreground space-y-1">
-                  <li>• Start with the essentials: housing, food, bills</li>
-                  <li>• Don't forget to enhance your strategic bitcoin reserve!</li>
-                  <li>• It's okay to adjust as you go — that's the point</li>
-                  <li>• Stay humble and stack sats</li>
-                </ul>
+              {/* Sign Up CTA */}
+              <div className="p-4 rounded-lg bg-gradient-to-br from-primary/10 to-orange-500/10 border border-primary/30">
+                <h4 className="font-semibold text-sm mb-2 text-center">Ready to get started?</h4>
+                <p className="text-xs text-muted-foreground text-center mb-3">
+                  Create a Nostr account with Primal (free, 30 seconds) or continue without an account.
+                </p>
+                <div className="flex flex-col gap-2">
+                  <Button
+                    size="sm"
+                    className="w-full"
+                    onClick={() => window.open('https://primal.net/downloads', '_blank')}
+                  >
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    Get Primal (Recommended)
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={() => {
+                      onComplete();
+                      onOpenChange(false);
+                    }}
+                  >
+                    Continue Without Account
+                  </Button>
+                </div>
               </div>
             </div>
           )}
@@ -323,19 +491,17 @@ export function OnboardingWelcome({ open, onOpenChange, onComplete }: Onboarding
               ))}
             </div>
 
-            <Button onClick={handleNext}>
-              {currentStep === STEPS.length - 1 ? (
-                <>
-                  <Sparkles className="h-4 w-4 mr-2" />
-                  Start Budgeting
-                </>
-              ) : (
-                <>
-                  Next
-                  <ArrowRight className="h-4 w-4 ml-2" />
-                </>
-              )}
-            </Button>
+            {currentStep === STEPS.length - 1 ? (
+              <Button onClick={handleNext}>
+                <Sparkles className="h-4 w-4 mr-2" />
+                Start Budgeting
+              </Button>
+            ) : (
+              <Button onClick={handleNext}>
+                Next
+                <ArrowRight className="h-4 w-4 ml-2" />
+              </Button>
+            )}
           </div>
         </div>
       </DialogContent>

@@ -23,6 +23,39 @@ import {
   Baby,
   Dog,
   Stethoscope,
+  Church,
+  Maximize2,
+  AlertCircle,
+  CreditCard,
+  Zap,
+  Smartphone,
+  Wifi,
+  MapPin,
+  Ticket,
+  Gamepad2,
+  BookOpen,
+  Leaf,
+  Droplet,
+  Flame,
+  Wrench,
+  TreePine,
+  Eye,
+  TrendingUp,
+  TrendingDown,
+  PawPrint,
+  Trophy,
+  Target,
+  Watch,
+  Headphones,
+  Sun,
+  Cloud,
+  Sparkles,
+  Lock,
+  Coffee,
+  Wine,
+  Pizza,
+  Apple,
+  Bike,
 } from 'lucide-react';
 import { SpendingProgressBar } from './SpendingProgressBar';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -47,23 +80,89 @@ import type { Bucket, LineItem, Transaction } from '@/lib/budgetTypes';
 import type { BTCMapElement } from '@/hooks/useBTCMap';
 import { cn } from '@/lib/utils';
 
+// Complete icon map matching all icons available in AddBucketDialog
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
+  // Housing & Utilities
   home: Home,
+  maximize: Maximize2,
+  zap: Zap,
+  droplet: Droplet,
+  wifi: Wifi,
+  wrench: Wrench,
+  flame: Flame,
+
+  // Transportation
   car: Car,
+  bike: Bike,
+  'map-pin': MapPin,
+  ticket: Ticket,
+
+  // Food & Dining
   utensils: Utensils,
-  heart: Heart,
-  'piggy-bank': PiggyBank,
-  wallet: Wallet,
+  coffee: Coffee,
+  pizza: Pizza,
+  apple: Apple,
+  wine: Wine,
+
+  // Shopping
   'shopping-bag': ShoppingBag,
-  briefcase: Briefcase,
-  'graduation-cap': GraduationCap,
-  plane: Plane,
-  gift: Gift,
+  palette: Palette,
+  watch: Watch,
+
+  // Technology & Electronics
+  smartphone: Smartphone,
+  headphones: Headphones,
+  eye: Eye,
+
+  // Financial
+  wallet: Wallet,
+  'credit-card': CreditCard,
+  'trending-up': TrendingUp,
+  'trending-down': TrendingDown,
+  'piggy-bank': PiggyBank,
+
+  // Entertainment
   music: Music,
-  dumbbell: Dumbbell,
-  baby: Baby,
-  dog: Dog,
+  gamepad: Gamepad2,
+  film: Ticket,
+  sparkles: Sparkles,
+
+  // Health & Wellness
   stethoscope: Stethoscope,
+  heart: Heart,
+  dumbbell: Dumbbell,
+
+  // Education
+  'graduation-cap': GraduationCap,
+  'book-open': BookOpen,
+  scroll: Leaf, // Using Leaf as fallback since Scroll might not be available
+
+  // Travel & Vacation
+  plane: Plane,
+  'tree-pine': TreePine,
+  sun: Sun,
+
+  // Personal Services
+  lock: Lock,
+  briefcase: Briefcase,
+
+  // Family & Kids
+  baby: Baby,
+  'paw-print': PawPrint,
+  dog: Dog,
+
+  // Giving & Donations
+  church: Church,
+  gift: Gift,
+
+  // Subscriptions & Services
+  cloud: Cloud,
+  alert: AlertCircle,
+  lightning: Zap,
+
+  // Goals & Tracking
+  target: Target,
+  trophy: Trophy,
 };
 
 interface BucketCardProps {

@@ -10,11 +10,13 @@ import {
   Zap,
   Link2,
   Wallet,
+  Split,
 } from 'lucide-react';
 import { TransactionSearchFilter } from './TransactionSearchFilter';
 import { DataSourcesDialog } from './DataSourcesDialog';
 import { TransactionSourceBadge } from './TransactionSourceBadge';
 import { TransactionDetailsDialog } from './TransactionDetailsDialog';
+import { SplitTransactionDialog } from './SplitTransactionDialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -38,7 +40,7 @@ import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useBitcoinPrice, formatSats, satsToUsd, usdToSats, formatUsd } from '@/hooks/useBitcoinPrice';
 import { getUnassignedTransactions } from '@/lib/budgetTypes';
-import type { Transaction, Bucket } from '@/lib/budgetTypes';
+import type { Transaction, Bucket, SplitAllocation } from '@/lib/budgetTypes';
 import type { NWCConnection } from '@/hooks/useNWC';
 import { cn } from '@/lib/utils';
 
@@ -51,6 +53,7 @@ interface TransactionsPanelProps {
   onAssignTransaction: (transactionId: string, bucketId: string, lineItemId: string) => void;
   onUpdateTransaction: (transactionId: string, updates: Partial<Transaction>) => void;
   onDeleteTransaction: (transactionId: string) => void;
+  onSplitTransaction?: (transactionId: string, splits: SplitAllocation[]) => void;
   onOpenWallet?: () => void;
 }
 
@@ -63,6 +66,7 @@ export function TransactionsPanel({
   onAssignTransaction,
   onUpdateTransaction,
   onDeleteTransaction,
+  onSplitTransaction,
   onOpenWallet,
 }: TransactionsPanelProps) {
   const { data: priceData } = useBitcoinPrice();
@@ -71,6 +75,7 @@ export function TransactionsPanel({
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [showDataSources, setShowDataSources] = useState(false);
+  const [showSplitDialog, setShowSplitDialog] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [filteredTransactions, setFilteredTransactions] = useState<Transaction[]>([]);
 
@@ -89,8 +94,10 @@ export function TransactionsPanel({
   const [editBucketId, setEditBucketId] = useState<string>('');
   const [editLineItemId, setEditLineItemId] = useState<string>('');
 
-  const unassigned = getUnassignedTransactions(transactions);
-  const assigned = transactions.filter(t => t.lineItemId !== null);
+  // Filter out split parent transactions from unassigned (they're replaced by their children)
+  const unassigned = getUnassignedTransactions(transactions).filter(t => !t.isSplitParent);
+  // For assigned, show child splits and non-split transactions, but not split parents
+  const assigned = transactions.filter(t => t.lineItemId !== null && !t.isSplitParent);
 
   // Use filtered transactions if filter is active, otherwise show all
   const displayedTransactions = useMemo(() => {
@@ -361,6 +368,15 @@ export function TransactionsPanel({
                             >
                               {lineItem?.name || 'Unknown'}
                             </Badge>
+                            {transaction.parentTransactionId && (
+                              <Badge
+                                variant="outline"
+                                className="text-xs px-1.5 py-0 gap-0.5"
+                              >
+                                <Split className="h-2.5 w-2.5" />
+                                Split
+                              </Badge>
+                            )}
                             {transaction.source === 'nwc' && (
                               <TransactionSourceBadge
                                 transaction={transaction}
@@ -663,20 +679,34 @@ export function TransactionsPanel({
           )}
 
           <DialogFooter className="flex-row justify-between sm:justify-between">
-            <Button
-              variant="ghost"
-              className="text-destructive hover:text-destructive hover:bg-destructive/10"
-              onClick={() => {
-                if (selectedTransaction) {
-                  onDeleteTransaction(selectedTransaction.id);
-                  setShowAssignDialog(false);
-                  setSelectedTransaction(null);
-                }
-              }}
-            >
-              <Trash2 className="h-4 w-4 mr-2" />
-              Delete
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="ghost"
+                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                onClick={() => {
+                  if (selectedTransaction) {
+                    onDeleteTransaction(selectedTransaction.id);
+                    setShowAssignDialog(false);
+                    setSelectedTransaction(null);
+                  }
+                }}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete
+              </Button>
+              {onSplitTransaction && selectedTransaction && !selectedTransaction.isSplitParent && !selectedTransaction.parentTransactionId && (
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowAssignDialog(false);
+                    setShowSplitDialog(true);
+                  }}
+                >
+                  <Split className="h-4 w-4 mr-2" />
+                  Split
+                </Button>
+              )}
+            </div>
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => setShowAssignDialog(false)}>
                 Cancel
@@ -800,6 +830,18 @@ export function TransactionsPanel({
           lineItemName={buckets
             .find(b => b.id === selectedTransaction.bucketId)
             ?.lineItems.find(l => l.id === selectedTransaction.lineItemId)?.name}
+        />
+      )}
+
+      {/* Split Transaction Dialog */}
+      {onSplitTransaction && (
+        <SplitTransactionDialog
+          open={showSplitDialog}
+          onOpenChange={setShowSplitDialog}
+          transaction={selectedTransaction}
+          buckets={buckets}
+          currency={currency}
+          onSplit={onSplitTransaction}
         />
       )}
     </>
