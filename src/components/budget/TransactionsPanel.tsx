@@ -5,6 +5,7 @@ import {
   Plus,
   Trash2,
   ChevronRight,
+  ChevronDown,
   AlertCircle,
   CheckCircle2,
   Zap,
@@ -38,6 +39,11 @@ import {
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import { useBitcoinPrice, formatSats, satsToUsd, usdToSats, formatUsd } from '@/hooks/useBitcoinPrice';
 import { getUnassignedTransactions } from '@/lib/budgetTypes';
 import type { Transaction, Bucket, SplitAllocation } from '@/lib/budgetTypes';
@@ -78,6 +84,7 @@ export function TransactionsPanel({
   const [showSplitDialog, setShowSplitDialog] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [filteredTransactions, setFilteredTransactions] = useState<Transaction[]>([]);
+  const [isCategorizedOpen, setIsCategorizedOpen] = useState(false);
 
   // Add transaction form state
   const [newAmount, setNewAmount] = useState('');
@@ -314,109 +321,126 @@ export function TransactionsPanel({
             </div>
           )}
 
-          {/* Assigned transactions */}
+          {/* Assigned transactions - Collapsible */}
           {assigned.length > 0 && !filteredTransactions.length && (
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <CheckCircle2 className="h-4 w-4 text-success" />
-                <span className="text-sm font-medium">Categorized</span>
-              </div>
-              <ScrollArea className="max-h-[300px] w-full">
-                <div className="space-y-1">
-                  {assigned.slice(0, 10).map((transaction) => {
-                    const bucket = buckets.find(b => b.id === transaction.bucketId);
-                    const lineItem = bucket?.lineItems.find(
-                      l => l.id === transaction.lineItemId
-                    );
-                    return (
-                      <button
-                        key={transaction.id}
-                        onClick={() => {
-                          setSelectedTransaction(transaction);
-                          setShowDetailsDialog(true);
-                        }}
-                        className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 group transition-colors text-left"
-                      >
-                        <div
-                          className={cn(
-                            'h-7 w-7 rounded-full flex items-center justify-center',
-                            transaction.isIncome
-                              ? 'bg-success/20 text-success'
-                              : 'bg-muted text-muted-foreground'
-                          )}
-                        >
-                          {transaction.isIncome ? (
-                            <ArrowDownLeft className="h-3.5 w-3.5" />
-                          ) : (
-                            <ArrowUpRight className="h-3.5 w-3.5" />
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm truncate">
-                            {transaction.description}
-                          </p>
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <Badge
-                              variant="secondary"
-                              className="text-xs px-1.5 py-0"
-                              style={{
-                                backgroundColor: bucket
-                                  ? `${bucket.color}20`
-                                  : undefined,
-                                color: bucket?.color,
-                              }}
-                            >
-                              {lineItem?.name || 'Unknown'}
-                            </Badge>
-                            {transaction.parentTransactionId && (
-                              <Badge
-                                variant="outline"
-                                className="text-xs px-1.5 py-0 gap-0.5"
-                              >
-                                <Split className="h-2.5 w-2.5" />
-                                Split
-                              </Badge>
-                            )}
-                            {transaction.source === 'nwc' && (
-                              <TransactionSourceBadge
-                                transaction={transaction}
-                                walletConnections={walletConnections}
-                                className="text-xs px-1.5 py-0"
-                              />
-                            )}
-                            <span className="text-xs text-muted-foreground">
-                              {formatDate(transaction.date)}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={cn(
-                              'text-sm font-medium tabular-nums',
-                              transaction.isIncome ? 'text-success' : ''
-                            )}
-                          >
-                            {transaction.isIncome ? '+' : '-'}
-                            {formatTransactionAmount(transaction)}
-                          </span>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onDeleteTransaction(transaction.id);
+            <Collapsible open={isCategorizedOpen} onOpenChange={setIsCategorizedOpen}>
+              <CollapsibleTrigger asChild>
+                <button className="w-full flex items-center justify-between gap-2 py-2 px-1 rounded-lg hover:bg-muted/50 transition-colors">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-success" />
+                    <span className="text-sm font-medium">Categorized</span>
+                    <span className="text-xs text-muted-foreground">
+                      ({assigned.length})
+                    </span>
+                  </div>
+                  <ChevronDown
+                    className={cn(
+                      "h-4 w-4 text-muted-foreground transition-transform duration-200",
+                      isCategorizedOpen && "rotate-180"
+                    )}
+                  />
+                </button>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div className="mt-2 -mx-1">
+                  <ScrollArea className="h-[280px] w-full touch-auto">
+                    <div className="space-y-1 px-1 pb-2">
+                      {assigned.map((transaction) => {
+                        const bucket = buckets.find(b => b.id === transaction.bucketId);
+                        const lineItem = bucket?.lineItems.find(
+                          l => l.id === transaction.lineItemId
+                        );
+                        return (
+                          <button
+                            key={transaction.id}
+                            onClick={() => {
+                              setSelectedTransaction(transaction);
+                              setShowDetailsDialog(true);
                             }}
+                            className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 group transition-colors text-left"
                           >
-                            <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
-                          </Button>
-                        </div>
-                      </button>
-                    );
-                  })}
+                            <div
+                              className={cn(
+                                'h-7 w-7 rounded-full flex items-center justify-center flex-shrink-0',
+                                transaction.isIncome
+                                  ? 'bg-success/20 text-success'
+                                  : 'bg-muted text-muted-foreground'
+                              )}
+                            >
+                              {transaction.isIncome ? (
+                                <ArrowDownLeft className="h-3.5 w-3.5" />
+                              ) : (
+                                <ArrowUpRight className="h-3.5 w-3.5" />
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm truncate">
+                                {transaction.description}
+                              </p>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <Badge
+                                  variant="secondary"
+                                  className="text-xs px-1.5 py-0"
+                                  style={{
+                                    backgroundColor: bucket
+                                      ? `${bucket.color}20`
+                                      : undefined,
+                                    color: bucket?.color,
+                                  }}
+                                >
+                                  {lineItem?.name || 'Unknown'}
+                                </Badge>
+                                {transaction.parentTransactionId && (
+                                  <Badge
+                                    variant="outline"
+                                    className="text-xs px-1.5 py-0 gap-0.5"
+                                  >
+                                    <Split className="h-2.5 w-2.5" />
+                                    Split
+                                  </Badge>
+                                )}
+                                {transaction.source === 'nwc' && (
+                                  <TransactionSourceBadge
+                                    transaction={transaction}
+                                    walletConnections={walletConnections}
+                                    className="text-xs px-1.5 py-0"
+                                  />
+                                )}
+                                <span className="text-xs text-muted-foreground">
+                                  {formatDate(transaction.date)}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={cn(
+                                  'text-sm font-medium tabular-nums',
+                                  transaction.isIncome ? 'text-success' : ''
+                                )}
+                              >
+                                {transaction.isIncome ? '+' : '-'}
+                                {formatTransactionAmount(transaction)}
+                              </span>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onDeleteTransaction(transaction.id);
+                                }}
+                              >
+                                <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
+                              </Button>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </ScrollArea>
                 </div>
-              </ScrollArea>
-            </div>
+              </CollapsibleContent>
+            </Collapsible>
           )}
 
           {/* Filtered transactions results */}

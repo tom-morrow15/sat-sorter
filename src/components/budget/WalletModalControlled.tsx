@@ -281,21 +281,37 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
                           </div>
                         )}
 
-                        {/* Full resync button */}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="w-full mt-2"
-                          onClick={() => forceFullSync(true)}
-                          disabled={isSyncing}
-                        >
-                          {isSyncing ? (
-                            <RefreshCw className="h-3 w-3 mr-2 animate-spin" />
-                          ) : (
-                            <RefreshCw className="h-3 w-3 mr-2" />
-                          )}
-                          Full Resync (All Transactions)
-                        </Button>
+                        {/* Sync action buttons */}
+                        <div className="flex gap-2 mt-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="flex-1"
+                            onClick={() => forceFullSync(true)}
+                            disabled={isSyncing}
+                          >
+                            {isSyncing ? (
+                              <RefreshCw className="h-3 w-3 mr-2 animate-spin" />
+                            ) : (
+                              <RefreshCw className="h-3 w-3 mr-2" />
+                            )}
+                            Full Resync
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-muted-foreground hover:text-destructive"
+                            onClick={() => clearSyncHistory()}
+                            disabled={isSyncing}
+                            title="Clear sync cache and resync from scratch"
+                          >
+                            <Trash2 className="h-3 w-3 mr-1" />
+                            Reset
+                          </Button>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          <strong>Full Resync:</strong> Re-fetch all transactions. <strong>Reset:</strong> Clear sync cache and start fresh (use if duplicates appear).
+                        </p>
 
                         {/* Warning if list_transactions explicitly not supported */}
                         {walletInfo && walletInfo.methods && walletInfo.methods.length > 0 && !supportsListTransactions && (

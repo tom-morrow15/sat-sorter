@@ -901,28 +901,70 @@ export function useBudgetStore() {
     return newTransaction;
   }, [currentBudget, state.currentMonth, saveBudget, setState]);
 
-  // Update a transaction
+  // Update a transaction (searches across all months)
   const updateTransaction = useCallback((
     transactionId: string,
     updates: Partial<Transaction>
   ) => {
-    const updatedBudget = {
-      ...currentBudget,
-      transactions: currentBudget.transactions.map(t =>
-        t.id === transactionId ? { ...t, ...updates } : t
-      ),
-    };
-    saveBudget(updatedBudget);
-  }, [currentBudget, saveBudget]);
+    // First check if transaction is in current budget
+    const isInCurrentBudget = currentBudget.transactions.some(t => t.id === transactionId);
 
-  // Delete a transaction
+    if (isInCurrentBudget) {
+      const updatedBudget = {
+        ...currentBudget,
+        transactions: currentBudget.transactions.map(t =>
+          t.id === transactionId ? { ...t, ...updates } : t
+        ),
+      };
+      saveBudget(updatedBudget);
+    } else {
+      // Transaction might be in a different month - search all budgets
+      setState(prev => {
+        const newBudgets = prev.budgets.map(budget => {
+          const hasTransaction = budget.transactions.some(t => t.id === transactionId);
+          if (hasTransaction) {
+            return {
+              ...budget,
+              transactions: budget.transactions.map(t =>
+                t.id === transactionId ? { ...t, ...updates } : t
+              ),
+            };
+          }
+          return budget;
+        });
+        return { ...prev, budgets: newBudgets };
+      });
+    }
+  }, [currentBudget, saveBudget, setState]);
+
+  // Delete a transaction (searches across all months)
   const deleteTransaction = useCallback((transactionId: string) => {
-    const updatedBudget = {
-      ...currentBudget,
-      transactions: currentBudget.transactions.filter(t => t.id !== transactionId),
-    };
-    saveBudget(updatedBudget);
-  }, [currentBudget, saveBudget]);
+    // First check if transaction is in current budget
+    const isInCurrentBudget = currentBudget.transactions.some(t => t.id === transactionId);
+
+    if (isInCurrentBudget) {
+      const updatedBudget = {
+        ...currentBudget,
+        transactions: currentBudget.transactions.filter(t => t.id !== transactionId),
+      };
+      saveBudget(updatedBudget);
+    } else {
+      // Transaction might be in a different month - search all budgets
+      setState(prev => {
+        const newBudgets = prev.budgets.map(budget => {
+          const hasTransaction = budget.transactions.some(t => t.id === transactionId);
+          if (hasTransaction) {
+            return {
+              ...budget,
+              transactions: budget.transactions.filter(t => t.id !== transactionId),
+            };
+          }
+          return budget;
+        });
+        return { ...prev, budgets: newBudgets };
+      });
+    }
+  }, [currentBudget, saveBudget, setState]);
 
   // Assign transaction to a line item
   const assignTransaction = useCallback((
