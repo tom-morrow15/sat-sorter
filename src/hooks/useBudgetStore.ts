@@ -13,10 +13,13 @@ import {
   LineItem,
   Transaction,
   SplitAllocation,
+  BudgetInvitation,
+  PendingInvitation,
   createDefaultBuckets,
   getCurrentMonth,
   generateId,
 } from '@/lib/budgetTypes';
+import { nip19 } from 'nostr-tools';
 
 const APP_IDENTIFIER = 'sat-sorter/budget-data';
 const BUDGET_KIND = 30078; // NIP-78 Application-specific data
@@ -74,6 +77,7 @@ export function useBudgetStore() {
   const [isInitialLoadComplete, setIsInitialLoadComplete] = useState(false);
   const [conflictInfo, setConflictInfo] = useState<ConflictInfo | null>(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [pendingInvitations, setPendingInvitations] = useState<PendingInvitation[]>([]);
 
   // Track online/offline status
   useEffect(() => {
@@ -751,6 +755,161 @@ export function useBudgetStore() {
     return state.isShared && (state.partnerPubkeys?.length || 0) > 0;
   }, [state.isShared, state.partnerPubkeys]);
 
+  // ============================================
+  // INVITATION SYSTEM (Phase 2)
+  // ============================================
+
+  // Fetch pending invitations for current user
+  const fetchPendingInvitations = useCallback(async () => {
+    if (!user?.pubkey || !nip44) return;
+
+    try {
+      const events = await nostr.query([
+        {
+          kinds: [INVITE_KIND],
+          '#p': [user.pubkey],
+          limit: 10,
+        },
+      ], { signal: AbortSignal.timeout(10000) });
+
+      const invitations: PendingInvitation[] = [];
+
+      for (const event of events) {
+        try {
+          const decrypted = await nip44.decrypt(event.pubkey, event.content);
+          const invitation: BudgetInvitation = JSON.parse(decrypted);
+
+          if (invitation.type === 'budget-invite') {
+            invitations.push({
+              id: event.id,
+              invitation,
+              fromPubkey: event.pubkey,
+              receivedAt: event.created_at,
+            });
+          }
+        } catch {
+          // Skip invalid invitations
+        }
+      }
+
+      setPendingInvitations(invitations);
+      console.log('[BudgetStore] Found', invitations.length, 'pending invitations');
+    } catch {
+      console.error('[BudgetStore] Failed to fetch invitations');
+    }
+  }, [user?.pubkey, nip44, nostr]);
+
+  // Send invitation to a partner
+  const invitePartner = useCallback(async (npubOrNip05: string): Promise<boolean> => {
+    if (!user?.pubkey || !nip44) return false;
+
+    try {
+      // Parse the npub or resolve NIP-05
+      let partnerPubkey: string;
+
+      if (npubOrNip05.startsWith('npub1')) {
+        const decoded = nip19.decode(npubOrNip05);
+        if (decoded.type !== 'npub') throw new Error('Invalid npub');
+        partnerPubkey = decoded.data;
+      } else {
+        // TODO: Resolve NIP-05 address
+        // For now, just reject non-npub addresses
+        throw new Error('Please use an npub address for now');
+      }
+
+      // Create invitation
+      const budgetName = `Budget - ${new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`;
+      const invitation: BudgetInvitation = {
+        type: 'budget-invite',
+        budgetId: state.budgetId || generateId(),
+        budgetName,
+        ownerPubkey: user.pubkey,
+        createdAt: Math.floor(Date.now() / 1000),
+      };
+
+      // Encrypt and publish invitation
+      const encrypted = await nip44.encrypt(partnerPubkey, JSON.stringify(invitation));
+
+      await publish({
+        kind: INVITE_KIND,
+        content: encrypted,
+        tags: [
+          ['p', partnerPubkey],
+          ['d', `budget-invite-${invitation.budgetId}`],
+          ['alt', 'Sat Sorter budget invitation (encrypted)'],
+        ],
+      });
+
+      // Update local state to mark as shared and add partner
+      setLocalState(prev => ({
+        ...prev,
+        budgetId: invitation.budgetId,
+        isShared: true,
+        ownerPubkey: user.pubkey,
+        partnerPubkeys: [...(prev.partnerPubkeys || []), user.pubkey, partnerPubkey].filter((v, i, a) => a.indexOf(v) === i),
+      }));
+
+      console.log('[BudgetStore] Invitation sent to', partnerPubkey);
+      return true;
+    } catch (error) {
+      console.error('[BudgetStore] Failed to send invitation:', error);
+      return false;
+    }
+  }, [user?.pubkey, nip44, state.budgetId, publish, setLocalState]);
+
+  // Accept an invitation
+  const acceptInvitation = useCallback(async (invitation: PendingInvitation): Promise<boolean> => {
+    if (!user?.pubkey || !nip44) return false;
+
+    try {
+      // For now, just mark the budget as shared and add self as partner
+      // In Phase 3, we'll fetch the actual shared budget
+      setLocalState(prev => ({
+        ...prev,
+        budgetId: invitation.invitation.budgetId,
+        isShared: true,
+        ownerPubkey: invitation.invitation.ownerPubkey,
+        partnerPubkeys: [invitation.invitation.ownerPubkey, user.pubkey],
+      }));
+
+      // Remove from pending invitations
+      setPendingInvitations(prev => prev.filter(inv => inv.id !== invitation.id));
+
+      console.log('[BudgetStore] Accepted invitation from', invitation.fromPubkey);
+      return true;
+    } catch (error) {
+      console.error('[BudgetStore] Failed to accept invitation:', error);
+      return false;
+    }
+  }, [user?.pubkey, nip44, setLocalState]);
+
+  // Decline an invitation
+  const declineInvitation = useCallback(async (invitation: PendingInvitation): Promise<boolean> => {
+    // Just remove from local list - we don't need to notify the sender
+    setPendingInvitations(prev => prev.filter(inv => inv.id !== invitation.id));
+    return true;
+  }, []);
+
+  // Remove a partner (owner only)
+  const removePartner = useCallback(async (partnerPubkey: string): Promise<boolean> => {
+    if (!user?.pubkey || user.pubkey !== state.ownerPubkey) return false;
+
+    setLocalState(prev => ({
+      ...prev,
+      partnerPubkeys: (prev.partnerPubkeys || []).filter(pk => pk !== partnerPubkey),
+      isShared: (prev.partnerPubkeys || []).filter(pk => pk !== partnerPubkey).length > 1,
+    }));
+
+    return true;
+  }, [user?.pubkey, state.ownerPubkey, setLocalState]);
+
+  // Check for invitations on login
+  useEffect(() => {
+    if (isLoggedIn && isInitialLoadComplete) {
+      fetchPendingInvitations();
+    }
+  }, [isLoggedIn, isInitialLoadComplete, fetchPendingInvitations]);
+
   return {
     // State
     currentBudget,
@@ -805,6 +964,13 @@ export function useBudgetStore() {
     lastEditedAt: state.lastEditedAt,
     ownerPubkey: state.ownerPubkey,
     partnerPubkeys: state.partnerPubkeys,
+
+    // Invitation system
+    pendingInvitations,
+    invitePartner,
+    acceptInvitation,
+    declineInvitation,
+    removePartner,
 
     // Manual sync controls (for edge cases)
     refreshFromRelays,

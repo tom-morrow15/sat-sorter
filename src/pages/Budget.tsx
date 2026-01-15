@@ -16,6 +16,7 @@ import { OnboardingWelcome } from '@/components/budget/OnboardingWelcome';
 import { FirstTimeBudgetPrompt, EmptyBudgetCategories } from '@/components/budget/EmptyStates';
 import { ConflictResolutionDialog } from '@/components/budget/ConflictResolutionDialog';
 import { OfflineWarningBanner } from '@/components/budget/OfflineWarningBanner';
+import { PendingInvitationBanner } from '@/components/budget/PendingInvitationBanner';
 import { LoginArea } from '@/components/auth/LoginArea';
 import { useBudgetStoreContext } from '@/contexts/BudgetStoreContext';
 import { useWallet } from '@/hooks/useWallet';
@@ -75,6 +76,14 @@ export default function Budget() {
     dismissConflict,
     isSharedBudget,
     refreshFromRelays,
+    // Budget Partners
+    ownerPubkey,
+    partnerPubkeys,
+    pendingInvitations,
+    invitePartner,
+    acceptInvitation,
+    declineInvitation,
+    removePartner,
   } = useBudgetStoreContext();
 
   // Initialize NWC sync - only after initial budget load is complete
@@ -156,11 +165,27 @@ export default function Budget() {
         hasUnsyncedChanges={false}
         onManualSync={refreshFromRelays}
         canSync={isLoggedIn}
+        // Budget Partners
+        isShared={isSharedBudget}
+        ownerPubkey={ownerPubkey}
+        partnerPubkeys={partnerPubkeys}
+        onInvitePartner={invitePartner}
+        onRemovePartner={removePartner}
       />
 
       <main className="container mx-auto px-3 sm:px-4 py-4 lg:py-6">
         {/* Alerts Section - Full width */}
         <div className="space-y-3 mb-4">
+          {/* Pending budget partner invitations */}
+          {pendingInvitations.map((invitation) => (
+            <PendingInvitationBanner
+              key={invitation.id}
+              invitation={invitation}
+              onAccept={acceptInvitation}
+              onDecline={declineInvitation}
+            />
+          ))}
+
           {/* Offline warning for shared budgets */}
           {!isOnline && (
             <OfflineWarningBanner

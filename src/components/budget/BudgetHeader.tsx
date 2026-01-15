@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bitcoin, DollarSign, ChevronLeft, ChevronRight, Wallet, Moon, Sun, Zap, Calendar, Menu, Info, Heart, ExternalLink, Shield, Globe, GraduationCap, LogIn, Wifi, Loader2, Check, AlertCircle, HelpCircle, Download, BookOpen, MessageSquare, RotateCcw, Key } from 'lucide-react';
+import { Bitcoin, DollarSign, ChevronLeft, ChevronRight, Wallet, Moon, Sun, Zap, Calendar, Menu, Info, Heart, ExternalLink, Shield, Globe, GraduationCap, LogIn, Wifi, Loader2, Check, AlertCircle, HelpCircle, Download, BookOpen, MessageSquare, RotateCcw, Key, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -40,6 +40,7 @@ import { useAppContext } from '@/hooks/useAppContext';
 import { BackupRestoreDialog } from './BackupRestoreDialog';
 import { DataExportDialog } from './DataExportDialog';
 import { OnboardingWelcome } from './OnboardingWelcome';
+import { BudgetPartnersDialog } from './BudgetPartnersDialog';
 import { useOnboarding } from '@/hooks/useOnboarding';
 import { useAppUpdate } from '@/hooks/useAppUpdate';
 import { useNWCSync } from '@/hooks/useNWCSync';
@@ -58,6 +59,12 @@ interface BudgetHeaderProps {
   hasUnsyncedChanges?: boolean;
   onManualSync?: () => void;
   canSync?: boolean;
+  // Budget Partners
+  isShared?: boolean;
+  ownerPubkey?: string;
+  partnerPubkeys?: string[];
+  onInvitePartner?: (npub: string) => Promise<boolean>;
+  onRemovePartner?: (pubkey: string) => Promise<boolean>;
 }
 
 export function BudgetHeader({
@@ -74,6 +81,11 @@ export function BudgetHeader({
   hasUnsyncedChanges = false,
   onManualSync,
   canSync = false,
+  isShared = false,
+  ownerPubkey,
+  partnerPubkeys = [],
+  onInvitePartner,
+  onRemovePartner,
 }: BudgetHeaderProps) {
   const { data: priceData, isLoading: priceLoading } = useBitcoinPrice();
   const { isDark, toggle: toggleTheme } = useTheme();
@@ -89,6 +101,7 @@ export function BudgetHeader({
   const [showOnboardingTour, setShowOnboardingTour] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
   const [showClearSyncHistory, setShowClearSyncHistory] = useState(false);
+  const [showBudgetPartners, setShowBudgetPartners] = useState(false);
 
   const { completeOnboarding } = useOnboarding();
   const { updateAvailable, performUpdate } = useAppUpdate();
@@ -327,6 +340,10 @@ export function BudgetHeader({
                   Other Bitcoin Projects
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setShowBudgetPartners(true)}>
+                  <Users className="h-4 w-4 mr-2" />
+                  Budget Partners
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setShowBackup(true)}>
                   <Wifi className="h-4 w-4 mr-2" />
                   Nostr Relay Sync
@@ -1038,6 +1055,17 @@ export function BudgetHeader({
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Budget Partners Dialog */}
+      <BudgetPartnersDialog
+        open={showBudgetPartners}
+        onOpenChange={setShowBudgetPartners}
+        isShared={isShared}
+        ownerPubkey={ownerPubkey}
+        partnerPubkeys={partnerPubkeys}
+        onInvitePartner={onInvitePartner || (async () => false)}
+        onRemovePartner={onRemovePartner}
+      />
 
       {/* FAQ & Help Dialog */}
       <Dialog open={showFAQ} onOpenChange={setShowFAQ}>
