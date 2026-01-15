@@ -84,6 +84,17 @@ export function useBudgetStore() {
   const [pendingInvitations, setPendingInvitations] = useState<PendingInvitation[]>([]);
   const [partnerUpdateNotification, setPartnerUpdateNotification] = useState<string | null>(null);
 
+  // Track if we have unsaved local changes (for offline conflict detection)
+  const [hasUnsavedLocalChanges, setHasUnsavedLocalChanges] = useState(false);
+  const [offlineChangesMade, setOfflineChangesMade] = useState(false);
+
+  // Refs for debouncing and tracking
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const lastSavedStateRef = useRef<string>('');
+  const isSavingRef = useRef(false);
+  const isAcceptingInviteRef = useRef(false); // Prevent auto-save during invite acceptance
+  const wasOfflineRef = useRef(!navigator.onLine);
+
   // Track online/offline status
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -98,10 +109,20 @@ export function useBudgetStore() {
     };
   }, []);
 
-  // Refs for debouncing and tracking
-  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
-  const lastSavedStateRef = useRef<string>('');
-  const isSavingRef = useRef(false);
+  // When coming back online with offline changes on a shared budget, check for conflicts
+  useEffect(() => {
+    const wasOffline = wasOfflineRef.current;
+    wasOfflineRef.current = !isOnline;
+
+    // Just came back online
+    if (isOnline && wasOffline && offlineChangesMade && localState.isShared) {
+      console.log('[BudgetStore] Back online with offline changes - checking for conflicts...');
+
+      // Don't auto-sync - user needs to explicitly resolve
+      // The conflict will be detected when they try to save or when we receive a subscription update
+      setSyncStatus('idle');
+    }
+  }, [isOnline, offlineChangesMade, localState.isShared]);
 
   // Check for NIP-44 support
   const needsExtension = loginType === 'extension';
@@ -504,10 +525,30 @@ export function useBudgetStore() {
   useEffect(() => {
     if (!isLoggedIn || !isInitialLoadComplete) return;
 
+    // Don't auto-save during invitation acceptance - wait for explicit action
+    if (isAcceptingInviteRef.current) {
+      console.log('[BudgetStore] Skipping auto-save during invitation acceptance');
+      return;
+    }
+
     const currentStateStr = JSON.stringify(localState);
 
     // Skip if nothing changed
-    if (currentStateStr === lastSavedStateRef.current) return;
+    if (currentStateStr === lastSavedStateRef.current) {
+      setHasUnsavedLocalChanges(false);
+      return;
+    }
+
+    // Track that we have unsaved changes
+    setHasUnsavedLocalChanges(true);
+
+    // If we're offline and this is a shared budget, track that we made offline changes
+    if (!isOnline && localState.isShared) {
+      setOfflineChangesMade(true);
+      console.log('[BudgetStore] Offline change detected on shared budget - will need sync when online');
+      // Don't auto-save when offline with shared budget - wait for user action
+      return;
+    }
 
     // Clear existing timeout
     if (saveTimeoutRef.current) {
@@ -517,7 +558,11 @@ export function useBudgetStore() {
     // Set new debounced save
     saveTimeoutRef.current = setTimeout(async () => {
       console.log('[BudgetStore] Auto-saving changes to relays...');
-      await saveToRelays(localState);
+      const success = await saveToRelays(localState);
+      if (success) {
+        setHasUnsavedLocalChanges(false);
+        setOfflineChangesMade(false);
+      }
     }, AUTO_SAVE_DEBOUNCE_MS);
 
     return () => {
@@ -525,7 +570,7 @@ export function useBudgetStore() {
         clearTimeout(saveTimeoutRef.current);
       }
     };
-  }, [localState, isLoggedIn, isInitialLoadComplete, saveToRelays]);
+  }, [localState, isLoggedIn, isInitialLoadComplete, isOnline, saveToRelays]);
 
   // ============================================
   // REAL-TIME SUBSCRIPTION FOR SHARED BUDGETS
@@ -1216,8 +1261,12 @@ export function useBudgetStore() {
   }, [user?.pubkey, nip44, state, publish, setLocalState]);
 
   // Accept an invitation and fetch the shared budget
+  // CRITICAL: This should ONLY pull data, never push the partner's local state
   const acceptInvitation = useCallback(async (invitation: PendingInvitation): Promise<boolean> => {
     if (!user?.pubkey || !nip44) return false;
+
+    // Set flag to prevent auto-save during this process
+    isAcceptingInviteRef.current = true;
 
     try {
       const { budgetId, ownerPubkey } = invitation.invitation;
@@ -1241,16 +1290,20 @@ export function useBudgetStore() {
 
       if (events.length === 0) {
         // Budget not found - maybe owner hasn't published it yet, or relay issues
-        // Still mark as shared so user can try refreshing later
+        // IMPORTANT: Don't save anything - just mark locally and wait for manual refresh
         console.warn('[BudgetStore] Shared budget not found on relays, will sync on next refresh');
 
-        setLocalState(prev => ({
-          ...prev,
+        const fallbackState: BudgetState = {
+          ...localState,
           budgetId,
           isShared: true,
           ownerPubkey,
           partnerPubkeys: [ownerPubkey, user.pubkey],
-        }));
+        };
+
+        setLocalState(fallbackState);
+        // CRITICAL: Set lastSavedStateRef to prevent auto-save from pushing empty budget
+        lastSavedStateRef.current = JSON.stringify(fallbackState);
 
         setPendingInvitations(prev => prev.filter(inv => inv.id !== invitation.id));
         return true;
@@ -1276,12 +1329,13 @@ export function useBudgetStore() {
           partnerPubkeys,
         };
 
-        // Update local state with the shared budget
+        // Update local state with the shared budget (REPLACING any local data)
         setLocalState(updatedBudget);
+        // CRITICAL: Set lastSavedStateRef so auto-save doesn't trigger
         lastSavedStateRef.current = JSON.stringify(updatedBudget);
         setLastSyncedAt(latestEvent.created_at);
 
-        console.log('[BudgetStore] Successfully loaded shared budget', {
+        console.log('[BudgetStore] Successfully loaded shared budget (replaced local data)', {
           budgetId,
           version: sharedBudget.version,
           partners: partnerPubkeys.length,
@@ -1289,14 +1343,16 @@ export function useBudgetStore() {
 
       } catch (e) {
         console.error('[BudgetStore] Failed to decrypt shared budget:', e);
-        // Still mark as shared for manual retry
-        setLocalState(prev => ({
-          ...prev,
+        // Still mark as shared for manual retry, but DON'T push anything
+        const fallbackState: BudgetState = {
+          ...localState,
           budgetId,
           isShared: true,
           ownerPubkey,
           partnerPubkeys: [ownerPubkey, user.pubkey],
-        }));
+        };
+        setLocalState(fallbackState);
+        lastSavedStateRef.current = JSON.stringify(fallbackState);
       }
 
       // Remove from pending invitations
@@ -1307,6 +1363,11 @@ export function useBudgetStore() {
     } catch (error) {
       console.error('[BudgetStore] Failed to accept invitation:', error);
       return false;
+    } finally {
+      // Clear the flag after a short delay to ensure state has settled
+      setTimeout(() => {
+        isAcceptingInviteRef.current = false;
+      }, 500);
     }
   }, [user?.pubkey, nip44, nostr, setLocalState]);
 
@@ -1436,6 +1497,11 @@ export function useBudgetStore() {
     // Real-time updates from partners
     partnerUpdateNotification,
     clearPartnerUpdateNotification: () => setPartnerUpdateNotification(null),
+
+    // Offline sync tracking
+    hasUnsavedLocalChanges,
+    offlineChangesMade,
+    clearOfflineChangesFlag: () => setOfflineChangesMade(false),
 
     // Invitation system
     pendingInvitations,

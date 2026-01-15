@@ -91,6 +91,10 @@ export default function Budget() {
     // Real-time updates
     partnerUpdateNotification,
     clearPartnerUpdateNotification,
+    // Offline sync
+    hasUnsavedLocalChanges,
+    offlineChangesMade,
+    clearOfflineChangesFlag,
   } = useBudgetStoreContext();
 
   // Initialize NWC sync - only after initial budget load is complete
@@ -196,10 +200,22 @@ export default function Budget() {
           ))}
 
           {/* Offline warning for shared budgets */}
-          {!isOnline && (
+          {(!isOnline || (isOnline && offlineChangesMade && isSharedBudget)) && (
             <OfflineWarningBanner
               isSharedBudget={isSharedBudget}
-              hasPendingChanges={false}
+              hasPendingChanges={hasUnsavedLocalChanges}
+              offlineChangesMade={offlineChangesMade}
+              isBackOnline={isOnline && offlineChangesMade}
+              onSyncNow={async () => {
+                // Force a sync - this will trigger conflict detection if needed
+                await refreshFromRelays();
+                clearOfflineChangesFlag();
+              }}
+              onDiscardChanges={async () => {
+                // Discard local changes and fetch from relays
+                await refreshFromRelays();
+                clearOfflineChangesFlag();
+              }}
             />
           )}
 
