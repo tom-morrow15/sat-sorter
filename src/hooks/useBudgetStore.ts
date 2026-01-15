@@ -915,65 +915,60 @@ export function useBudgetStore() {
     transactionId: string,
     updates: Partial<Transaction>
   ) => {
-    // First check if transaction is in current budget
-    const isInCurrentBudget = currentBudget.transactions.some(t => t.id === transactionId);
-
-    if (isInCurrentBudget) {
-      const updatedBudget = {
-        ...currentBudget,
-        transactions: currentBudget.transactions.map(t =>
-          t.id === transactionId ? { ...t, ...updates } : t
-        ),
-      };
-      saveBudget(updatedBudget);
-    } else {
-      // Transaction might be in a different month - search all budgets
-      setState(prev => {
-        const newBudgets = prev.budgets.map(budget => {
-          const hasTransaction = budget.transactions.some(t => t.id === transactionId);
-          if (hasTransaction) {
-            return {
-              ...budget,
-              transactions: budget.transactions.map(t =>
-                t.id === transactionId ? { ...t, ...updates } : t
-              ),
-            };
-          }
-          return budget;
-        });
-        return { ...prev, budgets: newBudgets };
+    // Use functional setState to always work with the latest state
+    // This avoids race conditions with stale closures
+    setState(prev => {
+      let found = false;
+      const newBudgets = prev.budgets.map(budget => {
+        const hasTransaction = budget.transactions.some(t => t.id === transactionId);
+        if (hasTransaction) {
+          found = true;
+          return {
+            ...budget,
+            transactions: budget.transactions.map(t =>
+              t.id === transactionId ? { ...t, ...updates } : t
+            ),
+          };
+        }
+        return budget;
       });
-    }
-  }, [currentBudget, saveBudget, setState]);
+
+      if (!found) {
+        console.warn('[BudgetStore] Transaction not found for update:', transactionId);
+      } else {
+        console.log('[BudgetStore] Updated transaction:', transactionId, updates);
+      }
+
+      return { ...prev, budgets: newBudgets };
+    });
+  }, [setState]);
 
   // Delete a transaction (searches across all months)
   const deleteTransaction = useCallback((transactionId: string) => {
-    // First check if transaction is in current budget
-    const isInCurrentBudget = currentBudget.transactions.some(t => t.id === transactionId);
-
-    if (isInCurrentBudget) {
-      const updatedBudget = {
-        ...currentBudget,
-        transactions: currentBudget.transactions.filter(t => t.id !== transactionId),
-      };
-      saveBudget(updatedBudget);
-    } else {
-      // Transaction might be in a different month - search all budgets
-      setState(prev => {
-        const newBudgets = prev.budgets.map(budget => {
-          const hasTransaction = budget.transactions.some(t => t.id === transactionId);
-          if (hasTransaction) {
-            return {
-              ...budget,
-              transactions: budget.transactions.filter(t => t.id !== transactionId),
-            };
-          }
-          return budget;
-        });
-        return { ...prev, budgets: newBudgets };
+    // Use functional setState to always work with the latest state
+    setState(prev => {
+      let found = false;
+      const newBudgets = prev.budgets.map(budget => {
+        const hasTransaction = budget.transactions.some(t => t.id === transactionId);
+        if (hasTransaction) {
+          found = true;
+          return {
+            ...budget,
+            transactions: budget.transactions.filter(t => t.id !== transactionId),
+          };
+        }
+        return budget;
       });
-    }
-  }, [currentBudget, saveBudget, setState]);
+
+      if (!found) {
+        console.warn('[BudgetStore] Transaction not found for delete:', transactionId);
+      } else {
+        console.log('[BudgetStore] Deleted transaction:', transactionId);
+      }
+
+      return { ...prev, budgets: newBudgets };
+    });
+  }, [setState]);
 
   // Assign transaction to a line item
   const assignTransaction = useCallback((
