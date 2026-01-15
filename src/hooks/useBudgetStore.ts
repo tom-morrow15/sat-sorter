@@ -82,6 +82,7 @@ export function useBudgetStore() {
   const [conflictInfo, setConflictInfo] = useState<ConflictInfo | null>(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [pendingInvitations, setPendingInvitations] = useState<PendingInvitation[]>([]);
+  const [partnerUpdateNotification, setPartnerUpdateNotification] = useState<string | null>(null);
 
   // Track online/offline status
   useEffect(() => {
@@ -525,6 +526,132 @@ export function useBudgetStore() {
       }
     };
   }, [localState, isLoggedIn, isInitialLoadComplete, saveToRelays]);
+
+  // ============================================
+  // REAL-TIME SUBSCRIPTION FOR SHARED BUDGETS
+  // ============================================
+
+  // Subscribe to updates from partners when we have a shared budget
+  useEffect(() => {
+    if (!isLoggedIn || !isInitialLoadComplete || !nip44) return;
+    if (!state.isShared || !state.budgetId || !state.partnerPubkeys?.length) return;
+
+    // Don't subscribe if we're currently saving (to avoid processing our own events)
+    if (isSavingRef.current) return;
+
+    const myDTag = getSharedBudgetDTag(state.budgetId, user!.pubkey);
+
+    // Get partner pubkeys (excluding ourselves)
+    const partnerAuthors = state.partnerPubkeys.filter(pk => pk !== user!.pubkey);
+
+    if (partnerAuthors.length === 0) return;
+
+    console.log('[BudgetStore] Setting up real-time subscription for shared budget updates');
+
+    const abortController = new AbortController();
+
+    // Subscribe to updates from partners
+    const subscribe = async () => {
+      try {
+        // Use req() for subscription - it returns an async iterator
+        const sub = nostr.req([
+          {
+            kinds: [BUDGET_KIND],
+            authors: partnerAuthors,
+            '#p': [user!.pubkey],
+            since: Math.floor(Date.now() / 1000) - 60, // Start from 1 minute ago
+          },
+        ], { signal: abortController.signal });
+
+        for await (const msg of sub) {
+          if (msg[0] === 'EVENT') {
+            const event = msg[2];
+
+            // Skip if we're currently saving
+            if (isSavingRef.current) continue;
+
+            try {
+              // Decrypt the event
+              const decrypted = await nip44!.decrypt(event.pubkey, event.content);
+              const remoteBudget: BudgetState = JSON.parse(decrypted);
+
+              if (!remoteBudget || !Array.isArray(remoteBudget.budgets)) continue;
+
+              const remoteVersion = remoteBudget.version || 1;
+              const localVersion = state.version || 1;
+
+              // Only process if this is actually newer
+              if (remoteVersion > localVersion) {
+                console.log('[BudgetStore] Received budget update from partner', {
+                  from: event.pubkey.slice(0, 8),
+                  remoteVersion,
+                  localVersion,
+                });
+
+                // Check if we have unsaved local changes
+                const currentStateStr = JSON.stringify(state);
+                const hasLocalChanges = currentStateStr !== lastSavedStateRef.current;
+
+                if (hasLocalChanges) {
+                  // We have local changes AND remote is newer - conflict!
+                  setConflictInfo({
+                    localVersion,
+                    remoteVersion,
+                    remoteEditedBy: remoteBudget.lastEditedBy || event.pubkey,
+                    remoteEditedAt: remoteBudget.lastEditedAt || event.created_at,
+                    remoteBudget,
+                  });
+                  setSyncStatus('conflict');
+                } else {
+                  // No local changes - safe to update
+                  setLocalState(remoteBudget);
+                  lastSavedStateRef.current = JSON.stringify(remoteBudget);
+                  setLastSyncedAt(event.created_at);
+
+                  // Show notification about partner update
+                  setPartnerUpdateNotification(event.pubkey);
+                  setTimeout(() => setPartnerUpdateNotification(null), 5000);
+
+                  // Show brief "synced" status
+                  setSyncStatus('synced');
+                  setTimeout(() => setSyncStatus('idle'), 2000);
+
+                  console.log('[BudgetStore] Applied budget update from partner');
+                }
+              }
+            } catch (e) {
+              // Failed to decrypt - might not be for us
+              console.debug('[BudgetStore] Could not process subscription event', e);
+            }
+          } else if (msg[0] === 'EOSE') {
+            console.log('[BudgetStore] Real-time subscription caught up');
+          }
+        }
+      } catch (e) {
+        // Subscription closed or error
+        if (!abortController.signal.aborted) {
+          console.error('[BudgetStore] Subscription error:', e);
+        }
+      }
+    };
+
+    subscribe();
+
+    return () => {
+      console.log('[BudgetStore] Cleaning up real-time subscription');
+      abortController.abort();
+    };
+  }, [
+    isLoggedIn,
+    isInitialLoadComplete,
+    nip44,
+    nostr,
+    user?.pubkey,
+    state.isShared,
+    state.budgetId,
+    state.partnerPubkeys?.join(','), // Use join to create stable dependency
+    state.version,
+  ]);
 
   // ============================================
   // STATE MANAGEMENT (same API as useBudget)
@@ -1306,6 +1433,10 @@ export function useBudgetStore() {
     lastEditedAt: state.lastEditedAt,
     ownerPubkey: state.ownerPubkey,
     partnerPubkeys: state.partnerPubkeys,
+
+    // Real-time updates from partners
+    partnerUpdateNotification,
+    clearPartnerUpdateNotification: () => setPartnerUpdateNotification(null),
 
     // Invitation system
     pendingInvitations,

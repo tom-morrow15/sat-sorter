@@ -17,6 +17,7 @@ import { FirstTimeBudgetPrompt, EmptyBudgetCategories } from '@/components/budge
 import { ConflictResolutionDialog } from '@/components/budget/ConflictResolutionDialog';
 import { OfflineWarningBanner } from '@/components/budget/OfflineWarningBanner';
 import { PendingInvitationBanner } from '@/components/budget/PendingInvitationBanner';
+import { PartnerUpdateNotification } from '@/components/budget/PartnerUpdateNotification';
 import { LoginArea } from '@/components/auth/LoginArea';
 import { useBudgetStoreContext } from '@/contexts/BudgetStoreContext';
 import { useWallet } from '@/hooks/useWallet';
@@ -87,6 +88,9 @@ export default function Budget() {
     // Version info
     lastEditedBy,
     lastEditedAt,
+    // Real-time updates
+    partnerUpdateNotification,
+    clearPartnerUpdateNotification,
   } = useBudgetStoreContext();
 
   // Initialize NWC sync - only after initial budget load is complete
@@ -403,6 +407,12 @@ export default function Budget() {
       <QuickAddFAB
         onAddTransaction={addTransaction}
         currency={currency}
+      />
+
+      {/* Partner Update Notification - shows when partner makes changes in real-time */}
+      <PartnerUpdateNotification
+        partnerPubkey={partnerUpdateNotification}
+        onDismiss={clearPartnerUpdateNotification}
       />
 
       {/* Onboarding Welcome Dialog */}
