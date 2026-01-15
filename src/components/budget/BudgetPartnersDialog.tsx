@@ -12,6 +12,8 @@ import {
   X,
   Menu,
   ScanLine,
+  Clock,
+  XCircle,
 } from 'lucide-react';
 import {
   Dialog,
@@ -30,6 +32,7 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useAuthor } from '@/hooks/useAuthor';
 import { genUserName } from '@/lib/genUserName';
 import { QRScanner } from './QRScanner';
+import type { SentInvitation } from '@/lib/budgetTypes';
 
 interface BudgetPartnersDialogProps {
   open: boolean;
@@ -37,8 +40,10 @@ interface BudgetPartnersDialogProps {
   isShared: boolean;
   ownerPubkey?: string;
   partnerPubkeys?: string[];
+  sentInvitations?: SentInvitation[];
   onInvitePartner: (npub: string) => Promise<boolean>;
   onRemovePartner?: (pubkey: string) => Promise<boolean>;
+  onCancelInvitation?: (invitation: SentInvitation) => Promise<boolean>;
 }
 
 export function BudgetPartnersDialog({
@@ -47,8 +52,10 @@ export function BudgetPartnersDialog({
   isShared,
   ownerPubkey,
   partnerPubkeys = [],
+  sentInvitations = [],
   onInvitePartner,
   onRemovePartner,
+  onCancelInvitation,
 }: BudgetPartnersDialogProps) {
   const { user } = useCurrentUser();
   const [inviteInput, setInviteInput] = useState('');
@@ -160,6 +167,25 @@ export function BudgetPartnersDialog({
                     />
                   ))
                 }
+              </div>
+            </div>
+          )}
+
+          {/* Pending Invitations (sent but not yet accepted) */}
+          {isOwner && sentInvitations.length > 0 && (
+            <div className="mb-6">
+              <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                <Clock className="h-4 w-4 text-muted-foreground" />
+                Pending Invites
+              </h3>
+              <div className="space-y-2">
+                {sentInvitations.map(invitation => (
+                  <PendingInviteRow
+                    key={invitation.id}
+                    invitation={invitation}
+                    onCancel={onCancelInvitation}
+                  />
+                ))}
               </div>
             </div>
           )}
@@ -327,6 +353,80 @@ function PartnerRow({
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
             <X className="h-4 w-4" />
+          )}
+        </Button>
+      )}
+    </div>
+  );
+}
+
+// Pending invite row (sent but not yet accepted)
+function PendingInviteRow({
+  invitation,
+  onCancel
+}: {
+  invitation: SentInvitation;
+  onCancel?: (invitation: SentInvitation) => Promise<boolean>;
+}) {
+  const author = useAuthor(invitation.toPubkey);
+  const [isCancelling, setIsCancelling] = useState(false);
+
+  const metadata = author.data?.metadata;
+  const displayName = metadata?.name || metadata?.display_name || genUserName(invitation.toPubkey);
+  const picture = metadata?.picture;
+
+  const formatRelativeTime = (timestamp: number) => {
+    const now = Math.floor(Date.now() / 1000);
+    const diff = now - timestamp;
+
+    if (diff < 60) return 'just now';
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+    return `${Math.floor(diff / 86400)}d ago`;
+  };
+
+  const handleCancel = async () => {
+    if (!onCancel) return;
+    setIsCancelling(true);
+    await onCancel(invitation);
+    setIsCancelling(false);
+  };
+
+  return (
+    <div className="flex items-center gap-3 p-3 rounded-lg bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/50 dark:border-amber-800/50">
+      <Avatar className="h-10 w-10">
+        <AvatarImage src={picture} />
+        <AvatarFallback>{displayName.slice(0, 2).toUpperCase()}</AvatarFallback>
+      </Avatar>
+
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <span className="font-medium text-sm truncate">{displayName}</span>
+          <Badge variant="outline" className="text-xs gap-1 text-amber-600 dark:text-amber-400 border-amber-300 dark:border-amber-700">
+            <Clock className="h-3 w-3" />
+            Pending
+          </Badge>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Invited {formatRelativeTime(invitation.sentAt)}
+        </p>
+      </div>
+
+      {onCancel && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 text-muted-foreground hover:text-destructive"
+          onClick={handleCancel}
+          disabled={isCancelling}
+        >
+          {isCancelling ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <>
+              <XCircle className="h-4 w-4 mr-1" />
+              Cancel
+            </>
           )}
         </Button>
       )}

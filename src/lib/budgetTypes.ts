@@ -91,6 +91,40 @@ export interface PendingInvitation {
   receivedAt: number;
 }
 
+// Sent invitation (for cancellation tracking)
+export interface SentInvitation {
+  id: string;                     // Event ID
+  toPubkey: string;               // Recipient pubkey
+  budgetId: string;
+  budgetName: string;
+  sentAt: number;
+}
+
+// Budget diff for conflict resolution review
+export interface BudgetDiff {
+  // Line item changes
+  lineItemChanges: {
+    type: 'added' | 'removed' | 'modified';
+    bucketName: string;
+    lineItemName: string;
+    localAmount?: number;
+    remoteAmount?: number;
+  }[];
+  // Transaction changes
+  transactionChanges: {
+    type: 'added' | 'removed' | 'modified';
+    description: string;
+    amount: number;
+    isLocal: boolean; // true if this change is local, false if remote
+  }[];
+  // Bucket changes
+  bucketChanges: {
+    type: 'added' | 'removed';
+    name: string;
+    isLocal: boolean;
+  }[];
+}
+
 // Helper to generate unique IDs
 export function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -293,4 +327,107 @@ export function calculateSpentForBucketUsd(bucket: Bucket, transactions: Transac
 // Get unassigned transactions
 export function getUnassignedTransactions(transactions: Transaction[]): Transaction[] {
   return transactions.filter(t => t.lineItemId === null);
+}
+
+// Compute diff between local and remote budget states for the current month
+export function computeBudgetDiff(
+  localBudget: MonthlyBudget | undefined,
+  remoteBudget: MonthlyBudget | undefined
+): BudgetDiff {
+  const diff: BudgetDiff = {
+    lineItemChanges: [],
+    transactionChanges: [],
+    bucketChanges: [],
+  };
+
+  if (!localBudget && !remoteBudget) return diff;
+
+  const localBuckets = localBudget?.buckets || [];
+  const remoteBuckets = remoteBudget?.buckets || [];
+  const localTransactions = localBudget?.transactions || [];
+  const remoteTransactions = remoteBudget?.transactions || [];
+
+  // Create maps for comparison
+  const localBucketMap = new Map(localBuckets.map(b => [b.name, b]));
+  const remoteBucketMap = new Map(remoteBuckets.map(b => [b.name, b]));
+
+  // Find bucket changes
+  for (const [name, bucket] of localBucketMap) {
+    if (!remoteBucketMap.has(name)) {
+      diff.bucketChanges.push({ type: 'added', name, isLocal: true });
+    }
+  }
+  for (const [name] of remoteBucketMap) {
+    if (!localBucketMap.has(name)) {
+      diff.bucketChanges.push({ type: 'added', name, isLocal: false });
+    }
+  }
+
+  // Find line item changes within matching buckets
+  for (const [bucketName, localBucket] of localBucketMap) {
+    const remoteBucket = remoteBucketMap.get(bucketName);
+    if (!remoteBucket) continue;
+
+    const localItemMap = new Map(localBucket.lineItems.map(li => [li.name, li]));
+    const remoteItemMap = new Map(remoteBucket.lineItems.map(li => [li.name, li]));
+
+    for (const [itemName, localItem] of localItemMap) {
+      const remoteItem = remoteItemMap.get(itemName);
+      if (!remoteItem) {
+        diff.lineItemChanges.push({
+          type: 'added',
+          bucketName,
+          lineItemName: itemName,
+          localAmount: localItem.plannedAmount,
+        });
+      } else if (localItem.plannedAmount !== remoteItem.plannedAmount) {
+        diff.lineItemChanges.push({
+          type: 'modified',
+          bucketName,
+          lineItemName: itemName,
+          localAmount: localItem.plannedAmount,
+          remoteAmount: remoteItem.plannedAmount,
+        });
+      }
+    }
+
+    for (const [itemName, remoteItem] of remoteItemMap) {
+      if (!localItemMap.has(itemName)) {
+        diff.lineItemChanges.push({
+          type: 'added',
+          bucketName,
+          lineItemName: itemName,
+          remoteAmount: remoteItem.plannedAmount,
+        });
+      }
+    }
+  }
+
+  // Find transaction changes
+  const localTxMap = new Map(localTransactions.map(t => [t.id, t]));
+  const remoteTxMap = new Map(remoteTransactions.map(t => [t.id, t]));
+
+  for (const [id, localTx] of localTxMap) {
+    if (!remoteTxMap.has(id)) {
+      diff.transactionChanges.push({
+        type: 'added',
+        description: localTx.description,
+        amount: localTx.amount,
+        isLocal: true,
+      });
+    }
+  }
+
+  for (const [id, remoteTx] of remoteTxMap) {
+    if (!localTxMap.has(id)) {
+      diff.transactionChanges.push({
+        type: 'added',
+        description: remoteTx.description,
+        amount: remoteTx.amount,
+        isLocal: false,
+      });
+    }
+  }
+
+  return diff;
 }

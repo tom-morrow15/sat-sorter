@@ -15,6 +15,7 @@ import {
   SplitAllocation,
   BudgetInvitation,
   PendingInvitation,
+  SentInvitation,
   createDefaultBuckets,
   getCurrentMonth,
   generateId,
@@ -82,6 +83,7 @@ export function useBudgetStore() {
   const [conflictInfo, setConflictInfo] = useState<ConflictInfo | null>(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [pendingInvitations, setPendingInvitations] = useState<PendingInvitation[]>([]);
+  const [sentInvitations, setSentInvitations] = useState<SentInvitation[]>([]);
   const [partnerUpdateNotification, setPartnerUpdateNotification] = useState<string | null>(null);
 
   // Track if we have unsaved local changes (for offline conflict detection)
@@ -1098,6 +1100,18 @@ export function useBudgetStore() {
     return saveToRelays(stateToSave, true); // Skip conflict check
   }, [conflictInfo, getFullBudgetState, saveToRelays]);
 
+  // Conflict resolution: Merge both versions
+  const resolveConflictMergeBoth = useCallback(async (mergedState: BudgetState) => {
+    if (!conflictInfo) return false;
+
+    setConflictInfo(null);
+    setLocalState(mergedState);
+    lastSavedStateRef.current = JSON.stringify(mergedState);
+
+    // Save merged state to relays
+    return saveToRelays(mergedState, true); // Skip conflict check since we're resolving
+  }, [conflictInfo, setLocalState, saveToRelays]);
+
   // Dismiss conflict without action (user wants to review manually)
   const dismissConflict = useCallback(() => {
     setConflictInfo(null);
@@ -1252,6 +1266,15 @@ export function useBudgetStore() {
       setLocalState(updatedState);
       lastSavedStateRef.current = plaintext;
 
+      // Track the sent invitation locally
+      setSentInvitations(prev => [...prev, {
+        id: `${budgetId}-${partnerPubkey}`, // Local tracking ID
+        toPubkey: partnerPubkey,
+        budgetId,
+        budgetName,
+        sentAt: Math.floor(Date.now() / 1000),
+      }]);
+
       console.log('[BudgetStore] Budget shared with partner successfully');
       return true;
     } catch (error) {
@@ -1259,6 +1282,101 @@ export function useBudgetStore() {
       return false;
     }
   }, [user?.pubkey, nip44, state, publish, setLocalState]);
+
+  // Fetch sent invitations (invitations we've sent to others)
+  const fetchSentInvitations = useCallback(async () => {
+    if (!user?.pubkey || !nip44 || !state.budgetId) return;
+
+    try {
+      // Query for invitation events we authored
+      const events = await nostr.query([
+        {
+          kinds: [INVITE_KIND],
+          authors: [user.pubkey],
+          '#d': [`budget-invite-${state.budgetId}`],
+          limit: 20,
+        },
+      ], { signal: AbortSignal.timeout(10000) });
+
+      const invitations: SentInvitation[] = [];
+
+      for (const event of events) {
+        try {
+          // Get the recipient from p tag
+          const pTag = event.tags.find(t => t[0] === 'p');
+          if (!pTag) continue;
+
+          const recipientPubkey = pTag[1];
+          const decrypted = await nip44.decrypt(recipientPubkey, event.content);
+          const invitation: BudgetInvitation = JSON.parse(decrypted);
+
+          if (invitation.type === 'budget-invite') {
+            // Check if this person is already a partner (invite was accepted)
+            const isAlreadyPartner = state.partnerPubkeys?.includes(recipientPubkey);
+            if (!isAlreadyPartner) {
+              invitations.push({
+                id: event.id,
+                toPubkey: recipientPubkey,
+                budgetId: invitation.budgetId,
+                budgetName: invitation.budgetName,
+                sentAt: event.created_at,
+              });
+            }
+          }
+        } catch {
+          // Skip invalid invitations
+        }
+      }
+
+      setSentInvitations(invitations);
+      console.log('[BudgetStore] Found', invitations.length, 'sent (pending) invitations');
+    } catch {
+      console.error('[BudgetStore] Failed to fetch sent invitations');
+    }
+  }, [user?.pubkey, nip44, nostr, state.budgetId, state.partnerPubkeys]);
+
+  // Cancel a sent invitation (publish a deletion event)
+  const cancelInvitation = useCallback(async (sentInvitation: SentInvitation): Promise<boolean> => {
+    if (!user?.pubkey) return false;
+
+    try {
+      // Publish a delete event for the invitation
+      // Note: This only works if the relay supports NIP-09 deletion
+      await publish({
+        kind: 5, // NIP-09 deletion
+        content: 'Invitation cancelled',
+        tags: [
+          ['e', sentInvitation.id],
+          ['k', String(INVITE_KIND)],
+        ],
+      });
+
+      // Remove the partner from our local list (they haven't accepted yet)
+      const newPartnerPubkeys = (state.partnerPubkeys || [])
+        .filter(pk => pk !== sentInvitation.toPubkey);
+
+      // If only owner remains, it's no longer shared
+      const isStillShared = newPartnerPubkeys.length > 1;
+
+      if (newPartnerPubkeys.length !== state.partnerPubkeys?.length) {
+        const updatedState: BudgetState = {
+          ...state,
+          partnerPubkeys: newPartnerPubkeys,
+          isShared: isStillShared,
+        };
+        setLocalState(updatedState);
+      }
+
+      // Remove from sent invitations list
+      setSentInvitations(prev => prev.filter(inv => inv.id !== sentInvitation.id));
+
+      console.log('[BudgetStore] Cancelled invitation to', sentInvitation.toPubkey.slice(0, 8) + '...');
+      return true;
+    } catch (error) {
+      console.error('[BudgetStore] Failed to cancel invitation:', error);
+      return false;
+    }
+  }, [user?.pubkey, state, publish, setLocalState]);
 
   // Accept an invitation and fetch the shared budget
   // CRITICAL: This should ONLY pull data, never push the partner's local state
@@ -1436,8 +1554,9 @@ export function useBudgetStore() {
   useEffect(() => {
     if (isLoggedIn && isInitialLoadComplete) {
       fetchPendingInvitations();
+      fetchSentInvitations();
     }
-  }, [isLoggedIn, isInitialLoadComplete, fetchPendingInvitations]);
+  }, [isLoggedIn, isInitialLoadComplete, fetchPendingInvitations, fetchSentInvitations]);
 
   return {
     // State
@@ -1484,7 +1603,11 @@ export function useBudgetStore() {
     conflictInfo,
     resolveConflictUseRemote,
     resolveConflictKeepLocal,
+    resolveConflictMergeBoth,
     dismissConflict,
+
+    // Full state for conflict diff
+    getFullBudgetState,
 
     // Sharing info
     isSharedBudget,
@@ -1505,9 +1628,11 @@ export function useBudgetStore() {
 
     // Invitation system
     pendingInvitations,
+    sentInvitations,
     invitePartner,
     acceptInvitation,
     declineInvitation,
+    cancelInvitation,
     removePartner,
 
     // Manual sync controls (for edge cases)

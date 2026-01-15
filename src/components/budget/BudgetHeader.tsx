@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Bitcoin, DollarSign, ChevronLeft, ChevronRight, Wallet, Moon, Sun, Zap, Calendar, Menu, Info, Heart, ExternalLink, Shield, Globe, GraduationCap, LogIn, Wifi, Loader2, Check, AlertCircle, HelpCircle, Download, BookOpen, MessageSquare, RotateCcw, Key, Users } from 'lucide-react';
+import { Bitcoin, DollarSign, ChevronLeft, ChevronRight, Wallet, Moon, Sun, Zap, Calendar, Menu, Info, Heart, ExternalLink, Shield, Globe, GraduationCap, LogIn, Wifi, Loader2, Check, AlertCircle, HelpCircle, Download, BookOpen, MessageSquare, RotateCcw, Key, Users, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -43,6 +43,7 @@ import { BackupRestoreDialog } from './BackupRestoreDialog';
 import { DataExportDialog } from './DataExportDialog';
 import { OnboardingWelcome } from './OnboardingWelcome';
 import { BudgetPartnersDialog } from './BudgetPartnersDialog';
+import { CopyBudgetDialog } from './CopyBudgetDialog';
 import { useOnboarding } from '@/hooks/useOnboarding';
 import { useAppUpdate } from '@/hooks/useAppUpdate';
 import { useNWCSync } from '@/hooks/useNWCSync';
@@ -67,8 +68,14 @@ interface BudgetHeaderProps {
   partnerPubkeys?: string[];
   lastEditedBy?: string;
   lastEditedAt?: number;
+  sentInvitations?: import('@/lib/budgetTypes').SentInvitation[];
   onInvitePartner?: (npub: string) => Promise<boolean>;
   onRemovePartner?: (pubkey: string) => Promise<boolean>;
+  onCancelInvitation?: (invitation: import('@/lib/budgetTypes').SentInvitation) => Promise<boolean>;
+  // Copy Budget
+  availableMonths?: string[];
+  allBudgets?: import('@/lib/budgetTypes').MonthlyBudget[];
+  onCopyFromMonth?: (sourceMonth: string) => boolean;
 }
 
 export function BudgetHeader({
@@ -90,8 +97,13 @@ export function BudgetHeader({
   partnerPubkeys = [],
   lastEditedBy,
   lastEditedAt,
+  sentInvitations = [],
   onInvitePartner,
   onRemovePartner,
+  onCancelInvitation,
+  availableMonths = [],
+  allBudgets = [],
+  onCopyFromMonth,
 }: BudgetHeaderProps) {
   const { data: priceData, isLoading: priceLoading } = useBitcoinPrice();
   const { isDark, toggle: toggleTheme } = useTheme();
@@ -108,6 +120,7 @@ export function BudgetHeader({
   const [showFeedback, setShowFeedback] = useState(false);
   const [showClearSyncHistory, setShowClearSyncHistory] = useState(false);
   const [showBudgetPartners, setShowBudgetPartners] = useState(false);
+  const [showCopyBudget, setShowCopyBudget] = useState(false);
 
   const { completeOnboarding } = useOnboarding();
   const { updateAvailable, performUpdate } = useAppUpdate();
@@ -350,6 +363,12 @@ export function BudgetHeader({
                   <Users className="h-4 w-4 mr-2" />
                   Budget Partners
                 </DropdownMenuItem>
+                {onCopyFromMonth && (
+                  <DropdownMenuItem onClick={() => setShowCopyBudget(true)}>
+                    <Copy className="h-4 w-4 mr-2" />
+                    Copy Budget from Month
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem onClick={() => setShowBackup(true)}>
                   <Wifi className="h-4 w-4 mr-2" />
                   Nostr Relay Sync
@@ -1080,9 +1099,23 @@ export function BudgetHeader({
         isShared={isShared}
         ownerPubkey={ownerPubkey}
         partnerPubkeys={partnerPubkeys}
+        sentInvitations={sentInvitations}
         onInvitePartner={onInvitePartner || (async () => false)}
         onRemovePartner={onRemovePartner}
+        onCancelInvitation={onCancelInvitation}
       />
+
+      {/* Copy Budget Dialog */}
+      {onCopyFromMonth && (
+        <CopyBudgetDialog
+          open={showCopyBudget}
+          onOpenChange={setShowCopyBudget}
+          currentMonth={currentMonth}
+          availableMonths={availableMonths}
+          budgets={allBudgets}
+          onCopyFromMonth={onCopyFromMonth}
+        />
+      )}
 
       {/* FAQ & Help Dialog */}
       <Dialog open={showFAQ} onOpenChange={setShowFAQ}>

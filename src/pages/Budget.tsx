@@ -66,6 +66,7 @@ export default function Budget() {
     duplicateFromMonth,
     getPreviousMonth,
     hasPreviousMonthBudget,
+    availableMonths,
     syncStatus,
     lastSyncedAt,
     isLoggedIn,
@@ -74,16 +75,20 @@ export default function Budget() {
     conflictInfo,
     resolveConflictUseRemote,
     resolveConflictKeepLocal,
+    resolveConflictMergeBoth,
     dismissConflict,
+    getFullBudgetState,
     isSharedBudget,
     refreshFromRelays,
     // Budget Partners
     ownerPubkey,
     partnerPubkeys,
     pendingInvitations,
+    sentInvitations,
     invitePartner,
     acceptInvitation,
     declineInvitation,
+    cancelInvitation,
     removePartner,
     // Version info
     lastEditedBy,
@@ -182,8 +187,14 @@ export default function Budget() {
         partnerPubkeys={partnerPubkeys}
         lastEditedBy={lastEditedBy}
         lastEditedAt={lastEditedAt}
+        sentInvitations={sentInvitations}
         onInvitePartner={invitePartner}
         onRemovePartner={removePartner}
+        onCancelInvitation={cancelInvitation}
+        // Copy Budget
+        availableMonths={availableMonths}
+        allBudgets={getFullBudgetState().budgets}
+        onCopyFromMonth={duplicateFromMonth}
       />
 
       <main className="container mx-auto px-3 sm:px-4 py-4 lg:py-6">
@@ -442,8 +453,10 @@ export default function Budget() {
       <ConflictResolutionDialog
         open={syncStatus === 'conflict'}
         conflictInfo={conflictInfo}
+        localState={getFullBudgetState()}
         onUseRemote={resolveConflictUseRemote}
         onKeepLocal={resolveConflictKeepLocal}
+        onMergeBoth={resolveConflictMergeBoth}
         onDismiss={dismissConflict}
       />
     </div>
