@@ -246,10 +246,18 @@ export function calculateSpentForLineItemUsd(lineItemId: string, transactions: T
     }, 0);
 }
 
-// Calculate spent amount for a bucket
+// Calculate spent amount for a bucket (in sats)
 export function calculateSpentForBucket(bucket: Bucket, transactions: Transaction[]): number {
   return bucket.lineItems.reduce(
     (sum, item) => sum + calculateSpentForLineItem(item.id, transactions),
+    0
+  );
+}
+
+// Calculate spent amount for a bucket in USD (respecting stored USD amounts)
+export function calculateSpentForBucketUsd(bucket: Bucket, transactions: Transaction[], usdPerBtc: number): number {
+  return bucket.lineItems.reduce(
+    (sum, item) => sum + calculateSpentForLineItemUsd(item.id, transactions, usdPerBtc),
     0
   );
 }

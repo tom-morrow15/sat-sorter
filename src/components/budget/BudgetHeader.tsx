@@ -516,8 +516,12 @@ export function BudgetHeader({
               </Badge>
             ) : isOver ? (
               <Badge variant="destructive" className="text-xs">
-                <span className="sm:hidden">Over by {formatAmountCompact(Math.abs(remaining))}</span>
-                <span className="hidden sm:inline">⚠ Over budget by {formatAmount(Math.abs(remaining))}</span>
+                <span className="sm:hidden">
+                  Over by {currency === 'usd' ? formatUsd(Math.abs(remaining)) : formatAmountCompact(Math.abs(remainingSats))}
+                </span>
+                <span className="hidden sm:inline">
+                  ⚠ Over budget by {currency === 'usd' ? formatUsd(Math.abs(remaining)) : `${formatSats(Math.abs(remainingSats))} sats`}
+                </span>
               </Badge>
             ) : totalIncome === 0 ? (
               <Badge variant="secondary" className="text-xs">

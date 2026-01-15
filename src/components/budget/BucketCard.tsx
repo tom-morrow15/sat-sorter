@@ -75,7 +75,7 @@ import {
 } from '@/components/ui/collapsible';
 import { LineItemRow } from './LineItemRow';
 import { useBitcoinPrice, formatSats, satsToUsd, formatUsd } from '@/hooks/useBitcoinPrice';
-import { calculateBucketTotal, calculateSpentForBucket, calculateBucketTotalForDisplay } from '@/lib/budgetTypes';
+import { calculateBucketTotal, calculateSpentForBucket, calculateSpentForBucketUsd, calculateBucketTotalForDisplay } from '@/lib/budgetTypes';
 import type { Bucket, LineItem, Transaction } from '@/lib/budgetTypes';
 import type { BTCMapElement } from '@/hooks/useBTCMap';
 import { cn } from '@/lib/utils';
@@ -210,7 +210,8 @@ export function BucketCard({
 
   const Icon = iconMap[bucket.icon] || Wallet;
   const total = calculateBucketTotal(bucket);
-  const spent = calculateSpentForBucket(bucket, transactions);
+  const spentSats = calculateSpentForBucket(bucket, transactions);
+  const spentUsd = priceData ? calculateSpentForBucketUsd(bucket, transactions, priceData.usdPerBtc) : 0;
 
   // Get display totals that respect stored USD amounts
   const displayTotals = priceData ? calculateBucketTotalForDisplay(bucket, priceData.usdPerBtc, currency) : { sats: total, usd: 0 };
@@ -319,8 +320,17 @@ export function BucketCard({
                 </p>
                 {!bucket.isIncome && total > 0 && (
                   <p className="text-[10px] sm:text-xs text-muted-foreground tabular-nums">
-                    <span className="sm:hidden">{formatAmount(spent, true)} spent</span>
-                    <span className="hidden sm:inline">{formatAmount(spent)} spent</span>
+                    {currency === 'usd' && priceData ? (
+                      <>
+                        <span className="sm:hidden">{formatUsd(spentUsd)} spent</span>
+                        <span className="hidden sm:inline">{formatUsd(spentUsd)} spent</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="sm:hidden">{formatAmount(spentSats, true)} spent</span>
+                        <span className="hidden sm:inline">{formatAmount(spentSats)} spent</span>
+                      </>
+                    )}
                   </p>
                 )}
               </div>
@@ -393,7 +403,11 @@ export function BucketCard({
             {/* Progress bar for expenses */}
             {!bucket.isIncome && total > 0 && (
               <div className="mb-4 pb-4 border-b">
-                <SpendingProgressBar spent={spent} budget={total} showLabel={true} />
+                <SpendingProgressBar
+                  spent={currency === 'usd' ? spentUsd : spentSats}
+                  budget={currency === 'usd' ? displayTotals.usd : total}
+                  showLabel={true}
+                />
               </div>
             )}
 

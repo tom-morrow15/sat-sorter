@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { useBitcoinPrice, formatSats, satsToUsd, usdToSats, formatUsd } from '@/hooks/useBitcoinPrice';
-import { calculateSpentForLineItem } from '@/lib/budgetTypes';
+import { calculateSpentForLineItem, calculateSpentForLineItemUsd } from '@/lib/budgetTypes';
 import type { LineItem, Transaction } from '@/lib/budgetTypes';
 import type { BTCMapElement } from '@/hooks/useBTCMap';
 import { MerchantBadge } from './MerchantIndicator';
@@ -40,10 +40,21 @@ export function LineItemRow({
   const inputRef = useRef<HTMLInputElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
 
-  const spent = calculateSpentForLineItem(lineItem.id, transactions);
-  const remaining = lineItem.plannedAmount - spent;
-  const percentSpent = lineItem.plannedAmount > 0
-    ? Math.min((spent / lineItem.plannedAmount) * 100, 100)
+  // Calculate spent amounts - use USD-aware version when in USD mode
+  const spentSats = calculateSpentForLineItem(lineItem.id, transactions);
+  const spentUsd = priceData ? calculateSpentForLineItemUsd(lineItem.id, transactions, priceData.usdPerBtc) : 0;
+
+  // Use appropriate values based on currency mode
+  const spent = currency === 'usd' ? spentUsd : spentSats;
+  const planned = currency === 'usd' && lineItem.usdAmount !== undefined
+    ? lineItem.usdAmount
+    : (currency === 'usd' && priceData
+      ? satsToUsd(lineItem.plannedAmount, priceData.usdPerBtc)
+      : lineItem.plannedAmount);
+
+  const remaining = planned - spent;
+  const percentSpent = planned > 0
+    ? Math.min((spent / planned) * 100, 100)
     : 0;
   const isOverBudget = remaining < 0;
 
@@ -305,8 +316,17 @@ export function LineItemRow({
             'text-xs tabular-nums whitespace-nowrap flex-shrink-0',
             isOverBudget ? 'text-destructive' : 'text-muted-foreground'
           )}>
-            <span className="sm:hidden">{formatAmount(spent, true)}</span>
-            <span className="hidden sm:inline">{formatAmount(spent)} spent</span>
+            {currency === 'usd' ? (
+              <>
+                <span className="sm:hidden">{formatUsd(spentUsd)}</span>
+                <span className="hidden sm:inline">{formatUsd(spentUsd)} spent</span>
+              </>
+            ) : (
+              <>
+                <span className="sm:hidden">{formatAmount(spentSats, true)}</span>
+                <span className="hidden sm:inline">{formatAmount(spentSats)} spent</span>
+              </>
+            )}
           </span>
         </div>
       )}
