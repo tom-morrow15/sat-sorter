@@ -179,9 +179,19 @@ export function TransactionsPanel({
 
   const handleAssign = () => {
     if (selectedTransaction && selectedBucketId && selectedLineItemId) {
+      console.log('[TransactionsPanel] handleAssign called:', {
+        transactionId: selectedTransaction.id,
+        description: selectedTransaction.description,
+        bucketId: selectedBucketId,
+        lineItemId: selectedLineItemId,
+        currentLineItemId: selectedTransaction.lineItemId,
+      });
       onAssignTransaction(selectedTransaction.id, selectedBucketId, selectedLineItemId);
       setShowAssignDialog(false);
       setSelectedTransaction(null);
+      // Clear the form state
+      setSelectedBucketId('');
+      setSelectedLineItemId('');
     }
   };
 

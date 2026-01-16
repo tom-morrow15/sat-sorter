@@ -25,7 +25,7 @@ import { nip19 } from 'nostr-tools';
 const APP_IDENTIFIER = 'sat-sorter/budget-data';
 const BUDGET_KIND = 30078; // NIP-78 Application-specific data
 const INVITE_KIND = 10078; // Budget invitation events
-const AUTO_SAVE_DEBOUNCE_MS = 2000; // 2 seconds after last change
+const AUTO_SAVE_DEBOUNCE_MS = 500; // 500ms after last change
 
 // Helper to create d-tag for shared budgets (gift-wrapped to specific recipient)
 const getSharedBudgetDTag = (budgetId: string, forPubkey: string) =>
@@ -269,6 +269,12 @@ export function useBudgetStore() {
       }
 
       if (bestBudget) {
+        // CRITICAL FIX: If marked as shared but no partners, reset to personal budget
+        if (bestBudget.isShared && (!bestBudget.partnerPubkeys || bestBudget.partnerPubkeys.length === 0)) {
+          console.warn('[BudgetStore] Budget marked as shared but has no partners - resetting to personal budget');
+          bestBudget.isShared = false;
+        }
+
         console.log('[BudgetStore] Successfully loaded budget from relays', {
           budgetCount: bestBudget.budgets.length,
           currentMonth: bestBudget.currentMonth,
@@ -364,8 +370,29 @@ export function useBudgetStore() {
 
   // Save budget to relays (publishes to all collaborators if shared)
   const saveToRelays = useCallback(async (state: BudgetState, skipConflictCheck = false): Promise<boolean> => {
-    if (!user?.pubkey || !nip44) return false;
-    if (isSavingRef.current) return false; // Prevent concurrent saves
+    if (!user?.pubkey || !nip44) {
+      console.log('[BudgetStore] Cannot save - missing user or nip44');
+      return false;
+    }
+    if (isSavingRef.current) {
+      console.warn('[BudgetStore] Save already in progress, skipping');
+      return false; // Prevent concurrent saves
+    }
+
+    // Find the 5000 sat transaction in the incoming state
+    const incomingTx = state.budgets.flatMap(b => b.transactions).find(t => t.amount === 5000);
+    console.log('[BudgetStore] saveToRelays called with state:', {
+      budgets: state.budgets.length,
+      totalTransactions: state.budgets.reduce((sum, b) => sum + b.transactions.length, 0),
+      version: state.version,
+      isShared: state.isShared,
+      transaction5kSatIncoming: incomingTx ? {
+        id: incomingTx.id,
+        description: incomingTx.description,
+        bucketId: incomingTx.bucketId,
+        lineItemId: incomingTx.lineItemId,
+      } : 'NOT FOUND IN INCOMING STATE',
+    });
 
     isSavingRef.current = true;
     setSyncStatus('saving');
@@ -399,6 +426,8 @@ export function useBudgetStore() {
       };
 
       const plaintext = JSON.stringify(updatedState);
+
+      console.log('[BudgetStore] About to publish to relays, isShared:', updatedState.isShared);
 
       // If shared, publish encrypted copies to ALL collaborators (gift-wrap pattern)
       if (updatedState.isShared && updatedState.partnerPubkeys && updatedState.partnerPubkeys.length > 0) {
@@ -434,6 +463,7 @@ export function useBudgetStore() {
         }
       } else {
         // Personal budget - just encrypt to self
+        console.log('[BudgetStore] Publishing personal budget...');
         const encrypted = await nip44.encrypt(user.pubkey, plaintext);
 
         await publish({
@@ -444,18 +474,29 @@ export function useBudgetStore() {
             ['alt', 'Sat Sorter budget data (encrypted)'],
           ],
         });
+        console.log('[BudgetStore] Personal budget published');
       }
 
       const now = Math.floor(Date.now() / 1000);
       setLastSyncedAt(now);
+
+      // Find the 5000 sat transaction if it exists
+      const targetTx = state.budgets.flatMap(b => b.transactions).find(t => t.amount === 5000);
+      console.log('[BudgetStore] Saved to relays successfully', {
+        version: updatedState.version,
+        transaction5kSatStateBefore: targetTx ? {
+          id: targetTx.id,
+          description: targetTx.description,
+          bucketId: targetTx.bucketId,
+          lineItemId: targetTx.lineItemId,
+        } : 'NOT FOUND',
+      });
+
+      // CRITICAL: Set lastSavedStateRef AFTER successful relay save
+      // This is the definitive "saved" state that was published to relays
       lastSavedStateRef.current = plaintext;
 
-      // Update local state with new version info
-      setLocalState(updatedState);
-
       setSyncStatus('synced');
-
-      console.log('[BudgetStore] Saved to relays successfully', { version: updatedState.version });
 
       // Reset to idle after a moment
       setTimeout(() => setSyncStatus('idle'), 2000);
@@ -934,15 +975,21 @@ export function useBudgetStore() {
     // Get the latest state to avoid race conditions
     const updateState = (prevState: BudgetState): BudgetState => {
       let found = false;
+      let updatedTransaction: Transaction | null = null;
+
       const newBudgets = prevState.budgets.map(budget => {
         const hasTransaction = budget.transactions.some(t => t.id === transactionId);
         if (hasTransaction) {
           found = true;
           return {
             ...budget,
-            transactions: budget.transactions.map(t =>
-              t.id === transactionId ? { ...t, ...updates } : t
-            ),
+            transactions: budget.transactions.map(t => {
+              if (t.id === transactionId) {
+                updatedTransaction = { ...t, ...updates };
+                return updatedTransaction;
+              }
+              return t;
+            }),
           };
         }
         return budget;
@@ -952,6 +999,13 @@ export function useBudgetStore() {
         console.warn('[BudgetStore] Transaction not found for update:', transactionId);
         return prevState;
       }
+
+      console.log('[BudgetStore] Transaction updated successfully:', {
+        transactionId,
+        newLineItemId: updatedTransaction?.lineItemId,
+        newBucketId: updatedTransaction?.bucketId,
+        description: updatedTransaction?.description,
+      });
 
       return { ...prevState, budgets: newBudgets };
     };
@@ -1001,8 +1055,22 @@ export function useBudgetStore() {
     lineItemId: string
   ) => {
     console.log('[BudgetStore] assignTransaction called:', { transactionId, bucketId, lineItemId });
+
+    // Find the transaction first to see its current state
+    const currentTx = state.budgets
+      .flatMap(b => b.transactions)
+      .find(t => t.id === transactionId);
+
+    console.log('[BudgetStore] Current transaction state before update:', {
+      transactionId,
+      currentLineItemId: currentTx?.lineItemId,
+      currentBucketId: currentTx?.bucketId,
+      description: currentTx?.description,
+      amount: currentTx?.amount,
+    });
+
     updateTransaction(transactionId, { bucketId, lineItemId });
-  }, [updateTransaction]);
+  }, [updateTransaction, state]);
 
   // Split a transaction into multiple allocations
   const splitTransaction = useCallback((
