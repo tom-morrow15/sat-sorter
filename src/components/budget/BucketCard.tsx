@@ -58,6 +58,7 @@ import {
   Bike,
 } from 'lucide-react';
 import { SpendingProgressBar } from './SpendingProgressBar';
+import { IncomeProgressBar } from './IncomeProgressBar';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -333,6 +334,22 @@ export function BucketCard({
                     )}
                   </p>
                 )}
+
+                {bucket.isIncome && total > 0 && (
+                  <p className="text-[10px] sm:text-xs text-success tabular-nums">
+                    {currency === 'usd' && priceData ? (
+                      <>
+                        <span className="sm:hidden">{formatUsd(spentUsd)} earned</span>
+                        <span className="hidden sm:inline">{formatUsd(spentUsd)} earned</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="sm:hidden">{formatAmount(spentSats, true)} earned</span>
+                        <span className="hidden sm:inline">{formatAmount(spentSats)} earned</span>
+                      </>
+                    )}
+                  </p>
+                )}
               </div>
 
               {/* Actions menu */}
@@ -406,6 +423,17 @@ export function BucketCard({
                 <SpendingProgressBar
                   spent={currency === 'usd' ? spentUsd : spentSats}
                   budget={currency === 'usd' ? displayTotals.usd : total}
+                  showLabel={true}
+                />
+              </div>
+            )}
+
+            {/* Progress bar for income */}
+            {bucket.isIncome && total > 0 && (
+              <div className="mb-4 pb-4 border-b">
+                <IncomeProgressBar
+                  earned={currency === 'usd' ? spentUsd : spentSats}
+                  target={currency === 'usd' ? displayTotals.usd : total}
                   showLabel={true}
                 />
               </div>
