@@ -538,18 +538,29 @@ export function useBudgetStore() {
         } : 'NOT FOUND',
       });
 
-      // CRITICAL: Update local state with the new version number
-      // This prevents false conflict detection on the next save
-      // The updatedState has the incremented version that was just published
-      setLocalState(updatedState);
+      // CRITICAL: Update ONLY the version and metadata in local state
+      // We must NOT overwrite the entire state because the user may have
+      // made additional edits while the save was in progress
+      setLocalState(currentState => {
+        const newState = {
+          ...currentState,
+          version: updatedState.version,
+          lastEditedBy: updatedState.lastEditedBy,
+          lastEditedAt: updatedState.lastEditedAt,
+          budgetId: updatedState.budgetId,
+          ownerPubkey: updatedState.ownerPubkey,
+        };
+
+        // Update lastSavedStateRef inside the callback so we capture
+        // the actual current state with the new version
+        lastSavedStateRef.current = JSON.stringify(newState);
+
+        return newState;
+      });
 
       // Track when we last saved successfully - used to skip conflict checks
       // during the race condition window when our event is still propagating
       lastSaveTimestampRef.current = Date.now();
-
-      // CRITICAL: Set lastSavedStateRef AFTER successful relay save
-      // This is the definitive "saved" state that was published to relays
-      lastSavedStateRef.current = plaintext;
 
       setSyncStatus('synced');
 
