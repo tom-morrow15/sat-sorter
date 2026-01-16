@@ -93,6 +93,7 @@ export function useBudgetStore() {
   // Refs for debouncing and tracking
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
   const lastSavedStateRef = useRef<string>('');
+  const lastSaveTimestampRef = useRef<number>(0); // Track when we last saved successfully
   const isSavingRef = useRef(false);
   const isAcceptingInviteRef = useRef(false); // Prevent auto-save during invite acceptance
   const wasOfflineRef = useRef(!navigator.onLine);
@@ -340,6 +341,18 @@ export function useBudgetStore() {
   const checkForConflicts = useCallback(async (localState: BudgetState): Promise<BudgetState | null> => {
     if (!user?.pubkey || !nip44) return null;
 
+    // Skip conflict check if we saved very recently (within 3 seconds)
+    // This prevents race conditions with fast auto-save where our own
+    // event might not have propagated to relays yet
+    const timeSinceLastSave = Date.now() - lastSaveTimestampRef.current;
+    if (timeSinceLastSave < 3000) {
+      console.log('[BudgetStore] Skipping conflict check - saved recently', {
+        timeSinceLastSave,
+        threshold: 3000,
+      });
+      return null;
+    }
+
     try {
       let remoteBudget: BudgetState | null = null;
 
@@ -529,6 +542,10 @@ export function useBudgetStore() {
       // This prevents false conflict detection on the next save
       // The updatedState has the incremented version that was just published
       setLocalState(updatedState);
+
+      // Track when we last saved successfully - used to skip conflict checks
+      // during the race condition window when our event is still propagating
+      lastSaveTimestampRef.current = Date.now();
 
       // CRITICAL: Set lastSavedStateRef AFTER successful relay save
       // This is the definitive "saved" state that was published to relays
