@@ -345,28 +345,61 @@ export function useBudgetStore() {
 
       // For shared budgets, check all collaborator copies
       if (localState.isShared && localState.budgetId && localState.partnerPubkeys?.length) {
+        console.log('[BudgetStore] Checking for conflicts on shared budget', {
+          budgetId: localState.budgetId,
+          localVersion: localState.version,
+          partnerCount: localState.partnerPubkeys.length,
+          partners: localState.partnerPubkeys.map(pk => pk.slice(0, 8)),
+        });
         remoteBudget = await fetchSharedBudget(localState.budgetId, localState.partnerPubkeys);
       } else {
-        // Personal budget
-        remoteBudget = await fetchFromRelays();
+        // Personal budget - no conflict check needed for personal budgets
+        // since only one user can edit them
+        console.log('[BudgetStore] Skipping conflict check for personal budget');
+        return null;
       }
 
-      if (!remoteBudget) return null;
+      if (!remoteBudget) {
+        console.log('[BudgetStore] No remote budget found for conflict check');
+        return null;
+      }
 
       const localVersion = localState.version || 1;
       const remoteVersion = remoteBudget.version || 1;
+      const remoteEditedBy = remoteBudget.lastEditedBy || '';
 
-      // If remote is newer, we have a conflict
-      if (remoteVersion > localVersion) {
-        console.log('[BudgetStore] Conflict detected', { localVersion, remoteVersion });
+      // Check if the remote version is from ourselves
+      // If it is, this is not a conflict - it's just our own most recent save
+      const isOwnEdit = remoteEditedBy === user.pubkey;
+
+      console.log('[BudgetStore] Conflict check comparison', {
+        localVersion,
+        remoteVersion,
+        remoteEditedBy: remoteEditedBy.slice(0, 8),
+        isOwnEdit,
+        wouldConflict: remoteVersion > localVersion,
+      });
+
+      // If remote is newer AND it's not our own edit, we have a conflict
+      if (remoteVersion > localVersion && !isOwnEdit) {
+        console.log('[BudgetStore] Conflict detected - partner made changes', { localVersion, remoteVersion });
         return remoteBudget;
       }
 
+      // If remote is newer but it's our own edit, this means our local state
+      // is out of sync with what we published. Update local to match.
+      if (remoteVersion > localVersion && isOwnEdit) {
+        console.log('[BudgetStore] Local version behind our own remote version - syncing', { localVersion, remoteVersion });
+        // Don't treat this as a conflict, but the caller should handle syncing
+        return null;
+      }
+
       return null;
-    } catch {
+    } catch (e) {
+      console.error('[BudgetStore] Error checking for conflicts:', e);
       return null;
     }
-  }, [user?.pubkey, nip44, fetchFromRelays, fetchSharedBudget]);
+  }, [user?.pubkey, nip44, fetchSharedBudget]);
 
   // Save budget to relays (publishes to all collaborators if shared)
   const saveToRelays = useCallback(async (state: BudgetState, skipConflictCheck = false): Promise<boolean> => {
@@ -492,6 +525,11 @@ export function useBudgetStore() {
         } : 'NOT FOUND',
       });
 
+      // CRITICAL: Update local state with the new version number
+      // This prevents false conflict detection on the next save
+      // The updatedState has the incremented version that was just published
+      setLocalState(updatedState);
+
       // CRITICAL: Set lastSavedStateRef AFTER successful relay save
       // This is the definitive "saved" state that was published to relays
       lastSavedStateRef.current = plaintext;
@@ -511,7 +549,7 @@ export function useBudgetStore() {
     } finally {
       isSavingRef.current = false;
     }
-  }, [user?.pubkey, nip44, publish]);
+  }, [user?.pubkey, nip44, publish, setLocalState]);
 
   // ============================================
   // INITIAL LOAD
@@ -533,9 +571,13 @@ export function useBudgetStore() {
 
       if (relayData) {
         // Relay has data - use it and update local cache
+        console.log('[BudgetStore] Using relay data as source of truth', {
+          relayVersion: relayData.version,
+          localCacheVersion: localState.version,
+          isShared: relayData.isShared,
+        });
         setLocalState(relayData);
         lastSavedStateRef.current = JSON.stringify(relayData);
-        console.log('[BudgetStore] Using relay data as source of truth');
       } else {
         // No relay data - check if we have local data to upload
         const localWeight = localState.budgets.reduce((sum, b) =>
