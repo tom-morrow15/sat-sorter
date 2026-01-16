@@ -551,12 +551,14 @@ export function useBudgetStore() {
           ownerPubkey: updatedState.ownerPubkey,
         };
 
-        // Update lastSavedStateRef inside the callback so we capture
-        // the actual current state with the new version
-        lastSavedStateRef.current = JSON.stringify(newState);
-
         return newState;
       });
+
+      // CRITICAL: Set lastSavedStateRef to what we ACTUALLY saved (plaintext),
+      // NOT to the current state. This way, if the user made edits during
+      // the save, the auto-save will detect the difference and trigger
+      // another save to capture those new edits.
+      lastSavedStateRef.current = plaintext;
 
       // Track when we last saved successfully - used to skip conflict checks
       // during the race condition window when our event is still propagating
@@ -684,8 +686,15 @@ export function useBudgetStore() {
 
     // Set new debounced save
     saveTimeoutRef.current = setTimeout(async () => {
-      console.log('[BudgetStore] Auto-saving changes to relays...');
-      const success = await saveToRelays(localState);
+      // CRITICAL: Use the ref to get the CURRENT state at save time,
+      // not the stale state from when the timeout was created.
+      // This ensures we always save the latest data.
+      const stateToSave = localStateRef.current;
+      console.log('[BudgetStore] Auto-saving changes to relays...', {
+        version: stateToSave.version,
+        budgetCount: stateToSave.budgets.length,
+      });
+      const success = await saveToRelays(stateToSave);
       if (success) {
         setHasUnsavedLocalChanges(false);
         setOfflineChangesMade(false);
