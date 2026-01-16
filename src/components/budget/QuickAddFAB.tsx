@@ -211,7 +211,11 @@ export function QuickAddFAB({ onAddTransaction, currency }: QuickAddFABProps) {
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">{description}</span>
                   <span className={cn('font-semibold', isIncome ? 'text-green-600' : 'text-red-600')}>
-                    {isIncome ? '+' : '-'}{formatAmount(Math.round(parseFloat(amount) || 0))}
+                    {isIncome ? '+' : '-'}
+                    {currency === 'usd'
+                      ? formatUsd(parseFloat(amount) || 0)
+                      : formatAmount(Math.round(parseFloat(amount) || 0))
+                    }
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground">
