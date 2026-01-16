@@ -25,11 +25,18 @@ import { nip19 } from 'nostr-tools';
 const APP_IDENTIFIER = 'sat-sorter/budget-data';
 const BUDGET_KIND = 30078; // NIP-78 Application-specific data
 const INVITE_KIND = 10078; // Budget invitation events
-const AUTO_SAVE_DEBOUNCE_MS = 500; // 500ms after last change
+const AUTO_SAVE_DEBOUNCE_MS = 2000; // 2 seconds after last change - gives time for rapid edits to settle
 
 // Helper to create d-tag for shared budgets (gift-wrapped to specific recipient)
 const getSharedBudgetDTag = (budgetId: string, forPubkey: string) =>
   `sat-sorter/shared-budget/${budgetId}/for/${forPubkey}`;
+
+// Helper to get a comparable string for budget data, excluding version/metadata
+// This prevents infinite save loops when version is incremented
+const getComparableState = (state: BudgetState): string => {
+  const { version, lastEditedBy, lastEditedAt, ...dataOnly } = state;
+  return JSON.stringify(dataOnly);
+};
 
 const DEFAULT_STATE: BudgetState = {
   currentMonth: getCurrentMonth(),
@@ -538,30 +545,11 @@ export function useBudgetStore() {
         } : 'NOT FOUND',
       });
 
-      // CRITICAL: Update ONLY the version and metadata in local state
-      // We must NOT overwrite the entire state because the user may have
-      // made additional edits while the save was in progress
-      setLocalState(currentState => {
-        const newState = {
-          ...currentState,
-          version: updatedState.version,
-          lastEditedBy: updatedState.lastEditedBy,
-          lastEditedAt: updatedState.lastEditedAt,
-          budgetId: updatedState.budgetId,
-          ownerPubkey: updatedState.ownerPubkey,
-        };
-
-        return newState;
-      });
-
-      // CRITICAL: Set lastSavedStateRef to what we ACTUALLY saved (plaintext),
-      // NOT to the current state. This way, if the user made edits during
-      // the save, the auto-save will detect the difference and trigger
-      // another save to capture those new edits.
-      lastSavedStateRef.current = plaintext;
+      // Track that we successfully saved this state (data only, no version)
+      // The auto-save comparison uses getComparableState which excludes version
+      lastSavedStateRef.current = getComparableState(updatedState);
 
       // Track when we last saved successfully - used to skip conflict checks
-      // during the race condition window when our event is still propagating
       lastSaveTimestampRef.current = Date.now();
 
       setSyncStatus('synced');
@@ -579,7 +567,7 @@ export function useBudgetStore() {
     } finally {
       isSavingRef.current = false;
     }
-  }, [user?.pubkey, nip44, publish, setLocalState]);
+  }, [user?.pubkey, nip44, publish]);
 
   // ============================================
   // INITIAL LOAD
@@ -607,7 +595,7 @@ export function useBudgetStore() {
           isShared: relayData.isShared,
         });
         setLocalState(relayData);
-        lastSavedStateRef.current = JSON.stringify(relayData);
+        lastSavedStateRef.current = getComparableState(relayData);
       } else {
         // No relay data - check if we have local data to upload
         const localWeight = localState.budgets.reduce((sum, b) =>
@@ -621,7 +609,7 @@ export function useBudgetStore() {
         } else {
           console.log('[BudgetStore] No data anywhere, starting fresh');
         }
-        lastSavedStateRef.current = JSON.stringify(localState);
+        lastSavedStateRef.current = getComparableState(localState);
       }
 
       setIsInitialLoadComplete(true);
@@ -635,7 +623,7 @@ export function useBudgetStore() {
   useEffect(() => {
     if (!isLoggedIn && !isInitialLoadComplete) {
       setIsInitialLoadComplete(true);
-      lastSavedStateRef.current = JSON.stringify(localState);
+      lastSavedStateRef.current = getComparableState(localState);
     }
   }, [isLoggedIn, isInitialLoadComplete, localState]);
 
@@ -654,10 +642,13 @@ export function useBudgetStore() {
       return;
     }
 
-    const currentStateStr = JSON.stringify(localState);
+    // Compare states WITHOUT version/metadata to detect actual data changes
+    // This prevents infinite save loops when version is incremented after each save
+    const currentDataStr = getComparableState(localState);
+    const lastSavedDataStr = lastSavedStateRef.current;
 
-    // Skip if nothing changed
-    if (currentStateStr === lastSavedStateRef.current) {
+    // Skip if nothing changed (comparing data only, not version)
+    if (currentDataStr === lastSavedDataStr) {
       setHasUnsavedLocalChanges(false);
       transactionUpdatedRef.current = false; // Clear the flag
       return;
@@ -771,8 +762,9 @@ export function useBudgetStore() {
                 });
 
                 // Check if we have unsaved local changes using the CURRENT state
-                const currentStateStr = JSON.stringify(currentLocalState);
-                const hasLocalChanges = currentStateStr !== lastSavedStateRef.current;
+                // Compare data only (excluding version) to detect actual edits
+                const currentDataStr = getComparableState(currentLocalState);
+                const hasLocalChanges = currentDataStr !== lastSavedStateRef.current;
 
                 if (hasLocalChanges) {
                   // We have local changes AND remote is newer - conflict!
@@ -788,7 +780,7 @@ export function useBudgetStore() {
                 } else {
                   // No local changes - safe to update
                   setLocalState(remoteBudget);
-                  lastSavedStateRef.current = JSON.stringify(remoteBudget);
+                  lastSavedStateRef.current = getComparableState(remoteBudget);
                   setLastSyncedAt(event.created_at);
 
                   // Show notification about partner update
@@ -1277,7 +1269,7 @@ export function useBudgetStore() {
 
     if (relayData) {
       setLocalState(relayData);
-      lastSavedStateRef.current = JSON.stringify(relayData);
+      lastSavedStateRef.current = getComparableState(relayData);
       setSyncStatus('synced');
       setTimeout(() => setSyncStatus('idle'), 2000);
       return true;
@@ -1299,7 +1291,7 @@ export function useBudgetStore() {
     if (!conflictInfo) return;
 
     setLocalState(conflictInfo.remoteBudget);
-    lastSavedStateRef.current = JSON.stringify(conflictInfo.remoteBudget);
+    lastSavedStateRef.current = getComparableState(conflictInfo.remoteBudget);
     setConflictInfo(null);
     setSyncStatus('synced');
     setTimeout(() => setSyncStatus('idle'), 2000);
@@ -1324,7 +1316,7 @@ export function useBudgetStore() {
 
     setConflictInfo(null);
     setLocalState(mergedState);
-    lastSavedStateRef.current = JSON.stringify(mergedState);
+    lastSavedStateRef.current = getComparableState(mergedState);
 
     // Save merged state to relays
     return saveToRelays(mergedState, true); // Skip conflict check since we're resolving
@@ -1518,7 +1510,7 @@ export function useBudgetStore() {
 
       // Update local state
       setLocalState(updatedState);
-      lastSavedStateRef.current = plaintext;
+      lastSavedStateRef.current = getComparableState(updatedState);
 
       // Track the sent invitation locally
       setSentInvitations(prev => [...prev, {
@@ -1675,7 +1667,7 @@ export function useBudgetStore() {
 
         setLocalState(fallbackState);
         // CRITICAL: Set lastSavedStateRef to prevent auto-save from pushing empty budget
-        lastSavedStateRef.current = JSON.stringify(fallbackState);
+        lastSavedStateRef.current = getComparableState(fallbackState);
 
         // Persist dismissal so it doesn't reappear after refresh
         addDismissedInvitationId(invitation.id);
@@ -1706,7 +1698,7 @@ export function useBudgetStore() {
         // Update local state with the shared budget (REPLACING any local data)
         setLocalState(updatedBudget);
         // CRITICAL: Set lastSavedStateRef so auto-save doesn't trigger
-        lastSavedStateRef.current = JSON.stringify(updatedBudget);
+        lastSavedStateRef.current = getComparableState(updatedBudget);
         setLastSyncedAt(latestEvent.created_at);
 
         console.log('[BudgetStore] Successfully loaded shared budget (replaced local data)', {
@@ -1726,7 +1718,7 @@ export function useBudgetStore() {
           partnerPubkeys: [ownerPubkey, user.pubkey],
         };
         setLocalState(fallbackState);
-        lastSavedStateRef.current = JSON.stringify(fallbackState);
+        lastSavedStateRef.current = getComparableState(fallbackState);
       }
 
       // Remove from pending invitations and persist dismissal
@@ -1805,7 +1797,7 @@ export function useBudgetStore() {
       console.log('[BudgetStore] Removed partner and updated shared budget');
     }
 
-    lastSavedStateRef.current = JSON.stringify(updatedState);
+    lastSavedStateRef.current = getComparableState(updatedState);
     return true;
   }, [user?.pubkey, state, nip44, publish, setLocalState]);
 
