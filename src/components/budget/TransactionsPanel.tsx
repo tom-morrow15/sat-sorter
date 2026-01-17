@@ -483,8 +483,9 @@ export function TransactionsPanel({
                   Search Results ({filteredTransactions.length})
                 </span>
               </div>
-              <ScrollArea className="max-h-[400px] w-full touch-auto">
-                <div className="space-y-1">
+              {/* Simple scrollable div - works better on mobile than ScrollArea */}
+              <div className="max-h-[60vh] overflow-y-auto overscroll-contain -mx-1 px-1">
+                <div className="space-y-1 pb-2">
                   {filteredTransactions.map((transaction) => {
                     const bucket = buckets.find(b => b.id === transaction.bucketId);
                     const lineItem = bucket?.lineItems.find(
@@ -561,7 +562,7 @@ export function TransactionsPanel({
                     );
                   })}
                 </div>
-              </ScrollArea>
+              </div>
             </div>
           )}
 
