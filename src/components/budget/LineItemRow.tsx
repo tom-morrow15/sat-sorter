@@ -297,8 +297,8 @@ export function LineItemRow({
             isIncome && 'text-success'
           )}
         >
-          {/* Show compact on very small screens */}
-          <span className="sm:hidden">{formatAmount(lineItem.plannedAmount, true, true)}</span>
+          {/* Show full amount on all screen sizes */}
+          <span className="sm:hidden">{formatAmount(lineItem.plannedAmount, false, true)}</span>
           <span className="hidden sm:inline">{formatAmount(lineItem.plannedAmount, false, true)}{currency === 'sats' ? ' sats' : ''}</span>
         </div>
 
@@ -358,15 +358,9 @@ export function LineItemRow({
               title="View transactions"
             >
               {currency === 'usd' ? (
-                <>
-                  <span className="sm:hidden">{formatUsd(spentUsd)}</span>
-                  <span className="hidden sm:inline">{formatUsd(spentUsd)}</span>
-                </>
+                formatUsd(spentUsd)
               ) : (
-                <>
-                  <span className="sm:hidden">{formatAmount(spentSats, true)}</span>
-                  <span className="hidden sm:inline">{formatAmount(spentSats)}</span>
-                </>
+                formatAmount(spentSats)
               )}
               <Receipt className="h-3 w-3 opacity-60" />
             </button>
@@ -382,7 +376,7 @@ export function LineItemRow({
                 </>
               ) : (
                 <>
-                  <span className="sm:hidden">{formatAmount(spentSats, true)}</span>
+                  <span className="sm:hidden">{formatAmount(spentSats)}</span>
                   <span className="hidden sm:inline">{formatAmount(spentSats)} spent</span>
                 </>
               )}

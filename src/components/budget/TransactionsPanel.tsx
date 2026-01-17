@@ -483,7 +483,7 @@ export function TransactionsPanel({
                   Search Results ({filteredTransactions.length})
                 </span>
               </div>
-              <ScrollArea className="max-h-[300px] w-full">
+              <ScrollArea className="max-h-[400px] w-full touch-auto">
                 <div className="space-y-1">
                   {filteredTransactions.map((transaction) => {
                     const bucket = buckets.find(b => b.id === transaction.bucketId);

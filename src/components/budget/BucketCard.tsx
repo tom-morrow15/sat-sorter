@@ -229,19 +229,13 @@ export function BucketCard({
   // Use USD comparison when both line items and transactions have USD sources
   const useUsdForComparison = hasUsdSourcedLineItems && hasUsdSourcedTransactions && priceData;
 
-  const formatAmount = (sats: number, compact = false, lineItem?: LineItem) => {
+  const formatAmount = (sats: number, lineItem?: LineItem) => {
     if (currency === 'usd' && priceData) {
       // Use stored USD amount if available (preserves original USD input)
       if (lineItem?.usdAmount !== undefined) {
         return formatUsd(lineItem.usdAmount);
       }
       return formatUsd(satsToUsd(sats, priceData.usdPerBtc));
-    }
-    if (compact && sats >= 1_000_000) {
-      return `${(sats / 1_000_000).toFixed(1)}M`;
-    }
-    if (compact && sats >= 10_000) {
-      return `${(sats / 1_000).toFixed(0)}K`;
     }
     return `${formatSats(sats)} sats`;
   };
@@ -320,29 +314,17 @@ export function BucketCard({
                   )}
                 >
                   {currency === 'usd' && priceData ? (
-                    <>
-                      <span className="sm:hidden">{formatUsd(displayTotals.usd)}</span>
-                      <span className="hidden sm:inline">{formatUsd(displayTotals.usd)}</span>
-                    </>
+                    formatUsd(displayTotals.usd)
                   ) : (
-                    <>
-                      <span className="sm:hidden">{formatAmount(total, true)}</span>
-                      <span className="hidden sm:inline">{formatAmount(total)}</span>
-                    </>
+                    formatAmount(total)
                   )}
                 </p>
                 {!bucket.isIncome && total > 0 && (
                   <p className="text-[10px] sm:text-xs text-muted-foreground tabular-nums">
                     {currency === 'usd' && priceData ? (
-                      <>
-                        <span className="sm:hidden">{formatUsd(spentUsd)} spent</span>
-                        <span className="hidden sm:inline">{formatUsd(spentUsd)} spent</span>
-                      </>
+                      `${formatUsd(spentUsd)} spent`
                     ) : (
-                      <>
-                        <span className="sm:hidden">{formatAmount(spentSats, true)} spent</span>
-                        <span className="hidden sm:inline">{formatAmount(spentSats)} spent</span>
-                      </>
+                      `${formatAmount(spentSats)} spent`
                     )}
                   </p>
                 )}
@@ -350,15 +332,9 @@ export function BucketCard({
                 {bucket.isIncome && total > 0 && (
                   <p className="text-[10px] sm:text-xs text-success tabular-nums">
                     {currency === 'usd' && priceData ? (
-                      <>
-                        <span className="sm:hidden">{formatUsd(spentUsd)} earned</span>
-                        <span className="hidden sm:inline">{formatUsd(spentUsd)} earned</span>
-                      </>
+                      `${formatUsd(spentUsd)} earned`
                     ) : (
-                      <>
-                        <span className="sm:hidden">{formatAmount(spentSats, true)} earned</span>
-                        <span className="hidden sm:inline">{formatAmount(spentSats)} earned</span>
-                      </>
+                      `${formatAmount(spentSats)} earned`
                     )}
                   </p>
                 )}
