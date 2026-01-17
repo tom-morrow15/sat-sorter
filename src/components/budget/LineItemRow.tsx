@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Trash2, GripVertical, Edit2, Check, X } from 'lucide-react';
+import { Trash2, GripVertical, Edit2, Check, X, Receipt } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
@@ -20,6 +20,7 @@ interface LineItemRowProps {
   merchants?: (BTCMapElement & { distance: number })[];
   onUpdate: (bucketId: string, lineItemId: string, updates: Partial<LineItem>) => void;
   onDelete: (bucketId: string, lineItemId: string) => void;
+  onViewTransactions?: (bucketId: string, lineItemId: string) => void;
 }
 
 export function LineItemRow({
@@ -32,6 +33,7 @@ export function LineItemRow({
   merchants = [],
   onUpdate,
   onDelete,
+  onViewTransactions,
 }: LineItemRowProps) {
   const { data: priceData } = useBitcoinPrice();
   const [isEditing, setIsEditing] = useState(false);
@@ -341,22 +343,51 @@ export function LineItemRow({
               } as React.CSSProperties}
             />
           </div>
-          <span className={cn(
-            'text-xs tabular-nums whitespace-nowrap flex-shrink-0',
-            isOverBudget ? 'text-destructive' : 'text-muted-foreground'
-          )}>
-            {currency === 'usd' ? (
-              <>
-                <span className="sm:hidden">{formatUsd(spentUsd)}</span>
-                <span className="hidden sm:inline">{formatUsd(spentUsd)} spent</span>
-              </>
-            ) : (
-              <>
-                <span className="sm:hidden">{formatAmount(spentSats, true)}</span>
-                <span className="hidden sm:inline">{formatAmount(spentSats)} spent</span>
-              </>
-            )}
-          </span>
+          {/* Spent amount - clickable to view transactions when there are any */}
+          {spentSats > 0 && onViewTransactions ? (
+            <button
+              className={cn(
+                'text-xs tabular-nums whitespace-nowrap flex-shrink-0 flex items-center gap-1',
+                'hover:underline focus:outline-none focus:underline',
+                isOverBudget ? 'text-destructive' : 'text-muted-foreground hover:text-foreground'
+              )}
+              onClick={(e) => {
+                e.stopPropagation();
+                onViewTransactions(bucketId, lineItem.id);
+              }}
+              title="View transactions"
+            >
+              {currency === 'usd' ? (
+                <>
+                  <span className="sm:hidden">{formatUsd(spentUsd)}</span>
+                  <span className="hidden sm:inline">{formatUsd(spentUsd)}</span>
+                </>
+              ) : (
+                <>
+                  <span className="sm:hidden">{formatAmount(spentSats, true)}</span>
+                  <span className="hidden sm:inline">{formatAmount(spentSats)}</span>
+                </>
+              )}
+              <Receipt className="h-3 w-3 opacity-60" />
+            </button>
+          ) : (
+            <span className={cn(
+              'text-xs tabular-nums whitespace-nowrap flex-shrink-0',
+              isOverBudget ? 'text-destructive' : 'text-muted-foreground'
+            )}>
+              {currency === 'usd' ? (
+                <>
+                  <span className="sm:hidden">{formatUsd(spentUsd)}</span>
+                  <span className="hidden sm:inline">{formatUsd(spentUsd)} spent</span>
+                </>
+              ) : (
+                <>
+                  <span className="sm:hidden">{formatAmount(spentSats, true)}</span>
+                  <span className="hidden sm:inline">{formatAmount(spentSats)} spent</span>
+                </>
+              )}
+            </span>
+          )}
         </div>
       )}
     </div>

@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { Plus, Zap, Wallet, Info, X } from 'lucide-react';
 import { useSeoMeta, useHead } from '@unhead/react';
 import { Button } from '@/components/ui/button';
@@ -34,6 +34,12 @@ export default function Budget() {
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showTourPrompt, setShowTourPrompt] = useState(true);
+
+  // Transaction filter state - for filtering by bucket/line item
+  const [filterBucketId, setFilterBucketId] = useState<string | undefined>(undefined);
+  const [filterLineItemId, setFilterLineItemId] = useState<string | undefined>(undefined);
+  // Reference to scroll to transactions panel
+  const transactionsPanelRef = useRef<HTMLDivElement>(null);
 
   const { user } = useCurrentUser();
   const { hasAlbyHub, hasLNbits } = useWallet();
@@ -149,6 +155,22 @@ export default function Budget() {
     if (a.isIncome !== b.isIncome) return a.isIncome ? -1 : 1;
     return a.order - b.order;
   });
+
+  // Handler to view transactions for a specific line item
+  const handleViewTransactions = (bucketId: string, lineItemId: string) => {
+    setFilterBucketId(bucketId);
+    setFilterLineItemId(lineItemId);
+    // Scroll to transactions panel on mobile
+    setTimeout(() => {
+      transactionsPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+  };
+
+  // Clear filter when leaving the page or changing months
+  useEffect(() => {
+    setFilterBucketId(undefined);
+    setFilterLineItemId(undefined);
+  }, [currentMonth]);
 
   const incomeBucket = sortedBuckets.find(b => b.isIncome);
   const expenseBuckets = sortedBuckets.filter(b => !b.isIncome);
@@ -314,6 +336,7 @@ export default function Budget() {
                 onAddLineItem={addLineItem}
                 onUpdateLineItem={updateLineItem}
                 onDeleteLineItem={deleteLineItem}
+                onViewTransactions={handleViewTransactions}
               />
             )}
 
@@ -350,6 +373,7 @@ export default function Budget() {
                   onAddLineItem={addLineItem}
                   onUpdateLineItem={updateLineItem}
                   onDeleteLineItem={deleteLineItem}
+                  onViewTransactions={handleViewTransactions}
                 />
               ))}
             </div>
@@ -365,7 +389,7 @@ export default function Budget() {
           </div>
 
           {/* Right Column - Transactions */}
-          <div className="lg:col-span-5 xl:col-span-4">
+          <div className="lg:col-span-5 xl:col-span-4" ref={transactionsPanelRef}>
             <div className="lg:sticky lg:top-6">
               <TransactionsPanel
                 transactions={currentBudget.transactions}
@@ -378,6 +402,12 @@ export default function Budget() {
                 onDeleteTransaction={deleteTransaction}
                 onSplitTransaction={splitTransaction}
                 onOpenWallet={() => setShowWalletModal(true)}
+                initialFilterBucketId={filterBucketId}
+                initialFilterLineItemId={filterLineItemId}
+                onClearFilter={() => {
+                  setFilterBucketId(undefined);
+                  setFilterLineItemId(undefined);
+                }}
               />
             </div>
           </div>

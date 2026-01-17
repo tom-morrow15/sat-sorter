@@ -61,6 +61,12 @@ interface TransactionsPanelProps {
   onDeleteTransaction: (transactionId: string) => void;
   onSplitTransaction?: (transactionId: string, splits: SplitAllocation[]) => void;
   onOpenWallet?: () => void;
+  /** Pre-filter by bucket ID (from clicking a line item's spent amount) */
+  initialFilterBucketId?: string;
+  /** Pre-filter by line item ID */
+  initialFilterLineItemId?: string;
+  /** Callback to clear the filter from parent */
+  onClearFilter?: () => void;
 }
 
 export function TransactionsPanel({
@@ -74,6 +80,9 @@ export function TransactionsPanel({
   onDeleteTransaction,
   onSplitTransaction,
   onOpenWallet,
+  initialFilterBucketId,
+  initialFilterLineItemId,
+  onClearFilter,
 }: TransactionsPanelProps) {
   const { data: priceData } = useBitcoinPrice();
   const [showAddDialog, setShowAddDialog] = useState(false);
@@ -269,7 +278,15 @@ export function TransactionsPanel({
             <TransactionSearchFilter
               transactions={transactions}
               buckets={buckets}
-              onFilter={setFilteredTransactions}
+              onFilter={(filtered) => {
+                setFilteredTransactions(filtered);
+                // Clear parent filter when user manually changes filter
+                if (filtered.length === 0 && onClearFilter) {
+                  onClearFilter();
+                }
+              }}
+              initialBucketId={initialFilterBucketId}
+              initialLineItemId={initialFilterLineItemId}
             />
           </div>
 

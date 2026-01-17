@@ -176,6 +176,7 @@ interface BucketCardProps {
   onAddLineItem: (bucketId: string, name: string) => void;
   onUpdateLineItem: (bucketId: string, lineItemId: string, updates: Partial<LineItem>) => void;
   onDeleteLineItem: (bucketId: string, lineItemId: string) => void;
+  onViewTransactions?: (bucketId: string, lineItemId: string) => void;
 }
 
 const BUCKET_COLORS = [
@@ -201,6 +202,7 @@ export function BucketCard({
   onAddLineItem,
   onUpdateLineItem,
   onDeleteLineItem,
+  onViewTransactions,
 }: BucketCardProps) {
   const { data: priceData } = useBitcoinPrice();
   const [isOpen, setIsOpen] = useState(true);
@@ -467,6 +469,7 @@ export function BucketCard({
                     merchants={merchants}
                     onUpdate={onUpdateLineItem}
                     onDelete={onDeleteLineItem}
+                    onViewTransactions={onViewTransactions}
                   />
                 ))}
             </div>
