@@ -42,48 +42,48 @@ export function LineItemRow({
   const inputRef = useRef<HTMLInputElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
 
-  // Calculate spent amounts - use USD-aware version when in USD mode
-  const spentSats = calculateSpentForLineItem(lineItem.id, transactions);
-  const spentUsd = priceData ? calculateSpentForLineItemUsd(lineItem.id, transactions, priceData.usdPerBtc) : 0;
+  // Check if line item and transactions have USD as source of truth
+  const lineItemHasUsdSource = lineItem.usdAmount !== undefined;
+  const lineItemTransactions = transactions.filter(t => t.lineItemId === lineItem.id && !t.isIncome);
+  const anyTransactionsHaveUsdSource = lineItemTransactions.some(t => t.usdAmount !== undefined);
 
-  // For planned amount in USD
+  // When BOTH have USD source, use USD for all calculations to avoid exchange rate drift
+  const useUsdAsSource = priceData && lineItemHasUsdSource && anyTransactionsHaveUsdSource;
+
+  // Calculate spent amounts
+  // When both have USD source, calculate spent from USD amounts for consistency
+  const spentUsd = priceData ? calculateSpentForLineItemUsd(lineItem.id, transactions, priceData.usdPerBtc) : 0;
+  const spentSats = useUsdAsSource && priceData
+    ? Math.round(usdToSats(spentUsd, priceData.usdPerBtc)) // Convert USD to sats at current rate
+    : calculateSpentForLineItem(lineItem.id, transactions); // Use stored sat values
+
+  // For planned amount - when USD source, convert to sats at current rate for display consistency
   const plannedUsd = lineItem.usdAmount !== undefined
     ? lineItem.usdAmount
     : (priceData ? satsToUsd(lineItem.plannedAmount, priceData.usdPerBtc) : 0);
+  const plannedSats = useUsdAsSource && priceData && lineItem.usdAmount !== undefined
+    ? Math.round(usdToSats(lineItem.usdAmount, priceData.usdPerBtc)) // Convert USD to sats at current rate
+    : lineItem.plannedAmount; // Use stored sat value
 
   // Use appropriate values based on currency mode
   const spent = currency === 'usd' ? spentUsd : spentSats;
-  const planned = currency === 'usd' ? plannedUsd : lineItem.plannedAmount;
+  const planned = currency === 'usd' ? plannedUsd : plannedSats;
 
-  // CRITICAL: For over-budget detection, always use USD comparison if BOTH have USD as source of truth
-  // This prevents false over-budget warnings due to exchange rate drift between entry times
-  const lineItemHasUsdSource = lineItem.usdAmount !== undefined;
-  const lineItemTransactions = transactions.filter(t => t.lineItemId === lineItem.id && !t.isIncome);
-  const allTransactionsHaveUsdSource = lineItemTransactions.length > 0 &&
-    lineItemTransactions.every(t => t.usdAmount !== undefined);
-
-  // Check if ANY transactions have USD source - if so, prefer USD comparison
-  const anyTransactionsHaveUsdSource = lineItemTransactions.some(t => t.usdAmount !== undefined);
-
-  // Use USD-based comparison when both planned and spent have USD as source of truth
-  // Also use USD comparison when line item has USD source and at least some transactions do too
-  const useUsdForComparison = priceData && lineItemHasUsdSource && anyTransactionsHaveUsdSource;
-
-  const remaining = useUsdForComparison
+  // For over-budget detection, use USD comparison when both have USD source
+  const remaining = useUsdAsSource
     ? plannedUsd - spentUsd
     : planned - spent;
 
-  // Use consistent values for percent calculation too
+  // Use consistent values for percent calculation
   const percentSpent = (() => {
-    if (useUsdForComparison) {
+    if (useUsdAsSource) {
       return plannedUsd > 0 ? Math.min((spentUsd / plannedUsd) * 100, 100) : 0;
     }
     return planned > 0 ? Math.min((spent / planned) * 100, 100) : 0;
   })();
 
-  // Over-budget detection: Add small tolerance (0.1% or $0.05) for rounding errors
-  // This prevents false positives due to floating point math and conversion discrepancies
-  const tolerance = useUsdForComparison
+  // Over-budget detection: Add small tolerance for rounding errors
+  const tolerance = useUsdAsSource
     ? Math.max(0.05, plannedUsd * 0.001) // $0.05 or 0.1% of budget for USD
     : Math.max(10, planned * 0.001); // 10 sats or 0.1% of budget for sats
 
@@ -297,9 +297,15 @@ export function LineItemRow({
             isIncome && 'text-success'
           )}
         >
-          {/* Show full amount on all screen sizes */}
-          <span className="sm:hidden">{formatAmount(lineItem.plannedAmount, false, true)}</span>
-          <span className="hidden sm:inline">{formatAmount(lineItem.plannedAmount, false, true)}{currency === 'sats' ? ' sats' : ''}</span>
+          {/* Show full amount - use plannedSats/plannedUsd which are consistently converted */}
+          {currency === 'usd' ? (
+            formatUsd(plannedUsd)
+          ) : (
+            <>
+              <span className="sm:hidden">{formatSats(plannedSats)}</span>
+              <span className="hidden sm:inline">{formatSats(plannedSats)} sats</span>
+            </>
+          )}
         </div>
 
         {/* Action buttons - only on hover/desktop */}
@@ -357,11 +363,7 @@ export function LineItemRow({
               }}
               title="View transactions"
             >
-              {currency === 'usd' ? (
-                formatUsd(spentUsd)
-              ) : (
-                formatAmount(spentSats)
-              )}
+              {currency === 'usd' ? formatUsd(spentUsd) : formatSats(spentSats)}
               <Receipt className="h-3 w-3 opacity-60" />
             </button>
           ) : (
@@ -376,8 +378,8 @@ export function LineItemRow({
                 </>
               ) : (
                 <>
-                  <span className="sm:hidden">{formatAmount(spentSats)}</span>
-                  <span className="hidden sm:inline">{formatAmount(spentSats)} spent</span>
+                  <span className="sm:hidden">{formatSats(spentSats)}</span>
+                  <span className="hidden sm:inline">{formatSats(spentSats)} spent</span>
                 </>
               )}
             </span>
