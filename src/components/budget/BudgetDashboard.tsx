@@ -90,35 +90,35 @@ export function BudgetDashboard({
           <div className="space-y-4">
             {/* Donut Chart */}
             <div className="flex justify-center">
-              <div className="relative w-36 h-36 sm:w-44 sm:h-44 flex-shrink-0">
-                {/* SVG Ring Chart */}
+              <div className="relative w-40 h-40 sm:w-48 sm:h-48 flex-shrink-0">
+                {/* SVG Ring Chart - thin ring at outer edge for max center space */}
                 <svg className="w-full h-full -rotate-90" viewBox="0 0 200 200">
                   {generatePieSlices(spendingByBucket, totalSpent).map((slice, idx) => (
                     <circle
                       key={idx}
                       cx="100"
                       cy="100"
-                      r="70"
+                      r="88"
                       fill="none"
                       stroke={getColorForIndex(idx)}
-                      strokeWidth="28"
-                      strokeDasharray={`${slice.dashArray} 439.8`}
+                      strokeWidth="18"
+                      strokeDasharray={`${slice.dashArray} 552.9`}
                       strokeDashoffset={`${slice.dashOffset}`}
                     />
                   ))}
                 </svg>
 
-                {/* Center Text - Compact */}
+                {/* Center Text - fits within inner radius of ~79px */}
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <div className="text-base sm:text-xl font-bold text-center leading-tight">
+                  <div className="text-lg sm:text-2xl font-bold text-center leading-tight px-6">
                     {formatAmountCompact(totalSpent)}
                   </div>
                   {currency === 'sats' && (
-                    <div className="text-[10px] sm:text-xs text-muted-foreground -mt-0.5">
+                    <div className="text-xs text-muted-foreground">
                       sats
                     </div>
                   )}
-                  <div className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">
+                  <div className="text-xs text-muted-foreground mt-0.5">
                     spent
                   </div>
                 </div>
@@ -191,7 +191,7 @@ function generatePieSlices(
 
   for (const item of spendingByBucket) {
     const percentage = totalSpent > 0 ? item.spent / totalSpent : 0;
-    const circumference = 502.4; // 2 * π * 80
+    const circumference = 552.9; // 2 * π * 88
     const dashArray = circumference * percentage;
 
     slices.push({
