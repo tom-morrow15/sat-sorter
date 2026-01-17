@@ -217,6 +217,16 @@ export function BucketCard({
   // Get display totals that respect stored USD amounts
   const displayTotals = priceData ? calculateBucketTotalForDisplay(bucket, priceData.usdPerBtc, currency) : { sats: total, usd: 0 };
 
+  // Check if bucket has USD-sourced line items (for tolerance-based comparison)
+  const hasUsdSourcedLineItems = bucket.lineItems.some(li => li.usdAmount !== undefined);
+  // Check if any transactions for this bucket have USD source
+  const bucketTransactions = transactions.filter(t =>
+    bucket.lineItems.some(li => li.id === t.lineItemId) && !t.isIncome
+  );
+  const hasUsdSourcedTransactions = bucketTransactions.some(t => t.usdAmount !== undefined);
+  // Use tolerance when both line items and transactions have USD sources
+  const shouldUseTolerance = hasUsdSourcedLineItems && hasUsdSourcedTransactions;
+
   const formatAmount = (sats: number, compact = false, lineItem?: LineItem) => {
     if (currency === 'usd' && priceData) {
       // Use stored USD amount if available (preserves original USD input)
@@ -424,6 +434,8 @@ export function BucketCard({
                   spent={currency === 'usd' ? spentUsd : spentSats}
                   budget={currency === 'usd' ? displayTotals.usd : total}
                   showLabel={true}
+                  useTolerance={shouldUseTolerance}
+                  isUsdMode={currency === 'usd'}
                 />
               </div>
             )}
