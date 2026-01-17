@@ -217,15 +217,15 @@ export function BucketCard({
   // Get display totals that respect stored USD amounts
   const displayTotals = priceData ? calculateBucketTotalForDisplay(bucket, priceData.usdPerBtc, currency) : { sats: total, usd: 0 };
 
-  // Check if bucket has USD-sourced line items (for tolerance-based comparison)
+  // Check if bucket has USD-sourced line items (for accurate over-budget detection)
   const hasUsdSourcedLineItems = bucket.lineItems.some(li => li.usdAmount !== undefined);
   // Check if any transactions for this bucket have USD source
   const bucketTransactions = transactions.filter(t =>
     bucket.lineItems.some(li => li.id === t.lineItemId) && !t.isIncome
   );
   const hasUsdSourcedTransactions = bucketTransactions.some(t => t.usdAmount !== undefined);
-  // Use tolerance when both line items and transactions have USD sources
-  const shouldUseTolerance = hasUsdSourcedLineItems && hasUsdSourcedTransactions;
+  // Use USD comparison when both line items and transactions have USD sources
+  const useUsdForComparison = hasUsdSourcedLineItems && hasUsdSourcedTransactions && priceData;
 
   const formatAmount = (sats: number, compact = false, lineItem?: LineItem) => {
     if (currency === 'usd' && priceData) {
@@ -434,8 +434,8 @@ export function BucketCard({
                   spent={currency === 'usd' ? spentUsd : spentSats}
                   budget={currency === 'usd' ? displayTotals.usd : total}
                   showLabel={true}
-                  useTolerance={shouldUseTolerance}
-                  isUsdMode={currency === 'usd'}
+                  spentUsdForComparison={useUsdForComparison ? spentUsd : undefined}
+                  budgetUsdForComparison={useUsdForComparison ? displayTotals.usd : undefined}
                 />
               </div>
             )}
