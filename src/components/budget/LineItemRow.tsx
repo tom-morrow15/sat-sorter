@@ -44,19 +44,48 @@ export function LineItemRow({
   const spentSats = calculateSpentForLineItem(lineItem.id, transactions);
   const spentUsd = priceData ? calculateSpentForLineItemUsd(lineItem.id, transactions, priceData.usdPerBtc) : 0;
 
+  // For planned amount in USD
+  const plannedUsd = lineItem.usdAmount !== undefined
+    ? lineItem.usdAmount
+    : (priceData ? satsToUsd(lineItem.plannedAmount, priceData.usdPerBtc) : 0);
+
   // Use appropriate values based on currency mode
   const spent = currency === 'usd' ? spentUsd : spentSats;
-  const planned = currency === 'usd' && lineItem.usdAmount !== undefined
-    ? lineItem.usdAmount
-    : (currency === 'usd' && priceData
-      ? satsToUsd(lineItem.plannedAmount, priceData.usdPerBtc)
-      : lineItem.plannedAmount);
+  const planned = currency === 'usd' ? plannedUsd : lineItem.plannedAmount;
 
-  const remaining = planned - spent;
-  const percentSpent = planned > 0
-    ? Math.min((spent / planned) * 100, 100)
-    : 0;
-  const isOverBudget = remaining < 0;
+  // CRITICAL: For over-budget detection, always use USD comparison if BOTH have USD as source of truth
+  // This prevents false over-budget warnings due to exchange rate drift between entry times
+  const lineItemHasUsdSource = lineItem.usdAmount !== undefined;
+  const lineItemTransactions = transactions.filter(t => t.lineItemId === lineItem.id && !t.isIncome);
+  const allTransactionsHaveUsdSource = lineItemTransactions.length > 0 &&
+    lineItemTransactions.every(t => t.usdAmount !== undefined);
+
+  // Check if ANY transactions have USD source - if so, prefer USD comparison
+  const anyTransactionsHaveUsdSource = lineItemTransactions.some(t => t.usdAmount !== undefined);
+
+  // Use USD-based comparison when both planned and spent have USD as source of truth
+  // Also use USD comparison when line item has USD source and at least some transactions do too
+  const useUsdForComparison = priceData && lineItemHasUsdSource && anyTransactionsHaveUsdSource;
+
+  const remaining = useUsdForComparison
+    ? plannedUsd - spentUsd
+    : planned - spent;
+
+  // Use consistent values for percent calculation too
+  const percentSpent = (() => {
+    if (useUsdForComparison) {
+      return plannedUsd > 0 ? Math.min((spentUsd / plannedUsd) * 100, 100) : 0;
+    }
+    return planned > 0 ? Math.min((spent / planned) * 100, 100) : 0;
+  })();
+
+  // Over-budget detection: Add small tolerance (0.1% or $0.05) for rounding errors
+  // This prevents false positives due to floating point math and conversion discrepancies
+  const tolerance = useUsdForComparison
+    ? Math.max(0.05, plannedUsd * 0.001) // $0.05 or 0.1% of budget for USD
+    : Math.max(10, planned * 0.001); // 10 sats or 0.1% of budget for sats
+
+  const isOverBudget = remaining < -tolerance;
 
   // Format amount based on currency - compact for mobile
   // For planned amount, use stored USD if available to avoid conversion drift
