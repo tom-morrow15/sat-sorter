@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { useBitcoinPrice, formatSats, satsToUsd, formatUsd } from '@/hooks/useBitcoinPrice';
@@ -36,11 +35,27 @@ export function BudgetDashboard({
       bucket,
       spent: calculateSpentForBucket(bucket, transactions),
     }))
+    .filter((item) => item.spent > 0) // Only show categories with spending
     .sort((a, b) => b.spent - a.spent);
 
   const totalSpent = spendingByBucket.reduce((sum, item) => sum + item.spent, 0);
 
-  // Format amount based on currency
+  // Format amount based on currency - compact version for chart center
+  const formatAmountCompact = (sats: number) => {
+    if (currency === 'usd' && priceData) {
+      return formatUsd(satsToUsd(sats, priceData.usdPerBtc));
+    }
+    // Format with K/M suffix for large numbers
+    if (sats >= 1000000) {
+      return `${(sats / 1000000).toFixed(1)}M`;
+    }
+    if (sats >= 10000) {
+      return `${(sats / 1000).toFixed(0)}K`;
+    }
+    return formatSats(sats);
+  };
+
+  // Format amount based on currency - full version for legend
   const formatAmount = (sats: number) => {
     if (currency === 'usd' && priceData) {
       return formatUsd(satsToUsd(sats, priceData.usdPerBtc));
@@ -71,94 +86,95 @@ export function BudgetDashboard({
         </Button>
       </CardHeader>
       {isExpanded && (
-        <CardContent>
-          <div className="space-y-6">
-          {/* Pie Chart - Centered and larger */}
-          <div className="flex justify-center pt-2">
-            <div className="relative w-40 h-40 sm:w-48 sm:h-48 flex-shrink-0">
-              {/* SVG Ring Chart */}
-              <svg className="w-full h-full -rotate-90" viewBox="0 0 200 200">
-                {generatePieSlices(spendingByBucket, totalSpent).map((slice, idx) => (
-                  <circle
-                    key={idx}
-                    cx="100"
-                    cy="100"
-                    r="70"
-                    fill="none"
-                    stroke={getColorForIndex(idx)}
-                    strokeWidth="24"
-                    strokeDasharray={`${slice.dashArray} 439.8`}
-                    strokeDashoffset={`${slice.dashOffset}`}
-                    opacity="0.85"
-                  />
-                ))}
-              </svg>
+        <CardContent className="pt-0">
+          <div className="space-y-4">
+            {/* Donut Chart */}
+            <div className="flex justify-center">
+              <div className="relative w-36 h-36 sm:w-44 sm:h-44 flex-shrink-0">
+                {/* SVG Ring Chart */}
+                <svg className="w-full h-full -rotate-90" viewBox="0 0 200 200">
+                  {generatePieSlices(spendingByBucket, totalSpent).map((slice, idx) => (
+                    <circle
+                      key={idx}
+                      cx="100"
+                      cy="100"
+                      r="70"
+                      fill="none"
+                      stroke={getColorForIndex(idx)}
+                      strokeWidth="28"
+                      strokeDasharray={`${slice.dashArray} 439.8`}
+                      strokeDashoffset={`${slice.dashOffset}`}
+                    />
+                  ))}
+                </svg>
 
-              {/* Center Text */}
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <div className="text-lg sm:text-2xl font-bold text-center px-2 line-clamp-2">
-                  {formatAmount(totalSpent)}
-                </div>
-                <div className="text-xs sm:text-sm text-muted-foreground mt-1">
-                  Spent
+                {/* Center Text - Compact */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <div className="text-base sm:text-xl font-bold text-center leading-tight">
+                    {formatAmountCompact(totalSpent)}
+                  </div>
+                  {currency === 'sats' && (
+                    <div className="text-[10px] sm:text-xs text-muted-foreground -mt-0.5">
+                      sats
+                    </div>
+                  )}
+                  <div className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">
+                    spent
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* Legend - Better organized */}
-          <div className="space-y-3">
-            {/* Grid for legend items */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {spendingByBucket.slice(0, 6).map((item, idx) => {
+            {/* Categories List - Compact and shows ALL */}
+            <div className="space-y-1">
+              {spendingByBucket.map((item, idx) => {
                 const percentage =
                   totalSpent > 0 ? ((item.spent / totalSpent) * 100).toFixed(0) : '0';
                 return (
-                  <div key={item.bucket.id} className="flex items-start gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors">
+                  <div
+                    key={item.bucket.id}
+                    className="flex items-center gap-2 py-1.5 px-1 rounded hover:bg-muted/50 transition-colors"
+                  >
+                    {/* Color dot */}
                     <div
-                      className="w-3 h-3 rounded-sm flex-shrink-0 mt-1"
+                      className="w-2.5 h-2.5 rounded-full flex-shrink-0"
                       style={{ backgroundColor: getColorForIndex(idx) }}
                     />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium leading-snug">
-                        {item.bucket.name}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {formatAmount(item.spent)}
-                      </p>
-                      <p className="text-xs text-muted-foreground font-medium">
-                        {percentage}%
-                      </p>
-                    </div>
+                    {/* Category name */}
+                    <span className="text-sm font-medium flex-1 truncate min-w-0">
+                      {item.bucket.name}
+                    </span>
+                    {/* Amount */}
+                    <span className="text-xs text-muted-foreground tabular-nums flex-shrink-0">
+                      {formatAmount(item.spent)}
+                    </span>
+                    {/* Percentage badge */}
+                    <span className="text-xs font-medium text-muted-foreground w-8 text-right tabular-nums flex-shrink-0">
+                      {percentage}%
+                    </span>
                   </div>
                 );
               })}
             </div>
-            {spendingByBucket.length > 6 && (
-              <p className="text-xs text-muted-foreground text-center pt-2">
-                +{spendingByBucket.length - 6} more categories
-              </p>
+
+            {/* Summary bar */}
+            {totalBudgeted > 0 && (
+              <div className="pt-2 border-t flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Budget remaining</span>
+                <span
+                  className={cn(
+                    'font-semibold tabular-nums',
+                    totalBudgeted - totalSpent < 0
+                      ? 'text-destructive'
+                      : 'text-green-600'
+                  )}
+                >
+                  {totalBudgeted - totalSpent < 0 ? '-' : ''}
+                  {formatAmount(Math.abs(totalBudgeted - totalSpent))}
+                </span>
+              </div>
             )}
           </div>
-
-          {/* Summary bar */}
-          {totalBudgeted > 0 && (
-            <div className="pt-3 border-t flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Budget remaining</span>
-              <span
-                className={cn(
-                  'font-semibold',
-                  totalBudgeted - totalSpent < 0
-                    ? 'text-destructive'
-                    : 'text-green-600'
-                )}
-              >
-                {totalBudgeted - totalSpent < 0 ? '-' : ''}
-                {formatAmount(Math.abs(totalBudgeted - totalSpent))}
-              </span>
-            </div>
-          )}
-        </div>
         </CardContent>
       )}
     </Card>
