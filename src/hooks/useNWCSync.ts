@@ -29,6 +29,8 @@ const POLL_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 const MAX_STORED_HASHES = 1000; // Limit stored hashes to prevent localStorage bloat
 const NWC_CONNECTIONS_KIND = 30079; // NIP-78 Application-specific data for NWC
 const NWC_CONNECTIONS_IDENTIFIER = 'sat-sorter/nwc-connections';
+const WALLET_TIMEOUT_MS = 30000; // 30 seconds per wallet (reduced from 45s)
+const WALLET_RETRY_COUNT = 1; // Only 1 retry to avoid blocking (reduced from 2)
 
 // Migration helper: convert old sync state format to new format
 // This runs once when the module loads
@@ -247,7 +249,7 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
   }, [walletInfo]);
 
   /**
-   * Sync transactions from a single NWC wallet
+   * Sync transactions from a single NWC wallet with timeout protection
    * Note: listTransactions already handles wallet info fetching internally,
    * so we don't need to call fetchWalletInfo separately here.
    */
@@ -265,23 +267,37 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
       }
 
       console.log(`[NWCSync] Fetching transactions from ${walletAlias} (wallet: ${params.walletPubkey.slice(0, 12)}...)...`);
+      console.log(`[NWCSync] From timestamp: ${fromTimestamp ? new Date(fromTimestamp * 1000).toISOString() : 'all time'}`);
 
-      // listTransactions handles wallet info fetching internally
-      // and includes retry logic for timeouts
-      const response = await listTransactions(
-        connection.connectionString,
-        {
-          from: fromTimestamp,
-          limit: 200,
-        }
-      );
+      // Create an AbortController with our own timeout to prevent blocking other wallets
+      const abortController = new AbortController();
+      const timeoutId = setTimeout(() => {
+        console.log(`[NWCSync] ${walletAlias}: Aborting due to timeout (${WALLET_TIMEOUT_MS}ms)`);
+        abortController.abort();
+      }, WALLET_TIMEOUT_MS);
 
-      console.log(`[NWCSync] ${walletAlias}: received ${response.transactions?.length || 0} transactions`);
+      try {
+        // listTransactions handles wallet info fetching internally
+        const response = await listTransactions(
+          connection.connectionString,
+          {
+            from: fromTimestamp,
+            limit: 200,
+          },
+          abortController.signal
+        );
 
-      return {
-        transactions: response.transactions || [],
-        walletAlias
-      };
+        clearTimeout(timeoutId);
+        console.log(`[NWCSync] ${walletAlias}: received ${response.transactions?.length || 0} transactions`);
+
+        return {
+          transactions: response.transactions || [],
+          walletAlias
+        };
+      } catch (error) {
+        clearTimeout(timeoutId);
+        throw error;
+      }
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       // Log as warning - wallet timeouts are common for self-hosted nodes
@@ -342,21 +358,30 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
         fromTimestamp ? new Date(fromTimestamp * 1000).toISOString() : 'all time',
         forceFullSync ? '(FULL SYNC)' : '');
 
-      // Sync wallets with staggered execution to avoid overwhelming the relay
-      // This helps with reliability, especially for self-hosted nodes
-      const walletResults: Array<{ transactions: NWCTransaction[]; walletAlias: string; error?: string }> = [];
+      // Sync wallets in PARALLEL with individual timeouts
+      // This prevents one slow/unresponsive wallet from blocking others
+      console.log('[NWCSync] Starting parallel wallet sync...');
 
-      for (let i = 0; i < connections.length; i++) {
-        const conn = connections[i];
-
-        // Add a small delay between wallet syncs (except for the first one)
-        if (i > 0) {
-          await new Promise(resolve => setTimeout(resolve, 500));
+      const walletPromises = connections.map(async (conn, index) => {
+        // Small stagger to avoid hitting the relay all at once
+        if (index > 0) {
+          await new Promise(resolve => setTimeout(resolve, 200 * index));
         }
+        return syncSingleWallet(conn, fromTimestamp);
+      });
 
-        const result = await syncSingleWallet(conn, fromTimestamp);
-        walletResults.push(result);
-      }
+      // Wait for all wallets with a global timeout as a safety net
+      const globalTimeout = new Promise<{ transactions: NWCTransaction[]; walletAlias: string; error: string }[]>((resolve) => {
+        setTimeout(() => {
+          console.warn('[NWCSync] Global timeout reached, proceeding with available results');
+          resolve([]);
+        }, WALLET_TIMEOUT_MS * 2); // 2x single wallet timeout as global max
+      });
+
+      const walletResults = await Promise.race([
+        Promise.all(walletPromises),
+        globalTimeout
+      ]) as Array<{ transactions: NWCTransaction[]; walletAlias: string; error?: string }>;
 
       // Collect all transactions from all wallets
       const allTransactions: Array<NWCTransaction & { walletAlias: string; connectionString: string }> = [];
@@ -412,23 +437,32 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
       // This ensures we never re-import transactions even if budget state has issues
       const allPaymentHashes = new Set<string>();
 
+      // Also track existing transactions by payment hash for duplicate detection with different amounts
+      const existingTxByHash = new Map<string, { amount: number; id: string; description: string }>();
+
       // First, add all hashes from sync state (these are transactions we've seen before)
       for (const hash of syncState.syncedPaymentHashes) {
         allPaymentHashes.add(hash);
       }
       console.log('[NWCSync] Payment hashes from sync state:', syncState.syncedPaymentHashes.length);
 
-      // Also check the budget store as a backup
+      // Also check the budget store as a backup - and track full transaction info
       const fullBudgetState = budgetStore.getFullBudgetState();
       for (const budget of fullBudgetState.budgets) {
         for (const tx of budget.transactions) {
           if (tx.paymentHash) {
             allPaymentHashes.add(tx.paymentHash);
+            existingTxByHash.set(tx.paymentHash, {
+              amount: tx.amount,
+              id: tx.id,
+              description: tx.description,
+            });
           }
         }
       }
 
       console.log('[NWCSync] Total unique payment hashes (sync state + budget):', allPaymentHashes.size);
+      console.log('[NWCSync] Transactions with payment hashes in budget:', existingTxByHash.size);
 
       let imported = 0;
       let skipped = 0;
@@ -437,12 +471,27 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
 
       for (const nwcTx of nwcTransactions) {
         try {
+          const amountSats = Math.round(nwcTx.amount / 1000);
+          const existingTx = existingTxByHash.get(nwcTx.payment_hash);
+
           // Skip if this transaction already exists in ANY budget month
           // OR if we've already imported it in this sync batch (from another wallet)
           // NOTE: We check all budgets, not just current month, because transactions
           // are routed to their respective months based on transaction date
           if (allPaymentHashes.has(nwcTx.payment_hash)) {
-            console.log('[NWCSync] Skipping duplicate transaction:', nwcTx.payment_hash.slice(0, 16) + '...');
+            // Check if the existing transaction has a different amount (potential issue)
+            if (existingTx && existingTx.amount !== amountSats) {
+              console.warn('[NWCSync] Amount mismatch for payment hash:', {
+                paymentHash: nwcTx.payment_hash.slice(0, 16) + '...',
+                existingAmount: existingTx.amount,
+                newAmount: amountSats,
+                existingDescription: existingTx.description,
+                newDescription: nwcTx.description,
+              });
+              // Still skip - the payment hash is the source of truth
+            } else {
+              console.log('[NWCSync] Skipping duplicate transaction:', nwcTx.payment_hash.slice(0, 16) + '...');
+            }
             skipped++;
             continue;
           }
@@ -457,10 +506,7 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
             continue;
           }
 
-          // Convert millisats to sats
-          const amountSats = Math.round(nwcTx.amount / 1000);
-
-          // Skip zero-amount transactions
+          // Skip zero-amount transactions (amountSats already calculated above)
           if (amountSats === 0) {
             console.log('[NWCSync] Skipping zero-amount transaction');
             skipped++;
@@ -651,6 +697,141 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
     return syncTransactions(showToast, true);
   }, [syncTransactions]);
 
+  /**
+   * Look up a specific transaction by payment hash from all connected wallets
+   * Useful for debugging missing transactions
+   */
+  const lookupTransactionByHash = useCallback(async (paymentHash: string): Promise<{
+    found: boolean;
+    walletAlias?: string;
+    transaction?: NWCTransaction;
+    error?: string;
+  }> => {
+    console.log('[NWCSync] Looking up transaction by hash:', paymentHash);
+
+    if (connections.length === 0) {
+      return { found: false, error: 'No wallet connected' };
+    }
+
+    // Check all connected wallets
+    for (const conn of connections) {
+      const walletAlias = conn.alias || 'Lightning Wallet';
+      try {
+        console.log(`[NWCSync] Checking ${walletAlias} for transaction...`);
+
+        // Fetch all transactions (no time filter) and search
+        const response = await listTransactions(
+          conn.connectionString,
+          { limit: 500 }, // Get more transactions to search
+          AbortSignal.timeout(WALLET_TIMEOUT_MS)
+        );
+
+        const found = response.transactions?.find(tx =>
+          tx.payment_hash === paymentHash ||
+          tx.payment_hash.toLowerCase() === paymentHash.toLowerCase()
+        );
+
+        if (found) {
+          console.log(`[NWCSync] Found transaction in ${walletAlias}:`, {
+            amount: found.amount,
+            type: found.type,
+            settled_at: found.settled_at,
+            description: found.description,
+          });
+          return {
+            found: true,
+            walletAlias,
+            transaction: found,
+          };
+        }
+
+        console.log(`[NWCSync] Transaction not found in ${walletAlias}`);
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        console.warn(`[NWCSync] Error checking ${walletAlias}:`, errorMsg);
+        // Continue to next wallet
+      }
+    }
+
+    return { found: false, error: 'Transaction not found in any connected wallet' };
+  }, [connections]);
+
+  /**
+   * Force import a specific transaction by payment hash, bypassing deduplication
+   * Use this as a last resort when a transaction is missing
+   */
+  const forceImportTransaction = useCallback(async (paymentHash: string): Promise<{
+    success: boolean;
+    error?: string;
+  }> => {
+    console.log('[NWCSync] Force importing transaction:', paymentHash);
+
+    const lookup = await lookupTransactionByHash(paymentHash);
+
+    if (!lookup.found || !lookup.transaction) {
+      return { success: false, error: lookup.error || 'Transaction not found' };
+    }
+
+    const nwcTx = lookup.transaction;
+    const walletAlias = lookup.walletAlias || 'Lightning Wallet';
+
+    // Check if it already exists in budget (not sync state)
+    const fullBudgetState = budgetStore.getFullBudgetState();
+    const existsInBudget = fullBudgetState.budgets.some(budget =>
+      budget.transactions.some(tx => tx.paymentHash === paymentHash)
+    );
+
+    if (existsInBudget) {
+      console.log('[NWCSync] Transaction already exists in budget');
+      return { success: false, error: 'Transaction already exists in budget' };
+    }
+
+    // Convert millisats to sats
+    const amountSats = Math.round(nwcTx.amount / 1000);
+
+    // Build description
+    let description = 'Lightning payment';
+    if (nwcTx.description && nwcTx.description.trim()) {
+      description = nwcTx.description.trim();
+    } else if (nwcTx.metadata?.comment && typeof nwcTx.metadata.comment === 'string') {
+      description = nwcTx.metadata.comment;
+    }
+
+    // Create the transaction - find the connection string for this wallet
+    const conn = connections.find(c => c.alias === walletAlias);
+
+    const transaction = {
+      amount: amountSats,
+      description,
+      date: new Date((nwcTx.settled_at || nwcTx.created_at) * 1000).toISOString(),
+      lineItemId: null,
+      bucketId: null,
+      isIncome: nwcTx.type === 'incoming',
+      source: 'nwc' as const,
+      sourceWallet: walletAlias,
+      sourceWalletId: conn?.connectionString,
+      paymentHash: nwcTx.payment_hash,
+      preimage: nwcTx.preimage,
+    };
+
+    console.log('[NWCSync] Force importing transaction:', transaction);
+
+    budgetStore.addTransaction(transaction);
+
+    // Add to sync state to prevent future re-imports
+    setSyncState(prev => ({
+      ...prev,
+      syncedPaymentHashes: [...prev.syncedPaymentHashes, paymentHash].slice(-MAX_STORED_HASHES),
+    }));
+
+    toast({
+      title: 'Transaction imported',
+      description: `Imported ${amountSats.toLocaleString()} sats from ${walletAlias}`,
+    });
+
+    return { success: true };
+  }, [lookupTransactionByHash, budgetStore, connections, setSyncState, toast]);
+
   // Check wallet capabilities when connection changes
   useEffect(() => {
     const activeConnection = getActiveConnection();
@@ -790,5 +971,10 @@ export function useNWCSync(options: UseNWCSyncOptions = {}) {
     // Cloud sync functions
     uploadNWCConnections,
     downloadNWCConnections,
+    // Debug/recovery functions
+    lookupTransactionByHash,
+    forceImportTransaction,
+    // Sync state for debugging
+    syncedPaymentHashCount: syncState.syncedPaymentHashes.length,
   };
 }

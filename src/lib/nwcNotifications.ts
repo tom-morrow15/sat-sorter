@@ -1,6 +1,6 @@
 /**
  * NWC Real-Time Notification Manager
- * 
+ *
  * Maintains persistent WebSocket connections to wallet relays
  * and listens for payment_received and payment_sent notifications.
  */
@@ -65,7 +65,7 @@ export class NWCNotificationManager {
    */
   subscribe(connectionString: string, alias: string): boolean {
     if (this.isDestroyed) return false;
-    
+
     // Already subscribed
     if (this.subscriptions.has(connectionString)) {
       console.log(`[NWC Notifications] Already subscribed to ${alias}`);
@@ -108,11 +108,11 @@ export class NWCNotificationManager {
     if (!subscription) return;
 
     subscription.isClosing = true;
-    
+
     if (subscription.reconnectTimer) {
       clearTimeout(subscription.reconnectTimer);
     }
-    
+
     if (subscription.ws) {
       subscription.ws.close();
     }
@@ -126,7 +126,7 @@ export class NWCNotificationManager {
    */
   destroy(): void {
     this.isDestroyed = true;
-    
+
     for (const connectionString of this.subscriptions.keys()) {
       this.unsubscribe(connectionString);
     }
@@ -183,10 +183,10 @@ export class NWCNotificationManager {
 
         try {
           const data = JSON.parse(event.data);
-          
+
           if (data[0] === 'EVENT') {
             const nostrEvent = data[2];
-            
+
             // Only process notification events
             if (nostrEvent.kind !== 23196 && nostrEvent.kind !== 23197) return;
 
@@ -220,7 +220,7 @@ export class NWCNotificationManager {
     }
 
     subscription.reconnectAttempts++;
-    
+
     // Exponential backoff with jitter
     const baseDelay = Math.min(
       RECONNECT_BASE_DELAY_MS * Math.pow(2, subscription.reconnectAttempts - 1),
@@ -244,43 +244,100 @@ export class NWCNotificationManager {
     try {
       // Decrypt the notification content
       let decrypted: string;
-      
-      if (event.kind === 23197) {
-        // NIP-44 encryption
-        const conversationKey = nip44.utils.getConversationKey(
-          subscription.secretBytes,
-          subscription.walletPubkey
-        );
-        decrypted = nip44.decrypt(event.content, conversationKey);
-      } else {
-        // NIP-04 encryption (kind 23196)
-        const secretHex = Array.from(subscription.secretBytes)
-          .map(b => b.toString(16).padStart(2, '0'))
-          .join('');
-        decrypted = await nip04.decrypt(secretHex, subscription.walletPubkey, event.content);
+
+      try {
+        if (event.kind === 23197) {
+          // NIP-44 encryption
+          const conversationKey = nip44.utils.getConversationKey(
+            subscription.secretBytes,
+            subscription.walletPubkey
+          );
+          decrypted = nip44.decrypt(event.content, conversationKey);
+        } else {
+          // NIP-04 encryption (kind 23196)
+          const secretHex = Array.from(subscription.secretBytes)
+            .map(b => b.toString(16).padStart(2, '0'))
+            .join('');
+          decrypted = await nip04.decrypt(secretHex, subscription.walletPubkey, event.content);
+        }
+      } catch (decryptError) {
+        // Try the opposite encryption method as fallback
+        // Some wallets may use NIP-04 even with kind 23197
+        try {
+          if (event.kind === 23197) {
+            // Try NIP-04 as fallback
+            const secretHex = Array.from(subscription.secretBytes)
+              .map(b => b.toString(16).padStart(2, '0'))
+              .join('');
+            decrypted = await nip04.decrypt(secretHex, subscription.walletPubkey, event.content);
+          } else {
+            // Try NIP-44 as fallback
+            const conversationKey = nip44.utils.getConversationKey(
+              subscription.secretBytes,
+              subscription.walletPubkey
+            );
+            decrypted = nip44.decrypt(event.content, conversationKey);
+          }
+        } catch {
+          throw decryptError; // Re-throw original error if fallback also fails
+        }
       }
 
-      const parsed: ParsedNotification = JSON.parse(decrypted);
-      
-      // Validate notification type
-      if (parsed.notification_type !== 'payment_received' && parsed.notification_type !== 'payment_sent') {
+      const parsed = JSON.parse(decrypted);
+
+      // Validate notification type - handle different wallet implementations
+      // Some wallets use notification_type, others might use type directly
+      const notificationType = parsed.notification_type || parsed.type;
+      const notification = parsed.notification || parsed;
+
+      // Accept various naming conventions for payment notifications
+      const isPaymentReceived = notificationType === 'payment_received' ||
+        notificationType === 'incoming' ||
+        notification.type === 'incoming';
+      const isPaymentSent = notificationType === 'payment_sent' ||
+        notificationType === 'outgoing' ||
+        notification.type === 'outgoing';
+
+      if (!isPaymentReceived && !isPaymentSent) {
+        console.log(`[NWC Notifications] ${subscription.alias}: Ignoring notification type:`, notificationType);
         return;
       }
 
-      console.log(`[NWC Notifications] ${subscription.alias}: ${parsed.notification_type}`, {
-        amount: parsed.notification.amount,
-        payment_hash: parsed.notification.payment_hash?.slice(0, 16) + '...',
+      // Ensure we have required fields
+      if (!notification.payment_hash) {
+        console.warn(`[NWC Notifications] ${subscription.alias}: Missing payment_hash in notification`);
+        return;
+      }
+
+      // Normalize the notification object
+      const normalizedNotification: NWCNotification = {
+        type: isPaymentReceived ? 'incoming' : 'outgoing',
+        payment_hash: notification.payment_hash,
+        amount: notification.amount || 0,
+        created_at: notification.created_at || Math.floor(Date.now() / 1000),
+        settled_at: notification.settled_at,
+        description: notification.description,
+        preimage: notification.preimage,
+        state: notification.state,
+        metadata: notification.metadata,
+      };
+
+      console.log(`[NWC Notifications] ${subscription.alias}: ${normalizedNotification.type}`, {
+        amount: normalizedNotification.amount,
+        payment_hash: normalizedNotification.payment_hash?.slice(0, 16) + '...',
       });
 
       // Call the callback with the notification
       this.onNotification(
-        parsed.notification,
+        normalizedNotification,
         subscription.alias,
         subscription.connectionString
       );
     } catch (error) {
       // Decryption or parsing failed - could be an old/invalid event
-      console.warn(`[NWC Notifications] Failed to process notification from ${subscription.alias}`);
+      console.warn(`[NWC Notifications] Failed to process notification from ${subscription.alias}:`,
+        error instanceof Error ? error.message : 'Unknown error'
+      );
     }
   }
 }

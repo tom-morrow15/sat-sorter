@@ -186,7 +186,7 @@ async function makeNWCRequest<T>(
   method: string,
   requestParams: Record<string, unknown>,
   signal?: AbortSignal,
-  timeoutMs: number = 45000 // Increased default timeout for self-hosted nodes
+  timeoutMs: number = 30000 // 30 second default timeout (reduced from 45s)
 ): Promise<T> {
   // Pre-compute secret bytes and pubkey before async operations
   const secretBytes = hexToBytes(params.secret);
@@ -445,8 +445,8 @@ export async function listTransactions(
     console.log('[NWC] Could not fetch wallet info, attempting list_transactions anyway...');
   }
 
-  // Retry logic for list_transactions
-  const maxRetries = 2;
+  // Retry logic for list_transactions - reduced retries to avoid blocking
+  const maxRetries = 1; // Only 1 retry (2 total attempts) to avoid blocking other wallets
   let lastError: Error | null = null;
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -454,7 +454,7 @@ export async function listTransactions(
       if (attempt > 0) {
         console.log(`[NWC] Retry attempt ${attempt}/${maxRetries} for list_transactions...`);
         // Add a small delay between retries to avoid hammering the relay
-        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+        await new Promise(resolve => setTimeout(resolve, 500 * attempt));
       }
 
       const result = await makeNWCRequest<{ transactions: NWCTransaction[] }>(
@@ -476,9 +476,12 @@ export async function listTransactions(
       lastError = error instanceof Error ? error : new Error(String(error));
       console.warn(`[NWC] list_transactions attempt ${attempt + 1} failed:`, lastError.message);
 
-      // Don't retry if it's a non-timeout error or if aborted
-      if (!lastError.message.includes('timed out') || signal?.aborted) {
+      // Don't retry if it's a non-timeout error, if aborted, or if signal was aborted
+      if (!lastError.message.includes('timed out') && !lastError.message.includes('aborted')) {
         throw lastError;
+      }
+      if (signal?.aborted) {
+        throw new Error('Request aborted');
       }
     }
   }

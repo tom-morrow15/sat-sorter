@@ -38,6 +38,79 @@ const getComparableState = (state: BudgetState): string => {
   return JSON.stringify(dataOnly);
 };
 
+/**
+ * Merge NWC-sourced transactions from local state into remote state
+ * This prevents losing transactions that were just imported via NWC sync
+ * but haven't been saved to relays yet
+ */
+const mergeNWCTransactions = (localState: BudgetState, remoteState: BudgetState): BudgetState => {
+  // Create a set of all payment hashes in remote state for fast lookup
+  const remotePaymentHashes = new Set<string>();
+  for (const budget of remoteState.budgets) {
+    for (const tx of budget.transactions) {
+      if (tx.paymentHash) {
+        remotePaymentHashes.add(tx.paymentHash);
+      }
+    }
+  }
+
+  // Find NWC transactions in local state that don't exist in remote
+  const localNWCTransactions: Array<{ tx: Transaction; month: string }> = [];
+  for (const budget of localState.budgets) {
+    for (const tx of budget.transactions) {
+      // Only consider NWC-sourced transactions with payment hashes
+      if (tx.source === 'nwc' && tx.paymentHash && !remotePaymentHashes.has(tx.paymentHash)) {
+        localNWCTransactions.push({ tx, month: budget.month });
+        console.log('[BudgetStore] Found local NWC transaction missing from remote:', {
+          paymentHash: tx.paymentHash.slice(0, 16) + '...',
+          amount: tx.amount,
+          description: tx.description,
+          month: budget.month,
+        });
+      }
+    }
+  }
+
+  // If no local NWC transactions are missing, return remote as-is
+  if (localNWCTransactions.length === 0) {
+    return remoteState;
+  }
+
+  console.log('[BudgetStore] Merging', localNWCTransactions.length, 'local NWC transactions into remote state');
+
+  // Clone remote state and add the missing transactions
+  const mergedBudgets = remoteState.budgets.map(budget => ({
+    ...budget,
+    transactions: [...budget.transactions],
+  }));
+
+  // Add each missing transaction to the appropriate month
+  for (const { tx, month } of localNWCTransactions) {
+    let targetBudget = mergedBudgets.find(b => b.month === month);
+
+    if (!targetBudget) {
+      // Create a new budget for this month if it doesn't exist
+      targetBudget = {
+        id: generateId(),
+        month,
+        buckets: createDefaultBuckets(),
+        transactions: [],
+      };
+      mergedBudgets.push(targetBudget);
+    }
+
+    // Add the transaction if it's not already there (double-check by ID)
+    if (!targetBudget.transactions.some(t => t.id === tx.id)) {
+      targetBudget.transactions.push(tx);
+    }
+  }
+
+  return {
+    ...remoteState,
+    budgets: mergedBudgets,
+  };
+};
+
 const DEFAULT_STATE: BudgetState = {
   currentMonth: getCurrentMonth(),
   budgets: [],
@@ -594,8 +667,13 @@ export function useBudgetStore() {
           localCacheVersion: localState.version,
           isShared: relayData.isShared,
         });
-        setLocalState(relayData);
-        lastSavedStateRef.current = getComparableState(relayData);
+
+        // IMPORTANT: Merge any local NWC transactions that aren't in the relay data
+        // This prevents losing transactions that were just imported but not yet saved
+        const mergedData = mergeNWCTransactions(localState, relayData);
+
+        setLocalState(mergedData);
+        lastSavedStateRef.current = getComparableState(mergedData);
       } else {
         // No relay data - check if we have local data to upload
         const localWeight = localState.budgets.reduce((sum, b) =>

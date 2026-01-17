@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
   Wallet, Trash2, Zap, CheckCircle,
-  RefreshCw, FileSpreadsheet, QrCode, RotateCcw, Clock
+  RefreshCw, FileSpreadsheet, QrCode, RotateCcw, Clock, Search, Download, AlertTriangle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -50,7 +50,21 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
     startAutoSync,
     stopAutoSync,
     lastSyncTimestamp,
+    lookupTransactionByHash,
+    forceImportTransaction,
+    syncedPaymentHashCount,
   } = useNWCSync();
+
+  // Transaction lookup state
+  const [lookupHash, setLookupHash] = useState('');
+  const [isLookingUp, setIsLookingUp] = useState(false);
+  const [lookupResult, setLookupResult] = useState<{
+    found: boolean;
+    walletAlias?: string;
+    amount?: number;
+    description?: string;
+    error?: string;
+  } | null>(null);
 
   const {
     connections,
@@ -312,6 +326,117 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
                         <p className="text-xs text-muted-foreground">
                           <strong>Full Resync:</strong> Re-fetch all transactions. <strong>Reset:</strong> Clear sync cache and start fresh (use if duplicates appear).
                         </p>
+
+                        {/* Debug info */}
+                        <div className="text-xs text-muted-foreground border-t pt-2 mt-2">
+                          Sync cache: {syncedPaymentHashCount} payment hashes tracked
+                        </div>
+
+                        {/* Transaction lookup - for debugging missing transactions */}
+                        <details className="border-t pt-2 mt-2">
+                          <summary className="text-xs font-medium cursor-pointer hover:text-primary flex items-center gap-1">
+                            <AlertTriangle className="h-3 w-3" />
+                            Missing transaction? Look up by payment hash
+                          </summary>
+                          <div className="mt-3 space-y-2">
+                            <div className="flex gap-2">
+                              <Input
+                                placeholder="Payment hash (hex)"
+                                value={lookupHash}
+                                onChange={(e) => {
+                                  setLookupHash(e.target.value);
+                                  setLookupResult(null);
+                                }}
+                                className="flex-1 text-xs h-8"
+                              />
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={async () => {
+                                  if (!lookupHash.trim()) return;
+                                  setIsLookingUp(true);
+                                  setLookupResult(null);
+                                  try {
+                                    const result = await lookupTransactionByHash(lookupHash.trim());
+                                    if (result.found && result.transaction) {
+                                      setLookupResult({
+                                        found: true,
+                                        walletAlias: result.walletAlias,
+                                        amount: Math.round(result.transaction.amount / 1000),
+                                        description: result.transaction.description,
+                                      });
+                                    } else {
+                                      setLookupResult({
+                                        found: false,
+                                        error: result.error,
+                                      });
+                                    }
+                                  } catch (err) {
+                                    setLookupResult({
+                                      found: false,
+                                      error: err instanceof Error ? err.message : 'Lookup failed',
+                                    });
+                                  } finally {
+                                    setIsLookingUp(false);
+                                  }
+                                }}
+                                disabled={isLookingUp || !lookupHash.trim()}
+                              >
+                                {isLookingUp ? (
+                                  <RefreshCw className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <Search className="h-3 w-3" />
+                                )}
+                              </Button>
+                            </div>
+
+                            {lookupResult && (
+                              <div className={`p-2 rounded text-xs ${
+                                lookupResult.found
+                                  ? 'bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800'
+                                  : 'bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800'
+                              }`}>
+                                {lookupResult.found ? (
+                                  <div className="space-y-1">
+                                    <p className="font-medium text-green-700 dark:text-green-300">
+                                      ✓ Found in {lookupResult.walletAlias}!
+                                    </p>
+                                    <p>Amount: {lookupResult.amount?.toLocaleString()} sats</p>
+                                    <p>Description: {lookupResult.description || 'None'}</p>
+                                    <Button
+                                      size="sm"
+                                      className="mt-2 w-full"
+                                      onClick={async () => {
+                                        const result = await forceImportTransaction(lookupHash.trim());
+                                        if (result.success) {
+                                          setLookupHash('');
+                                          setLookupResult(null);
+                                        } else {
+                                          toast({
+                                            title: 'Import failed',
+                                            description: result.error,
+                                            variant: 'destructive',
+                                          });
+                                        }
+                                      }}
+                                    >
+                                      <Download className="h-3 w-3 mr-1" />
+                                      Import Transaction
+                                    </Button>
+                                  </div>
+                                ) : (
+                                  <p className="text-red-700 dark:text-red-300">
+                                    ✗ {lookupResult.error || 'Transaction not found in any connected wallet'}
+                                  </p>
+                                )}
+                              </div>
+                            )}
+
+                            <p className="text-xs text-muted-foreground">
+                              Find a payment hash in your wallet app's transaction details, then paste it here to look it up and force-import if missing.
+                            </p>
+                          </div>
+                        </details>
 
                         {/* Warning if list_transactions explicitly not supported */}
                         {walletInfo && walletInfo.methods && walletInfo.methods.length > 0 && !supportsListTransactions && (
