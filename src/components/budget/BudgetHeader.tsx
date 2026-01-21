@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Bitcoin, DollarSign, ChevronLeft, ChevronRight, Wallet, Moon, Sun, Zap, Calendar, Menu, Info, Heart, ExternalLink, Shield, Globe, GraduationCap, LogIn, Wifi, Loader2, Check, AlertCircle, HelpCircle, Download, BookOpen, MessageSquare, RotateCcw, Key, Users, Copy } from 'lucide-react';
+import { Bitcoin, DollarSign, ChevronLeft, ChevronRight, Wallet, Moon, Sun, Zap, Calendar, Menu, Info, Heart, ExternalLink, Shield, Globe, GraduationCap, LogIn, Wifi, Loader2, Check, AlertCircle, HelpCircle, Download, BookOpen, MessageSquare, RotateCcw, Key, Users, Copy, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -44,6 +44,7 @@ import { DataExportDialog } from './DataExportDialog';
 import { OnboardingWelcome } from './OnboardingWelcome';
 import { BudgetPartnersDialog } from './BudgetPartnersDialog';
 import { CopyBudgetDialog } from './CopyBudgetDialog';
+import { DevelopmentSupportersDialog } from './DevelopmentSupportersDialog';
 import { useOnboarding } from '@/hooks/useOnboarding';
 import { useAppUpdate } from '@/hooks/useAppUpdate';
 import { useNWCSync } from '@/hooks/useNWCSync';
@@ -121,6 +122,7 @@ export function BudgetHeader({
   const [showClearSyncHistory, setShowClearSyncHistory] = useState(false);
   const [showBudgetPartners, setShowBudgetPartners] = useState(false);
   const [showCopyBudget, setShowCopyBudget] = useState(false);
+  const [showDevelopmentSupporters, setShowDevelopmentSupporters] = useState(false);
 
   const { completeOnboarding } = useOnboarding();
   const { updateAvailable, performUpdate } = useAppUpdate();
@@ -353,6 +355,10 @@ export function BudgetHeader({
                 <DropdownMenuItem onClick={() => setShowDonate(true)}>
                   <Heart className="h-4 w-4 mr-2" />
                   Support Sat Sorter
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setShowDevelopmentSupporters(true)}>
+                  <Star className="h-4 w-4 mr-2" />
+                  Development Supporters
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setShowBitcoinProjects(true)}>
                   <Globe className="h-4 w-4 mr-2" />
@@ -1386,6 +1392,12 @@ export function BudgetHeader({
           </ScrollArea>
         </DialogContent>
       </Dialog>
+
+      {/* Development Supporters Dialog */}
+      <DevelopmentSupportersDialog
+        open={showDevelopmentSupporters}
+        onOpenChange={setShowDevelopmentSupporters}
+      />
     </header>
   );
 }
