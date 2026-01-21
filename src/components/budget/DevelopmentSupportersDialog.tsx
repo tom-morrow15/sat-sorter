@@ -32,12 +32,12 @@ export function DevelopmentSupportersDialog({ open, onOpenChange }: DevelopmentS
           {/* Animated gradient background */}
           <div className="absolute inset-0 bg-gradient-to-br from-amber-400/20 via-orange-500/20 to-rose-500/20 animate-pulse" />
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/10 via-transparent to-transparent" />
-          
+
           {/* Sparkle decorations */}
           <div className="absolute top-4 left-8 text-2xl animate-bounce" style={{ animationDelay: '0s' }}>✨</div>
           <div className="absolute top-6 right-12 text-xl animate-bounce" style={{ animationDelay: '0.2s' }}>⚡</div>
           <div className="absolute top-3 right-28 text-lg animate-bounce" style={{ animationDelay: '0.4s' }}>💫</div>
-          
+
           <DialogHeader className="relative p-6 pb-4">
             <div className="flex items-center justify-center mb-3">
               <div className="relative">
@@ -133,9 +133,6 @@ export function DevelopmentSupportersDialog({ open, onOpenChange }: DevelopmentS
                       >
                         <span className="text-xl">{tier.icon}</span>
                         <p className="text-[10px] font-medium mt-1 truncate">{tier.name.split(' ')[0]}</p>
-                        <p className="text-[9px] text-muted-foreground">
-                          {tier.maxAmount === null ? `$${tier.minAmount}+` : tier.minAmount === 0 ? `<$${tier.maxAmount + 1}` : `$${tier.minAmount}+`}
-                        </p>
                       </div>
                     ))}
                   </div>
@@ -166,14 +163,6 @@ export function DevelopmentSupportersDialog({ open, onOpenChange }: DevelopmentS
                           <span className={cn("font-medium text-sm", tier.color)}>
                             {tier.name}
                           </span>
-                          <span className="text-xs text-muted-foreground ml-2">
-                            {tier.maxAmount === null 
-                              ? `$${tier.minAmount}+` 
-                              : tier.minAmount === 0 
-                                ? `Under $${tier.maxAmount + 1}` 
-                                : `$${tier.minAmount} - $${tier.maxAmount}`
-                            }
-                          </span>
                         </div>
                       </div>
                     ))}
@@ -195,12 +184,9 @@ export function DevelopmentSupportersDialog({ open, onOpenChange }: DevelopmentS
               onClick={() => window.open('https://getalby.com/p/satsorter', '_blank')}
             >
               <Zap className="h-4 w-4 mr-2" />
-              Donate via Lightning
+              Become a Development Supporter
               <ExternalLink className="h-3 w-3 ml-2" />
             </Button>
-            <p className="text-[10px] text-muted-foreground text-center">
-              After donating, DM <a href="https://primal.net/p/npub1hq4rd0xalt9swws546kk9mm70uda4n64e30qc09uukvn9uz4dylqw6zqmg" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">@satsorter</a> on Nostr with your npub and amount to be added!
-            </p>
           </div>
         </div>
       </DialogContent>
