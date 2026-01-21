@@ -33,6 +33,7 @@ export const supporterTiers: SupporterTier[] = [
     supporters: [
       // Add npubs here for top-tier donors
       'npub1acu2u940prfg429x4axskgu2e5auvjx4y6ejme8y8t4ns4tz82pqs5l3q0', // devin@primal.net
+      'npub18yhvxtu850fk7482hc2xnkrke5pp47lwlvkph632h9pre5vp9mnqexhdl8', // mrsmorrow@getalby.com
     ],
   },
   {
