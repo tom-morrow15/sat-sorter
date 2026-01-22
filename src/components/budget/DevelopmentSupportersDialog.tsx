@@ -6,7 +6,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
@@ -63,7 +62,7 @@ export function DevelopmentSupportersDialog({ open, onOpenChange }: DevelopmentS
           </DialogHeader>
         </div>
 
-        <ScrollArea className="flex-1 min-h-0 px-6">
+        <div className="flex-1 overflow-y-auto overscroll-contain px-6 -webkit-overflow-scrolling-touch">
           <div className="space-y-6 py-4">
             {hasAnySupporters ? (
               <>
@@ -171,7 +170,7 @@ export function DevelopmentSupportersDialog({ open, onOpenChange }: DevelopmentS
               </div>
             )}
           </div>
-        </ScrollArea>
+        </div>
 
         {/* Footer with donate CTA */}
         <div className="p-4 sm:p-6 pt-4 border-t bg-muted/30 flex-shrink-0">
