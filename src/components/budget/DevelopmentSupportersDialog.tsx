@@ -125,14 +125,14 @@ export function DevelopmentSupportersDialog({ open, onOpenChange }: DevelopmentS
                   <h4 className="font-semibold text-sm text-muted-foreground text-center">
                     Support Tiers
                   </h4>
-                  <div className="grid grid-cols-5 gap-2">
+                  <div className="grid grid-cols-5 gap-1">
                     {supporterTiers.map((tier) => (
                       <div
                         key={tier.id}
                         className="text-center p-2 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
                       >
                         <span className="text-xl">{tier.icon}</span>
-                        <p className="text-[10px] font-medium mt-1 truncate">{tier.name.split(' ')[0]}</p>
+                        <p className="text-[8px] font-medium mt-1 leading-tight">{tier.name}</p>
                       </div>
                     ))}
                   </div>
