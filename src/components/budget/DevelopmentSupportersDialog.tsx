@@ -26,9 +26,9 @@ export function DevelopmentSupportersDialog({ open, onOpenChange }: DevelopmentS
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[550px] max-h-[90vh] p-0 overflow-hidden">
+      <DialogContent className="sm:max-w-[550px] max-h-[85vh] p-0 overflow-hidden flex flex-col">
         {/* Celebratory Header */}
-        <div className="relative overflow-hidden">
+        <div className="relative overflow-hidden flex-shrink-0">
           {/* Animated gradient background */}
           <div className="absolute inset-0 bg-gradient-to-br from-amber-400/20 via-orange-500/20 to-rose-500/20 animate-pulse" />
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/10 via-transparent to-transparent" />
@@ -63,7 +63,7 @@ export function DevelopmentSupportersDialog({ open, onOpenChange }: DevelopmentS
           </DialogHeader>
         </div>
 
-        <ScrollArea className="max-h-[55vh] px-6">
+        <ScrollArea className="flex-1 min-h-0 px-6">
           <div className="space-y-6 py-4">
             {hasAnySupporters ? (
               <>
@@ -174,7 +174,7 @@ export function DevelopmentSupportersDialog({ open, onOpenChange }: DevelopmentS
         </ScrollArea>
 
         {/* Footer with donate CTA */}
-        <div className="p-6 pt-4 border-t bg-muted/30">
+        <div className="p-4 sm:p-6 pt-4 border-t bg-muted/30 flex-shrink-0">
           <div className="space-y-3">
             <p className="text-xs text-muted-foreground text-center">
               Support Sat Sorter and get your name on this wall of fame! ⚡
