@@ -181,7 +181,7 @@ export function DevelopmentSupportersDialog({ open, onOpenChange }: DevelopmentS
             </p>
             <Button
               className="w-full bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 hover:from-amber-600 hover:via-orange-600 hover:to-rose-600 text-white shadow-lg"
-              onClick={() => window.open('https://getalby.com/p/satsorter', '_blank')}
+              onClick={() => window.open('https://geyser.fund/project/satsorter', '_blank')}
             >
               <Zap className="h-4 w-4 mr-2" />
               Become a Development Supporter
