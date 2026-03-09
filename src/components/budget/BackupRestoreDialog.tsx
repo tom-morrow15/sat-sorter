@@ -42,8 +42,7 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/useToast';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
-import { useBudgetSync } from '@/hooks/useBudgetSync';
-import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { useBudgetStoreContext } from '@/contexts/BudgetStoreContext';
 import { useAppContext } from '@/hooks/useAppContext';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import type { BudgetState } from '@/lib/budgetTypes';
@@ -70,21 +69,14 @@ export function BackupRestoreDialog({ open, onOpenChange }: BackupRestoreDialogP
   const [newRelayUrl, setNewRelayUrl] = useState('');
 
   const {
-    remoteBudget,
-    remoteTimestamp,
-    isLoadingRemote,
-    uploadBudget,
-    downloadBudget,
+    getFullBudgetState,
+    importBudgetState,
+    refreshFromRelays,
+    forceSaveToRelays,
     syncStatus,
-    canSync,
-  } = useBudgetSync();
-
-  // Access local budget state
-  const [localBudget, setLocalBudget] = useLocalStorage<BudgetState>('sat-sorter-budget', {
-    currentMonth: '',
-    budgets: [],
-    currency: 'sats',
-  });
+    lastSyncedAt,
+    isLoggedIn,
+  } = useBudgetStoreContext();
 
   // Relay management
   const relays = config.relayMetadata.relays;
@@ -210,12 +202,13 @@ export function BackupRestoreDialog({ open, onOpenChange }: BackupRestoreDialogP
     }
   };
 
-  // Export to JSON file
+  // Export to JSON file (uses relay-synced state)
   const handleExport = () => {
-    const dataStr = JSON.stringify(localBudget, null, 2);
+    const budgetState = getFullBudgetState();
+    const dataStr = JSON.stringify(budgetState, null, 2);
     const dataBlob = new Blob([dataStr], { type: 'application/json' });
     const url = URL.createObjectURL(dataBlob);
-    
+
     const link = document.createElement('a');
     link.href = url;
     link.download = `sat-sorter-backup-${new Date().toISOString().split('T')[0]}.json`;
@@ -230,7 +223,7 @@ export function BackupRestoreDialog({ open, onOpenChange }: BackupRestoreDialogP
     });
   };
 
-  // Import from JSON file
+  // Import from JSON file (restores into the relay-synced store)
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -245,11 +238,11 @@ export function BackupRestoreDialog({ open, onOpenChange }: BackupRestoreDialogP
         throw new Error('Invalid backup file format');
       }
 
-      setLocalBudget(data);
+      await importBudgetState(data);
 
       toast({
         title: 'Backup restored',
-        description: `Imported ${data.budgets.length} month(s) of budget data.`,
+        description: `Imported ${data.budgets.length} month(s) of budget data.${isLoggedIn ? ' Saving to relays...' : ''}`,
       });
 
       onOpenChange(false);
@@ -267,9 +260,9 @@ export function BackupRestoreDialog({ open, onOpenChange }: BackupRestoreDialogP
     }
   };
 
-  // Sync to Nostr
+  // Push current budget state to relays
   const handleUploadToNostr = async () => {
-    const success = await uploadBudget(localBudget);
+    const success = await forceSaveToRelays();
     if (success) {
       toast({
         title: 'Synced to Nostr relays',
@@ -278,17 +271,16 @@ export function BackupRestoreDialog({ open, onOpenChange }: BackupRestoreDialogP
     } else {
       toast({
         title: 'Sync failed',
-        description: syncStatus.error || 'Could not upload budget data.',
+        description: 'Could not upload budget data. Check relay connections.',
         variant: 'destructive',
       });
     }
   };
 
-  // Download from Nostr
+  // Pull latest from relays (overwrites local with relay version)
   const handleDownloadFromNostr = async () => {
-    const data = await downloadBudget();
-    if (data) {
-      setLocalBudget(data);
+    const success = await refreshFromRelays();
+    if (success) {
       toast({
         title: 'Downloaded from Nostr',
         description: 'Your budget has been restored from your relays.',
@@ -307,6 +299,7 @@ export function BackupRestoreDialog({ open, onOpenChange }: BackupRestoreDialogP
     return new Date(ts * 1000).toLocaleString();
   };
 
+  const isSyncing = syncStatus === 'saving' || syncStatus === 'loading';
   const writeRelays = relays.filter(r => r.write);
 
   return (
@@ -328,7 +321,7 @@ export function BackupRestoreDialog({ open, onOpenChange }: BackupRestoreDialogP
             <Alert className="border-primary/30 bg-primary/5">
               <Shield className="h-4 w-4 text-primary" />
               <AlertDescription className="text-sm">
-                <strong>How it works:</strong> Your budget is encrypted with your Nostr keys and stored on relays you choose. 
+                <strong>How it works:</strong> Your budget is encrypted with your Nostr keys and stored on relays you choose.
                 Only you can decrypt it. No central server, no third party.
               </AlertDescription>
             </Alert>
@@ -339,7 +332,7 @@ export function BackupRestoreDialog({ open, onOpenChange }: BackupRestoreDialogP
                 <Wifi className="h-4 w-4" />
                 Sync Status
               </h3>
-              
+
               {!user ? (
                 <div className="p-4 border rounded-lg text-center">
                   <AlertCircle className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
@@ -347,7 +340,7 @@ export function BackupRestoreDialog({ open, onOpenChange }: BackupRestoreDialogP
                     Log in with Nostr to sync your budget across devices
                   </p>
                 </div>
-              ) : !canSync ? (
+              ) : !isLoggedIn ? (
                 <div className="p-4 border rounded-lg text-center">
                   <AlertCircle className="h-8 w-8 mx-auto mb-2 text-amber-500" />
                   <p className="text-sm text-muted-foreground">
@@ -366,20 +359,20 @@ export function BackupRestoreDialog({ open, onOpenChange }: BackupRestoreDialogP
                       <div>
                         <p className="text-sm font-medium">Last Synced</p>
                         <p className="text-xs text-muted-foreground">
-                          {isLoadingRemote ? (
+                          {syncStatus === 'loading' ? (
                             'Checking relays...'
-                          ) : remoteBudget ? (
-                            formatTimestamp(remoteTimestamp!)
+                          ) : lastSyncedAt ? (
+                            formatTimestamp(lastSyncedAt)
                           ) : (
-                            'No backup found on relays'
+                            'Not yet synced this session'
                           )}
                         </p>
                       </div>
                     </div>
-                    {remoteBudget && (
+                    {lastSyncedAt && (
                       <Badge variant="secondary" className="text-green-600">
                         <CheckCircle className="h-3 w-3 mr-1" />
-                        Found
+                        Synced
                       </Badge>
                     )}
                   </div>
@@ -389,9 +382,9 @@ export function BackupRestoreDialog({ open, onOpenChange }: BackupRestoreDialogP
                     <Button
                       variant="outline"
                       onClick={handleUploadToNostr}
-                      disabled={syncStatus.isSyncing}
+                      disabled={isSyncing}
                     >
-                      {syncStatus.isSyncing ? (
+                      {isSyncing ? (
                         <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
                       ) : (
                         <Upload className="h-4 w-4 mr-2" />
@@ -401,9 +394,9 @@ export function BackupRestoreDialog({ open, onOpenChange }: BackupRestoreDialogP
                     <Button
                       variant="outline"
                       onClick={handleDownloadFromNostr}
-                      disabled={syncStatus.isSyncing || !remoteBudget}
+                      disabled={isSyncing}
                     >
-                      {syncStatus.isSyncing ? (
+                      {isSyncing ? (
                         <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
                       ) : (
                         <Download className="h-4 w-4 mr-2" />
@@ -412,8 +405,8 @@ export function BackupRestoreDialog({ open, onOpenChange }: BackupRestoreDialogP
                     </Button>
                   </div>
 
-                  {syncStatus.error && (
-                    <p className="text-xs text-destructive">{syncStatus.error}</p>
+                  {syncStatus === 'error' && (
+                    <p className="text-xs text-destructive">Sync failed. Check your relay connections and try again.</p>
                   )}
                 </div>
               )}

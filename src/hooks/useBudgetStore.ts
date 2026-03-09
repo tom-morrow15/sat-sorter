@@ -3,7 +3,6 @@ import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useNostr } from '@nostrify/react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
-import { useQueryClient } from '@tanstack/react-query';
 import { getSafeNip44 } from '@/lib/utils';
 import { useExtensionReady } from '@/hooks/useExtensionReady';
 import {
@@ -516,21 +515,6 @@ export function useBudgetStore() {
       return false; // Prevent concurrent saves
     }
 
-    // Find the 5000 sat transaction in the incoming state
-    const incomingTx = state.budgets.flatMap(b => b.transactions).find(t => t.amount === 5000);
-    console.log('[BudgetStore] saveToRelays called with state:', {
-      budgets: state.budgets.length,
-      totalTransactions: state.budgets.reduce((sum, b) => sum + b.transactions.length, 0),
-      version: state.version,
-      isShared: state.isShared,
-      transaction5kSatIncoming: incomingTx ? {
-        id: incomingTx.id,
-        description: incomingTx.description,
-        bucketId: incomingTx.bucketId,
-        lineItemId: incomingTx.lineItemId,
-      } : 'NOT FOUND IN INCOMING STATE',
-    });
-
     isSavingRef.current = true;
     setSyncStatus('saving');
 
@@ -617,17 +601,7 @@ export function useBudgetStore() {
       const now = Math.floor(Date.now() / 1000);
       setLastSyncedAt(now);
 
-      // Find the 5000 sat transaction if it exists
-      const targetTx = state.budgets.flatMap(b => b.transactions).find(t => t.amount === 5000);
-      console.log('[BudgetStore] Saved to relays successfully', {
-        version: updatedState.version,
-        transaction5kSatStateBefore: targetTx ? {
-          id: targetTx.id,
-          description: targetTx.description,
-          bucketId: targetTx.bucketId,
-          lineItemId: targetTx.lineItemId,
-        } : 'NOT FOUND',
-      });
+      console.log('[BudgetStore] Saved to relays successfully', { version: updatedState.version });
 
       // Track that we successfully saved this state (data only, no version)
       // The auto-save comparison uses getComparableState which excludes version
@@ -1375,6 +1349,16 @@ export function useBudgetStore() {
     return saveToRelays(getFullBudgetState());
   }, [isLoggedIn, saveToRelays, getFullBudgetState]);
 
+  // Import/replace entire budget state (used by backup restore)
+  // Also saves the restored state to relays when logged in
+  const importBudgetState = useCallback(async (newState: BudgetState): Promise<void> => {
+    setLocalState(newState);
+    lastSavedStateRef.current = getComparableState(newState);
+    if (isLoggedIn) {
+      await saveToRelays(newState, true); // skip conflict check - user is explicitly restoring
+    }
+  }, [setLocalState, isLoggedIn, saveToRelays]);
+
   // Conflict resolution: Use remote version (discard local changes)
   const resolveConflictUseRemote = useCallback(() => {
     if (!conflictInfo) return;
@@ -1978,5 +1962,8 @@ export function useBudgetStore() {
     // Manual sync controls (for edge cases)
     refreshFromRelays,
     forceSaveToRelays,
+
+    // Backup/restore
+    importBudgetState,
   };
 }

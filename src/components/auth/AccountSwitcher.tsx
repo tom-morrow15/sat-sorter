@@ -26,7 +26,6 @@ const LOGOUT_CLEAR_KEYS = [
   'sat-sorter-onboarding',
   'sat-sorter-location',
   'sat-sorter-dismissed-invitations',
-  'sat-sorter-last-sync',
   'nwc-sync-state', // NWC sync history and payment hashes
   'nwc-auto-sync', // NWC auto-sync preference
 ];

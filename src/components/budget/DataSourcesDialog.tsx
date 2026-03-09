@@ -10,7 +10,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/useToast';
-import { useBudget } from '@/hooks/useBudget';
+import { useBudgetStoreContext } from '@/contexts/BudgetStoreContext';
 import { categorizeMerchant } from '@/lib/merchantUtils';
 
 interface DataSourcesDialogProps {
@@ -31,7 +31,7 @@ export function DataSourcesDialog({ open, onOpenChange }: DataSourcesDialogProps
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
-  const { addTransaction, currentBudget } = useBudget();
+  const { addTransaction, currentBudget } = useBudgetStoreContext();
 
   const parseCSV = (text: string): ParsedTransaction[] => {
     const lines = text.trim().split('\n');
