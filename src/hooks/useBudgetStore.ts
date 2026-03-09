@@ -39,30 +39,41 @@ const getComparableState = (state: BudgetState): string => {
 };
 
 /**
- * Merge NWC-sourced transactions from local state into remote state
- * This prevents losing transactions that were just imported via NWC sync
- * but haven't been saved to relays yet
+ * Merge all local-only transactions from local state into remote state.
+ * This prevents losing transactions that were added locally (manually or via NWC)
+ * but haven't been saved to relays yet (e.g., app was closed before the debounce fired).
+ *
+ * Matching strategy (in priority order):
+ *  1. By transaction ID — exact match (all transaction types)
+ *  2. By payment hash — for NWC/Lightning transactions that share a hash
  */
 const mergeNWCTransactions = (localState: BudgetState, remoteState: BudgetState): BudgetState => {
-  // Create a set of all payment hashes in remote state for fast lookup
+  // Create sets of all IDs and payment hashes in remote state for fast lookup
+  const remoteTransactionIds = new Set<string>();
   const remotePaymentHashes = new Set<string>();
   for (const budget of remoteState.budgets) {
     for (const tx of budget.transactions) {
+      remoteTransactionIds.add(tx.id);
       if (tx.paymentHash) {
         remotePaymentHashes.add(tx.paymentHash);
       }
     }
   }
 
-  // Find NWC transactions in local state that don't exist in remote
-  const localNWCTransactions: Array<{ tx: Transaction; month: string }> = [];
+  // Find ALL transactions in local state that don't exist in remote
+  // (not just NWC — this covers manually added transactions too)
+  const localOnlyTransactions: Array<{ tx: Transaction; month: string }> = [];
   for (const budget of localState.budgets) {
     for (const tx of budget.transactions) {
-      // Only consider NWC-sourced transactions with payment hashes
-      if (tx.source === 'nwc' && tx.paymentHash && !remotePaymentHashes.has(tx.paymentHash)) {
-        localNWCTransactions.push({ tx, month: budget.month });
-        console.log('[BudgetStore] Found local NWC transaction missing from remote:', {
-          paymentHash: tx.paymentHash.slice(0, 16) + '...',
+      const existsInRemoteById = remoteTransactionIds.has(tx.id);
+      const existsInRemoteByHash = tx.paymentHash ? remotePaymentHashes.has(tx.paymentHash) : false;
+
+      if (!existsInRemoteById && !existsInRemoteByHash) {
+        localOnlyTransactions.push({ tx, month: budget.month });
+        console.log('[BudgetStore] Found local transaction missing from remote:', {
+          id: tx.id,
+          source: tx.source || 'manual',
+          paymentHash: tx.paymentHash ? tx.paymentHash.slice(0, 16) + '...' : 'none',
           amount: tx.amount,
           description: tx.description,
           month: budget.month,
@@ -71,12 +82,12 @@ const mergeNWCTransactions = (localState: BudgetState, remoteState: BudgetState)
     }
   }
 
-  // If no local NWC transactions are missing, return remote as-is
-  if (localNWCTransactions.length === 0) {
+  // If no local-only transactions are missing, return remote as-is
+  if (localOnlyTransactions.length === 0) {
     return remoteState;
   }
 
-  console.log('[BudgetStore] Merging', localNWCTransactions.length, 'local NWC transactions into remote state');
+  console.log('[BudgetStore] Merging', localOnlyTransactions.length, 'local-only transactions into remote state');
 
   // Clone remote state and add the missing transactions
   const mergedBudgets = remoteState.budgets.map(budget => ({
@@ -85,7 +96,7 @@ const mergeNWCTransactions = (localState: BudgetState, remoteState: BudgetState)
   }));
 
   // Add each missing transaction to the appropriate month
-  for (const { tx, month } of localNWCTransactions) {
+  for (const { tx, month } of localOnlyTransactions) {
     let targetBudget = mergedBudgets.find(b => b.month === month);
 
     if (!targetBudget) {
