@@ -161,7 +161,6 @@ export function useBudgetStore() {
   const { nostr } = useNostr();
   const { user, loginType } = useCurrentUser();
   const { mutateAsync: publish } = useNostrPublish();
-  const queryClient = useQueryClient();
 
   // Local storage for caching and offline/logged-out mode
   const [localState, setLocalState] = useLocalStorage<BudgetState>('sat-sorter-budget', DEFAULT_STATE);
