@@ -38,38 +38,49 @@ const getComparableState = (state: BudgetState): string => {
 };
 
 /**
- * Merge all local-only transactions from local state into remote state.
- * This prevents losing transactions that were added locally (manually or via NWC)
- * but haven't been saved to relays yet (e.g., app was closed before the debounce fired).
+ * Merge local-only data from `sourceState` into `targetState`.
  *
- * Matching strategy (in priority order):
+ * This handles TWO categories of data that can be missing from the target:
+ *  1. **Transactions** — individual transactions that exist in source but not target
+ *  2. **Entire budget months** — months that exist in source but not target at all
+ *     (e.g., a user copied March→April locally but the save didn't reach relays)
+ *
+ * Transaction matching strategy (in priority order):
  *  1. By transaction ID — exact match (all transaction types)
  *  2. By payment hash — for NWC/Lightning transactions that share a hash
+ *
+ * The `targetState` is used as the base, with missing data merged in from `sourceState`.
  */
-const mergeNWCTransactions = (localState: BudgetState, remoteState: BudgetState): BudgetState => {
-  // Create sets of all IDs and payment hashes in remote state for fast lookup
-  const remoteTransactionIds = new Set<string>();
-  const remotePaymentHashes = new Set<string>();
-  for (const budget of remoteState.budgets) {
+const mergeNWCTransactions = (sourceState: BudgetState, targetState: BudgetState): BudgetState => {
+  // Create sets of all IDs and payment hashes in target state for fast lookup
+  const targetTransactionIds = new Set<string>();
+  const targetPaymentHashes = new Set<string>();
+  const targetMonths = new Set<string>();
+  for (const budget of targetState.budgets) {
+    targetMonths.add(budget.month);
     for (const tx of budget.transactions) {
-      remoteTransactionIds.add(tx.id);
+      targetTransactionIds.add(tx.id);
       if (tx.paymentHash) {
-        remotePaymentHashes.add(tx.paymentHash);
+        targetPaymentHashes.add(tx.paymentHash);
       }
     }
   }
 
-  // Find ALL transactions in local state that don't exist in remote
+  // Find ALL transactions in source state that don't exist in target
   // (not just NWC — this covers manually added transactions too)
-  const localOnlyTransactions: Array<{ tx: Transaction; month: string }> = [];
-  for (const budget of localState.budgets) {
-    for (const tx of budget.transactions) {
-      const existsInRemoteById = remoteTransactionIds.has(tx.id);
-      const existsInRemoteByHash = tx.paymentHash ? remotePaymentHashes.has(tx.paymentHash) : false;
+  const sourceOnlyTransactions: Array<{ tx: Transaction; month: string }> = [];
+  for (const budget of sourceState.budgets) {
+    // Only check for missing transactions in months that exist in both states
+    // Entire missing months are handled separately below
+    if (!targetMonths.has(budget.month)) continue;
 
-      if (!existsInRemoteById && !existsInRemoteByHash) {
-        localOnlyTransactions.push({ tx, month: budget.month });
-        console.log('[BudgetStore] Found local transaction missing from remote:', {
+    for (const tx of budget.transactions) {
+      const existsInTargetById = targetTransactionIds.has(tx.id);
+      const existsInTargetByHash = tx.paymentHash ? targetPaymentHashes.has(tx.paymentHash) : false;
+
+      if (!existsInTargetById && !existsInTargetByHash) {
+        sourceOnlyTransactions.push({ tx, month: budget.month });
+        console.log('[BudgetStore] Found source transaction missing from target:', {
           id: tx.id,
           source: tx.source || 'manual',
           paymentHash: tx.paymentHash ? tx.paymentHash.slice(0, 16) + '...' : 'none',
@@ -81,42 +92,58 @@ const mergeNWCTransactions = (localState: BudgetState, remoteState: BudgetState)
     }
   }
 
-  // If no local-only transactions are missing, return remote as-is
-  if (localOnlyTransactions.length === 0) {
-    return remoteState;
+  // Find entire budget months that exist in source but not target
+  // These are preserved WITH their full structure (buckets, line items, transactions)
+  const sourceOnlyBudgets: MonthlyBudget[] = [];
+  for (const budget of sourceState.budgets) {
+    if (!targetMonths.has(budget.month)) {
+      // Check if this budget has any meaningful content
+      const hasContent = budget.buckets.some(b => b.lineItems.some(li => li.plannedAmount > 0))
+        || budget.transactions.length > 0;
+      if (hasContent) {
+        sourceOnlyBudgets.push(budget);
+        console.log('[BudgetStore] Found source-only budget month:', {
+          month: budget.month,
+          buckets: budget.buckets.length,
+          transactions: budget.transactions.length,
+        });
+      }
+    }
   }
 
-  console.log('[BudgetStore] Merging', localOnlyTransactions.length, 'local-only transactions into remote state');
+  // If nothing to merge, return target as-is
+  if (sourceOnlyTransactions.length === 0 && sourceOnlyBudgets.length === 0) {
+    return targetState;
+  }
 
-  // Clone remote state and add the missing transactions
-  const mergedBudgets = remoteState.budgets.map(budget => ({
+  console.log('[BudgetStore] Merging into target:', {
+    transactions: sourceOnlyTransactions.length,
+    budgetMonths: sourceOnlyBudgets.length,
+  });
+
+  // Clone target state and add the missing data
+  const mergedBudgets = targetState.budgets.map(budget => ({
     ...budget,
     transactions: [...budget.transactions],
   }));
 
-  // Add each missing transaction to the appropriate month
-  for (const { tx, month } of localOnlyTransactions) {
-    let targetBudget = mergedBudgets.find(b => b.month === month);
-
-    if (!targetBudget) {
-      // Create a new budget for this month if it doesn't exist
-      targetBudget = {
-        id: generateId(),
-        month,
-        buckets: createDefaultBuckets(),
-        transactions: [],
-      };
-      mergedBudgets.push(targetBudget);
-    }
-
-    // Add the transaction if it's not already there (double-check by ID)
-    if (!targetBudget.transactions.some(t => t.id === tx.id)) {
+  // Add missing transactions to existing months
+  for (const { tx, month } of sourceOnlyTransactions) {
+    const targetBudget = mergedBudgets.find(b => b.month === month);
+    if (targetBudget && !targetBudget.transactions.some(t => t.id === tx.id)) {
       targetBudget.transactions.push(tx);
     }
   }
 
+  // Add entire missing budget months (preserving full structure)
+  for (const budget of sourceOnlyBudgets) {
+    if (!mergedBudgets.some(b => b.month === budget.month)) {
+      mergedBudgets.push({ ...budget });
+    }
+  }
+
   return {
-    ...remoteState,
+    ...targetState,
     budgets: mergedBudgets,
   };
 };
@@ -188,6 +215,7 @@ export function useBudgetStore() {
   const wasOfflineRef = useRef(!navigator.onLine);
   const localStateRef = useRef(localState); // Ref to track current state for subscriptions
   const transactionUpdatedRef = useRef(false); // Flag to trigger immediate save on transaction update
+  const hasFlushedOnExitRef = useRef(false); // Prevent double-flush on exit
 
   // Keep the ref updated with latest state
   useEffect(() => {
@@ -207,6 +235,62 @@ export function useBudgetStore() {
       window.removeEventListener('offline', handleOffline);
     };
   }, []);
+
+  // ============================================
+  // SAVE-ON-EXIT: Flush pending saves before the user leaves
+  // ============================================
+  // This prevents data loss when the user closes the app before the debounce fires.
+  // We use both beforeunload (for tab close) and visibilitychange (for tab switch/minimize)
+  // to ensure the save fires as early as possible.
+  useEffect(() => {
+    const flushPendingSave = () => {
+      // Only flush once per exit event to avoid double-saves
+      if (hasFlushedOnExitRef.current) return;
+
+      // Check if there's a pending debounced save
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = undefined;
+      }
+
+      // Check if there are unsaved changes by comparing current state to last saved
+      const currentState = localStateRef.current;
+      const currentDataStr = getComparableState(currentState);
+      const lastSavedDataStr = lastSavedStateRef.current;
+
+      if (currentDataStr !== lastSavedDataStr && user?.pubkey && nip44 && !isSavingRef.current) {
+        hasFlushedOnExitRef.current = true;
+        console.log('[BudgetStore] Flushing unsaved changes before exit...');
+        // Fire and forget — we can't await in beforeunload
+        // But the publish call will still be initiated before the page unloads
+        saveToRelays(currentState).catch(() => {
+          // Best effort — if it fails, local storage still has the data
+          console.warn('[BudgetStore] Failed to flush save on exit');
+        });
+      }
+    };
+
+    const handleBeforeUnload = () => {
+      flushPendingSave();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        flushPendingSave();
+      } else {
+        // Reset the flush guard when the tab becomes visible again
+        hasFlushedOnExitRef.current = false;
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [user?.pubkey, nip44, saveToRelays]);
 
   // When coming back online with offline changes on a shared budget, check for conflicts
   useEffect(() => {
@@ -631,6 +715,9 @@ export function useBudgetStore() {
   // ============================================
 
   // Load from relays on startup when logged in
+  // IMPORTANT: We use initialLoadLocalStateRef (snapshot at mount) instead of localState
+  // in the dependency array to prevent re-triggering on every state change, and to avoid
+  // stale-closure bugs where an async fetch returns and merges with outdated local state.
   useEffect(() => {
     if (!isLoggedIn || isInitialLoadComplete) return;
 
@@ -638,40 +725,95 @@ export function useBudgetStore() {
       setSyncStatus('loading');
       console.log('[BudgetStore] Loading budget from relays...');
 
+      // Use the ref to get the CURRENT local state (not a stale closure value)
+      const cachedLocal = localStateRef.current;
+
       // Pass known budget ID and partners if available from local cache
       const relayData = await fetchFromRelays(
-        localState.budgetId,
-        localState.partnerPubkeys
+        cachedLocal.budgetId,
+        cachedLocal.partnerPubkeys
       );
 
+      // Re-read current local state AFTER the async fetch in case it changed
+      const currentLocal = localStateRef.current;
+
       if (relayData) {
-        // Relay has data - use it and update local cache
-        console.log('[BudgetStore] Using relay data as source of truth', {
-          relayVersion: relayData.version,
-          localCacheVersion: localState.version,
-          isShared: relayData.isShared,
-        });
+        // Determine which data is more complete / newer
+        // Local "weight" = total number of meaningful budget entries
+        const localBudgetMonths = new Set(currentLocal.budgets.map(b => b.month));
+        const relayBudgetMonths = new Set(relayData.budgets.map(b => b.month));
 
-        // IMPORTANT: Merge any local NWC transactions that aren't in the relay data
-        // This prevents losing transactions that were just imported but not yet saved
-        const mergedData = mergeNWCTransactions(localState, relayData);
+        // Check if local has budget months that relay doesn't
+        const localOnlyMonths = [...localBudgetMonths].filter(m => !relayBudgetMonths.has(m));
 
-        setLocalState(mergedData);
-        lastSavedStateRef.current = getComparableState(mergedData);
+        // Check for local budgets with more content than relay versions
+        let localHasNewerContent = false;
+        for (const month of localBudgetMonths) {
+          const localBudget = currentLocal.budgets.find(b => b.month === month);
+          const relayBudget = relayData.budgets.find(b => b.month === month);
+          if (localBudget && !relayBudget) {
+            // Local has a month that relay doesn't — local is newer
+            localHasNewerContent = true;
+            break;
+          }
+          if (localBudget && relayBudget) {
+            // Compare line item counts and transaction counts
+            const localItems = localBudget.buckets.reduce((s, b) => s + b.lineItems.length, 0);
+            const relayItems = relayBudget.buckets.reduce((s, b) => s + b.lineItems.length, 0);
+            const localTxCount = localBudget.transactions.length;
+            const relayTxCount = relayBudget.transactions.length;
+            if (localItems > relayItems || localTxCount > relayTxCount) {
+              localHasNewerContent = true;
+              break;
+            }
+          }
+        }
+
+        if (localOnlyMonths.length > 0 || localHasNewerContent) {
+          // Local has data that relay doesn't — local was updated but the save
+          // didn't make it to relays (e.g., app closed before debounce fired).
+          // Use local as the source of truth and push it to relays.
+          console.log('[BudgetStore] Local has unsaved changes not in relays — keeping local data', {
+            localOnlyMonths,
+            localHasNewerContent,
+            localVersion: currentLocal.version,
+            relayVersion: relayData.version,
+          });
+
+          // Merge any relay-only transactions into local (best of both worlds)
+          const mergedData = mergeNWCTransactions(relayData, currentLocal);
+          setLocalState(mergedData);
+          lastSavedStateRef.current = getComparableState(mergedData);
+
+          // Push the merged local data to relays so they're in sync
+          await saveToRelays(mergedData, true);
+        } else {
+          // Relay data is up-to-date or has newer data — use it
+          console.log('[BudgetStore] Using relay data as source of truth', {
+            relayVersion: relayData.version,
+            localCacheVersion: currentLocal.version,
+            isShared: relayData.isShared,
+          });
+
+          // Merge any local-only transactions into relay data
+          const mergedData = mergeNWCTransactions(currentLocal, relayData);
+          setLocalState(mergedData);
+          lastSavedStateRef.current = getComparableState(mergedData);
+        }
       } else {
         // No relay data - check if we have local data to upload
-        const localWeight = localState.budgets.reduce((sum, b) =>
+        const localWeight = currentLocal.budgets.reduce((sum, b) =>
           sum + b.transactions.length + b.buckets.reduce((bs, bucket) =>
             bs + bucket.lineItems.filter(li => li.plannedAmount > 0).length, 0), 0);
 
         if (localWeight > 0) {
           // Upload existing local data to relays
           console.log('[BudgetStore] No relay data found, uploading local data...');
-          await saveToRelays(localState);
+          await saveToRelays(currentLocal);
         } else {
           console.log('[BudgetStore] No data anywhere, starting fresh');
         }
-        lastSavedStateRef.current = getComparableState(localState);
+        lastSavedStateRef.current = getComparableState(currentLocal);
       }
 
       setIsInitialLoadComplete(true);
@@ -679,15 +821,20 @@ export function useBudgetStore() {
     };
 
     loadInitial();
-  }, [isLoggedIn, isInitialLoadComplete, fetchFromRelays, localState, setLocalState, saveToRelays]);
+  // IMPORTANT: localState is intentionally NOT in this dependency array.
+  // We use localStateRef.current inside the async function to get the latest value.
+  // Including localState would cause this effect to re-trigger on every state change.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoggedIn, isInitialLoadComplete, fetchFromRelays, setLocalState, saveToRelays]);
 
   // Mark initial load complete for logged-out users
   useEffect(() => {
     if (!isLoggedIn && !isInitialLoadComplete) {
       setIsInitialLoadComplete(true);
-      lastSavedStateRef.current = getComparableState(localState);
+      lastSavedStateRef.current = getComparableState(localStateRef.current);
     }
-  }, [isLoggedIn, isInitialLoadComplete, localState]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoggedIn, isInitialLoadComplete]);
 
   // ============================================
   // AUTO-SAVE ON CHANGES (when logged in)
