@@ -26,14 +26,12 @@ export function BottomNavigation() {
   const { uploadBudget } = useBudgetSync();
 
   // Current budget as string (memoized) - includes all state that should be saved
-   // Using JSON.stringify of the full data as dependency ensures we catch all changes
-   const currentBudgetStr = useMemo(() => {
-     return JSON.stringify({
-       budgets: fullState.budgets,
-       currency: fullState.currency,
-       currentMonth: fullState.currentMonth,
-     });
-   }, [fullState]);
+   // Note: We DON'T memoize this - we always recompute it so we can detect changes
+   const currentBudgetStr = JSON.stringify({
+     budgets: fullState.budgets,
+     currency: fullState.currency,
+     currentMonth: fullState.currentMonth,
+   });
 
    // Reset on user change (login/logout)
   useEffect(() => {
@@ -45,29 +43,26 @@ export function BottomNavigation() {
 
   // Initialize and check for changes
    useEffect(() => {
+     console.log('[SaveButton] Change detection effect running, saveState:', saveState, 'currentLen:', currentBudgetStr.length, 'savedLen:', savedBudgetStr.length);
+     
      // First run: initialize saved state if empty
      if (!hasInitialized.current) {
        hasInitialized.current = true;
-       console.log('[SaveButton] First load, initializing with current budget', {
-         hasSavedBudget: !!savedBudgetStr,
-         currentLength: currentBudgetStr.length,
-       });
+       console.log('[SaveButton] First load, initializing with current budget');
        if (!savedBudgetStr) {
+         console.log('[SaveButton] No saved budget yet, setting current as saved');
          setSavedBudgetStr(currentBudgetStr);
          setSaveState('ready');
        } else if (savedBudgetStr !== currentBudgetStr) {
-         console.log('[SaveButton] Existing save found, budget differs - marking unsaved');
+         console.log('[SaveButton] Existing save found but differs, marking unsaved');
          setSaveState('unsaved');
        }
        return;
      }
 
-     // Check for changes on subsequent renders
+     // Always check for changes - if current differs from saved, mark as unsaved
      if (currentBudgetStr !== savedBudgetStr) {
-       console.log('[SaveButton] Budget changed! Marking unsaved', {
-         savedLength: savedBudgetStr.length,
-         currentLength: currentBudgetStr.length,
-       });
+       console.log('[SaveButton] CHANGE DETECTED! currentLength:', currentBudgetStr.length, 'savedLength:', savedBudgetStr.length);
        setSaveState('unsaved');
      }
    }, [currentBudgetStr, savedBudgetStr]);
