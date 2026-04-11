@@ -64,25 +64,25 @@ export function BottomNavigation() {
   const navItems: NavItem[] = [
     {
       path: '/home',
-      icon: <Home className="h-6 w-6" />,
+      icon: <Home className="h-5 w-5" />,
       label: 'Home',
       tooltip: 'Budget overview',
     },
     {
       path: '/breakdown',
-      icon: <PieChart className="h-6 w-6" />,
+      icon: <PieChart className="h-5 w-5" />,
       label: 'Breakdown',
       tooltip: 'Spending breakdown',
     },
     {
       path: '/local-spend',
-      icon: <MapPin className="h-6 w-6" />,
+      icon: <MapPin className="h-5 w-5" />,
       label: 'Local',
       tooltip: 'Spend Bitcoin locally',
     },
     {
       path: '/transactions',
-      icon: <Receipt className="h-6 w-6" />,
+      icon: <Receipt className="h-5 w-5" />,
       label: 'Transactions',
       tooltip: 'All transactions',
     },
@@ -148,17 +148,17 @@ export function BottomNavigation() {
       case 'saving':
         return (
           <div className="animate-spin">
-            <Cloud className="h-6 w-6" />
+            <Cloud className="h-5 w-5" />
           </div>
         );
       case 'success':
-        return <Cloud className="h-6 w-6 text-green-600" />;
+        return <Cloud className="h-5 w-5 text-green-600" />;
       case 'error':
-        return <Cloud className="h-6 w-6 text-red-600" />;
+        return <Cloud className="h-5 w-5 text-red-600" />;
       case 'unsaved':
-        return <Cloud className="h-6 w-6 text-red-600" />;
+        return <Cloud className="h-5 w-5 text-red-600" />;
       default:
-        return <Cloud className="h-6 w-6" />;
+        return <Cloud className="h-5 w-5" />;
     }
   };
 
@@ -186,24 +186,25 @@ export function BottomNavigation() {
         paddingBottom: 'env(safe-area-inset-bottom)',
       }}
     >
-      <div className="container mx-auto px-2 py-3 flex items-center justify-between gap-1">
+      <div className="container mx-auto px-3 py-2 flex items-center justify-between gap-2">
         {/* Navigation items */}
-        <div className="flex items-center gap-1 flex-1">
+        <div className="flex items-center gap-1 flex-1 justify-evenly">
           {navItems.map((item) => (
             <Tooltip key={item.path}>
               <TooltipTrigger asChild>
                 <Button
                   variant={isActive(item.path) ? 'default' : 'ghost'}
-                  size="icon"
+                  size="sm"
                   onClick={() => navigate(item.path)}
                   className={cn(
-                    'flex-1 rounded-full h-12 transition-all',
+                    'flex flex-col items-center justify-center h-auto py-1 px-2 rounded-lg transition-all',
                     isActive(item.path)
                       ? 'bg-primary text-primary-foreground'
                       : 'text-muted-foreground hover:text-foreground'
                   )}
                 >
                   {item.icon}
+                  <span className="text-[10px] mt-0.5 leading-tight">{item.label}</span>
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="top">{item.tooltip}</TooltipContent>
@@ -212,7 +213,7 @@ export function BottomNavigation() {
         </div>
 
         {/* Divider */}
-        <div className="h-8 w-px bg-border" />
+        <div className="h-8 w-px bg-border flex-shrink-0" />
 
         {/* Save button - only show if logged in */}
         {user && (
@@ -222,15 +223,16 @@ export function BottomNavigation() {
                 onClick={handleSave}
                 disabled={saveState === 'saving'}
                 variant={saveState === 'success' ? 'default' : saveState === 'error' || saveState === 'unsaved' ? 'destructive' : 'ghost'}
-                size="icon"
+                size="sm"
                 className={cn(
-                  'rounded-full h-12 w-12 transition-all',
+                  'flex flex-col items-center justify-center h-auto py-1 px-3 rounded-lg transition-all flex-shrink-0',
                   saveState === 'success' && 'bg-green-600 hover:bg-green-700',
                   (saveState === 'error' || saveState === 'unsaved') && 'bg-red-600 hover:bg-red-700',
                   saveState !== 'success' && saveState !== 'error' && saveState !== 'unsaved' && 'text-muted-foreground hover:text-foreground'
                 )}
               >
                 {getSaveIcon()}
+                <span className="text-[10px] mt-0.5 leading-tight">Save</span>
               </Button>
             </TooltipTrigger>
             <TooltipContent side="top">{getSaveTooltip()}</TooltipContent>

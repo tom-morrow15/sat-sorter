@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Plus, Minus, Trash2 } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -24,7 +24,7 @@ interface SplitItem {
   id: string;
   bucketId: string;
   lineItemId: string;
-  amount: number;
+  amountSats: number; // Always stored in sats internally
   description: string;
 }
 
@@ -56,7 +56,7 @@ export function AddTransactionDialog({
 }: AddTransactionDialogProps) {
   const { data: priceData } = useBitcoinPrice();
   const [description, setDescription] = useState('');
-  const [totalAmount, setTotalAmount] = useState('');
+  const [amountInput, setAmountInput] = useState('');
   const [selectedBucketId, setSelectedBucketId] = useState(defaultBucketId || '');
   const [selectedLineItemId, setSelectedLineItemId] = useState('');
   const [isSplitMode, setIsSplitMode] = useState(false);
@@ -64,19 +64,38 @@ export function AddTransactionDialog({
 
   const filteredBuckets = buckets.filter(b => b.isIncome === isIncome);
 
+  // Convert user input to sats (all internal math is in sats)
+  const totalSats = useMemo(() => {
+    const num = parseFloat(amountInput) || 0;
+    if (currency === 'usd' && priceData) {
+      return Math.round(usdToSats(num, priceData.usdPerBtc));
+    }
+    return Math.round(num);
+  }, [amountInput, currency, priceData]);
+
   const getLineItems = (bucketId: string) => {
     const bucket = buckets.find(b => b.id === bucketId);
     return bucket?.lineItems || [];
   };
 
-  const formatAmount = (sats: number) => {
+  // Format sats for display in user's preferred currency
+  const displayAmount = (sats: number) => {
     if (currency === 'usd' && priceData) {
-      return formatUsd(satsToUsd(sats, priceData.usdPerBtc));
+      return `$${satsToUsd(sats, priceData.usdPerBtc).toFixed(2)}`;
     }
     return `${formatSats(sats)} sats`;
   };
 
-  const parseAmountToSats = (value: string): number => {
+  // Convert sats back to user's currency for input fields
+  const satsToInputValue = (sats: number) => {
+    if (currency === 'usd' && priceData) {
+      return satsToUsd(sats, priceData.usdPerBtc).toFixed(2);
+    }
+    return sats.toString();
+  };
+
+  // Convert user input value to sats
+  const inputValueToSats = (value: string): number => {
     const num = parseFloat(value) || 0;
     if (currency === 'usd' && priceData) {
       return Math.round(usdToSats(num, priceData.usdPerBtc));
@@ -87,27 +106,20 @@ export function AddTransactionDialog({
   const handleBucketChange = (bucketId: string) => {
     setSelectedBucketId(bucketId);
     setSelectedLineItemId('');
-    // Update splits that don't have valid bucket/lineItem anymore
-    if (isSplitMode) {
-      setSplits(splits.filter(s => {
-        const bucket = buckets.find(b => b.id === s.bucketId);
-        return bucket && bucket.lineItems.some(li => li.id === s.lineItemId);
-      }));
-    }
   };
 
   const addSplit = () => {
-    if (!totalAmount) return;
-    
-    const totalSats = parseAmountToSats(totalAmount);
-    const remaining = totalSats - splits.reduce((sum, s) => sum + s.amount, 0);
+    if (totalSats <= 0) return;
+
+    const allocated = splits.reduce((sum, s) => sum + s.amountSats, 0);
+    const remaining = totalSats - allocated;
     
     const newSplit: SplitItem = {
       id: Date.now().toString(),
       bucketId: selectedBucketId || filteredBuckets[0]?.id || '',
       lineItemId: '',
-      amount: remaining > 0 ? remaining : 0,
-      description: splits.length === 0 ? description : `${description} (part ${splits.length + 1})`,
+      amountSats: remaining > 0 ? remaining : 0,
+      description: splits.length === 0 ? description.trim() : `${description.trim()} (part ${splits.length + 1})`,
     };
     setSplits([...splits, newSplit]);
   };
@@ -116,35 +128,37 @@ export function AddTransactionDialog({
     setSplits(splits.map(s => s.id === id ? { ...s, ...updates } : s));
   };
 
+  const updateSplitAmount = (id: string, inputValue: string) => {
+    const sats = inputValueToSats(inputValue);
+    updateSplit(id, { amountSats: Math.max(0, sats) });
+  };
+
   const removeSplit = (id: string) => {
     setSplits(splits.filter(s => s.id !== id));
   };
 
-  const getRemainingAmount = () => {
-    const totalSats = parseAmountToSats(totalAmount);
-    const used = splits.reduce((sum, s) => sum + s.amount, 0);
-    return totalSats - used;
-  };
+  const allocatedSats = useMemo(() => {
+    return splits.reduce((sum, s) => sum + s.amountSats, 0);
+  }, [splits]);
+
+  const remainingSats = totalSats - allocatedSats;
 
   const handleSave = () => {
-    const totalSats = parseAmountToSats(totalAmount);
     if (!description.trim() || totalSats <= 0) return;
 
     if (isSplitMode && splits.length > 0) {
-      // Save split transactions
       const transactions = splits
-        .filter(s => s.lineItemId && s.amount > 0)
+        .filter(s => s.lineItemId && s.amountSats > 0)
         .map(s => ({
           date: new Date().toISOString().split('T')[0],
-          description: s.description,
-          amount: s.amount,
+          description: s.description || description.trim(),
+          amount: s.amountSats,
           isIncome,
           bucketId: s.bucketId,
           lineItemId: s.lineItemId,
         }));
-      onSave(transactions);
+      if (transactions.length > 0) onSave(transactions);
     } else if (selectedLineItemId) {
-      // Save single transaction
       onSave([{
         date: new Date().toISOString().split('T')[0],
         description: description.trim(),
@@ -157,7 +171,8 @@ export function AddTransactionDialog({
 
     // Reset form
     setDescription('');
-    setTotalAmount('');
+    setAmountInput('');
+    setSelectedBucketId(defaultBucketId || '');
     setSelectedLineItemId('');
     setSplits([]);
     setIsSplitMode(false);
@@ -165,13 +180,12 @@ export function AddTransactionDialog({
   };
 
   const canSave = () => {
-    const totalSats = parseAmountToSats(totalAmount);
     if (!description.trim() || totalSats <= 0) return false;
 
     if (isSplitMode) {
       return splits.length > 0 && 
-             splits.every(s => s.lineItemId && s.amount > 0) &&
-             getRemainingAmount() === 0;
+             splits.every(s => s.lineItemId && s.amountSats > 0) &&
+             remainingSats === 0;
     }
     return selectedLineItemId !== '';
   };
@@ -208,8 +222,8 @@ export function AddTransactionDialog({
             <Input
               id="amount"
               type="number"
-              value={totalAmount}
-              onChange={(e) => setTotalAmount(e.target.value)}
+              value={amountInput}
+              onChange={(e) => setAmountInput(e.target.value)}
               step={currency === 'usd' ? '0.01' : '1'}
               min="0"
             />
@@ -222,14 +236,13 @@ export function AddTransactionDialog({
               variant={isSplitMode ? 'default' : 'outline'}
               size="sm"
               onClick={() => {
-                if (!isSplitMode && totalAmount) {
+                if (!isSplitMode && totalSats > 0) {
                   // Initialize first split when enabling split mode
-                  const totalSats = parseAmountToSats(totalAmount);
                   const newSplit: SplitItem = {
                     id: Date.now().toString(),
                     bucketId: selectedBucketId || filteredBuckets[0]?.id || '',
                     lineItemId: '',
-                    amount: totalSats,
+                    amountSats: totalSats,
                     description: description.trim(),
                   };
                   setSplits([newSplit]);
@@ -249,7 +262,7 @@ export function AddTransactionDialog({
             <div className="space-y-4 p-4 border rounded-lg">
               {/* Bucket Selection */}
               <div className="space-y-2">
-                <Label>Category (Bucket)</Label>
+                <Label>Category</Label>
                 <Select value={selectedBucketId} onValueChange={handleBucketChange}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select a category..." />
@@ -286,10 +299,33 @@ export function AddTransactionDialog({
           ) : (
             /* Split Mode */
             <div className="space-y-4">
+              {/* Total & Allocated Summary */}
+              {totalSats > 0 && (
+                <div className="p-3 bg-muted rounded-lg space-y-1 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Total:</span>
+                    <span className="font-medium">{displayAmount(totalSats)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Allocated:</span>
+                    <span className="font-medium">{displayAmount(allocatedSats)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Remaining:</span>
+                    <span className={remainingSats === 0 ? 'text-green-600 font-medium' : 'text-amber-600 font-medium'}>
+                      {displayAmount(Math.abs(remainingSats))}
+                      {remainingSats > 0 && ' unallocated'}
+                      {remainingSats < 0 && ' overallocated'}
+                      {remainingSats === 0 && ' ✓'}
+                    </span>
+                  </div>
+                </div>
+              )}
+
               {splits.map((split, index) => (
                 <div key={split.id} className="space-y-3 p-4 border rounded-lg bg-muted/30">
                   <div className="flex items-center justify-between">
-                    <Label>Part {index + 1}</Label>
+                    <Label className="font-medium">Part {index + 1}</Label>
                     <Button
                       variant="ghost"
                       size="icon"
@@ -340,14 +376,13 @@ export function AddTransactionDialog({
                     </Select>
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    <Label className="text-sm text-muted-foreground">Amount:</Label>
+                  <div className="space-y-1">
+                    <Label className="text-sm text-muted-foreground">Amount ({currency === 'usd' ? 'USD' : 'sats'})</Label>
                     <Input
                       type="number"
-                      className="w-32"
-                      value={split.amount}
-                      onChange={(e) => updateSplit(split.id, { amount: parseFloat(e.target.value) || 0 })}
-                      step="1"
+                      value={satsToInputValue(split.amountSats)}
+                      onChange={(e) => updateSplitAmount(split.id, e.target.value)}
+                      step={currency === 'usd' ? '0.01' : '1'}
                       min="0"
                     />
                   </div>
@@ -360,22 +395,10 @@ export function AddTransactionDialog({
                 size="sm"
                 className="w-full"
                 onClick={addSplit}
-                disabled={getRemainingAmount() <= 0}
               >
                 <Plus className="h-4 w-4 mr-2" />
                 Add Another Part
               </Button>
-
-              {/* Remaining Amount Display */}
-              {totalAmount && (
-                <div className="flex justify-between items-center p-3 bg-muted rounded-lg text-sm">
-                  <span className="text-muted-foreground">Remaining to Allocate:</span>
-                  <span className={getRemainingAmount() === 0 ? 'text-green-600 font-medium' : 'text-amber-600 font-medium'}>
-                    {formatAmount(Math.abs(getRemainingAmount()))}
-                    {getRemainingAmount() !== 0 && ` ${getRemainingAmount() > 0 ? 'unallocated' : 'overallocated'}`}
-                  </span>
-                </div>
-              )}
             </div>
           )}
         </div>
@@ -386,7 +409,7 @@ export function AddTransactionDialog({
             Cancel
           </Button>
           <Button onClick={handleSave} disabled={!canSave()}>
-            Save Transaction
+            {isSplitMode ? 'Save Split Transaction' : 'Save Transaction'}
           </Button>
         </div>
       </DialogContent>

@@ -347,7 +347,7 @@ export function BucketCard({
                  </Button>
                </div>
              ) : (
-               <div className="flex gap-2 mt-2 ml-4">
+               <div className="flex gap-2 mt-2 px-4 pb-1">
                  <Button
                    variant="ghost"
                    size="sm"
