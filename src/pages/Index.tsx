@@ -1,5 +1,13 @@
-import Budget from './Budget';
+import { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 export default function Index() {
-  return <Budget />;
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    // Redirect to home when landing page loads
+    navigate('/home', { replace: true });
+  }, [navigate]);
+
+  return null;
 }

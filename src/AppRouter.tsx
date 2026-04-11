@@ -1,7 +1,12 @@
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { ScrollToTop } from "./components/ScrollToTop";
+import { MainLayout } from "./components/layout/MainLayout";
 
 import Index from "./pages/Index";
+import HomePage from "./pages/HomePage";
+import SpendingBreakdownPage from "./pages/SpendingBreakdownPage";
+import LocalSpendPage from "./pages/LocalSpendPage";
+import TransactionsPage from "./pages/TransactionsPage";
 import { NIP19Page } from "./pages/NIP19Page";
 import NotFound from "./pages/NotFound";
 
@@ -10,9 +15,46 @@ export function AppRouter() {
     <BrowserRouter>
       <ScrollToTop />
       <Routes>
+        {/* Landing page - no nav */}
         <Route path="/" element={<Index />} />
+
+        {/* App pages - with bottom navigation */}
+        <Route
+          path="/home"
+          element={
+            <MainLayout>
+              <HomePage />
+            </MainLayout>
+          }
+        />
+        <Route
+          path="/breakdown"
+          element={
+            <MainLayout>
+              <SpendingBreakdownPage />
+            </MainLayout>
+          }
+        />
+        <Route
+          path="/local-spend"
+          element={
+            <MainLayout>
+              <LocalSpendPage />
+            </MainLayout>
+          }
+        />
+        <Route
+          path="/transactions"
+          element={
+            <MainLayout>
+              <TransactionsPage />
+            </MainLayout>
+          }
+        />
+
         {/* NIP-19 route for npub1, note1, naddr1, nevent1, nprofile1 */}
         <Route path="/:nip19" element={<NIP19Page />} />
+
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
         <Route path="*" element={<NotFound />} />
       </Routes>
