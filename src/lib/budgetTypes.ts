@@ -18,7 +18,9 @@ export interface Transaction {
 export interface LineItem {
   id: string;
   name: string;
-  plannedAmount: number; // in sats
+  plannedAmount: number; // in sats (kept for backward compatibility, but derivable from USD)
+  plannedAmountUsd?: number; // USD amount - source of truth for USD-anchored math
+  btcPriceAtBudget?: number; // USD price of BTC when budget was created/last updated
   order: number;
 }
 
@@ -182,4 +184,99 @@ export function calculateSpentForBucket(bucket: Bucket, transactions: Transactio
 // Get unassigned transactions
 export function getUnassignedTransactions(transactions: Transaction[]): Transaction[] {
   return transactions.filter(t => t.lineItemId === null);
+}
+
+// USD-Anchored Math Helpers
+// These functions work with USD as the source of truth
+
+/**
+ * Get the planned amount in USD for a line item
+ * Falls back to converting from sats if USD amount not available
+ */
+export function getLineItemUsdAmount(lineItem: LineItem, currentBtcPrice: number): number {
+  // If USD amount is set, use it (source of truth)
+  if (lineItem.plannedAmountUsd && lineItem.plannedAmountUsd > 0) {
+    return lineItem.plannedAmountUsd;
+  }
+  
+  // Fallback: convert from sats using current price
+  // This handles legacy line items that only have sats
+  return lineItem.plannedAmount / 100_000_000 * currentBtcPrice;
+}
+
+/**
+ * Get the planned amount in sats for a line item
+ * Converts from USD amount if available, otherwise returns stored sats
+ */
+export function getLineItemSatAmount(lineItem: LineItem, currentBtcPrice: number): number {
+  // If USD amount is set, convert it to sats
+  if (lineItem.plannedAmountUsd && lineItem.plannedAmountUsd > 0) {
+    return Math.round(lineItem.plannedAmountUsd / currentBtcPrice * 100_000_000);
+  }
+  
+  // Use stored sats amount
+  return lineItem.plannedAmount;
+}
+
+/**
+ * Validate that split amounts sum to total
+ * Returns { isValid: boolean, message?: string }
+ */
+export function validateBudgetSplits(
+  buckets: Bucket[],
+  currentBtcPrice: number
+): { isValid: boolean; message?: string } {
+  for (const bucket of buckets) {
+    if (bucket.isIncome || bucket.lineItems.length === 0) continue;
+    
+    const bucketUsdTotal = calculateBucketTotalUsd(bucket, currentBtcPrice);
+    const lineItemsTotal = bucket.lineItems.reduce((sum, item) => {
+      return sum + getLineItemUsdAmount(item, currentBtcPrice);
+    }, 0);
+    
+    // Allow small rounding differences (< 0.01 USD)
+    const difference = Math.abs(bucketUsdTotal - lineItemsTotal);
+    if (difference > 0.01) {
+      return {
+        isValid: false,
+        message: `${bucket.name}: Line items total ($${lineItemsTotal.toFixed(2)}) doesn't match allocated ($${bucketUsdTotal.toFixed(2)})`,
+      };
+    }
+  }
+  
+  return { isValid: true };
+}
+
+/**
+ * Calculate total budget for a bucket in USD
+ */
+export function calculateBucketTotalUsd(bucket: Bucket, currentBtcPrice: number): number {
+  return bucket.lineItems.reduce((sum, item) => {
+    return sum + getLineItemUsdAmount(item, currentBtcPrice);
+  }, 0);
+}
+
+/**
+ * Calculate total income in USD
+ */
+export function calculateTotalIncomeUsd(buckets: Bucket[], currentBtcPrice: number): number {
+  return buckets
+    .filter(b => b.isIncome)
+    .reduce((sum, bucket) => sum + calculateBucketTotalUsd(bucket, currentBtcPrice), 0);
+}
+
+/**
+ * Calculate total expenses in USD
+ */
+export function calculateTotalExpensesUsd(buckets: Bucket[], currentBtcPrice: number): number {
+  return buckets
+    .filter(b => !b.isIncome)
+    .reduce((sum, bucket) => sum + calculateBucketTotalUsd(bucket, currentBtcPrice), 0);
+}
+
+/**
+ * Calculate remaining to budget in USD
+ */
+export function calculateRemainingToBudgetUsd(buckets: Bucket[], currentBtcPrice: number): number {
+  return calculateTotalIncomeUsd(buckets, currentBtcPrice) - calculateTotalExpensesUsd(buckets, currentBtcPrice);
 }
