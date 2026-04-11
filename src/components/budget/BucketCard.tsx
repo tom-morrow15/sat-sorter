@@ -25,6 +25,7 @@ import {
   Stethoscope,
 } from 'lucide-react';
 import { SpendingProgressBar } from './SpendingProgressBar';
+import { DeletionConfirmDialog } from './DeletionConfirmDialog';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -123,6 +124,7 @@ export function BucketCard({
   const [isEditingName, setIsEditingName] = useState(false);
   const [editName, setEditName] = useState(bucket.name);
   const [showTransactionDialog, setShowTransactionDialog] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const Icon = iconMap[bucket.icon] || Wallet;
   // Use sats version when BTC price is available (to use USD source of truth)
@@ -161,6 +163,11 @@ export function BucketCard({
 
   const handleColorChange = (color: string) => {
     onUpdateBucket(bucket.id, { color });
+  };
+
+  const handleDeleteConfirmed = () => {
+    onDeleteBucket(bucket.id);
+    setShowDeleteConfirm(false);
   };
 
   return (
@@ -268,7 +275,7 @@ export function BucketCard({
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                       className="text-destructive focus:text-destructive"
-                      onClick={() => onDeleteBucket(bucket.id)}
+                      onClick={() => setShowDeleteConfirm(true)}
                     >
                       <Trash2 className="h-4 w-4 mr-2" />
                       Delete Bucket
@@ -375,19 +382,28 @@ export function BucketCard({
                </div>
              )}
 
-             {/* Add Transaction Dialog */}
-             <AddTransactionDialog
-               open={showTransactionDialog}
-               onOpenChange={setShowTransactionDialog}
-               buckets={buckets || []}
-               defaultBucketId={bucket.id}
-               currency={currency}
-               isIncome={bucket.isIncome}
-               onSave={(transaction) => onAddTransaction?.(transaction)}
-             />
-           </CardContent>
-        </CollapsibleContent>
-      </Collapsible>
-    </Card>
-  );
-}
+              {/* Add Transaction Dialog */}
+              <AddTransactionDialog
+                open={showTransactionDialog}
+                onOpenChange={setShowTransactionDialog}
+                buckets={buckets || []}
+                defaultBucketId={bucket.id}
+                currency={currency}
+                isIncome={bucket.isIncome}
+                onSave={(transaction) => onAddTransaction?.(transaction)}
+              />
+            </CardContent>
+         </CollapsibleContent>
+       </Collapsible>
+
+       {/* Deletion confirmation dialog */}
+       <DeletionConfirmDialog
+         open={showDeleteConfirm}
+         onOpenChange={setShowDeleteConfirm}
+         itemType="bucket"
+         itemName={bucket.name}
+         onConfirm={handleDeleteConfirmed}
+       />
+     </Card>
+   );
+ }

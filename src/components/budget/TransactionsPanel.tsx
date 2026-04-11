@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { TransactionSearchFilter } from './TransactionSearchFilter';
 import { DataSourcesDialog } from './DataSourcesDialog';
+import { DeletionConfirmDialog } from './DeletionConfirmDialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -62,7 +63,9 @@ export function TransactionsPanel({
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showAssignDialog, setShowAssignDialog] = useState(false);
   const [showDataSources, setShowDataSources] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+  const [transactionToDelete, setTransactionToDelete] = useState<Transaction | null>(null);
   const [filteredTransactions, setFilteredTransactions] = useState<Transaction[]>([]);
 
   // Add transaction form state
@@ -149,6 +152,19 @@ export function TransactionsPanel({
       onAssignTransaction(selectedTransaction.id, selectedBucketId, selectedLineItemId);
       setShowAssignDialog(false);
       setSelectedTransaction(null);
+    }
+  };
+
+  const handleDeleteClick = (transaction: Transaction) => {
+    setTransactionToDelete(transaction);
+    setShowDeleteConfirm(true);
+  };
+
+  const handleDeleteConfirmed = () => {
+    if (transactionToDelete) {
+      onDeleteTransaction(transactionToDelete.id);
+      setShowDeleteConfirm(false);
+      setTransactionToDelete(null);
     }
   };
 
@@ -316,7 +332,7 @@ export function TransactionsPanel({
                             size="icon"
                             variant="ghost"
                             className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
-                            onClick={() => onDeleteTransaction(transaction.id)}
+                            onClick={() => handleDeleteClick(transaction)}
                           >
                             <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
                           </Button>
@@ -405,7 +421,7 @@ export function TransactionsPanel({
                             className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
                             onClick={(e) => {
                               e.stopPropagation();
-                              onDeleteTransaction(transaction.id);
+                              handleDeleteClick(transaction);
                             }}
                           >
                             <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
@@ -602,11 +618,20 @@ export function TransactionsPanel({
         </DialogContent>
       </Dialog>
 
-      {/* Data Sources Dialog */}
-      <DataSourcesDialog
-        open={showDataSources}
-        onOpenChange={setShowDataSources}
-      />
-    </>
-  );
-}
+       {/* Data Sources Dialog */}
+       <DataSourcesDialog
+         open={showDataSources}
+         onOpenChange={setShowDataSources}
+       />
+
+       {/* Deletion confirmation dialog */}
+       <DeletionConfirmDialog
+         open={showDeleteConfirm}
+         onOpenChange={setShowDeleteConfirm}
+         itemType="transaction"
+         itemName={transactionToDelete?.description || ''}
+         onConfirm={handleDeleteConfirmed}
+       />
+     </>
+   );
+ }

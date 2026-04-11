@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Trash2, GripVertical, Edit2, Check, X, Receipt } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,6 +9,7 @@ import { calculateSpentForLineItem } from '@/lib/budgetTypes';
 import type { LineItem, Transaction } from '@/lib/budgetTypes';
 import type { BTCMapElement } from '@/hooks/useBTCMap';
 import { MerchantBadge } from './MerchantIndicator';
+import { DeletionConfirmDialog } from './DeletionConfirmDialog';
 import { cn } from '@/lib/utils';
 
 interface LineItemRowProps {
@@ -39,6 +41,7 @@ export function LineItemRow({
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(lineItem.name);
   const [editAmount, setEditAmount] = useState('');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
 
@@ -128,6 +131,11 @@ export function LineItemRow({
     setIsEditing(false);
   };
 
+  const handleDeleteConfirmed = () => {
+    onDelete(bucketId, lineItem.id);
+    setShowDeleteConfirm(false);
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       handleSave();
@@ -182,7 +190,7 @@ export function LineItemRow({
             size="sm"
             variant="ghost"
             className="text-destructive hover:text-destructive hover:bg-destructive/10"
-            onClick={() => onDelete(bucketId, lineItem.id)}
+            onClick={() => setShowDeleteConfirm(true)}
           >
             <Trash2 className="h-4 w-4 mr-1" />
             Delete
@@ -203,15 +211,16 @@ export function LineItemRow({
   }
 
   return (
-    <div
-      className={cn(
-        'group py-2.5 px-3 sm:px-4 rounded-lg transition-colors',
-        'hover:bg-muted/50 active:bg-muted/70'
-      )}
-      onClick={handleStartEdit}
-    >
-      {/* Main row - always horizontal */}
-      <div className="flex items-center gap-2 sm:gap-3">
+    <>
+      <div
+        className={cn(
+          'group py-2.5 px-3 sm:px-4 rounded-lg transition-colors',
+          'hover:bg-muted/50 active:bg-muted/70'
+        )}
+        onClick={handleStartEdit}
+      >
+        {/* Main row - always horizontal */}
+        <div className="flex items-center gap-2 sm:gap-3">
         {/* Drag handle - hidden on mobile */}
         <div className="hidden sm:block opacity-0 group-hover:opacity-50 cursor-grab">
           <GripVertical className="h-4 w-4 text-muted-foreground" />
@@ -275,58 +284,68 @@ export function LineItemRow({
            >
              <Edit2 className="h-3.5 w-3.5" />
            </Button>
-          <Button
-            size="icon"
-            variant="ghost"
-            className="h-7 w-7 text-destructive hover:text-destructive"
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete(bucketId, lineItem.id);
-            }}
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
+           <Button
+             size="icon"
+             variant="ghost"
+             className="h-7 w-7 text-destructive hover:text-destructive"
+             onClick={(e) => {
+               e.stopPropagation();
+               setShowDeleteConfirm(true);
+             }}
+           >
+             <Trash2 className="h-3.5 w-3.5" />
+           </Button>
         </div>
       </div>
 
-      {/* Progress bar for expenses - separate row */}
-      {!isIncome && lineItem.plannedAmount > 0 && (
-        <div className="mt-2 space-y-1.5 pl-0 sm:pl-7">
-          {/* Progress bar */}
-          <div className="flex items-center gap-2">
-            <div className="flex-1">
-              <Progress
-                value={percentSpent}
-                className="h-1.5"
-                style={{
-                  '--progress-background': isOverBudget
-                    ? 'hsl(0 84% 60%)'
-                    : bucketColor,
-                } as React.CSSProperties}
-              />
-            </div>
-          </div>
+       {/* Progress bar for expenses - separate row */}
+       {!isIncome && lineItem.plannedAmount > 0 && (
+         <div className="mt-2 space-y-1.5 pl-0 sm:pl-7">
+           {/* Progress bar */}
+           <div className="flex items-center gap-2">
+             <div className="flex-1">
+               <Progress
+                 value={percentSpent}
+                 className="h-1.5"
+                 style={{
+                   '--progress-background': isOverBudget
+                     ? 'hsl(0 84% 60%)'
+                     : bucketColor,
+                 } as React.CSSProperties}
+               />
+             </div>
+           </div>
 
-          {/* Spent / Remaining info row */}
-          <div className="flex items-center justify-between text-xs tabular-nums">
-            <span className={cn(
-              'whitespace-nowrap',
-              isOverBudget ? 'text-destructive font-medium' : 'text-muted-foreground'
-            )}>
-              <span className="sm:hidden">{formatAmount(spent, true)}</span>
-              <span className="hidden sm:inline">{formatAmount(spent)} spent</span>
-            </span>
-            
-            <span className={cn(
-              'whitespace-nowrap',
-              remaining < 0 ? 'text-destructive font-medium' : 'text-muted-foreground'
-            )}>
-              <span className="sm:hidden">{formatAmount(Math.max(0, remaining), true)}</span>
-              <span className="hidden sm:inline">{formatAmount(Math.max(0, remaining))} left</span>
-            </span>
-          </div>
-        </div>
-      )}
-    </div>
+           {/* Spent / Remaining info row */}
+           <div className="flex items-center justify-between text-xs tabular-nums">
+             <span className={cn(
+               'whitespace-nowrap',
+               isOverBudget ? 'text-destructive font-medium' : 'text-muted-foreground'
+             )}>
+               <span className="sm:hidden">{formatAmount(spent, true)}</span>
+               <span className="hidden sm:inline">{formatAmount(spent)} spent</span>
+             </span>
+             
+             <span className={cn(
+               'whitespace-nowrap',
+               remaining < 0 ? 'text-destructive font-medium' : 'text-muted-foreground'
+             )}>
+               <span className="sm:hidden">{formatAmount(Math.max(0, remaining), true)}</span>
+               <span className="hidden sm:inline">{formatAmount(Math.max(0, remaining))} left</span>
+             </span>
+           </div>
+         </div>
+        )}
+      </div>
+
+      {/* Deletion confirmation dialog */}
+      <DeletionConfirmDialog
+        open={showDeleteConfirm}
+        onOpenChange={setShowDeleteConfirm}
+        itemType="lineItem"
+        itemName={lineItem.name}
+        onConfirm={handleDeleteConfirmed}
+      />
+    </>
   );
 }
