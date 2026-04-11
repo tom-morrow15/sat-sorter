@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Search, X, SlidersHorizontal } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -28,15 +29,24 @@ export function TransactionSearchFilter({
   buckets,
   onFilter,
 }: TransactionSearchFilterProps) {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedBucketId, setSelectedBucketId] = useState<string>('all');
-  const [selectedType, setSelectedType] = useState<'all' | 'income' | 'expense'>('all');
-  const [sortBy, setSortBy] = useState<'date-desc' | 'date-asc' | 'amount-desc' | 'amount-asc'>(
-    'date-desc'
+  const [searchParams, setSearchParams] = useSearchParams();
+  
+  // Initialize from URL params or defaults
+  const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '');
+  const [selectedBucketId, setSelectedBucketId] = useState<string>(searchParams.get('category') || 'all');
+  const [selectedType, setSelectedType] = useState<'all' | 'income' | 'expense'>(
+    (searchParams.get('type') as 'all' | 'income' | 'expense') || 'all'
   );
+  const [sortBy, setSortBy] = useState<'date-desc' | 'date-asc' | 'amount-desc' | 'amount-asc'>(
+    (searchParams.get('sort') as any) || 'date-desc'
+  );
+  const [startDate, setStartDate] = useState(searchParams.get('startDate') || '');
+  const [endDate, setEndDate] = useState(searchParams.get('endDate') || '');
+  const [minAmount, setMinAmount] = useState(searchParams.get('minAmount') || '');
+  const [maxAmount, setMaxAmount] = useState(searchParams.get('maxAmount') || '');
   const [showFilters, setShowFilters] = useState(false);
 
-  // Apply filters
+  // Apply filters and update URL
   const applyFilters = () => {
     let filtered = [...transactions];
 
@@ -61,6 +71,26 @@ export function TransactionSearchFilter({
       filtered = filtered.filter((t) => !t.isIncome);
     }
 
+    // Filter by date range
+    if (startDate) {
+      const start = new Date(startDate).getTime();
+      filtered = filtered.filter((t) => new Date(t.date).getTime() >= start);
+    }
+    if (endDate) {
+      const end = new Date(endDate).getTime();
+      filtered = filtered.filter((t) => new Date(t.date).getTime() <= end);
+    }
+
+    // Filter by amount range
+    if (minAmount) {
+      const min = parseFloat(minAmount);
+      filtered = filtered.filter((t) => t.amount >= min);
+    }
+    if (maxAmount) {
+      const max = parseFloat(maxAmount);
+      filtered = filtered.filter((t) => t.amount <= max);
+    }
+
     // Sort
     filtered.sort((a, b) => {
       switch (sortBy) {
@@ -77,6 +107,21 @@ export function TransactionSearchFilter({
       }
     });
 
+    // Update URL with current filters
+    const params = new URLSearchParams();
+    if (searchQuery) params.set('search', searchQuery);
+    if (selectedBucketId !== 'all') params.set('category', selectedBucketId);
+    if (selectedType !== 'all') params.set('type', selectedType);
+    if (sortBy !== 'date-desc') params.set('sort', sortBy);
+    if (startDate) params.set('startDate', startDate);
+    if (endDate) params.set('endDate', endDate);
+    if (minAmount) params.set('minAmount', minAmount);
+    if (maxAmount) params.set('maxAmount', maxAmount);
+    
+    if (params.toString()) {
+      setSearchParams(params);
+    }
+
     onFilter(filtered);
   };
 
@@ -85,17 +130,40 @@ export function TransactionSearchFilter({
     setSelectedBucketId('all');
     setSelectedType('all');
     setSortBy('date-desc');
+    setStartDate('');
+    setEndDate('');
+    setMinAmount('');
+    setMaxAmount('');
+    setSearchParams(new URLSearchParams());
     onFilter([]);
   };
 
+  // Apply filters on mount if URL has params
+  useEffect(() => {
+    if (searchParams.toString()) {
+      applyFilters();
+    }
+  }, [searchParams]);
+
   const hasActiveFilters =
-    searchQuery.trim() || selectedBucketId !== 'all' || selectedType !== 'all' || sortBy !== 'date-desc';
+    searchQuery.trim() || 
+    selectedBucketId !== 'all' || 
+    selectedType !== 'all' || 
+    sortBy !== 'date-desc' ||
+    startDate ||
+    endDate ||
+    minAmount ||
+    maxAmount;
 
   const activeFilterCount = [
     searchQuery.trim(),
     selectedBucketId !== 'all',
     selectedType !== 'all',
     sortBy !== 'date-desc',
+    startDate,
+    endDate,
+    minAmount,
+    maxAmount,
   ].filter(Boolean).length;
 
   return (
@@ -133,91 +201,163 @@ export function TransactionSearchFilter({
         </Button>
       </div>
 
-      {/* Collapsible filters */}
-      <Collapsible open={showFilters} onOpenChange={setShowFilters}>
-        <CollapsibleContent className="space-y-2">
-          <div className="grid grid-cols-2 gap-2">
-            {/* Category filter */}
-            <Select value={selectedBucketId} onValueChange={setSelectedBucketId}>
-              <SelectTrigger className="h-9 text-xs">
-                <SelectValue placeholder="Category" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All categories</SelectItem>
-                {buckets.map((bucket) => (
-                  <SelectItem key={bucket.id} value={bucket.id}>
-                    {bucket.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+       {/* Collapsible filters */}
+       <Collapsible open={showFilters} onOpenChange={setShowFilters}>
+         <CollapsibleContent className="space-y-2">
+           <div className="grid grid-cols-2 gap-2">
+             {/* Category filter */}
+             <Select value={selectedBucketId} onValueChange={setSelectedBucketId}>
+               <SelectTrigger className="h-9 text-xs">
+                 <SelectValue placeholder="Category" />
+               </SelectTrigger>
+               <SelectContent>
+                 <SelectItem value="all">All categories</SelectItem>
+                 {buckets.map((bucket) => (
+                   <SelectItem key={bucket.id} value={bucket.id}>
+                     {bucket.name}
+                   </SelectItem>
+                 ))}
+               </SelectContent>
+             </Select>
 
-            {/* Type filter */}
-            <Select value={selectedType} onValueChange={(v: 'all' | 'income' | 'expense') => setSelectedType(v)}>
-              <SelectTrigger className="h-9 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All types</SelectItem>
-                <SelectItem value="income">Income</SelectItem>
-                <SelectItem value="expense">Expense</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+             {/* Type filter */}
+             <Select value={selectedType} onValueChange={(v: 'all' | 'income' | 'expense') => setSelectedType(v)}>
+               <SelectTrigger className="h-9 text-xs">
+                 <SelectValue />
+               </SelectTrigger>
+               <SelectContent>
+                 <SelectItem value="all">All types</SelectItem>
+                 <SelectItem value="income">Income</SelectItem>
+                 <SelectItem value="expense">Expense</SelectItem>
+               </SelectContent>
+             </Select>
+           </div>
 
-          <div className="flex gap-2">
-            {/* Sort filter */}
-            <Select value={sortBy} onValueChange={(v: 'date-desc' | 'date-asc' | 'amount-desc' | 'amount-asc') => setSortBy(v)}>
-              <SelectTrigger className="h-9 text-xs flex-1">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="date-desc">Newest first</SelectItem>
-                <SelectItem value="date-asc">Oldest first</SelectItem>
-                <SelectItem value="amount-desc">Highest amount</SelectItem>
-                <SelectItem value="amount-asc">Lowest amount</SelectItem>
-              </SelectContent>
-            </Select>
+           {/* Date range filters */}
+           <div className="grid grid-cols-2 gap-2">
+             <div>
+               <label className="text-xs text-muted-foreground mb-1 block">From</label>
+               <Input
+                 type="date"
+                 value={startDate}
+                 onChange={(e) => setStartDate(e.target.value)}
+                 className="h-9 text-xs"
+               />
+             </div>
+             <div>
+               <label className="text-xs text-muted-foreground mb-1 block">To</label>
+               <Input
+                 type="date"
+                 value={endDate}
+                 onChange={(e) => setEndDate(e.target.value)}
+                 className="h-9 text-xs"
+               />
+             </div>
+           </div>
 
-            {/* Clear button */}
-            {hasActiveFilters && (
-              <Button
-                onClick={handleClearFilters}
-                variant="ghost"
-                size="sm"
-                className="h-9 text-xs"
-              >
-                <X className="h-3 w-3 mr-1" />
-                Clear
-              </Button>
-            )}
-          </div>
-        </CollapsibleContent>
-      </Collapsible>
+           {/* Amount range filters */}
+           <div className="grid grid-cols-2 gap-2">
+             <div>
+               <label className="text-xs text-muted-foreground mb-1 block">Min Amount</label>
+               <Input
+                 type="number"
+                 placeholder="0"
+                 value={minAmount}
+                 onChange={(e) => setMinAmount(e.target.value)}
+                 className="h-9 text-xs"
+                 min="0"
+               />
+             </div>
+             <div>
+               <label className="text-xs text-muted-foreground mb-1 block">Max Amount</label>
+               <Input
+                 type="number"
+                 placeholder="∞"
+                 value={maxAmount}
+                 onChange={(e) => setMaxAmount(e.target.value)}
+                 className="h-9 text-xs"
+                 min="0"
+               />
+             </div>
+           </div>
 
-      {/* Active filters badges - only show when filters panel is closed */}
-      {hasActiveFilters && !showFilters && (
-        <div className="flex flex-wrap gap-1">
-          {searchQuery && (
-            <Badge variant="secondary" className="text-xs cursor-pointer hover:bg-secondary/80" onClick={() => { setSearchQuery(''); applyFilters(); }}>
-              "{searchQuery.slice(0, 10)}{searchQuery.length > 10 ? '...' : ''}"
-              <X className="h-2.5 w-2.5 ml-1" />
-            </Badge>
-          )}
-          {selectedBucketId !== 'all' && (
-            <Badge variant="secondary" className="text-xs cursor-pointer hover:bg-secondary/80" onClick={() => { setSelectedBucketId('all'); applyFilters(); }}>
-              {buckets.find((b) => b.id === selectedBucketId)?.name}
-              <X className="h-2.5 w-2.5 ml-1" />
-            </Badge>
-          )}
-          {selectedType !== 'all' && (
-            <Badge variant="secondary" className="text-xs cursor-pointer hover:bg-secondary/80" onClick={() => { setSelectedType('all'); applyFilters(); }}>
-              {selectedType}
-              <X className="h-2.5 w-2.5 ml-1" />
-            </Badge>
-          )}
-        </div>
-      )}
+           <div className="flex gap-2">
+             {/* Sort filter */}
+             <Select value={sortBy} onValueChange={(v: 'date-desc' | 'date-asc' | 'amount-desc' | 'amount-asc') => setSortBy(v)}>
+               <SelectTrigger className="h-9 text-xs flex-1">
+                 <SelectValue />
+               </SelectTrigger>
+               <SelectContent>
+                 <SelectItem value="date-desc">Newest first</SelectItem>
+                 <SelectItem value="date-asc">Oldest first</SelectItem>
+                 <SelectItem value="amount-desc">Highest amount</SelectItem>
+                 <SelectItem value="amount-asc">Lowest amount</SelectItem>
+               </SelectContent>
+             </Select>
+
+             {/* Clear button */}
+             {hasActiveFilters && (
+               <Button
+                 onClick={handleClearFilters}
+                 variant="ghost"
+                 size="sm"
+                 className="h-9 text-xs"
+               >
+                 <X className="h-3 w-3 mr-1" />
+                 Clear
+               </Button>
+             )}
+           </div>
+         </CollapsibleContent>
+       </Collapsible>
+
+       {/* Active filters badges - only show when filters panel is closed */}
+       {hasActiveFilters && !showFilters && (
+         <div className="flex flex-wrap gap-1">
+           {searchQuery && (
+             <Badge variant="secondary" className="text-xs cursor-pointer hover:bg-secondary/80" onClick={() => { setSearchQuery(''); applyFilters(); }}>
+               "{searchQuery.slice(0, 10)}{searchQuery.length > 10 ? '...' : ''}"
+               <X className="h-2.5 w-2.5 ml-1" />
+             </Badge>
+           )}
+           {selectedBucketId !== 'all' && (
+             <Badge variant="secondary" className="text-xs cursor-pointer hover:bg-secondary/80" onClick={() => { setSelectedBucketId('all'); applyFilters(); }}>
+               {buckets.find((b) => b.id === selectedBucketId)?.name}
+               <X className="h-2.5 w-2.5 ml-1" />
+             </Badge>
+           )}
+           {selectedType !== 'all' && (
+             <Badge variant="secondary" className="text-xs cursor-pointer hover:bg-secondary/80" onClick={() => { setSelectedType('all'); applyFilters(); }}>
+               {selectedType}
+               <X className="h-2.5 w-2.5 ml-1" />
+             </Badge>
+           )}
+           {startDate && (
+             <Badge variant="secondary" className="text-xs cursor-pointer hover:bg-secondary/80" onClick={() => { setStartDate(''); applyFilters(); }}>
+               From {startDate}
+               <X className="h-2.5 w-2.5 ml-1" />
+             </Badge>
+           )}
+           {endDate && (
+             <Badge variant="secondary" className="text-xs cursor-pointer hover:bg-secondary/80" onClick={() => { setEndDate(''); applyFilters(); }}>
+               To {endDate}
+               <X className="h-2.5 w-2.5 ml-1" />
+             </Badge>
+           )}
+           {minAmount && (
+             <Badge variant="secondary" className="text-xs cursor-pointer hover:bg-secondary/80" onClick={() => { setMinAmount(''); applyFilters(); }}>
+               ≥ {minAmount}
+               <X className="h-2.5 w-2.5 ml-1" />
+             </Badge>
+           )}
+           {maxAmount && (
+             <Badge variant="secondary" className="text-xs cursor-pointer hover:bg-secondary/80" onClick={() => { setMaxAmount(''); applyFilters(); }}>
+               ≤ {maxAmount}
+               <X className="h-2.5 w-2.5 ml-1" />
+             </Badge>
+           )}
+         </div>
+       )}
     </div>
   );
 }
