@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Home, PieChart, MapPin, Receipt, Cloud } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -7,10 +7,11 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useBudgetSync } from '@/hooks/useBudgetSync';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useToast } from '@/hooks/useToast';
+import { useBudget } from '@/hooks/useBudget';
 import type { BudgetState } from '@/lib/budgetTypes';
 import { cn } from '@/lib/utils';
 
-type SaveState = 'ready' | 'saving' | 'success' | 'error';
+type SaveState = 'ready' | 'saving' | 'success' | 'error' | 'unsaved';
 
 interface NavItem {
   path: string;
@@ -24,7 +25,9 @@ export function BottomNavigation() {
   const navigate = useNavigate();
   const { user } = useCurrentUser();
   const { toast } = useToast();
+  const { currentBudget } = useBudget();
   const [saveState, setSaveState] = useState<SaveState>('ready');
+  const lastSavedBudgetRef = useRef<string>('');
   
   const { uploadBudget } = useBudgetSync();
   
@@ -33,6 +36,27 @@ export function BottomNavigation() {
     budgets: [],
     currency: 'sats',
   });
+
+  // Track when budget changes and mark as unsaved
+  useEffect(() => {
+    // Only track changes if user is logged in
+    if (!user?.pubkey) return;
+
+    // Convert current budget to string for comparison
+    const currentBudgetStr = JSON.stringify(currentBudget);
+
+    // If last saved is empty, initialize it
+    if (!lastSavedBudgetRef.current) {
+      lastSavedBudgetRef.current = currentBudgetStr;
+      setSaveState('ready');
+      return;
+    }
+
+    // Check if budget has changed since last save
+    if (currentBudgetStr !== lastSavedBudgetRef.current) {
+      setSaveState('unsaved');
+    }
+  }, [currentBudget, user?.pubkey]);
 
   const navItems: NavItem[] = [
     {
@@ -80,6 +104,9 @@ export function BottomNavigation() {
       
       if (success) {
         setSaveState('success');
+        // Update last saved reference
+        lastSavedBudgetRef.current = JSON.stringify(currentBudget);
+        
         toast({
           title: '✅ Saved to Nostr!',
           description: `${localBudget.budgets.length} month(s) backed up to the cloud.`,
@@ -97,8 +124,8 @@ export function BottomNavigation() {
           variant: 'destructive',
         });
 
-        // Reset after 3 seconds
-        setTimeout(() => setSaveState('ready'), 3000);
+        // Reset to unsaved after 3 seconds
+        setTimeout(() => setSaveState('unsaved'), 3000);
       }
     } catch (error) {
       setSaveState('error');
@@ -108,8 +135,8 @@ export function BottomNavigation() {
         variant: 'destructive',
       });
 
-      // Reset after 3 seconds
-      setTimeout(() => setSaveState('ready'), 3000);
+      // Reset to unsaved after 3 seconds
+      setTimeout(() => setSaveState('unsaved'), 3000);
     }
   };
 
@@ -125,6 +152,8 @@ export function BottomNavigation() {
         return <Cloud className="h-6 w-6 text-green-600" />;
       case 'error':
         return <Cloud className="h-6 w-6 text-red-600" />;
+      case 'unsaved':
+        return <Cloud className="h-6 w-6 text-red-600" />;
       default:
         return <Cloud className="h-6 w-6" />;
     }
@@ -137,11 +166,15 @@ export function BottomNavigation() {
       case 'success':
         return 'Budget backed up!';
       case 'error':
-        return 'Upload failed. Click to retry.';
+        return 'Upload failed. Click to try again.';
+      case 'unsaved':
+        return 'You have unsaved changes. Click to save.';
       default:
         return 'Back up to Nostr';
     }
   };
+
+
 
   return (
     <nav
@@ -185,13 +218,13 @@ export function BottomNavigation() {
               <Button
                 onClick={handleSave}
                 disabled={saveState === 'saving'}
-                variant={saveState === 'success' ? 'default' : saveState === 'error' ? 'destructive' : 'ghost'}
+                variant={saveState === 'success' ? 'default' : saveState === 'error' || saveState === 'unsaved' ? 'destructive' : 'ghost'}
                 size="icon"
                 className={cn(
                   'rounded-full h-12 w-12 transition-all',
                   saveState === 'success' && 'bg-green-600 hover:bg-green-700',
-                  saveState === 'error' && 'bg-red-600 hover:bg-red-700',
-                  saveState !== 'success' && saveState !== 'error' && 'text-muted-foreground hover:text-foreground'
+                  (saveState === 'error' || saveState === 'unsaved') && 'bg-red-600 hover:bg-red-700',
+                  saveState !== 'success' && saveState !== 'error' && saveState !== 'unsaved' && 'text-muted-foreground hover:text-foreground'
                 )}
               >
                 {getSaveIcon()}

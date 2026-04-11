@@ -7,6 +7,7 @@ import { useToast } from '@/hooks/useToast';
 import { BudgetHeader } from '@/components/budget/BudgetHeader';
 import { BucketCard } from '@/components/budget/BucketCard';
 import { AddBucketDialog } from '@/components/budget/AddBucketDialog';
+import { QuickAddFAB } from '@/components/budget/QuickAddFAB';
 import { LoginArea } from '@/components/auth/LoginArea';
 import { useBudget } from '@/hooks/useBudget';
 import { useWallet } from '@/hooks/useWallet';
@@ -34,6 +35,7 @@ export default function HomePage() {
     addLineItem,
     updateLineItem,
     deleteLineItem,
+    addTransaction,
     duplicateFromMonth,
     getPreviousMonth,
     hasPreviousMonthBudget,
@@ -255,6 +257,12 @@ export default function HomePage() {
         open={showAddBucket}
         onOpenChange={setShowAddBucket}
         onAdd={(name, color, icon) => addBucket(name, color, icon)}
+      />
+
+      {/* Quick Add FAB */}
+      <QuickAddFAB
+        onAddTransaction={addTransaction}
+        currency={currency}
       />
     </div>
   );
