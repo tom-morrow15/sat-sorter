@@ -1,4 +1,4 @@
-import { BudgetState } from './budgetTypes';
+import { BudgetState, BudgetPartner } from './budgetTypes';
 
 /**
  * Versioning system for Nostr budget backups
@@ -16,6 +16,8 @@ export interface BudgetSnapshot {
   currentMonth: string;
   budgets: any[];
   currency: 'sats' | 'usd';
+  partners?: BudgetPartner[]; // Budget partners with their permissions
+  userRole?: 'owner' | 'editor' | 'viewer'; // Current user's role
   
   // Versioning metadata
   version: number;
@@ -49,6 +51,8 @@ export async function calculateChecksum(state: BudgetSnapshot): Promise<string> 
     currentMonth: state.currentMonth,
     budgets: state.budgets,
     currency: state.currency,
+    partners: state.partners || [],
+    userRole: state.userRole || 'owner',
     deletions: state.deletions,
   });
 
@@ -71,6 +75,8 @@ export async function createSnapshot(
     currentMonth: state.currentMonth,
     budgets: state.budgets,
     currency: state.currency,
+    partners: state.partners,
+    userRole: state.userRole,
     version: (state as any).version ? (state as any).version + 1 : 1,
     checksum: '', // Will be calculated
     createdAt: Math.floor(Date.now() / 1000),

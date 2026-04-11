@@ -99,7 +99,7 @@ export function ManagePartnersDialog({
             </p>
             {userRole === 'owner' && (
               <p className="text-xs text-muted-foreground mt-1">
-                You can add/remove partners and manage permissions
+                You can add/remove partners and manage permissions. Don't forget to save to sync changes!
               </p>
             )}
             {userRole === 'editor' && (
@@ -277,12 +277,23 @@ export function ManagePartnersDialog({
           </div>
 
           {/* Info box */}
-          <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
-            <p className="text-xs text-amber-900 dark:text-amber-100">
-              <strong>💡 Tip:</strong> Partners with "Can Edit" permission can add
-              transactions and modify categories. "View Only" partners can see everything
-              but cannot make changes.
-            </p>
+          <div className="space-y-3">
+            <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
+              <p className="text-xs text-blue-900 dark:text-blue-100">
+                <strong>ℹ️ How it works:</strong> When you add a partner, they won't see the budget
+                automatically. After adding them here, click the Save button in the bottom nav bar to
+                sync the partner list to Nostr. Then share this app URL with them so they can log in
+                with their Nostr account and see the shared budget.
+              </p>
+            </div>
+
+            <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
+              <p className="text-xs text-amber-900 dark:text-amber-100">
+                <strong>💡 Permissions:</strong> Partners with "Can Edit" permission can add
+                transactions and modify categories. "View Only" partners can see everything
+                but cannot make changes.
+              </p>
+            </div>
           </div>
         </div>
 
