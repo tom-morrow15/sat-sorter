@@ -25,7 +25,8 @@ const RelayMetadataSchema = z.object({
 const AppConfigSchema = z.object({
   theme: z.enum(['dark', 'light', 'system']),
   relayMetadata: RelayMetadataSchema,
-}) satisfies z.ZodType<AppConfig>;
+  logoStyle: z.enum(['bitcoin', 'sats']).optional().default('sats'),
+});
 
 export function AppProvider(props: AppProviderProps) {
   const {

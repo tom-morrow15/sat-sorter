@@ -45,6 +45,7 @@ const defaultConfig: AppConfig = {
     ],
     updatedAt: 0,
   },
+  logoStyle: "sats",
 };
 
 export function App() {

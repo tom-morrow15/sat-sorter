@@ -217,6 +217,17 @@ export function useBudgetStore() {
   const transactionUpdatedRef = useRef(false); // Flag to trigger immediate save on transaction update
   const hasFlushedOnExitRef = useRef(false); // Prevent double-flush on exit
 
+  // Check for NIP-44 support (must be defined before any useEffect that references nip44)
+  const needsExtension = loginType === 'extension';
+  const { isReady: isExtensionReady } = useExtensionReady();
+
+  const nip44 = useMemo(() => {
+    if (needsExtension && !isExtensionReady) return null;
+    return getSafeNip44(user);
+  }, [user, needsExtension, isExtensionReady]);
+
+  const isLoggedIn = !!user?.pubkey && !!nip44;
+
   // Keep the ref updated with latest state
   useEffect(() => {
     localStateRef.current = localState;
@@ -306,17 +317,6 @@ export function useBudgetStore() {
       setSyncStatus('idle');
     }
   }, [isOnline, offlineChangesMade, localState.isShared]);
-
-  // Check for NIP-44 support
-  const needsExtension = loginType === 'extension';
-  const { isReady: isExtensionReady } = useExtensionReady();
-
-  const nip44 = useMemo(() => {
-    if (needsExtension && !isExtensionReady) return null;
-    return getSafeNip44(user);
-  }, [user, needsExtension, isExtensionReady]);
-
-  const isLoggedIn = !!user?.pubkey && !!nip44;
 
   // ============================================
   // RELAY OPERATIONS
