@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Home, PieChart, MapPin, Receipt, Cloud } from 'lucide-react';
+import { Home, PieChart, MapPin, Receipt, Cloud, Wallet } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useBudgetSync } from '@/hooks/useBudgetSync';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
@@ -184,19 +184,30 @@ export function BottomNavigation() {
           <span className="text-[10px]">Local</span>
         </button>
 
-        <button
-          onClick={() => navigate('/transactions')}
-          className={cn(
-            'flex flex-col items-center justify-center flex-1 h-full gap-0.5',
-            isActive('/transactions') ? 'text-primary' : 'text-muted-foreground'
-          )}
-        >
-          <Receipt className="h-5 w-5" />
-          <span className="text-[10px]">Receipts</span>
-        </button>
+         <button
+           onClick={() => navigate('/transactions')}
+           className={cn(
+             'flex flex-col items-center justify-center flex-1 h-full gap-0.5',
+             isActive('/transactions') ? 'text-primary' : 'text-muted-foreground'
+           )}
+         >
+           <Receipt className="h-5 w-5" />
+           <span className="text-[10px]">Receipts</span>
+         </button>
 
-        <button
-          onClick={handleSave}
+         <button
+           onClick={() => navigate('/wealth')}
+           className={cn(
+             'flex flex-col items-center justify-center flex-1 h-full gap-0.5',
+             isActive('/wealth') ? 'text-primary' : 'text-muted-foreground'
+           )}
+         >
+           <Wallet className="h-5 w-5" />
+           <span className="text-[10px]">Wealth</span>
+         </button>
+
+         <button
+           onClick={handleSave}
           disabled={saveState === 'saving'}
           className={cn(
             'flex flex-col items-center justify-center flex-1 h-full gap-0.5 transition-all',
