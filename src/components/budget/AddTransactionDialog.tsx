@@ -129,52 +129,65 @@ export function AddTransactionDialog({
              />
            </div>
 
-          <div className="space-y-2">
-            <Label>Category</Label>
-            <Select value={selectedBucketId} onValueChange={(val) => {
-              setSelectedBucketId(val);
-              setSelectedLineItemId('');
-            }}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select a category..." />
-              </SelectTrigger>
-              <SelectContent>
-                {filteredBuckets.map((bucket) => (
-                  <SelectItem key={bucket.id} value={bucket.id}>
-                    {bucket.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+           <div className="space-y-2">
+             <div className="flex items-center gap-2">
+               <Label>Category *</Label>
+               {!selectedBucketId && <span className="text-xs text-destructive">Required</span>}
+             </div>
+             <Select value={selectedBucketId} onValueChange={(val) => {
+               setSelectedBucketId(val);
+               setSelectedLineItemId('');
+             }}>
+               <SelectTrigger>
+                 <SelectValue placeholder="Select a category..." />
+               </SelectTrigger>
+               <SelectContent>
+                 {filteredBuckets.map((bucket) => (
+                   <SelectItem key={bucket.id} value={bucket.id}>
+                     {bucket.name}
+                   </SelectItem>
+                 ))}
+               </SelectContent>
+             </Select>
+           </div>
 
-          {selectedBucketId && (
-            <div className="space-y-2">
-              <Label>Line Item</Label>
-              <Select value={selectedLineItemId} onValueChange={setSelectedLineItemId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a line item..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {getLineItems(selectedBucketId).map((item) => (
-                    <SelectItem key={item.id} value={item.id}>
-                      {item.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+           {selectedBucketId && (
+             <div className="space-y-2">
+               <div className="flex items-center gap-2">
+                 <Label>Line Item *</Label>
+                 {!selectedLineItemId && <span className="text-xs text-destructive">Required</span>}
+               </div>
+               <Select value={selectedLineItemId} onValueChange={setSelectedLineItemId}>
+                 <SelectTrigger>
+                   <SelectValue placeholder="Select a line item..." />
+                 </SelectTrigger>
+                 <SelectContent>
+                   {getLineItems(selectedBucketId).map((item) => (
+                     <SelectItem key={item.id} value={item.id}>
+                       {item.name}
+                     </SelectItem>
+                   ))}
+                 </SelectContent>
+               </Select>
+             </div>
+           )}
         </div>
 
-        <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button onClick={handleSave} disabled={!canSave}>
-            Save Transaction
-          </Button>
-        </div>
+         <div className="space-y-2">
+           {!canSave && (
+             <p className="text-xs text-destructive">
+               Please fill in all required fields: description, amount, category, and line item.
+             </p>
+           )}
+           <div className="flex justify-end gap-2">
+             <Button variant="outline" onClick={() => onOpenChange(false)}>
+               Cancel
+             </Button>
+             <Button onClick={handleSave} disabled={!canSave}>
+               Save Transaction
+             </Button>
+           </div>
+         </div>
       </DialogContent>
     </Dialog>
   );
