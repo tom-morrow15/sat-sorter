@@ -41,6 +41,7 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { LineItemRow } from './LineItemRow';
+import { AddTransactionDialog } from './AddTransactionDialog';
 import { useBitcoinPrice, formatSats, satsToUsd, formatUsd } from '@/hooks/useBitcoinPrice';
 import { calculateBucketTotal, calculateSpentForBucket } from '@/lib/budgetTypes';
 import type { Bucket, LineItem, Transaction } from '@/lib/budgetTypes';
@@ -68,6 +69,7 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
 
 interface BucketCardProps {
   bucket: Bucket;
+  buckets: Bucket[];
   transactions: Transaction[];
   currency: 'sats' | 'usd';
   merchants?: (BTCMapElement & { distance: number })[];
@@ -101,6 +103,7 @@ const BUCKET_COLORS = [
 
 export function BucketCard({
   bucket,
+  buckets,
   transactions,
   currency,
   merchants = [],
@@ -117,6 +120,7 @@ export function BucketCard({
   const [newItemName, setNewItemName] = useState('');
   const [isEditingName, setIsEditingName] = useState(false);
   const [editName, setEditName] = useState(bucket.name);
+  const [showTransactionDialog, setShowTransactionDialog] = useState(false);
 
   const Icon = iconMap[bucket.icon] || Wallet;
   const total = calculateBucketTotal(bucket);
@@ -307,54 +311,77 @@ export function BucketCard({
                      merchants={merchants}
                      onUpdate={onUpdateLineItem}
                      onDelete={onDeleteLineItem}
-                     onAddTransaction={onAddTransaction}
                    />
                 ))}
             </div>
 
-            {/* Add new item */}
-            {isAddingItem ? (
-              <div className="flex items-center gap-2 mt-3 px-4">
-                <Input
-                  value={newItemName}
-                  onChange={(e) => setNewItemName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleAddItem();
-                    if (e.key === 'Escape') {
-                      setNewItemName('');
-                      setIsAddingItem(false);
-                    }
-                  }}
-                  placeholder="Item name..."
-                  className="h-8 flex-1"
-                  autoFocus
-                />
-                <Button size="sm" onClick={handleAddItem}>
-                  Add
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => {
-                    setNewItemName('');
-                    setIsAddingItem(false);
-                  }}
-                >
-                  Cancel
-                </Button>
-              </div>
-            ) : (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="mt-2 ml-4 text-muted-foreground hover:text-foreground"
-                onClick={() => setIsAddingItem(true)}
-              >
-                <Plus className="h-4 w-4 mr-1" />
-                Add Item
-              </Button>
-            )}
-          </CardContent>
+             {/* Add new item / transaction buttons */}
+             {isAddingItem ? (
+               <div className="flex items-center gap-2 mt-3 px-4">
+                 <Input
+                   value={newItemName}
+                   onChange={(e) => setNewItemName(e.target.value)}
+                   onKeyDown={(e) => {
+                     if (e.key === 'Enter') handleAddItem();
+                     if (e.key === 'Escape') {
+                       setNewItemName('');
+                       setIsAddingItem(false);
+                     }
+                   }}
+                   placeholder="Line item name..."
+                   className="h-8 flex-1"
+                   autoFocus
+                 />
+                 <Button size="sm" onClick={handleAddItem}>
+                   Add
+                 </Button>
+                 <Button
+                   size="sm"
+                   variant="ghost"
+                   onClick={() => {
+                     setNewItemName('');
+                     setIsAddingItem(false);
+                   }}
+                 >
+                   Cancel
+                 </Button>
+               </div>
+             ) : (
+               <div className="flex gap-2 mt-2 ml-4">
+                 <Button
+                   variant="ghost"
+                   size="sm"
+                   className="text-muted-foreground hover:text-foreground"
+                   onClick={() => setIsAddingItem(true)}
+                 >
+                   <Plus className="h-4 w-4 mr-1" />
+                   Add Line Item
+                 </Button>
+                 <Button
+                   variant="ghost"
+                   size="sm"
+                   className="text-muted-foreground hover:text-foreground"
+                   onClick={() => setShowTransactionDialog(true)}
+                 >
+                   <Plus className="h-4 w-4 mr-1" />
+                   Add Transaction
+                 </Button>
+               </div>
+             )}
+
+             {/* Add Transaction Dialog */}
+             <AddTransactionDialog
+               open={showTransactionDialog}
+               onOpenChange={setShowTransactionDialog}
+               buckets={buckets || []}
+               defaultBucketId={bucket.id}
+               currency={currency}
+               isIncome={bucket.isIncome}
+               onSave={(transactions) => {
+                 transactions.forEach(t => onAddTransaction?.(t));
+               }}
+             />
+           </CardContent>
         </CollapsibleContent>
       </Collapsible>
     </Card>

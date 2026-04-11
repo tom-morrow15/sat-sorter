@@ -134,6 +134,7 @@ export default function HomePage() {
           {incomeBucket && (
             <BucketCard
               bucket={incomeBucket}
+              buckets={currentBudget.buckets}
               transactions={currentBudget.transactions}
               currency={currency}
               merchants={merchants}
@@ -171,6 +172,7 @@ export default function HomePage() {
               <BucketCard
                 key={bucket.id}
                 bucket={bucket}
+                buckets={currentBudget.buckets}
                 transactions={currentBudget.transactions}
                 currency={currency}
                 merchants={merchants}
