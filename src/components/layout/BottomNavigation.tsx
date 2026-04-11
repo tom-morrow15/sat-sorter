@@ -6,7 +6,6 @@ import { useBudgetSync } from '@/hooks/useBudgetSync';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useToast } from '@/hooks/useToast';
 import { useBudget } from '@/hooks/useBudget';
-import type { BudgetState } from '@/lib/budgetTypes';
 import { cn } from '@/lib/utils';
 
 type SaveState = 'ready' | 'saving' | 'success' | 'error' | 'unsaved';
@@ -14,28 +13,26 @@ type SaveState = 'ready' | 'saving' | 'success' | 'error' | 'unsaved';
 // Key for localStorage
 const SAVED_BUDGET_KEY = 'sat-sorter-saved-budget';
 
-// Generate simple hash for comparison
-function getBudgetString(budget: BudgetState): string {
-  return JSON.stringify({
-    budgets: budget.budgets,
-    currency: budget.currency,
-  });
-}
-
 export function BottomNavigation() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useCurrentUser();
   const { toast } = useToast();
-  const { currentBudget } = useBudget();
+  const { currentMonth, currency, fullState } = useBudget();
   const [saveState, setSaveState] = useState<SaveState>('ready');
   const [savedBudgetStr, setSavedBudgetStr] = useLocalStorage<string>(SAVED_BUDGET_KEY, '');
   const hasInitialized = useRef(false);
   
   const { uploadBudget } = useBudgetSync();
 
-  // Current budget as string (memoized)
-  const currentBudgetStr = useMemo(() => getBudgetString(currentBudget), [currentBudget]);
+  // Current budget as string (memoized) - includes all state that should be saved
+  const currentBudgetStr = useMemo(() => {
+    return JSON.stringify({
+      budgets: fullState.budgets,
+      currency: fullState.currency,
+      currentMonth: fullState.currentMonth,
+    });
+  }, [fullState.budgets, fullState.currency, fullState.currentMonth]);
 
   // Initialize and check for changes
   useEffect(() => {
@@ -70,10 +67,10 @@ export function BottomNavigation() {
       return;
     }
 
-    const currentString = getBudgetString(currentBudget);
+    const currentString = currentBudgetStr;
     
     // Don't save if already saved
-    if (currentString === savedBudgetString) {
+    if (currentString === savedBudgetStr) {
       setSaveState('ready');
       toast({ title: 'Already saved' });
       return;
@@ -82,10 +79,10 @@ export function BottomNavigation() {
     setSaveState('saving');
 
     try {
-      const success = await uploadBudget(currentBudget);
+      const success = await uploadBudget(fullState);
       
       if (success) {
-        setSavedBudgetString(currentString);
+        setSavedBudgetStr(currentString);
         setSaveState('success');
         
         toast({

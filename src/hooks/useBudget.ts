@@ -290,6 +290,7 @@ export function useBudget() {
     currentMonth: state.currentMonth,
     currency: state.currency,
     availableMonths,
+    fullState: state, // Expose full state for sync operations
 
     // Month actions
     setCurrentMonth,
