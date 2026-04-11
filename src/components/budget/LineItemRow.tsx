@@ -267,25 +267,40 @@ export function LineItemRow({
 
       {/* Progress bar for expenses - separate row */}
       {!isIncome && lineItem.plannedAmount > 0 && (
-        <div className="mt-2 flex items-center gap-2 pl-0 sm:pl-7">
-          <div className="flex-1">
-            <Progress
-              value={percentSpent}
-              className="h-1.5"
-              style={{
-                '--progress-background': isOverBudget
-                  ? 'hsl(0 84% 60%)'
-                  : bucketColor,
-              } as React.CSSProperties}
-            />
+        <div className="mt-2 space-y-1.5 pl-0 sm:pl-7">
+          {/* Progress bar */}
+          <div className="flex items-center gap-2">
+            <div className="flex-1">
+              <Progress
+                value={percentSpent}
+                className="h-1.5"
+                style={{
+                  '--progress-background': isOverBudget
+                    ? 'hsl(0 84% 60%)'
+                    : bucketColor,
+                } as React.CSSProperties}
+              />
+            </div>
           </div>
-          <span className={cn(
-            'text-xs tabular-nums whitespace-nowrap flex-shrink-0',
-            isOverBudget ? 'text-destructive' : 'text-muted-foreground'
-          )}>
-            <span className="sm:hidden">{formatAmount(spent, true)}</span>
-            <span className="hidden sm:inline">{formatAmount(spent)} spent</span>
-          </span>
+
+          {/* Spent / Remaining info row */}
+          <div className="flex items-center justify-between text-xs tabular-nums">
+            <span className={cn(
+              'whitespace-nowrap',
+              isOverBudget ? 'text-destructive font-medium' : 'text-muted-foreground'
+            )}>
+              <span className="sm:hidden">{formatAmount(spent, true)}</span>
+              <span className="hidden sm:inline">{formatAmount(spent)} spent</span>
+            </span>
+            
+            <span className={cn(
+              'whitespace-nowrap',
+              remaining < 0 ? 'text-destructive font-medium' : 'text-muted-foreground'
+            )}>
+              <span className="sm:hidden">{formatAmount(Math.max(0, remaining), true)}</span>
+              <span className="hidden sm:inline">{formatAmount(Math.max(0, remaining))} left</span>
+            </span>
+          </div>
         </div>
       )}
     </div>
