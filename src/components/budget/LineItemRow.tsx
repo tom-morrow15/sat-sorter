@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Trash2, GripVertical, Edit2, Check, X } from 'lucide-react';
+import { Trash2, GripVertical, Edit2, Check, X, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
@@ -20,6 +20,14 @@ interface LineItemRowProps {
   merchants?: (BTCMapElement & { distance: number })[];
   onUpdate: (bucketId: string, lineItemId: string, updates: Partial<LineItem>) => void;
   onDelete: (bucketId: string, lineItemId: string) => void;
+  onAddTransaction?: (transaction: {
+    date: string;
+    description: string;
+    amount: number;
+    isIncome: boolean;
+    bucketId: string | null;
+    lineItemId: string | null;
+  }) => void;
 }
 
 export function LineItemRow({
@@ -32,6 +40,7 @@ export function LineItemRow({
   merchants = [],
   onUpdate,
   onDelete,
+  onAddTransaction,
 }: LineItemRowProps) {
   const { data: priceData } = useBitcoinPrice();
   const [isEditing, setIsEditing] = useState(false);
@@ -143,7 +152,7 @@ export function LineItemRow({
              onChange={(e) => setEditAmount(e.target.value)}
              onKeyDown={handleKeyDown}
              className="h-9 w-full sm:w-32 text-right text-sm tabular-nums"
-             placeholder={currency === 'usd' ? '0.00' : '0'}
+             placeholder=""
              min="0"
              step={currency === 'usd' ? '0.01' : '1'}
            />
@@ -222,6 +231,40 @@ export function LineItemRow({
 
         {/* Action buttons - only on hover/desktop */}
         <div className="hidden sm:flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          {onAddTransaction && (
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-7 w-7"
+              onClick={(e) => {
+                e.stopPropagation();
+                const description = prompt('Transaction description:');
+                if (description) {
+                  const amountStr = prompt('Amount:');
+                  if (amountStr) {
+                    const numAmount = parseFloat(amountStr) || 0;
+                    const satsAmount = currency === 'usd' && priceData
+                      ? usdToSats(numAmount, priceData.usdPerBtc)
+                      : numAmount;
+                    
+                    if (satsAmount > 0) {
+                      onAddTransaction({
+                        date: new Date().toISOString().split('T')[0],
+                        description: description.trim(),
+                        amount: Math.round(satsAmount),
+                        isIncome,
+                        bucketId,
+                        lineItemId: lineItem.id,
+                      });
+                    }
+                  }
+                }
+              }}
+              title="Quick add transaction"
+            >
+              <Plus className="h-3.5 w-3.5" />
+            </Button>
+          )}
           <Button
             size="icon"
             variant="ghost"

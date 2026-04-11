@@ -76,6 +76,14 @@ interface BucketCardProps {
   onAddLineItem: (bucketId: string, name: string) => void;
   onUpdateLineItem: (bucketId: string, lineItemId: string, updates: Partial<LineItem>) => void;
   onDeleteLineItem: (bucketId: string, lineItemId: string) => void;
+  onAddTransaction?: (transaction: {
+    date: string;
+    description: string;
+    amount: number;
+    isIncome: boolean;
+    bucketId: string | null;
+    lineItemId: string | null;
+  }) => void;
 }
 
 const BUCKET_COLORS = [
@@ -287,18 +295,19 @@ export function BucketCard({
               {bucket.lineItems
                 .sort((a, b) => a.order - b.order)
                 .map((lineItem) => (
-                  <LineItemRow
-                    key={lineItem.id}
-                    lineItem={lineItem}
-                    bucketId={bucket.id}
-                    bucketColor={bucket.color}
-                    transactions={transactions}
-                    currency={currency}
-                    isIncome={bucket.isIncome}
-                    merchants={merchants}
-                    onUpdate={onUpdateLineItem}
-                    onDelete={onDeleteLineItem}
-                  />
+                   <LineItemRow
+                     key={lineItem.id}
+                     lineItem={lineItem}
+                     bucketId={bucket.id}
+                     bucketColor={bucket.color}
+                     transactions={transactions}
+                     currency={currency}
+                     isIncome={bucket.isIncome}
+                     merchants={merchants}
+                     onUpdate={onUpdateLineItem}
+                     onDelete={onDeleteLineItem}
+                     onAddTransaction={onAddTransaction}
+                   />
                 ))}
             </div>
 
