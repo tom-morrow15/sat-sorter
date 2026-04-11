@@ -1,208 +1,198 @@
-# Budget Sync & Conflict Resolution Strategy
+# Budget Sync Strategy - Explicit Save Approach
 
 ## Overview
 
-Sat Sorter uses a **smart two-way sync system** that automatically keeps your budget in sync across devices via Nostr while preventing data loss or conflicts.
+Sat Sorter uses a **simple, user-controlled sync system** that keeps your budget safe locally and lets you explicitly back it up to Nostr when you're ready.
+
+**Key principle**: You control when your data goes to the cloud. No magic, no auto-sync, no conflicts.
 
 ## How It Works
 
 ### Data Storage Locations
 
-1. **Local Storage (Browser)** - Primary storage, updated in real-time
-2. **Nostr (kind 30078)** - Cloud backup, encrypted with your keys
-3. **Both persist independently** until a conflict is detected
+1. **Local Storage (Browser)** - Primary storage, saved instantly with every change
+2. **Nostr (kind 30078)** - Cloud backup (encrypted with your keys), saved only when you click the save button
 
 ### Sync Flow
 
 ```
-User makes change → Save locally (immediate)
-                 ↓
-            5-second debounce
-                 ↓
-         Upload to Nostr (async)
-                 ↓
-       Next login → Download from Nostr (if newer)
+User makes changes
+    ↓
+Saved to browser instantly ✓
+(Shows "Changes saved locally")
+    ↓
+User clicks "💾 Save to Nostr" button (when ready)
+    ↓
+Shows "Uploading..." spinner
+    ↓
+"✅ Saved to Nostr!" toast
+    ↓
+Next login on another device
+    ↓
+Automatically downloads from Nostr (one-time)
+    ↓
+Continues editing on new device
 ```
 
-## Conflict Resolution Strategy
+## No Conflicts - Here's Why
 
-When you log in, Sat Sorter checks for conflicts between local and Nostr data using a **timestamp-based priority system**.
+Since you explicitly control when data goes to Nostr, there are NO conflicts to resolve:
 
-### The 5-Minute Conflict Window
+- **Device A**: Edit locally, click Save → Upload to Nostr ✓
+- **Device B**: Login → Download from Nostr (sees Device A's saved data) ✓
+- **Continue editing**: On Device B, data is local until you Save ✓
 
-The system uses a **300-second (5-minute) threshold** to determine if data was edited concurrently:
+This is exactly like traditional save buttons in apps like Word, Excel, Google Docs, etc.
 
-- **Remote significantly newer** (>5 min): Use Nostr data
-- **Local significantly newer** (>5 min): Keep local data
-- **Within 5-minute window**: Intelligent comparison (see below)
+## User Experience
 
-### Four Resolution Cases
+### On Login (One-Time Download)
 
-#### Case 1: Remote is Significantly Newer (>5 minutes)
+When you log in to a new device or browser:
+
+1. App checks Nostr for your saved budget
+2. If found, shows toast: **"Budget restored from cloud"**
+3. Your budget automatically loads
+4. **Important**: This happens once per login session - no continuous checking
+
+### When You Make Changes
+
+As you edit your budget:
+
 ```
-Local edit:    10:00 AM
-Remote edit:   10:10 AM
-Difference:    10 minutes (>5 minute threshold)
-
-Decision: ✅ Use Nostr data
-Reason:   Remote is clearly newer, safe to download
-```
-
-**Action**: Download from Nostr and replace local data
-**Why**: If you haven't edited locally in 5+ minutes and Nostr has newer data, it came from another device or session
-
-#### Case 2: Local is Significantly Newer (>5 minutes)
-```
-Remote edit:   10:00 AM
-Local edit:    10:10 AM
-Difference:    10 minutes (>5 minute threshold)
-
-Decision: ✅ Keep local data
-Reason:   Local is clearly newer, it will auto-upload
+Edit → Changes saved locally (browser storage)
+      → Your data is always safe locally
+      → Takes effect immediately
+      → Ready to save to Nostr whenever you want
 ```
 
-**Action**: Keep local data unchanged, will auto-upload to Nostr
-**Why**: You edited locally after the Nostr version, so local is authoritative
+### When You Click "Save to Nostr" (The Floppy Disk Button)
 
-#### Case 3: Within Conflict Window - Data Comparison
 ```
-Remote edit:   10:00 AM
-Local edit:    10:02 AM
-Difference:    2 minutes (<5 minute threshold)
-
-Decision: Compare data completeness
-```
-
-When edits are within 5 minutes of each other, the system compares data **completeness**:
-
-- **Count total items** (budgets, buckets, line items, transactions)
-- **Use version with more data** (assumed to be more complete)
-- **Show user notification** indicating which version was chosen
-
-**Examples**:
-- Remote has 100 transactions, Local has 50 → Use remote
-- Remote has 3 budgets, Local has 3 budgets → Keep local
-- Remote has 2 months of budgets, Local has 1 → Use remote
-
-#### Case 4: Identical Timestamps
-```
-Remote timestamp: 1704067200
-Local timestamp:  1704067200
-
-Decision: ✅ Data already in sync
+Button status: "💾 Save to Nostr"
+    ↓ [You click]
+Button shows: "⏳ Saving..." (spinner)
+    ↓ (uploading to Nostr...)
+Button shows: "✅ Saved!" (green, 2 seconds)
+    ↓
+Toast: "✅ Saved to Nostr! 3 month(s) backed up to the cloud."
+    ↓
+Button returns to: "💾 Save to Nostr"
 ```
 
-**Action**: No changes needed
-**Why**: Both versions are already synchronized
+If upload fails:
 
-## Preventing Data Loss
-
-### Protected Scenarios
-
-✅ **Scenario 1: Editing on two devices without overlap**
 ```
-Device A: Edit at 10:00 AM, auto-upload at 10:05 AM
-Device B: Login at 10:10 AM
-Result:   Device B downloads from Nostr (10+ min newer)
-          Device A and B now in sync ✓
+Button shows: "⚠️ Failed" (red, 3 seconds)
+    ↓
+Toast: "Save error - Could not upload to Nostr. Check connection and try again."
+    ↓
+You can click again to retry
 ```
 
-✅ **Scenario 2: Editing on Device A while Device B is offline**
-```
-Device A: Edit at 10:00 AM, auto-upload at 10:05 AM
-Device B: Offline
-Device B: Comes online at 10:30 AM
-Result:   Device B downloads from Nostr (25+ min newer)
-          Device B now has all changes from Device A ✓
-```
+## No Data Loss - Guaranteed
 
-✅ **Scenario 3: Quick edits on different devices within 5 minutes**
-```
-Device A: Edit and save at 10:00 AM
-Device B: Edit and save at 10:02 AM
-Device B: Login to Nostr while Device A still editing
-Result:   Device B has 120 items, Device A has 80 items
-          System uses Device B (more complete) ✓
-```
+Because you explicitly save to Nostr, there's no way to accidentally lose data:
 
-✅ **Scenario 4: Copying budget from previous month**
+### Scenario 1: Normal Multi-Device Usage
 ```
-Before: Month A has 5 categories
-Action: Copy to Month B
-Result: Month B gets 5 categories + protection against duplicates ✓
+Device A:
+- Edit budget (stays local)
+- Click "Save to Nostr" → uploads ✓
+
+Device B:
+- Log in → automatically downloads from Device A ✓
+- Edit budget (stays local)
+- Click "Save to Nostr" → uploads ✓
+
+Device A:
+- Log in (next session) → sees Device B's latest ✓
 ```
 
-### Risky Scenarios (Mitigated)
-
-⚠️ **Scenario: True simultaneous editing**
+### Scenario 2: You Close the App Without Saving
 ```
-Device A: Edit at 10:00 AM (not yet saved to Nostr)
-Device B: Edit at 10:00 AM (not yet saved to Nostr)
-Device A: Goes offline
-Device B: Saves to Nostr at 10:05 AM
-Device A: Comes online at 10:10 AM
-Result:   Device A downloads from Device B (5+ min newer)
-          Device A's unsaved changes are lost ✗
-Mitigation: This is rare (both devices editing simultaneously)
-            Local save every 500ms indicates progress to user
-            Toast shows "Synced to cloud" when safe
+Device A:
+- Edit budget locally
+- Close app WITHOUT clicking save
+- Tomorrow: Log back in
+→ Your edits are still there (local storage persists)
+→ Click save to back them up whenever ready
 ```
 
-## Timestamps Explained
+**Key**: Your edits are never lost because they're always in browser storage. Saving to Nostr is optional.
 
-### lastSynced Field
-
-Every `BudgetState` stores when it was last synced to Nostr:
-
-```typescript
-interface BudgetState {
-  currentMonth: string;
-  budgets: MonthlyBudget[];
-  currency: 'sats' | 'usd';
-  lastSynced?: number;  // Unix timestamp when last uploaded to Nostr
-}
+### Scenario 3: Copying Budget From Previous Month
+```
+- Current setup: April has 10 categories
+- Action: Copy from April to May
+- Result: May gets 10 categories
+- Protection: Can't accidentally overwrite May (would show error)
 ```
 
-### How Timestamps Are Used
+### Scenario 4: Internet Goes Out
+```
+Device A:
+- Editing budget offline
+- All changes save to browser ✓
+- No "Unsaved changes!" stress
+- When internet returns, click Save to back up
+```
 
-1. **On Every Edit**: Local timestamp updates (indirectly via budget IDs)
-2. **On Every Upload**: `lastSynced` is set to current time
-3. **On Download**: Compare `remoteTimestamp` vs `localTimestamp`
-4. **On Conflict**: Use threshold comparison to decide
+## Save Button Location
+
+The **"💾 Save to Nostr"** button is a floating action button (FAB) in the bottom right corner:
+
+- **Position**: Fixed at bottom right (above the Quick Add transaction button)
+- **Visible**: Only when logged in with Nostr
+- **Icon**: Floppy disk 💾 (classic save symbol)
+- **Size**: Large circle, easy to tap on mobile
+
+### When the Button Appears
+
+```
+Not logged in → Button hidden (you can still edit locally)
+    ↓
+Log in with Nostr → Button appears (you can now save to cloud)
+    ↓
+Click button → Shows save progress
+    ↓
+After save → Button returns to normal state
+```
 
 ## User Feedback
 
-The app shows different save states:
+### Save Button States
 
-### Save Status Indicators (in header)
+The button shows clear feedback about what's happening:
 
 ```
-🔄 Saving...          → Edit detected, uploading to Nostr (5s debounce)
-✓ Saved locally       → Saved to browser, waiting to upload
-✓ Synced to cloud     → Fully synced with Nostr
-⚠️ Save failed        → Upload failed, will retry
+Idle:      💾 Save to Nostr     (blue, clickable)
+Saving:    ⏳ (spinner)          (blue, disabled)
+Success:   ✅ (checkmark)        (green, 2 seconds)
+Error:     ⚠️ (alert icon)       (red, 3 seconds)
 ```
 
 ### Toast Notifications
 
+When you interact with the save button:
+
 ```
-✅ "Budget synced from cloud" 
-   → Downloaded newer data from Nostr
+✅ "Saved to Nostr!"
+   → Upload successful, all changes backed up
+   → Shows: "3 month(s) backed up to the cloud."
 
-✅ "Using local budget"
-   → Kept local data (it was newer)
+❌ "Save error"
+   → Upload failed
+   → Shows: "Could not upload to Nostr. Check connection and try again."
+   → Button remains clickable to retry
 
-✅ "Budget copied!"
-   → Successfully copied from previous month
+✅ "Budget restored from cloud"
+   → On login, if budget found on Nostr
+   → Shows: "Loaded X month(s) of budget data."
 
-✅ "Cannot copy budget"
-   → A budget already exists for this month
-
-✅ "Cloud version had more complete data"
-   → Conflict resolved in favor of Nostr version
-
-✅ "Your version has more complete data"
-   → Conflict resolved in favor of local version
+✅ "Log in required"
+   → You tried to save but aren't logged in with Nostr
+   → Shows: "You need to be logged in with Nostr to save to the cloud."
 ```
 
 ## Technical Details
@@ -211,26 +201,40 @@ The app shows different save states:
 
 - All data uploaded to Nostr is encrypted with **NIP-44** (your private key)
 - Only you can decrypt your budget data
-- Server never sees unencrypted data
+- Nostr relays never see unencrypted data
+- Everyone sees the same encrypted blob, but only you can read it
 
-### Upload Strategy
+### Download Strategy (On Login)
 
-- **Debounced**: 5 seconds after last change
-- **Smart**: Only uploads if `hasSyncedBudget` flag is true (prevents uploading while downloading)
-- **Automatic**: No manual sync button needed
-- **One-way gate**: Doesn't re-download while uploading
+- **One-time per session**: Checks for saved budget when you log in
+- **Automatic**: No button needed, happens in background
+- **Skipped if not found**: If you have no saved budget on Nostr, app just uses local data
+- **Preserves month**: Keeps your current month preference locally
+
+### Upload Strategy (When You Click Save)
+
+- **Explicit**: Only happens when you click "Save to Nostr"
+- **Immediate**: No debounce delay - uploads as fast as your connection allows
+- **Encrypted**: Data is encrypted before sending to Nostr
+- **Immutable**: Once saved, creates an immutable event on relays
+- **Replaceable**: Next save replaces the previous one (NIP-78 replaceable events)
 
 ### Duplicate Prevention
 
 - `duplicateFromMonth` checks if target month already has data
 - Returns error message instead of silently overwriting
-- User must delete existing budget before copying
+- User must delete existing budget before copying over it
 
-### Per-Session Sync
+### Data Structure
 
-- `hasSyncedBudget` ref ensures download only happens once per login
-- Prevents infinite sync loops
-- Resets when user changes accounts
+```typescript
+interface BudgetState {
+  currentMonth: string;           // Current month being viewed
+  budgets: MonthlyBudget[];       // Array of all monthly budgets
+  currency: 'sats' | 'usd';       // Display preference
+  lastSynced?: number;            // Unix timestamp (informational only)
+}
+```
 
 ## Best Practices
 
@@ -301,14 +305,45 @@ const uploadTimeout = setTimeout(async () => {
 return () => clearTimeout(uploadTimeout);
 ```
 
-## Summary
+## Best Practices
 
-| Scenario | Resolution | Data Loss? |
-|----------|-----------|----------|
-| Edit on Device A, sync before switching to Device B | Remote newer → download | ✅ No |
-| Edit on Device A, immediately switch to Device B | Local newer → keep local | ✅ No |
-| Edit on both devices within 5 min → Device B has more items | Use Device B version | ✅ No |
-| Edit on both devices within 5 min → Similar data | Keep local + upload | ✅ No |
-| Concurrent edits both unsaved | Local kept until user logs in again | ⚠️ Rare, mitigated |
+### To Keep Your Budget Safe
 
-The system prioritizes **data integrity** over perfect sync, ensuring your budget data is never silently lost or merged incorrectly.
+1. **Edit locally without worry** - Changes are saved to browser instantly
+2. **Save to Nostr regularly** - Click the button when you're done making changes
+3. **Wait for success** - Watch for the green checkmark and toast confirmation
+4. **Test on another device** - Log in somewhere else to make sure your backup works
+
+### Recommended Workflow
+
+```
+1. Use Device A
+   - Edit budget (changes saved locally)
+   - Click "Save to Nostr" (after making several changes)
+   - See green checkmark + toast
+
+2. Switch to Device B
+   - Log in with Nostr
+   - Budget automatically downloads
+   - You see toast: "Budget restored from cloud"
+   - Continue editing
+
+3. Back to Device A (next day)
+   - Log in
+   - Budget downloads with Device B's latest changes
+   - Everything is in sync
+```
+
+## Comparison: Old vs New
+
+| Aspect | Auto-Sync (Old) | Explicit Save (New) |
+|--------|-----------------|-------------------|
+| **User Control** | Magic happens in background | You decide when to save |
+| **Conflicts** | Complex logic to resolve | No conflicts - you're in control |
+| **Data Loss Risk** | Could lose edits if app closed before sync | Edits always safe locally |
+| **Clarity** | "Is it synced?" confusion | Crystal clear: "Not saved" or "Saved" |
+| **Multi-Device** | Confusing merge logic | Simple: Save → Download on other device |
+| **Mental Model** | Traditional auto-save | Traditional Ctrl+S / Save button |
+| **Familiar To Users** | Not really - unusual | Yes! Like Excel, Word, Google Docs |
+
+The new approach is **simpler, clearer, and more predictable**. Users know exactly what will happen when they click the button.
