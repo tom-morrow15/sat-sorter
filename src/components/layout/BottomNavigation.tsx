@@ -26,36 +26,51 @@ export function BottomNavigation() {
   const { uploadBudget } = useBudgetSync();
 
   // Current budget as string (memoized) - includes all state that should be saved
-  const currentBudgetStr = useMemo(() => {
-    return JSON.stringify({
-      budgets: fullState.budgets,
-      currency: fullState.currency,
-      currentMonth: fullState.currentMonth,
-    });
-  }, [fullState.budgets, fullState.currency, fullState.currentMonth]);
+   // Using JSON.stringify of the full data as dependency ensures we catch all changes
+   const currentBudgetStr = useMemo(() => {
+     return JSON.stringify({
+       budgets: fullState.budgets,
+       currency: fullState.currency,
+       currentMonth: fullState.currentMonth,
+     });
+   }, [fullState]);
+
+   // Reset on user change (login/logout)
+  useEffect(() => {
+    if (user) {
+      console.log('[SaveButton] User logged in, reinitializing save state');
+      hasInitialized.current = false;
+    }
+  }, [user?.pubkey]);
 
   // Initialize and check for changes
-  useEffect(() => {
-    console.log('[SaveButton] Checking changes:', { hasInitialized: hasInitialized.current, saved: savedBudgetStr?.slice(0, 50), current: currentBudgetStr.slice(0, 50) });
-    
-    // First run: initialize saved state if empty
-    if (!hasInitialized.current) {
-      hasInitialized.current = true;
-      console.log('[SaveButton] First load, initializing...');
-      if (!savedBudgetStr) {
-        setSavedBudgetStr(currentBudgetStr);
-      } else if (savedBudgetStr !== currentBudgetStr) {
-        setSaveState('unsaved');
-      }
-      return;
-    }
+   useEffect(() => {
+     // First run: initialize saved state if empty
+     if (!hasInitialized.current) {
+       hasInitialized.current = true;
+       console.log('[SaveButton] First load, initializing with current budget', {
+         hasSavedBudget: !!savedBudgetStr,
+         currentLength: currentBudgetStr.length,
+       });
+       if (!savedBudgetStr) {
+         setSavedBudgetStr(currentBudgetStr);
+         setSaveState('ready');
+       } else if (savedBudgetStr !== currentBudgetStr) {
+         console.log('[SaveButton] Existing save found, budget differs - marking unsaved');
+         setSaveState('unsaved');
+       }
+       return;
+     }
 
-    // Check for changes
-    if (savedBudgetStr && savedBudgetStr !== currentBudgetStr) {
-      console.log('[SaveButton] Budget changed! Marking unsaved');
-      setSaveState('unsaved');
-    }
-  }, [currentBudgetStr, savedBudgetStr, setSavedBudgetStr]);
+     // Check for changes on subsequent renders
+     if (currentBudgetStr !== savedBudgetStr) {
+       console.log('[SaveButton] Budget changed! Marking unsaved', {
+         savedLength: savedBudgetStr.length,
+         currentLength: currentBudgetStr.length,
+       });
+       setSaveState('unsaved');
+     }
+   }, [currentBudgetStr, savedBudgetStr]);
 
   const handleSave = async () => {
     if (!user?.pubkey) {
