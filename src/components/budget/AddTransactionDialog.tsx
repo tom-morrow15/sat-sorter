@@ -110,17 +110,18 @@ export function AddTransactionDialog({
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="amount">Amount ({currency === 'usd' ? 'USD' : 'sats'})</Label>
-            <Input
-              id="amount"
-              type="number"
-              value={amountInput}
-              onChange={(e) => setAmountInput(e.target.value)}
-              step={currency === 'usd' ? '0.01' : '1'}
-              min="0"
-            />
-          </div>
+           <div className="space-y-2">
+             <Label htmlFor="amount">Amount ({currency === 'usd' ? 'USD' : 'sats'})</Label>
+             <Input
+               id="amount"
+               type="number"
+               value={amountInput}
+               onChange={(e) => setAmountInput(e.target.value)}
+               step={currency === 'usd' ? '0.01' : '1'}
+               min="0"
+               placeholder={currency === 'usd' ? '0.00' : '0'}
+             />
+           </div>
 
           <div className="space-y-2">
             <Label>Category</Label>

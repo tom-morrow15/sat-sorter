@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bitcoin, DollarSign, ChevronLeft, ChevronRight, Wallet, Moon, Sun, Zap, Calendar, Menu, Info, Heart, ExternalLink, Shield, Globe, GraduationCap, User, LogIn, UserPlus, Cloud } from 'lucide-react';
+import { Bitcoin, DollarSign, ChevronLeft, ChevronRight, Wallet, Zap, Calendar, Menu, Info, Heart, ExternalLink, Shield, Globe, GraduationCap, User, LogIn, UserPlus, Cloud } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -27,7 +27,6 @@ import {
 } from '@/lib/budgetTypes';
 import type { Bucket } from '@/lib/budgetTypes';
 import { cn } from '@/lib/utils';
-import { useTheme } from '@/hooks/useTheme';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { AccountSwitcher } from '@/components/auth/AccountSwitcher';
 import LoginDialog from '@/components/auth/LoginDialog';
@@ -60,7 +59,6 @@ export function BudgetHeader({
   unassignedCount = 0,
 }: BudgetHeaderProps) {
   const { data: priceData, isLoading: priceLoading } = useBitcoinPrice();
-  const { isDark, toggle: toggleTheme } = useTheme();
   const [showMonthPicker, setShowMonthPicker] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
   const [showDonate, setShowDonate] = useState(false);
@@ -211,16 +209,6 @@ export function BudgetHeader({
                 }
               </TooltipContent>
             </Tooltip>
-
-            {/* Theme Toggle */}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleTheme}
-              className="h-8 w-8 sm:h-9 sm:w-9"
-            >
-              {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-            </Button>
 
             {/* Account Switcher (when logged in) */}
             {user && (
