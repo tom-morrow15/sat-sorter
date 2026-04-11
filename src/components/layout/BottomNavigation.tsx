@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Home, PieChart, MapPin, Receipt, Cloud } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
@@ -11,21 +11,15 @@ import { cn } from '@/lib/utils';
 
 type SaveState = 'ready' | 'saving' | 'success' | 'error' | 'unsaved';
 
-// Key for storing last saved budget hash in localStorage
-const LAST_SAVED_HASH_KEY = 'sat-sorter-last-saved-hash';
+// Key for localStorage
+const SAVED_BUDGET_KEY = 'sat-sorter-saved-budget';
 
-// Generate a hash of the budget for comparison
-function generateBudgetHash(budget: BudgetState): string {
-  // Sort keys to ensure consistent hashing
-  const sorted = JSON.stringify(budget, Object.keys(budget).sort());
-  // Simple hash function
-  let hash = 0;
-  for (let i = 0; i < sorted.length; i++) {
-    const char = sorted.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash;
-  }
-  return hash.toString(36);
+// Generate simple hash for comparison
+function getBudgetString(budget: BudgetState): string {
+  return JSON.stringify({
+    budgets: budget.budgets,
+    currency: budget.currency,
+  });
 }
 
 export function BottomNavigation() {
@@ -35,41 +29,38 @@ export function BottomNavigation() {
   const { toast } = useToast();
   const { currentBudget } = useBudget();
   const [saveState, setSaveState] = useState<SaveState>('ready');
-  const [lastSavedHash, setLastSavedHash] = useLocalStorage<string>(LAST_SAVED_HASH_KEY, '');
-  const [isFirstLoad, setIsFirstLoad] = useState(true);
+  const [savedBudgetStr, setSavedBudgetStr] = useLocalStorage<string>(SAVED_BUDGET_KEY, '');
+  const hasInitialized = useRef(false);
   
   const { uploadBudget } = useBudgetSync();
-  
-  const [localBudget] = useLocalStorage<BudgetState>('sat-sorter-budget', {
-    currentMonth: '',
-    budgets: [],
-    currency: 'sats',
-  });
 
-  // Track when budget changes and mark as unsaved
+  // Current budget as string (memoized)
+  const currentBudgetStr = useMemo(() => getBudgetString(currentBudget), [currentBudget]);
+
+  // Initialize and check for changes
   useEffect(() => {
-    // Skip first render - just record initial state
-    if (isFirstLoad) {
-      setIsFirstLoad(false);
-      // If we don't have a saved hash yet, record current state as "saved"
-      if (!lastSavedHash) {
-        const hash = generateBudgetHash(currentBudget);
-        setLastSavedHash(hash);
+    console.log('[SaveButton] Checking changes:', { hasInitialized: hasInitialized.current, saved: savedBudgetStr?.slice(0, 50), current: currentBudgetStr.slice(0, 50) });
+    
+    // First run: initialize saved state if empty
+    if (!hasInitialized.current) {
+      hasInitialized.current = true;
+      console.log('[SaveButton] First load, initializing...');
+      if (!savedBudgetStr) {
+        setSavedBudgetStr(currentBudgetStr);
+      } else if (savedBudgetStr !== currentBudgetStr) {
+        setSaveState('unsaved');
       }
       return;
     }
 
-    // Compare current budget to last saved
-    const currentHash = generateBudgetHash(currentBudget);
-    
-    if (currentHash !== lastSavedHash) {
+    // Check for changes
+    if (savedBudgetStr && savedBudgetStr !== currentBudgetStr) {
+      console.log('[SaveButton] Budget changed! Marking unsaved');
       setSaveState('unsaved');
-    } else {
-      setSaveState('ready');
     }
-  }, [currentBudget, lastSavedHash, isFirstLoad, setLastSavedHash]);
+  }, [currentBudgetStr, savedBudgetStr, setSavedBudgetStr]);
 
-  const handleSave = useCallback(async () => {
+  const handleSave = async () => {
     if (!user?.pubkey) {
       toast({
         title: 'Log in required',
@@ -79,87 +70,62 @@ export function BottomNavigation() {
       return;
     }
 
-    // Don't save if already up to date
-    const currentHash = generateBudgetHash(currentBudget);
-    if (currentHash === lastSavedHash && saveState === 'ready') {
-      toast({
-        title: 'Already saved',
-        description: 'Your budget is already up to date.',
-      });
+    const currentString = getBudgetString(currentBudget);
+    
+    // Don't save if already saved
+    if (currentString === savedBudgetString) {
+      setSaveState('ready');
+      toast({ title: 'Already saved' });
       return;
     }
 
     setSaveState('saving');
 
     try {
-      const success = await uploadBudget(localBudget);
+      const success = await uploadBudget(currentBudget);
       
       if (success) {
-        // Update the saved hash
-        const newHash = generateBudgetHash(currentBudget);
-        setLastSavedHash(newHash);
+        setSavedBudgetString(currentString);
         setSaveState('success');
         
         toast({
-          title: '✅ Saved to Nostr!',
-          description: `${localBudget.budgets.length} month(s) backed up to the cloud.`,
+          title: '✅ Budget saved!',
+          description: 'Your budget is backed up to Nostr.',
         });
 
-        // Return to ready after 2 seconds
-        setTimeout(() => {
-          setSaveState('ready');
-        }, 2000);
+        setTimeout(() => setSaveState('ready'), 2000);
       } else {
         setSaveState('error');
         toast({
           title: 'Save failed',
-          description: 'Could not upload to Nostr. Check your connection and try again.',
+          description: 'Could not upload. Please try again.',
           variant: 'destructive',
         });
-
-        // Return to unsaved after 3 seconds (keeps red state)
-        setTimeout(() => {
-          if (generateBudgetHash(currentBudget) !== lastSavedHash) {
-            setSaveState('unsaved');
-          }
-        }, 3000);
+        setTimeout(() => setSaveState('unsaved'), 3000);
       }
     } catch (error) {
       setSaveState('error');
       toast({
         title: 'Save error',
-        description: error instanceof Error ? error.message : 'An unexpected error occurred.',
+        description: 'Something went wrong.',
         variant: 'destructive',
       });
-
-      // Return to unsaved after 3 seconds
-      setTimeout(() => {
-        if (generateBudgetHash(currentBudget) !== lastSavedHash) {
-          setSaveState('unsaved');
-        }
-      }, 3000);
+      setTimeout(() => setSaveState('unsaved'), 3000);
     }
-  }, [user?.pubkey, currentBudget, lastSavedHash, localBudget, uploadBudget, toast, setLastSavedHash, saveState]);
+  };
 
   const isActive = (path: string) => location.pathname === path;
 
-  const navItems = [
-    { path: '/home', icon: Home, label: 'Home' },
-    { path: '/breakdown', icon: PieChart, label: 'Breakdown' },
-    { path: '/local-spend', icon: MapPin, label: 'Local' },
-    { path: '/transactions', icon: Receipt, label: 'Receipts' },
-  ];
-
-  const getSaveStyles = () => {
+  const getSaveButtonStyles = () => {
     switch (saveState) {
+      case 'unsaved':
+        return 'text-red-600 font-bold';
+      case 'saving':
+        return 'text-muted-foreground opacity-60';
       case 'success':
         return 'text-green-600';
       case 'error':
         return 'text-red-600';
-      case 'unsaved':
-        return 'text-red-600 animate-pulse';
-      case 'saving':
-        return 'text-muted-foreground opacity-60';
       default:
         return 'text-muted-foreground';
     }
@@ -167,64 +133,71 @@ export function BottomNavigation() {
 
   const getSaveLabel = () => {
     switch (saveState) {
-      case 'saving':
-        return 'Saving...';
-      case 'success':
-        return 'Saved!';
-      case 'error':
-        return 'Error';
-      case 'unsaved':
-        return '• Save';
-      default:
-        return 'Save';
+      case 'saving': return 'Saving';
+      case 'success': return 'Saved!';
+      case 'error': return 'Error';
+      case 'unsaved': return 'Save*';
+      default: return 'Save';
     }
   };
 
   return (
-    <nav
-      className="fixed bottom-0 left-0 right-0 z-40 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
-      style={{
-        paddingBottom: 'env(safe-area-inset-bottom)',
-      }}
-    >
+    <nav className="fixed bottom-0 left-0 right-0 z-40 border-t bg-background">
       <div className="flex items-center justify-around h-16">
-        {navItems.map((item) => {
-          const Icon = item.icon;
-          const active = isActive(item.path);
-          return (
-            <button
-              key={item.path}
-              onClick={() => navigate(item.path)}
-              className={cn(
-                'flex flex-col items-center justify-center flex-1 h-full gap-0.5 transition-colors',
-                active ? 'text-primary' : 'text-muted-foreground'
-              )}
-            >
-              <Icon className="h-5 w-5" />
-              <span className="text-[10px] leading-tight">{item.label}</span>
-            </button>
-          );
-        })}
+        <button
+          onClick={() => navigate('/home')}
+          className={cn(
+            'flex flex-col items-center justify-center flex-1 h-full gap-0.5',
+            isActive('/home') ? 'text-primary' : 'text-muted-foreground'
+          )}
+        >
+          <Home className="h-5 w-5" />
+          <span className="text-[10px]">Home</span>
+        </button>
 
-        {/* Save button - ALWAYS SHOW */}
+        <button
+          onClick={() => navigate('/breakdown')}
+          className={cn(
+            'flex flex-col items-center justify-center flex-1 h-full gap-0.5',
+            isActive('/breakdown') ? 'text-primary' : 'text-muted-foreground'
+          )}
+        >
+          <PieChart className="h-5 w-5" />
+          <span className="text-[10px]">Breakdown</span>
+        </button>
+
+        <button
+          onClick={() => navigate('/local-spend')}
+          className={cn(
+            'flex flex-col items-center justify-center flex-1 h-full gap-0.5',
+            isActive('/local-spend') ? 'text-primary' : 'text-muted-foreground'
+          )}
+        >
+          <MapPin className="h-5 w-5" />
+          <span className="text-[10px]">Local</span>
+        </button>
+
+        <button
+          onClick={() => navigate('/transactions')}
+          className={cn(
+            'flex flex-col items-center justify-center flex-1 h-full gap-0.5',
+            isActive('/transactions') ? 'text-primary' : 'text-muted-foreground'
+          )}
+        >
+          <Receipt className="h-5 w-5" />
+          <span className="text-[10px]">Receipts</span>
+        </button>
+
         <button
           onClick={handleSave}
           disabled={saveState === 'saving'}
           className={cn(
-            'flex flex-col items-center justify-center flex-1 h-full gap-0.5 transition-colors',
-            getSaveStyles()
+            'flex flex-col items-center justify-center flex-1 h-full gap-0.5 transition-all',
+            getSaveButtonStyles()
           )}
         >
-          <div className="relative">
-            <Cloud className="h-5 w-5" />
-            {/* Red dot indicator when unsaved */}
-            {saveState === 'unsaved' && (
-              <span className="absolute -top-1 -right-1 h-2.5 w-2.5 bg-red-600 rounded-full border-2 border-background" />
-            )}
-          </div>
-          <span className="text-[10px] leading-tight font-medium">
-            {getSaveLabel()}
-          </span>
+          <Cloud className={cn('h-5 w-5', saveState === 'saving' && 'animate-bounce')} />
+          <span className="text-[10px]">{getSaveLabel()}</span>
         </button>
       </div>
     </nav>
