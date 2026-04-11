@@ -46,6 +46,7 @@ interface TransactionsPanelProps {
   onAddTransaction: (transaction: Omit<Transaction, 'id'>) => void;
   onAssignTransaction: (transactionId: string, bucketId: string, lineItemId: string) => void;
   onDeleteTransaction: (transactionId: string) => void;
+  lineItemIdFilter?: string;
 }
 
 export function TransactionsPanel({
@@ -55,6 +56,7 @@ export function TransactionsPanel({
   onAddTransaction,
   onAssignTransaction,
   onDeleteTransaction,
+  lineItemIdFilter,
 }: TransactionsPanelProps) {
   const { data: priceData } = useBitcoinPrice();
   const [showAddDialog, setShowAddDialog] = useState(false);
@@ -72,8 +74,14 @@ export function TransactionsPanel({
   const [selectedBucketId, setSelectedBucketId] = useState<string>('');
   const [selectedLineItemId, setSelectedLineItemId] = useState<string>('');
 
-  const unassigned = getUnassignedTransactions(transactions);
-  const assigned = transactions.filter(t => t.lineItemId !== null);
+  // Filter by lineItemId if provided
+  const transactionsByLineItem = useMemo(() => {
+    if (!lineItemIdFilter) return transactions;
+    return transactions.filter(t => t.lineItemId === lineItemIdFilter);
+  }, [transactions, lineItemIdFilter]);
+
+  const unassigned = getUnassignedTransactions(transactionsByLineItem);
+  const assigned = transactionsByLineItem.filter(t => t.lineItemId !== null);
 
   // Use filtered transactions if filter is active, otherwise show all
   const displayedTransactions = useMemo(() => {

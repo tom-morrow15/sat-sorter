@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Plus, Bitcoin, Zap, Wallet, Info, Copy } from 'lucide-react';
 import { useSeoMeta, useHead } from '@unhead/react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/useToast';
@@ -14,6 +15,7 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useBTCMap } from '@/hooks/useBTCMap';
 
 export default function HomePage() {
+  const navigate = useNavigate();
   const [showAddBucket, setShowAddBucket] = useState(false);
   const [showWalletModal, setShowWalletModal] = useState(false);
   const { toast } = useToast();
@@ -66,6 +68,10 @@ export default function HomePage() {
     setCurrentMonth(
       `${newDate.getFullYear()}-${String(newDate.getMonth() + 1).padStart(2, '0')}`
     );
+  };
+
+  const handleViewTransactions = (lineItemId: string) => {
+    navigate(`/transactions?lineItemId=${lineItemId}`);
   };
 
   // Sort buckets - income first, then by order
@@ -131,21 +137,22 @@ export default function HomePage() {
         {/* Main Layout - Budget Categories */}
         <div className="space-y-4">
           {/* Income bucket - always first */}
-          {incomeBucket && (
-            <BucketCard
-              bucket={incomeBucket}
-              buckets={currentBudget.buckets}
-              transactions={currentBudget.transactions}
-              currency={currency}
-              merchants={merchants}
-              onUpdateBucket={updateBucket}
-              onDeleteBucket={deleteBucket}
-              onAddLineItem={addLineItem}
-              onUpdateLineItem={updateLineItem}
-              onDeleteLineItem={deleteLineItem}
-              onAddTransaction={addTransaction}
-            />
-          )}
+           {incomeBucket && (
+             <BucketCard
+               bucket={incomeBucket}
+               buckets={currentBudget.buckets}
+               transactions={currentBudget.transactions}
+               currency={currency}
+               merchants={merchants}
+               onUpdateBucket={updateBucket}
+               onDeleteBucket={deleteBucket}
+               onAddLineItem={addLineItem}
+               onUpdateLineItem={updateLineItem}
+               onDeleteLineItem={deleteLineItem}
+               onAddTransaction={addTransaction}
+               onViewTransactions={handleViewTransactions}
+             />
+           )}
 
           {/* Section header for expenses */}
           <div className="flex items-center justify-between pt-2">
@@ -166,25 +173,26 @@ export default function HomePage() {
             </Button>
           </div>
 
-          {/* Expense buckets */}
-          <div className="space-y-3">
-            {expenseBuckets.map((bucket) => (
-              <BucketCard
-                key={bucket.id}
-                bucket={bucket}
-                buckets={currentBudget.buckets}
-                transactions={currentBudget.transactions}
-                currency={currency}
-                merchants={merchants}
-                onUpdateBucket={updateBucket}
-                onDeleteBucket={deleteBucket}
-                onAddLineItem={addLineItem}
-                onUpdateLineItem={updateLineItem}
-                onDeleteLineItem={deleteLineItem}
-                onAddTransaction={addTransaction}
-              />
-            ))}
-          </div>
+           {/* Expense buckets */}
+           <div className="space-y-3">
+             {expenseBuckets.map((bucket) => (
+               <BucketCard
+                 key={bucket.id}
+                 bucket={bucket}
+                 buckets={currentBudget.buckets}
+                 transactions={currentBudget.transactions}
+                 currency={currency}
+                 merchants={merchants}
+                 onUpdateBucket={updateBucket}
+                 onDeleteBucket={deleteBucket}
+                 onAddLineItem={addLineItem}
+                 onUpdateLineItem={updateLineItem}
+                 onDeleteLineItem={deleteLineItem}
+                 onAddTransaction={addTransaction}
+                 onViewTransactions={handleViewTransactions}
+               />
+             ))}
+           </div>
 
           {/* Empty state for no expense buckets */}
           {expenseBuckets.length === 0 && (

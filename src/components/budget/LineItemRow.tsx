@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Trash2, GripVertical, Edit2, Check, X } from 'lucide-react';
+import { Trash2, GripVertical, Edit2, Check, X, Receipt } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
@@ -20,6 +20,7 @@ interface LineItemRowProps {
   merchants?: (BTCMapElement & { distance: number })[];
   onUpdate: (bucketId: string, lineItemId: string, updates: Partial<LineItem>) => void;
   onDelete: (bucketId: string, lineItemId: string) => void;
+  onViewTransactions?: (lineItemId: string) => void;
 }
 
 export function LineItemRow({
@@ -32,6 +33,7 @@ export function LineItemRow({
   merchants = [],
   onUpdate,
   onDelete,
+  onViewTransactions,
 }: LineItemRowProps) {
   const { data: priceData } = useBitcoinPrice();
   const [isEditing, setIsEditing] = useState(false);
@@ -221,18 +223,32 @@ export function LineItemRow({
         </div>
 
         {/* Action buttons - only on hover/desktop */}
-        <div className="hidden sm:flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          <Button
-            size="icon"
-            variant="ghost"
-            className="h-7 w-7"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleStartEdit();
-            }}
-          >
-            <Edit2 className="h-3.5 w-3.5" />
-          </Button>
+         <div className="hidden sm:flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+           {onViewTransactions && spent > 0 && (
+             <Button
+               size="icon"
+               variant="ghost"
+               className="h-7 w-7"
+               onClick={(e) => {
+                 e.stopPropagation();
+                 onViewTransactions(lineItem.id);
+               }}
+               title="View transactions for this item"
+             >
+               <Receipt className="h-3.5 w-3.5" />
+             </Button>
+           )}
+           <Button
+             size="icon"
+             variant="ghost"
+             className="h-7 w-7"
+             onClick={(e) => {
+               e.stopPropagation();
+               handleStartEdit();
+             }}
+           >
+             <Edit2 className="h-3.5 w-3.5" />
+           </Button>
           <Button
             size="icon"
             variant="ghost"

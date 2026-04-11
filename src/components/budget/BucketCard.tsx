@@ -79,13 +79,14 @@ interface BucketCardProps {
   onUpdateLineItem: (bucketId: string, lineItemId: string, updates: Partial<LineItem>) => void;
   onDeleteLineItem: (bucketId: string, lineItemId: string) => void;
   onAddTransaction?: (transaction: {
-    date: string;
-    description: string;
-    amount: number;
-    isIncome: boolean;
-    bucketId: string | null;
-    lineItemId: string | null;
-  }) => void;
+     date: string;
+     description: string;
+     amount: number;
+     isIncome: boolean;
+     bucketId: string | null;
+     lineItemId: string | null;
+   }) => void;
+  onViewTransactions?: (lineItemId: string) => void;
 }
 
 const BUCKET_COLORS = [
@@ -113,6 +114,7 @@ export function BucketCard({
   onUpdateLineItem,
   onDeleteLineItem,
   onAddTransaction,
+  onViewTransactions,
 }: BucketCardProps) {
   const { data: priceData } = useBitcoinPrice();
   const [isOpen, setIsOpen] = useState(true);
@@ -297,22 +299,23 @@ export function BucketCard({
 
             {/* Line items */}
             <div className="space-y-1">
-              {bucket.lineItems
-                .sort((a, b) => a.order - b.order)
-                .map((lineItem) => (
-                   <LineItemRow
-                     key={lineItem.id}
-                     lineItem={lineItem}
-                     bucketId={bucket.id}
-                     bucketColor={bucket.color}
-                     transactions={transactions}
-                     currency={currency}
-                     isIncome={bucket.isIncome}
-                     merchants={merchants}
-                     onUpdate={onUpdateLineItem}
-                     onDelete={onDeleteLineItem}
-                   />
-                ))}
+               {bucket.lineItems
+                 .sort((a, b) => a.order - b.order)
+                 .map((lineItem) => (
+                    <LineItemRow
+                      key={lineItem.id}
+                      lineItem={lineItem}
+                      bucketId={bucket.id}
+                      bucketColor={bucket.color}
+                      transactions={transactions}
+                      currency={currency}
+                      isIncome={bucket.isIncome}
+                      merchants={merchants}
+                      onUpdate={onUpdateLineItem}
+                      onDelete={onDeleteLineItem}
+                      onViewTransactions={onViewTransactions}
+                    />
+                 ))}
             </div>
 
              {/* Add new item / transaction buttons */}

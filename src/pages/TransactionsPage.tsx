@@ -1,9 +1,13 @@
 import { useSeoMeta } from '@unhead/react';
+import { useSearchParams } from 'react-router-dom';
 import { BudgetHeader } from '@/components/budget/BudgetHeader';
 import { TransactionsPanel } from '@/components/budget/TransactionsPanel';
 import { useBudget } from '@/hooks/useBudget';
 
 export default function TransactionsPage() {
+  const [searchParams] = useSearchParams();
+  const lineItemIdFilter = searchParams.get('lineItemId');
+
   const {
     currentBudget,
     currency,
@@ -59,15 +63,16 @@ export default function TransactionsPage() {
             </p>
           </div>
 
-          {/* Transactions Panel */}
-          <TransactionsPanel
-            transactions={currentBudget.transactions}
-            buckets={currentBudget.buckets}
-            currency={currency}
-            onAddTransaction={addTransaction}
-            onAssignTransaction={assignTransaction}
-            onDeleteTransaction={deleteTransaction}
-          />
+           {/* Transactions Panel */}
+           <TransactionsPanel
+             transactions={currentBudget.transactions}
+             buckets={currentBudget.buckets}
+             currency={currency}
+             onAddTransaction={addTransaction}
+             onAssignTransaction={assignTransaction}
+             onDeleteTransaction={deleteTransaction}
+             lineItemIdFilter={lineItemIdFilter || undefined}
+           />
         </div>
       </main>
     </div>
