@@ -1,8 +1,9 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
-import { Plus, Zap, Wallet, Info, X } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { Plus, Bitcoin, Zap, Wallet, Info, Copy } from 'lucide-react';
 import { useSeoMeta, useHead } from '@unhead/react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useToast } from '@/hooks/useToast';
 import { BudgetHeader } from '@/components/budget/BudgetHeader';
 import { BudgetDashboard } from '@/components/budget/BudgetDashboard';
 import { BucketCard } from '@/components/budget/BucketCard';
@@ -11,47 +12,22 @@ import { TransactionsPanel } from '@/components/budget/TransactionsPanel';
 import { BTCMapBanner } from '@/components/budget/BTCMapBanner';
 import { WalletModalControlled } from '@/components/budget/WalletModalControlled';
 import { QuickAddFAB } from '@/components/budget/QuickAddFAB';
-import { SyncStatusIndicator } from '@/components/budget/SyncStatusIndicator';
-import { OnboardingWelcome } from '@/components/budget/OnboardingWelcome';
-import { FirstTimeBudgetPrompt, EmptyBudgetCategories } from '@/components/budget/EmptyStates';
-import { ConflictResolutionDialog } from '@/components/budget/ConflictResolutionDialog';
-import { OfflineWarningBanner } from '@/components/budget/OfflineWarningBanner';
-import { PendingInvitationBanner } from '@/components/budget/PendingInvitationBanner';
-import { PartnerUpdateNotification } from '@/components/budget/PartnerUpdateNotification';
 import { LoginArea } from '@/components/auth/LoginArea';
-import { useBudgetStoreContext } from '@/contexts/BudgetStoreContext';
+import { useBudget } from '@/hooks/useBudget';
 import { useWallet } from '@/hooks/useWallet';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useBTCMap } from '@/hooks/useBTCMap';
-import { useNWCSync } from '@/hooks/useNWCSync';
-import { useNWC } from '@/hooks/useNWCContext';
-import { useNWCNotifications } from '@/hooks/useNWCNotifications';
-import { useOnboarding } from '@/hooks/useOnboarding';
-import { useLocalStorage } from '@/hooks/useLocalStorage';
 
 export default function Budget() {
   const [showAddBucket, setShowAddBucket] = useState(false);
   const [showWalletModal, setShowWalletModal] = useState(false);
-  const [showOnboarding, setShowOnboarding] = useState(false);
-  const [showTourPrompt, setShowTourPrompt] = useState(true);
-
-  // Transaction filter state - for filtering by bucket/line item
-  const [filterBucketId, setFilterBucketId] = useState<string | undefined>(undefined);
-  const [filterLineItemId, setFilterLineItemId] = useState<string | undefined>(undefined);
-  // Reference to scroll to transactions panel
-  const transactionsPanelRef = useRef<HTMLDivElement>(null);
+  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved');
+  const { toast } = useToast();
 
   const { user } = useCurrentUser();
-  const { hasAlbyHub, hasLNbits } = useWallet();
-  const { connections: nwcConnections } = useNWC();
+  const { hasNWC } = useWallet();
   const { merchants } = useBTCMap();
-  const { shouldShowOnboarding, hasCompletedOnboarding, completeOnboarding } = useOnboarding();
-  const [walletPromptDismissed, setWalletPromptDismissed] = useLocalStorage('wallet-prompt-dismissed', false);
 
-  // Check if user has any wallet connected
-  const hasWalletConnected = hasAlbyHub || hasLNbits || nwcConnections.length > 0;
-
-  // Use the relay-first budget store from context
   const {
     currentBudget,
     currentMonth,
@@ -65,62 +41,21 @@ export default function Budget() {
     updateLineItem,
     deleteLineItem,
     addTransaction,
-    updateTransaction,
     assignTransaction,
     deleteTransaction,
-    splitTransaction,
     duplicateFromMonth,
     getPreviousMonth,
     hasPreviousMonthBudget,
-    availableMonths,
-    syncStatus,
-    lastSyncedAt,
-    isLoggedIn,
-    isInitialLoadComplete,
-    isOnline,
-    conflictInfo,
-    resolveConflictUseRemote,
-    resolveConflictKeepLocal,
-    resolveConflictMergeBoth,
-    dismissConflict,
-    getFullBudgetState,
-    isSharedBudget,
-    refreshFromRelays,
-    // Budget Partners
-    ownerPubkey,
-    partnerPubkeys,
-    pendingInvitations,
-    sentInvitations,
-    invitePartner,
-    acceptInvitation,
-    declineInvitation,
-    cancelInvitation,
-    removePartner,
-    // Version info
-    lastEditedBy,
-    lastEditedAt,
-    // Real-time updates
-    partnerUpdateNotification,
-    clearPartnerUpdateNotification,
-    // Offline sync
-    hasUnsavedLocalChanges,
-    offlineChangesMade,
-    clearOfflineChangesFlag,
-  } = useBudgetStoreContext();
+  } = useBudget();
 
-  // Initialize NWC sync - only after initial budget load is complete
-  useNWCSync({ enabled: isInitialLoadComplete });
-
-  // Initialize real-time NWC notifications - listens for payments as they happen
-  useNWCNotifications({ enabled: isInitialLoadComplete });
-
-  // Show onboarding for new users
+  // Track save status whenever budget changes
   useEffect(() => {
-    if (shouldShowOnboarding) {
-      const timer = setTimeout(() => setShowOnboarding(true), 500);
-      return () => clearTimeout(timer);
-    }
-  }, [shouldShowOnboarding]);
+    setSaveStatus('saving');
+    const timeout = setTimeout(() => {
+      setSaveStatus('saved');
+    }, 500);
+    return () => clearTimeout(timeout);
+  }, [currentBudget]);
 
   useSeoMeta({
     title: 'Sat Sorter - Bitcoin Budget App',
@@ -129,7 +64,7 @@ export default function Budget() {
 
   useHead({
     link: [
-      { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
+      { rel: 'icon', type: 'image/svg+xml', href: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">₿</text></svg>' },
     ],
   });
 
@@ -156,36 +91,14 @@ export default function Budget() {
     return a.order - b.order;
   });
 
-  // Handler to view transactions for a specific line item
-  const handleViewTransactions = (bucketId: string, lineItemId: string) => {
-    setFilterBucketId(bucketId);
-    setFilterLineItemId(lineItemId);
-    // Scroll to transactions panel on mobile
-    setTimeout(() => {
-      transactionsPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 100);
-  };
-
-  // Clear filter when leaving the page or changing months
-  useEffect(() => {
-    setFilterBucketId(undefined);
-    setFilterLineItemId(undefined);
-  }, [currentMonth]);
-
   const incomeBucket = sortedBuckets.find(b => b.isIncome);
   const expenseBuckets = sortedBuckets.filter(b => !b.isIncome);
 
   // Count unassigned transactions
-  // Count unassigned transactions (excluding split parents since they're handled by their children)
   const unassignedCount = useMemo(() =>
-    currentBudget.transactions.filter(t => t.lineItemId === null && !t.isSplitParent).length,
+    currentBudget.transactions.filter(t => t.lineItemId === null).length,
     [currentBudget.transactions]
   );
-
-  // Convert sync status for header component
-  const headerSyncStatus = syncStatus === 'loading' || syncStatus === 'saving' ? 'syncing' :
-                           syncStatus === 'synced' ? 'synced' :
-                           syncStatus === 'error' ? 'error' : 'idle';
 
   return (
     <div className="min-h-screen bg-background">
@@ -199,59 +112,13 @@ export default function Budget() {
         onOpenWallet={() => setShowWalletModal(true)}
         onSelectMonth={setCurrentMonth}
         unassignedCount={unassignedCount}
-        syncStatus={headerSyncStatus}
-        hasUnsyncedChanges={false}
-        onManualSync={refreshFromRelays}
-        canSync={isLoggedIn}
-        // Budget Partners
-        isShared={isSharedBudget}
-        ownerPubkey={ownerPubkey}
-        partnerPubkeys={partnerPubkeys}
-        lastEditedBy={lastEditedBy}
-        lastEditedAt={lastEditedAt}
-        sentInvitations={sentInvitations}
-        onInvitePartner={invitePartner}
-        onRemovePartner={removePartner}
-        onCancelInvitation={cancelInvitation}
-        // Copy Budget
-        availableMonths={availableMonths}
-        allBudgets={getFullBudgetState().budgets}
-        onCopyFromMonth={duplicateFromMonth}
+        saveStatus={saveStatus}
+        isSynced={!!user}
       />
 
       <main className="container mx-auto px-3 sm:px-4 py-4 lg:py-6">
         {/* Alerts Section - Full width */}
         <div className="space-y-3 mb-4">
-          {/* Pending budget partner invitations */}
-          {pendingInvitations.map((invitation) => (
-            <PendingInvitationBanner
-              key={invitation.id}
-              invitation={invitation}
-              onAccept={acceptInvitation}
-              onDecline={declineInvitation}
-            />
-          ))}
-
-          {/* Offline warning for shared budgets */}
-          {(!isOnline || (isOnline && offlineChangesMade && isSharedBudget)) && (
-            <OfflineWarningBanner
-              isSharedBudget={isSharedBudget}
-              hasPendingChanges={hasUnsavedLocalChanges}
-              offlineChangesMade={offlineChangesMade}
-              isBackOnline={isOnline && offlineChangesMade}
-              onSyncNow={async () => {
-                // Force a sync - this will trigger conflict detection if needed
-                await refreshFromRelays();
-                clearOfflineChangesFlag();
-              }}
-              onDiscardChanges={async () => {
-                // Discard local changes and fetch from relays
-                await refreshFromRelays();
-                clearOfflineChangesFlag();
-              }}
-            />
-          )}
-
           {/* Login prompt for guests */}
           {!user && (
             <Alert className="border-primary/30 bg-primary/5">
@@ -265,13 +132,13 @@ export default function Budget() {
             </Alert>
           )}
 
-          {/* Wallet connection prompt - only show if not connected and not dismissed */}
-          {user && !hasWalletConnected && !walletPromptDismissed && (
-            <Alert className="border-primary/30 bg-primary/5 relative">
+          {/* NWC connection prompt */}
+          {user && !hasNWC && (
+            <Alert className="border-primary/30 bg-primary/5">
               <Zap className="h-4 w-4 text-primary" />
-              <AlertDescription className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pr-8">
+              <AlertDescription className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <span className="text-sm">
-                  Import transactions from your wallet or add them manually.
+                  Connect your Lightning wallet to track transactions automatically.
                 </span>
                 <Button
                   variant="outline"
@@ -280,34 +147,12 @@ export default function Budget() {
                   className="shrink-0"
                 >
                   <Wallet className="h-4 w-4 mr-2" />
-                  Import
+                  Connect
                 </Button>
               </AlertDescription>
-              <button
-                onClick={() => setWalletPromptDismissed(true)}
-                className="absolute top-2 right-2 p-1 rounded hover:bg-muted"
-                aria-label="Dismiss"
-              >
-                <X className="h-4 w-4 text-muted-foreground" />
-              </button>
             </Alert>
           )}
         </div>
-
-        {/* Tour prompt for users who haven't done onboarding */}
-        {!hasCompletedOnboarding && showTourPrompt && (
-          <FirstTimeBudgetPrompt
-            onStartTour={() => {
-              setShowOnboarding(true);
-              setShowTourPrompt(false);
-            }}
-            onDismiss={() => {
-              setShowTourPrompt(false);
-              completeOnboarding();
-            }}
-            className="mb-4"
-          />
-        )}
 
         {/* Main Layout - Responsive Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6">
@@ -336,7 +181,6 @@ export default function Budget() {
                 onAddLineItem={addLineItem}
                 onUpdateLineItem={updateLineItem}
                 onDeleteLineItem={deleteLineItem}
-                onViewTransactions={handleViewTransactions}
               />
             )}
 
@@ -373,41 +217,65 @@ export default function Budget() {
                   onAddLineItem={addLineItem}
                   onUpdateLineItem={updateLineItem}
                   onDeleteLineItem={deleteLineItem}
-                  onViewTransactions={handleViewTransactions}
                 />
               ))}
             </div>
 
             {/* Empty state for no expense buckets */}
             {expenseBuckets.length === 0 && (
-              <EmptyBudgetCategories
-                onAddCategory={() => setShowAddBucket(true)}
-                onCopyFromLastMonth={hasPreviousMonthBudget ? () => duplicateFromMonth(getPreviousMonth()) : undefined}
-                hasPreviousMonthBudget={hasPreviousMonthBudget}
-              />
+              <div className="text-center py-8 sm:py-12 px-6 sm:px-8 border-2 border-dashed rounded-xl">
+                <div className="h-12 w-12 sm:h-14 sm:w-14 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                  <Bitcoin className="h-6 w-6 sm:h-7 sm:w-7 text-primary" />
+                </div>
+                <h3 className="font-semibold text-base sm:text-lg mb-2">
+                  Start building your budget
+                </h3>
+                <p className="text-muted-foreground text-sm max-w-md mx-auto mb-4">
+                  Create expense categories to organize your spending. Give every sat a job.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-2 justify-center">
+                  {hasPreviousMonthBudget && (
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        const result = duplicateFromMonth(getPreviousMonth());
+                        if (result.success) {
+                          toast({
+                            title: 'Budget copied!',
+                            description: result.message,
+                          });
+                        } else if (result.message) {
+                          toast({
+                            title: 'Cannot copy budget',
+                            description: result.message,
+                            variant: 'destructive',
+                          });
+                        }
+                      }}
+                    >
+                      <Copy className="h-4 w-4 mr-2" />
+                      Copy from Last Month
+                    </Button>
+                  )}
+                  <Button onClick={() => setShowAddBucket(true)}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    {hasPreviousMonthBudget ? 'Start Fresh' : 'Add Your First Category'}
+                  </Button>
+                </div>
+              </div>
             )}
           </div>
 
           {/* Right Column - Transactions */}
-          <div className="lg:col-span-5 xl:col-span-4" ref={transactionsPanelRef}>
+          <div className="lg:col-span-5 xl:col-span-4">
             <div className="lg:sticky lg:top-6">
               <TransactionsPanel
                 transactions={currentBudget.transactions}
                 buckets={currentBudget.buckets}
                 currency={currency}
-                walletConnections={nwcConnections}
                 onAddTransaction={addTransaction}
                 onAssignTransaction={assignTransaction}
-                onUpdateTransaction={updateTransaction}
                 onDeleteTransaction={deleteTransaction}
-                onSplitTransaction={splitTransaction}
-                onOpenWallet={() => setShowWalletModal(true)}
-                initialFilterBucketId={filterBucketId}
-                initialFilterLineItemId={filterLineItemId}
-                onClearFilter={() => {
-                  setFilterBucketId(undefined);
-                  setFilterLineItemId(undefined);
-                }}
               />
             </div>
           </div>
@@ -452,42 +320,10 @@ export default function Budget() {
         />
       )}
 
-      {/* Sync Status Indicator - simplified, shows sync status */}
-      <SyncStatusIndicator
-        status={syncStatus}
-        isLoggedIn={isLoggedIn}
-        lastSyncedAt={lastSyncedAt}
-        onRefresh={refreshFromRelays}
-      />
-
       {/* Quick Add FAB */}
       <QuickAddFAB
         onAddTransaction={addTransaction}
         currency={currency}
-      />
-
-      {/* Partner Update Notification - shows when partner makes changes in real-time */}
-      <PartnerUpdateNotification
-        partnerPubkey={partnerUpdateNotification}
-        onDismiss={clearPartnerUpdateNotification}
-      />
-
-      {/* Onboarding Welcome Dialog */}
-      <OnboardingWelcome
-        open={showOnboarding}
-        onOpenChange={setShowOnboarding}
-        onComplete={completeOnboarding}
-      />
-
-      {/* Conflict Resolution Dialog */}
-      <ConflictResolutionDialog
-        open={syncStatus === 'conflict'}
-        conflictInfo={conflictInfo}
-        localState={getFullBudgetState()}
-        onUseRemote={resolveConflictUseRemote}
-        onKeepLocal={resolveConflictKeepLocal}
-        onMergeBoth={resolveConflictMergeBoth}
-        onDismiss={dismissConflict}
       />
     </div>
   );

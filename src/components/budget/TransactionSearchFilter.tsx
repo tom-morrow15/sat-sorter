@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Search, X, SlidersHorizontal } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -21,58 +21,20 @@ interface TransactionSearchFilterProps {
   transactions: Transaction[];
   buckets: Bucket[];
   onFilter: (filtered: Transaction[]) => void;
-  /** Pre-select a specific line item (used when clicking from a line item row) */
-  initialLineItemId?: string;
-  /** Pre-select a specific bucket */
-  initialBucketId?: string;
 }
 
 export function TransactionSearchFilter({
   transactions,
   buckets,
   onFilter,
-  initialLineItemId,
-  initialBucketId,
 }: TransactionSearchFilterProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedBucketId, setSelectedBucketId] = useState<string>(initialBucketId || 'all');
-  const [selectedLineItemId, setSelectedLineItemId] = useState<string>(initialLineItemId || 'all');
+  const [selectedBucketId, setSelectedBucketId] = useState<string>('all');
   const [selectedType, setSelectedType] = useState<'all' | 'income' | 'expense'>('all');
   const [sortBy, setSortBy] = useState<'date-desc' | 'date-asc' | 'amount-desc' | 'amount-asc'>(
     'date-desc'
   );
   const [showFilters, setShowFilters] = useState(false);
-
-  // Get the selected bucket for line item dropdown
-  const selectedBucket = buckets.find(b => b.id === selectedBucketId);
-
-  // Auto-apply filters when initial values change (e.g., clicking from line item)
-  useEffect(() => {
-    if (initialBucketId || initialLineItemId) {
-      const newBucketId = initialBucketId || 'all';
-      const newLineItemId = initialLineItemId || 'all';
-
-      setSelectedBucketId(newBucketId);
-      setSelectedLineItemId(newLineItemId);
-      setShowFilters(true);
-
-      // Apply the filter immediately
-      let filtered = [...transactions];
-
-      if (newBucketId !== 'all') {
-        filtered = filtered.filter((t) => t.bucketId === newBucketId);
-      }
-
-      if (newLineItemId !== 'all') {
-        filtered = filtered.filter((t) => t.lineItemId === newLineItemId);
-      }
-
-      // Sort by date descending
-      filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-      onFilter(filtered);
-    }
-  }, [initialBucketId, initialLineItemId, transactions, onFilter]);
 
   // Apply filters
   const applyFilters = () => {
@@ -90,11 +52,6 @@ export function TransactionSearchFilter({
     // Filter by bucket
     if (selectedBucketId && selectedBucketId !== 'all') {
       filtered = filtered.filter((t) => t.bucketId === selectedBucketId);
-    }
-
-    // Filter by line item
-    if (selectedLineItemId && selectedLineItemId !== 'all') {
-      filtered = filtered.filter((t) => t.lineItemId === selectedLineItemId);
     }
 
     // Filter by type
@@ -126,39 +83,17 @@ export function TransactionSearchFilter({
   const handleClearFilters = () => {
     setSearchQuery('');
     setSelectedBucketId('all');
-    setSelectedLineItemId('all');
     setSelectedType('all');
     setSortBy('date-desc');
     onFilter([]);
   };
 
-  // When bucket changes, reset line item selection
-  const handleBucketChange = (value: string) => {
-    setSelectedBucketId(value);
-    setSelectedLineItemId('all');
-  };
-
-  // Get line item name for badge display
-  const getLineItemName = () => {
-    if (selectedLineItemId === 'all') return null;
-    for (const bucket of buckets) {
-      const lineItem = bucket.lineItems.find(li => li.id === selectedLineItemId);
-      if (lineItem) return lineItem.name;
-    }
-    return null;
-  };
-
   const hasActiveFilters =
-    searchQuery.trim() ||
-    selectedBucketId !== 'all' ||
-    selectedLineItemId !== 'all' ||
-    selectedType !== 'all' ||
-    sortBy !== 'date-desc';
+    searchQuery.trim() || selectedBucketId !== 'all' || selectedType !== 'all' || sortBy !== 'date-desc';
 
   const activeFilterCount = [
     searchQuery.trim(),
     selectedBucketId !== 'all',
-    selectedLineItemId !== 'all',
     selectedType !== 'all',
     sortBy !== 'date-desc',
   ].filter(Boolean).length;
@@ -202,8 +137,8 @@ export function TransactionSearchFilter({
       <Collapsible open={showFilters} onOpenChange={setShowFilters}>
         <CollapsibleContent className="space-y-2">
           <div className="grid grid-cols-2 gap-2">
-            {/* Category (Bucket) filter */}
-            <Select value={selectedBucketId} onValueChange={handleBucketChange}>
+            {/* Category filter */}
+            <Select value={selectedBucketId} onValueChange={setSelectedBucketId}>
               <SelectTrigger className="h-9 text-xs">
                 <SelectValue placeholder="Category" />
               </SelectTrigger>
@@ -211,64 +146,26 @@ export function TransactionSearchFilter({
                 <SelectItem value="all">All categories</SelectItem>
                 {buckets.map((bucket) => (
                   <SelectItem key={bucket.id} value={bucket.id}>
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="h-2 w-2 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: bucket.color }}
-                      />
-                      {bucket.name}
-                    </div>
+                    {bucket.name}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
 
-            {/* Line Item filter - only show when bucket is selected */}
-            {selectedBucket ? (
-              <Select value={selectedLineItemId} onValueChange={setSelectedLineItemId}>
-                <SelectTrigger className="h-9 text-xs">
-                  <SelectValue placeholder="Line item" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All items</SelectItem>
-                  {selectedBucket.lineItems.map((item) => (
-                    <SelectItem key={item.id} value={item.id}>
-                      {item.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            ) : (
-              /* Type filter - show when no bucket selected */
-              <Select value={selectedType} onValueChange={(v: 'all' | 'income' | 'expense') => setSelectedType(v)}>
-                <SelectTrigger className="h-9 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All types</SelectItem>
-                  <SelectItem value="income">Income</SelectItem>
-                  <SelectItem value="expense">Expense</SelectItem>
-                </SelectContent>
-              </Select>
-            )}
+            {/* Type filter */}
+            <Select value={selectedType} onValueChange={(v: 'all' | 'income' | 'expense') => setSelectedType(v)}>
+              <SelectTrigger className="h-9 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All types</SelectItem>
+                <SelectItem value="income">Income</SelectItem>
+                <SelectItem value="expense">Expense</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
-          {/* Second row - Type filter (when bucket selected) + Sort */}
           <div className="flex gap-2">
-            {/* Type filter - show here when bucket is selected */}
-            {selectedBucket && (
-              <Select value={selectedType} onValueChange={(v: 'all' | 'income' | 'expense') => setSelectedType(v)}>
-                <SelectTrigger className="h-9 text-xs flex-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All types</SelectItem>
-                  <SelectItem value="income">Income</SelectItem>
-                  <SelectItem value="expense">Expense</SelectItem>
-                </SelectContent>
-              </Select>
-            )}
-
             {/* Sort filter */}
             <Select value={sortBy} onValueChange={(v: 'date-desc' | 'date-asc' | 'amount-desc' | 'amount-asc') => setSortBy(v)}>
               <SelectTrigger className="h-9 text-xs flex-1">
@@ -308,22 +205,8 @@ export function TransactionSearchFilter({
             </Badge>
           )}
           {selectedBucketId !== 'all' && (
-            <Badge
-              variant="secondary"
-              className="text-xs cursor-pointer hover:bg-secondary/80"
-              style={{
-                backgroundColor: `${buckets.find((b) => b.id === selectedBucketId)?.color}20`,
-                color: buckets.find((b) => b.id === selectedBucketId)?.color,
-              }}
-              onClick={() => { handleBucketChange('all'); applyFilters(); }}
-            >
+            <Badge variant="secondary" className="text-xs cursor-pointer hover:bg-secondary/80" onClick={() => { setSelectedBucketId('all'); applyFilters(); }}>
               {buckets.find((b) => b.id === selectedBucketId)?.name}
-              <X className="h-2.5 w-2.5 ml-1" />
-            </Badge>
-          )}
-          {selectedLineItemId !== 'all' && (
-            <Badge variant="secondary" className="text-xs cursor-pointer hover:bg-secondary/80" onClick={() => { setSelectedLineItemId('all'); applyFilters(); }}>
-              {getLineItemName()}
               <X className="h-2.5 w-2.5 ml-1" />
             </Badge>
           )}

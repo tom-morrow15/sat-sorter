@@ -5,13 +5,6 @@ interface SpendingProgressBarProps {
   budget: number;
   className?: string;
   showLabel?: boolean;
-  /**
-   * Optional USD values for accurate over-budget detection.
-   * When provided, these are used for the over-budget comparison instead of
-   * the display values, preventing false positives from exchange rate drift.
-   */
-  spentUsdForComparison?: number;
-  budgetUsdForComparison?: number;
 }
 
 export function SpendingProgressBar({
@@ -19,24 +12,10 @@ export function SpendingProgressBar({
   budget,
   className,
   showLabel = true,
-  spentUsdForComparison,
-  budgetUsdForComparison,
 }: SpendingProgressBarProps) {
-  // Calculate percentage spent (using display values)
+  // Calculate percentage spent
   const percentage = budget > 0 ? Math.min((spent / budget) * 100, 100) : 0;
-
-  // For over-budget detection, use USD comparison if available (more accurate)
-  // Otherwise fall back to the display values with a small tolerance
-  const isOverBudget = (() => {
-    if (spentUsdForComparison !== undefined && budgetUsdForComparison !== undefined) {
-      // Use USD comparison with small tolerance for rounding ($0.05 or 0.1%)
-      const tolerance = Math.max(0.05, budgetUsdForComparison * 0.001);
-      return spentUsdForComparison > budgetUsdForComparison + tolerance;
-    }
-    // Fallback: direct comparison with small tolerance
-    const tolerance = Math.max(10, budget * 0.001);
-    return spent > budget + tolerance;
-  })();
+  const isOverBudget = spent > budget;
 
   return (
     <div className={cn('w-full', className)}>

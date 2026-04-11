@@ -1,52 +1,40 @@
 import { useMemo } from 'react';
 import { useNWC } from '@/hooks/useNWCContext';
-import { useLocalStorage } from '@/hooks/useLocalStorage';
+import type { WebLNProvider } from '@webbtc/webln-types';
 
 export interface WalletStatus {
-  hasAlbyHub: boolean;
-  hasLNbits: boolean;
+  hasNWC: boolean;
+  webln: WebLNProvider | null;
   activeNWC: ReturnType<typeof useNWC>['getActiveConnection'] extends () => infer T ? T : null;
-  availableMethods: Array<'alby' | 'lnbits' | 'csv' | 'manual'>;
-}
-
-export interface LNbitsConfig {
-  url: string;
-  adminKey: string;
+  preferredMethod: 'nwc' | 'webln' | 'manual';
 }
 
 export function useWallet() {
   const { connections, getActiveConnection } = useNWC();
-  const [lnbitsConfig] = useLocalStorage<LNbitsConfig | null>('lnbits-config', null);
 
-  // Get the active NWC connection
+  // Get the active connection directly - no memoization to avoid stale state
   const activeNWC = getActiveConnection();
 
-  // Check connection status
-  // We consider a wallet connected if we have the connectionString stored
-  // The actual connection is established on-demand when making payments
-  const hasAlbyHub = useMemo(() => {
-    return connections.length > 0 && connections.some(c => c.connectionString);
+  // Access WebLN directly from browser global scope
+  const webln = (globalThis as { webln?: WebLNProvider }).webln || null;
+
+  // Calculate status values reactively
+  const hasNWC = useMemo(() => {
+    return connections.length > 0 && connections.some(c => c.isConnected);
   }, [connections]);
 
-  const hasLNbits = useMemo(() => {
-    return lnbitsConfig !== null && !!lnbitsConfig.url && !!lnbitsConfig.adminKey;
-  }, [lnbitsConfig]);
-
-  // Build list of available methods
-  const availableMethods = useMemo(() => {
-    const methods: Array<'alby' | 'lnbits' | 'csv' | 'manual'> = [];
-    if (hasAlbyHub) methods.push('alby');
-    if (hasLNbits) methods.push('lnbits');
-    methods.push('csv'); // Always available
-    methods.push('manual'); // Always available
-    return methods;
-  }, [hasAlbyHub, hasLNbits]);
+  // Determine preferred payment method
+  const preferredMethod: WalletStatus['preferredMethod'] = activeNWC
+    ? 'nwc'
+    : webln
+    ? 'webln'
+    : 'manual';
 
   const status: WalletStatus = {
-    hasAlbyHub,
-    hasLNbits,
+    hasNWC,
+    webln,
     activeNWC,
-    availableMethods,
+    preferredMethod,
   };
 
   return status;

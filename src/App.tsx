@@ -10,11 +10,9 @@ import { NostrSync } from '@/components/NostrSync';
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
-import { UpdatePrompt } from "@/components/UpdatePrompt";
 import { NostrLoginProvider } from '@nostrify/react/login';
 import { AppProvider } from '@/components/AppProvider';
 import { NWCProvider } from '@/contexts/NWCContext';
-import { BudgetStoreProvider } from '@/contexts/BudgetStoreContext';
 import { AppConfig } from '@/contexts/AppContext';
 import AppRouter from './AppRouter';
 
@@ -38,14 +36,12 @@ const defaultConfig: AppConfig = {
   theme: "light",
   relayMetadata: {
     relays: [
-      { url: 'wss://relay.damus.io', read: true, write: true },
-      { url: 'wss://nos.lol', read: true, write: true },
-      { url: 'wss://relay.primal.net', read: true, write: true },
+      { url: 'wss://relay.ditto.pub', read: true, write: true },
       { url: 'wss://relay.nostr.band', read: true, write: true },
+      { url: 'wss://relay.damus.io', read: true, write: true },
     ],
     updatedAt: 0,
   },
-  logoStyle: "sats",
 };
 
 export function App() {
@@ -56,18 +52,15 @@ export function App() {
           <NostrLoginProvider storageKey='nostr:login'>
             <NostrProvider>
               <NostrSync />
-              <BudgetStoreProvider>
-                <NWCProvider>
-                  <TooltipProvider>
-                    <Toaster />
-                    <OfflineIndicator />
-                    <UpdatePrompt />
-                    <Suspense>
-                      <AppRouter />
-                    </Suspense>
-                  </TooltipProvider>
-                </NWCProvider>
-              </BudgetStoreProvider>
+              <NWCProvider>
+                <TooltipProvider>
+                  <Toaster />
+                  <OfflineIndicator />
+                  <Suspense>
+                    <AppRouter />
+                  </Suspense>
+                </TooltipProvider>
+              </NWCProvider>
             </NostrProvider>
           </NostrLoginProvider>
         </QueryClientProvider>

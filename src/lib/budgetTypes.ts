@@ -2,9 +2,7 @@
 
 export interface Transaction {
   id: string;
-  amount: number; // in sats (derived from USD if usdAmount is set)
-  usdAmount?: number; // if set, this is the "source of truth" and sats are recalculated
-  usdPerBtcAtEntry?: number; // Exchange rate at time of entry (for USD drift prevention)
+  amount: number; // in sats
   description: string;
   date: string; // ISO date string
   lineItemId: string | null; // null means unassigned
@@ -13,30 +11,14 @@ export interface Transaction {
   preimage?: string;
   isIncome: boolean;
   source?: 'manual' | 'strike' | 'nwc' | 'zap'; // Track transaction source
-  sourceWallet?: string; // Which wallet connection this came from (NWC alias)
-  sourceWalletId?: string; // The connection string ID for the wallet
   merchantName?: string; // Merchant name from Strike or payment processor
   categoryHint?: string; // Auto-detected category hint from merchant data
-  // Split transaction support
-  parentTransactionId?: string; // If this is a split, references the original transaction
-  isSplitParent?: boolean; // True if this transaction has been split into multiple parts
-}
-
-// Represents a single split allocation
-export interface SplitAllocation {
-  bucketId: string;
-  lineItemId: string;
-  amount: number; // in sats
-  usdAmount?: number;
-  description?: string; // Optional note for this split portion
 }
 
 export interface LineItem {
   id: string;
   name: string;
-  plannedAmount: number; // in sats (derived from USD if usdAmount is set)
-  usdAmount?: number; // if set, this is the "source of truth" and sats are recalculated
-  usdPerBtcAtEntry?: number; // Exchange rate at time of entry (for USD drift prevention)
+  plannedAmount: number; // in sats
   order: number;
 }
 
@@ -61,68 +43,7 @@ export interface BudgetState {
   currentMonth: string;
   budgets: MonthlyBudget[];
   currency: 'sats' | 'usd';
-
-  // Sharing & versioning (Phase 1+)
-  budgetId?: string;              // Unique identifier for this budget
-  version?: number;               // Incrementing version for conflict detection
-  lastEditedBy?: string;          // Pubkey of last editor
-  lastEditedAt?: number;          // Timestamp of last edit
-
-  // Budget partners (Phase 2+)
-  isShared?: boolean;             // Is this a collaborative budget?
-  ownerPubkey?: string;           // Who created/owns this budget
-  partnerPubkeys?: string[];      // All budget partners (including owner)
-}
-
-// Budget invitation for partner invites
-export interface BudgetInvitation {
-  type: 'budget-invite';
-  budgetId: string;
-  budgetName: string;
-  ownerPubkey: string;
-  createdAt: number;
-}
-
-// Pending invitation with metadata
-export interface PendingInvitation {
-  id: string;                     // Event ID
-  invitation: BudgetInvitation;
-  fromPubkey: string;
-  receivedAt: number;
-}
-
-// Sent invitation (for cancellation tracking)
-export interface SentInvitation {
-  id: string;                     // Event ID
-  toPubkey: string;               // Recipient pubkey
-  budgetId: string;
-  budgetName: string;
-  sentAt: number;
-}
-
-// Budget diff for conflict resolution review
-export interface BudgetDiff {
-  // Line item changes
-  lineItemChanges: {
-    type: 'added' | 'removed' | 'modified';
-    bucketName: string;
-    lineItemName: string;
-    localAmount?: number;
-    remoteAmount?: number;
-  }[];
-  // Transaction changes
-  transactionChanges: {
-    type: 'added' | 'removed' | 'modified';
-    description: string;
-    amount: number;
-    isLocal: boolean; // true if this change is local, false if remote
-  }[];
-  // Bucket changes
-  bucketChanges: {
-    type: 'added' | 'removed';
-    name: string;
-    isLocal: boolean;
-  }[];
+  lastSynced?: number; // Unix timestamp of last Nostr sync
 }
 
 // Helper to generate unique IDs
@@ -222,27 +143,9 @@ export function formatMonth(monthStr: string): string {
   return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 }
 
-// Calculate totals (in sats)
+// Calculate totals
 export function calculateBucketTotal(bucket: Bucket): number {
   return bucket.lineItems.reduce((sum, item) => sum + item.plannedAmount, 0);
-}
-
-// Calculate bucket total in USD respecting stored USD amounts
-export function calculateBucketTotalForDisplay(bucket: Bucket, usdPerBtc: number, currency: 'sats' | 'usd'): { sats: number; usd: number } {
-  let totalSats = 0;
-  let totalUsd = 0;
-
-  bucket.lineItems.forEach(item => {
-    totalSats += item.plannedAmount;
-    // Use stored USD amount if available, otherwise convert from sats
-    if (item.usdAmount !== undefined) {
-      totalUsd += item.usdAmount;
-    } else {
-      totalUsd += (item.plannedAmount / 100_000_000) * usdPerBtc;
-    }
-  });
-
-  return { sats: totalSats, usd: totalUsd };
 }
 
 export function calculateTotalIncome(buckets: Bucket[]): number {
@@ -261,54 +164,14 @@ export function calculateRemainingToBudget(buckets: Bucket[]): number {
   return calculateTotalIncome(buckets) - calculateTotalExpenses(buckets);
 }
 
-// Calculate totals in USD (using stored USD amounts when available)
-export function calculateBucketTotalUsd(bucket: Bucket, usdPerBtc: number): number {
-  return bucket.lineItems.reduce((sum, item) => {
-    // Use stored USD amount if available, otherwise convert from sats
-    if (item.usdAmount !== undefined) {
-      return sum + item.usdAmount;
-    }
-    return sum + (item.plannedAmount / 100_000_000) * usdPerBtc;
-  }, 0);
-}
-
-export function calculateTotalIncomeUsd(buckets: Bucket[], usdPerBtc: number): number {
-  return buckets
-    .filter(b => b.isIncome)
-    .reduce((sum, bucket) => sum + calculateBucketTotalUsd(bucket, usdPerBtc), 0);
-}
-
-export function calculateTotalExpensesUsd(buckets: Bucket[], usdPerBtc: number): number {
-  return buckets
-    .filter(b => !b.isIncome)
-    .reduce((sum, bucket) => sum + calculateBucketTotalUsd(bucket, usdPerBtc), 0);
-}
-
-export function calculateRemainingToBudgetUsd(buckets: Bucket[], usdPerBtc: number): number {
-  return calculateTotalIncomeUsd(buckets, usdPerBtc) - calculateTotalExpensesUsd(buckets, usdPerBtc);
-}
-
-// Calculate spent amount for a line item (in sats)
+// Calculate spent amount for a line item
 export function calculateSpentForLineItem(lineItemId: string, transactions: Transaction[]): number {
   return transactions
     .filter(t => t.lineItemId === lineItemId && !t.isIncome)
     .reduce((sum, t) => sum + t.amount, 0);
 }
 
-// Calculate spent amount for a line item in USD respecting stored USD amounts
-export function calculateSpentForLineItemUsd(lineItemId: string, transactions: Transaction[], usdPerBtc: number): number {
-  return transactions
-    .filter(t => t.lineItemId === lineItemId && !t.isIncome)
-    .reduce((sum, t) => {
-      // Use stored USD amount if available, otherwise convert from sats
-      if (t.usdAmount !== undefined) {
-        return sum + t.usdAmount;
-      }
-      return sum + (t.amount / 100_000_000) * usdPerBtc;
-    }, 0);
-}
-
-// Calculate spent amount for a bucket (in sats)
+// Calculate spent amount for a bucket
 export function calculateSpentForBucket(bucket: Bucket, transactions: Transaction[]): number {
   return bucket.lineItems.reduce(
     (sum, item) => sum + calculateSpentForLineItem(item.id, transactions),
@@ -316,118 +179,7 @@ export function calculateSpentForBucket(bucket: Bucket, transactions: Transactio
   );
 }
 
-// Calculate spent amount for a bucket in USD (respecting stored USD amounts)
-export function calculateSpentForBucketUsd(bucket: Bucket, transactions: Transaction[], usdPerBtc: number): number {
-  return bucket.lineItems.reduce(
-    (sum, item) => sum + calculateSpentForLineItemUsd(item.id, transactions, usdPerBtc),
-    0
-  );
-}
-
 // Get unassigned transactions
 export function getUnassignedTransactions(transactions: Transaction[]): Transaction[] {
   return transactions.filter(t => t.lineItemId === null);
-}
-
-// Compute diff between local and remote budget states for the current month
-export function computeBudgetDiff(
-  localBudget: MonthlyBudget | undefined,
-  remoteBudget: MonthlyBudget | undefined
-): BudgetDiff {
-  const diff: BudgetDiff = {
-    lineItemChanges: [],
-    transactionChanges: [],
-    bucketChanges: [],
-  };
-
-  if (!localBudget && !remoteBudget) return diff;
-
-  const localBuckets = localBudget?.buckets || [];
-  const remoteBuckets = remoteBudget?.buckets || [];
-  const localTransactions = localBudget?.transactions || [];
-  const remoteTransactions = remoteBudget?.transactions || [];
-
-  // Create maps for comparison
-  const localBucketMap = new Map(localBuckets.map(b => [b.name, b]));
-  const remoteBucketMap = new Map(remoteBuckets.map(b => [b.name, b]));
-
-  // Find bucket changes
-  for (const [name, bucket] of localBucketMap) {
-    if (!remoteBucketMap.has(name)) {
-      diff.bucketChanges.push({ type: 'added', name, isLocal: true });
-    }
-  }
-  for (const [name] of remoteBucketMap) {
-    if (!localBucketMap.has(name)) {
-      diff.bucketChanges.push({ type: 'added', name, isLocal: false });
-    }
-  }
-
-  // Find line item changes within matching buckets
-  for (const [bucketName, localBucket] of localBucketMap) {
-    const remoteBucket = remoteBucketMap.get(bucketName);
-    if (!remoteBucket) continue;
-
-    const localItemMap = new Map(localBucket.lineItems.map(li => [li.name, li]));
-    const remoteItemMap = new Map(remoteBucket.lineItems.map(li => [li.name, li]));
-
-    for (const [itemName, localItem] of localItemMap) {
-      const remoteItem = remoteItemMap.get(itemName);
-      if (!remoteItem) {
-        diff.lineItemChanges.push({
-          type: 'added',
-          bucketName,
-          lineItemName: itemName,
-          localAmount: localItem.plannedAmount,
-        });
-      } else if (localItem.plannedAmount !== remoteItem.plannedAmount) {
-        diff.lineItemChanges.push({
-          type: 'modified',
-          bucketName,
-          lineItemName: itemName,
-          localAmount: localItem.plannedAmount,
-          remoteAmount: remoteItem.plannedAmount,
-        });
-      }
-    }
-
-    for (const [itemName, remoteItem] of remoteItemMap) {
-      if (!localItemMap.has(itemName)) {
-        diff.lineItemChanges.push({
-          type: 'added',
-          bucketName,
-          lineItemName: itemName,
-          remoteAmount: remoteItem.plannedAmount,
-        });
-      }
-    }
-  }
-
-  // Find transaction changes
-  const localTxMap = new Map(localTransactions.map(t => [t.id, t]));
-  const remoteTxMap = new Map(remoteTransactions.map(t => [t.id, t]));
-
-  for (const [id, localTx] of localTxMap) {
-    if (!remoteTxMap.has(id)) {
-      diff.transactionChanges.push({
-        type: 'added',
-        description: localTx.description,
-        amount: localTx.amount,
-        isLocal: true,
-      });
-    }
-  }
-
-  for (const [id, remoteTx] of remoteTxMap) {
-    if (!localTxMap.has(id)) {
-      diff.transactionChanges.push({
-        type: 'added',
-        description: remoteTx.description,
-        amount: remoteTx.amount,
-        isLocal: false,
-      });
-    }
-  }
-
-  return diff;
 }

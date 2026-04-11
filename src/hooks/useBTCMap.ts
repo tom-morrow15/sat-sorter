@@ -1,5 +1,4 @@
-import { useCallback } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 
 export interface BTCMapElement {
@@ -49,7 +48,6 @@ export interface LocationSettings {
   lon: number | null;
   radiusMiles: number;
   locationName: string; // User-friendly name
-  showATMs: boolean; // Whether to include Bitcoin ATMs in results
 }
 
 const DEFAULT_LOCATION_SETTINGS: LocationSettings = {
@@ -57,7 +55,6 @@ const DEFAULT_LOCATION_SETTINGS: LocationSettings = {
   lon: null,
   radiusMiles: 25,
   locationName: '',
-  showATMs: false, // Default to hiding ATMs
 };
 
 // Category mappings from BTCMap categories to our budget line items
@@ -235,10 +232,6 @@ export function lineItemMatchesMerchant(lineItemName: string, merchants: BTCMapE
     .split(/[\s\/\-&]+/)
     .filter(word => word.length > 2 && !ignoreWords.includes(word));
 
-  // For specific line items like "Gas", be strict about category matching
-  // to avoid matching restaurants that have "gastro" cuisine
-  const isSpecificLineItem = ['gas', 'fuel', 'car payment', 'insurance', 'rent', 'mortgage'].some(item => lowerName === item);
-
   const matches = merchants.filter(merchant => {
     // EXCLUDE ATMs from line item matching
     if (isATM(merchant)) {
@@ -260,34 +253,6 @@ export function lineItemMatchesMerchant(lineItemName: string, merchants: BTCMapE
     // Line item includes merchant name (e.g., "Dinner at Steak n Shake" matches "Steak n Shake")
     if (lowerName.includes(merchantName) && merchantName.length > 3) {
       return true;
-    }
-
-    // STRICT CATEGORY MATCHING for specific line items
-    // For items like "Gas", only match if the category explicitly indicates it's a gas station
-    if (isSpecificLineItem) {
-      // For "Gas" - only match fuel category, not restaurants with "gastro" cuisine
-      if (lowerName === 'gas' || lowerName === 'fuel') {
-        // Must be explicitly a fuel/gas station
-        const isFuelStation = category === 'fuel' ||
-                            amenity === 'fuel' ||
-                            shop === 'fuel' ||
-                            merchantName.includes('gas station') ||
-                            merchantName.match(/chevron|shell|exxon|bp|mobil|speedway|wawa|circle|pilot/);
-        return isFuelStation;
-      }
-
-      // For "Car Payment" or "Car Insurance" - only match automotive finance
-      if (lowerName.includes('car payment') || lowerName.includes('car insurance')) {
-        return category === 'car_rental' ||
-               category === 'car_repair' ||
-               amenity === 'car_rental' ||
-               shop === 'car_rental';
-      }
-
-      // For rent/mortgage - don't auto-match merchants
-      if (lowerName === 'rent' || lowerName === 'mortgage') {
-        return false; // These are manual entries, not merchant-based
-      }
     }
 
     // WORD-BY-WORD MATCHING - check individual words
@@ -326,6 +291,12 @@ export function lineItemMatchesMerchant(lineItemName: string, merchants: BTCMapE
 
     return keywordMatch || categoryMatch;
   });
+
+  // Log for debugging if we found matches
+  if (matches.length > 0) {
+    console.log(`[BTCMap] Matched "${lineItemName}" to ${matches.length} merchant(s):`,
+      matches.map(m => m.osm_json.tags.name || m.osm_json.tags['name:en']).slice(0, 3));
+  }
 
   return matches;
 }
@@ -373,6 +344,9 @@ async function fetchAllMerchants(): Promise<BTCMapElement[]> {
   // Filter out deleted merchants
   const activeMerchants = elements.filter(el => !el.deleted_at || el.deleted_at === '');
 
+  // Log stats for debugging
+  console.log(`[BTCMap] Fetched ${activeMerchants.length} active merchants out of ${elements.length} total`);
+
   return activeMerchants;
 }
 
@@ -381,11 +355,10 @@ function filterMerchantsByLocation(
   merchants: BTCMapElement[],
   lat: number,
   lon: number,
-  radiusKm: number,
-  showATMs: boolean = false
+  radiusKm: number
 ): (BTCMapElement & { distance: number })[] {
   return merchants
-    .filter(merchant => showATMs || !isATM(merchant))
+    .filter(merchant => !isATM(merchant))
     .map(merchant => ({
       ...merchant,
       distance: calculateDistance(lat, lon, merchant.osm_json.lat, merchant.osm_json.lon),
@@ -402,21 +375,16 @@ export function useLocationSettings() {
   );
 
   const updateLocation = (lat: number, lon: number, radiusMiles: number, locationName: string) => {
-    setSettings(prev => ({
-      ...prev,
+    setSettings({
       lat,
       lon,
       radiusMiles,
       locationName,
-    }));
+    });
   };
 
   const updateRadius = (radiusMiles: number) => {
     setSettings(prev => ({ ...prev, radiusMiles }));
-  };
-
-  const toggleShowATMs = () => {
-    setSettings(prev => ({ ...prev, showATMs: !prev.showATMs }));
   };
 
   const clearLocation = () => {
@@ -430,45 +398,21 @@ export function useLocationSettings() {
     hasLocation,
     updateLocation,
     updateRadius,
-    toggleShowATMs,
     clearLocation,
   };
 }
 
 // Main hook for BTCMap integration
 export function useBTCMap() {
-  const { settings, hasLocation, toggleShowATMs } = useLocationSettings();
-  const queryClient = useQueryClient();
+  const { settings, hasLocation } = useLocationSettings();
 
   // Fetch all merchants once and cache
   const allMerchantsQuery = useQuery({
     queryKey: ['btcmap-all-merchants'],
     queryFn: fetchAllMerchants,
-    staleTime: 1800000, // 30 minutes - data considered fresh
-    gcTime: 3600000, // 1 hour - keep in cache
-    refetchOnWindowFocus: false,
+    staleTime: 1800000, // 30 minutes
+    gcTime: 3600000, // 1 hour
   });
-
-  // Force refetch that invalidates cache first to ensure fresh data
-  const forceRefetch = useCallback(async () => {
-    console.log('[BTCMap] Manual refresh triggered');
-    try {
-      // First, invalidate the cache completely
-      await queryClient.invalidateQueries({ queryKey: ['btcmap-all-merchants'] });
-
-      // Then fetch fresh data directly from the API
-      const freshMerchants = await fetchAllMerchants();
-
-      // Update the cache with the fresh data
-      queryClient.setQueryData(['btcmap-all-merchants'], freshMerchants);
-
-      console.log('[BTCMap] Refresh complete, got', freshMerchants.length, 'merchants');
-      return { data: freshMerchants };
-    } catch (error) {
-      console.error('[BTCMap] Refresh failed:', error);
-      throw error;
-    }
-  }, [queryClient]);
 
   // Filter by user's location
   const merchants = allMerchantsQuery.data && hasLocation && settings.lat && settings.lon
@@ -476,20 +420,18 @@ export function useBTCMap() {
         allMerchantsQuery.data,
         settings.lat,
         settings.lon,
-        milesToKm(settings.radiusMiles),
-        settings.showATMs
+        milesToKm(settings.radiusMiles)
       )
     : [];
 
   return {
     merchants,
-    isLoading: allMerchantsQuery.isLoading || allMerchantsQuery.isFetching,
+    isLoading: allMerchantsQuery.isLoading,
     error: allMerchantsQuery.error instanceof Error ? allMerchantsQuery.error.message : null,
     hasLocation,
     settings,
     totalMerchants: allMerchantsQuery.data?.length || 0,
-    refetch: forceRefetch,
-    toggleShowATMs,
+    refetch: allMerchantsQuery.refetch,
   };
 }
 

@@ -23,42 +23,8 @@ import {
   Baby,
   Dog,
   Stethoscope,
-  Church,
-  Maximize2,
-  AlertCircle,
-  CreditCard,
-  Zap,
-  Smartphone,
-  Wifi,
-  MapPin,
-  Ticket,
-  Gamepad2,
-  BookOpen,
-  Leaf,
-  Droplet,
-  Flame,
-  Wrench,
-  TreePine,
-  Eye,
-  TrendingUp,
-  TrendingDown,
-  PawPrint,
-  Trophy,
-  Target,
-  Watch,
-  Headphones,
-  Sun,
-  Cloud,
-  Sparkles,
-  Lock,
-  Coffee,
-  Wine,
-  Pizza,
-  Apple,
-  Bike,
 } from 'lucide-react';
 import { SpendingProgressBar } from './SpendingProgressBar';
-import { IncomeProgressBar } from './IncomeProgressBar';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -76,94 +42,28 @@ import {
 } from '@/components/ui/collapsible';
 import { LineItemRow } from './LineItemRow';
 import { useBitcoinPrice, formatSats, satsToUsd, formatUsd } from '@/hooks/useBitcoinPrice';
-import { calculateBucketTotal, calculateSpentForBucket, calculateSpentForBucketUsd, calculateBucketTotalForDisplay } from '@/lib/budgetTypes';
+import { calculateBucketTotal, calculateSpentForBucket } from '@/lib/budgetTypes';
 import type { Bucket, LineItem, Transaction } from '@/lib/budgetTypes';
 import type { BTCMapElement } from '@/hooks/useBTCMap';
 import { cn } from '@/lib/utils';
 
-// Complete icon map matching all icons available in AddBucketDialog
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
-  // Housing & Utilities
   home: Home,
-  maximize: Maximize2,
-  zap: Zap,
-  droplet: Droplet,
-  wifi: Wifi,
-  wrench: Wrench,
-  flame: Flame,
-
-  // Transportation
   car: Car,
-  bike: Bike,
-  'map-pin': MapPin,
-  ticket: Ticket,
-
-  // Food & Dining
   utensils: Utensils,
-  coffee: Coffee,
-  pizza: Pizza,
-  apple: Apple,
-  wine: Wine,
-
-  // Shopping
-  'shopping-bag': ShoppingBag,
-  palette: Palette,
-  watch: Watch,
-
-  // Technology & Electronics
-  smartphone: Smartphone,
-  headphones: Headphones,
-  eye: Eye,
-
-  // Financial
-  wallet: Wallet,
-  'credit-card': CreditCard,
-  'trending-up': TrendingUp,
-  'trending-down': TrendingDown,
-  'piggy-bank': PiggyBank,
-
-  // Entertainment
-  music: Music,
-  gamepad: Gamepad2,
-  film: Ticket,
-  sparkles: Sparkles,
-
-  // Health & Wellness
-  stethoscope: Stethoscope,
   heart: Heart,
-  dumbbell: Dumbbell,
-
-  // Education
-  'graduation-cap': GraduationCap,
-  'book-open': BookOpen,
-  scroll: Leaf, // Using Leaf as fallback since Scroll might not be available
-
-  // Travel & Vacation
-  plane: Plane,
-  'tree-pine': TreePine,
-  sun: Sun,
-
-  // Personal Services
-  lock: Lock,
+  'piggy-bank': PiggyBank,
+  wallet: Wallet,
+  'shopping-bag': ShoppingBag,
   briefcase: Briefcase,
-
-  // Family & Kids
-  baby: Baby,
-  'paw-print': PawPrint,
-  dog: Dog,
-
-  // Giving & Donations
-  church: Church,
+  'graduation-cap': GraduationCap,
+  plane: Plane,
   gift: Gift,
-
-  // Subscriptions & Services
-  cloud: Cloud,
-  alert: AlertCircle,
-  lightning: Zap,
-
-  // Goals & Tracking
-  target: Target,
-  trophy: Trophy,
+  music: Music,
+  dumbbell: Dumbbell,
+  baby: Baby,
+  dog: Dog,
+  stethoscope: Stethoscope,
 };
 
 interface BucketCardProps {
@@ -176,7 +76,6 @@ interface BucketCardProps {
   onAddLineItem: (bucketId: string, name: string) => void;
   onUpdateLineItem: (bucketId: string, lineItemId: string, updates: Partial<LineItem>) => void;
   onDeleteLineItem: (bucketId: string, lineItemId: string) => void;
-  onViewTransactions?: (bucketId: string, lineItemId: string) => void;
 }
 
 const BUCKET_COLORS = [
@@ -202,7 +101,6 @@ export function BucketCard({
   onAddLineItem,
   onUpdateLineItem,
   onDeleteLineItem,
-  onViewTransactions,
 }: BucketCardProps) {
   const { data: priceData } = useBitcoinPrice();
   const [isOpen, setIsOpen] = useState(true);
@@ -213,29 +111,17 @@ export function BucketCard({
 
   const Icon = iconMap[bucket.icon] || Wallet;
   const total = calculateBucketTotal(bucket);
-  const spentSats = calculateSpentForBucket(bucket, transactions);
-  const spentUsd = priceData ? calculateSpentForBucketUsd(bucket, transactions, priceData.usdPerBtc) : 0;
+  const spent = calculateSpentForBucket(bucket, transactions);
 
-  // Get display totals that respect stored USD amounts
-  const displayTotals = priceData ? calculateBucketTotalForDisplay(bucket, priceData.usdPerBtc, currency) : { sats: total, usd: 0 };
-
-  // Check if bucket has USD-sourced line items (for accurate over-budget detection)
-  const hasUsdSourcedLineItems = bucket.lineItems.some(li => li.usdAmount !== undefined);
-  // Check if any transactions for this bucket have USD source
-  const bucketTransactions = transactions.filter(t =>
-    bucket.lineItems.some(li => li.id === t.lineItemId) && !t.isIncome
-  );
-  const hasUsdSourcedTransactions = bucketTransactions.some(t => t.usdAmount !== undefined);
-  // Use USD comparison when both line items and transactions have USD sources
-  const useUsdForComparison = hasUsdSourcedLineItems && hasUsdSourcedTransactions && priceData;
-
-  const formatAmount = (sats: number, lineItem?: LineItem) => {
+  const formatAmount = (sats: number, compact = false) => {
     if (currency === 'usd' && priceData) {
-      // Use stored USD amount if available (preserves original USD input)
-      if (lineItem?.usdAmount !== undefined) {
-        return formatUsd(lineItem.usdAmount);
-      }
       return formatUsd(satsToUsd(sats, priceData.usdPerBtc));
+    }
+    if (compact && sats >= 1_000_000) {
+      return `${(sats / 1_000_000).toFixed(1)}M`;
+    }
+    if (compact && sats >= 10_000) {
+      return `${(sats / 1_000).toFixed(0)}K`;
     }
     return `${formatSats(sats)} sats`;
   };
@@ -313,29 +199,13 @@ export function BucketCard({
                     bucket.isIncome && 'text-success'
                   )}
                 >
-                  {currency === 'usd' && priceData ? (
-                    formatUsd(displayTotals.usd)
-                  ) : (
-                    formatAmount(total)
-                  )}
+                  <span className="sm:hidden">{formatAmount(total, true)}</span>
+                  <span className="hidden sm:inline">{formatAmount(total)}</span>
                 </p>
                 {!bucket.isIncome && total > 0 && (
                   <p className="text-[10px] sm:text-xs text-muted-foreground tabular-nums">
-                    {currency === 'usd' && priceData ? (
-                      `${formatUsd(spentUsd)} spent`
-                    ) : (
-                      `${formatAmount(spentSats)} spent`
-                    )}
-                  </p>
-                )}
-
-                {bucket.isIncome && total > 0 && (
-                  <p className="text-[10px] sm:text-xs text-success tabular-nums">
-                    {currency === 'usd' && priceData ? (
-                      `${formatUsd(spentUsd)} earned`
-                    ) : (
-                      `${formatAmount(spentSats)} earned`
-                    )}
+                    <span className="sm:hidden">{formatAmount(spent, true)} spent</span>
+                    <span className="hidden sm:inline">{formatAmount(spent)} spent</span>
                   </p>
                 )}
               </div>
@@ -408,24 +278,7 @@ export function BucketCard({
             {/* Progress bar for expenses */}
             {!bucket.isIncome && total > 0 && (
               <div className="mb-4 pb-4 border-b">
-                <SpendingProgressBar
-                  spent={currency === 'usd' ? spentUsd : spentSats}
-                  budget={currency === 'usd' ? displayTotals.usd : total}
-                  showLabel={true}
-                  spentUsdForComparison={useUsdForComparison ? spentUsd : undefined}
-                  budgetUsdForComparison={useUsdForComparison ? displayTotals.usd : undefined}
-                />
-              </div>
-            )}
-
-            {/* Progress bar for income */}
-            {bucket.isIncome && total > 0 && (
-              <div className="mb-4 pb-4 border-b">
-                <IncomeProgressBar
-                  earned={currency === 'usd' ? spentUsd : spentSats}
-                  target={currency === 'usd' ? displayTotals.usd : total}
-                  showLabel={true}
-                />
+                <SpendingProgressBar spent={spent} budget={total} showLabel={true} />
               </div>
             )}
 
@@ -445,7 +298,6 @@ export function BucketCard({
                     merchants={merchants}
                     onUpdate={onUpdateLineItem}
                     onDelete={onDeleteLineItem}
-                    onViewTransactions={onViewTransactions}
                   />
                 ))}
             </div>

@@ -1,10 +1,8 @@
-import { useState, useMemo } from 'react';
-import { Bitcoin, DollarSign, ChevronLeft, ChevronRight, Wallet, Moon, Sun, Zap, Calendar, Menu, Info, Heart, ExternalLink, Shield, Globe, GraduationCap, LogIn, Wifi, Loader2, Check, AlertCircle, HelpCircle, Download, BookOpen, MessageSquare, RotateCcw, Key, Users, Copy, Star } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Bitcoin, DollarSign, ChevronLeft, ChevronRight, Wallet, Moon, Sun, Zap, Calendar, Menu, Info, Heart, ExternalLink, Shield, Globe, GraduationCap, User, LogIn, UserPlus, Cloud, CheckCircle2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { useAuthor } from '@/hooks/useAuthor';
-import { genUserName } from '@/lib/genUserName';
 import {
   Dialog,
   DialogContent,
@@ -20,15 +18,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
 import { useBitcoinPrice, formatSats, satsToUsd, formatUsd } from '@/hooks/useBitcoinPrice';
 import {
   calculateTotalIncome,
   calculateTotalExpenses,
   calculateRemainingToBudget,
-  calculateTotalIncomeUsd,
-  calculateTotalExpensesUsd,
-  calculateRemainingToBudgetUsd,
   formatMonth,
 } from '@/lib/budgetTypes';
 import type { Bucket } from '@/lib/budgetTypes';
@@ -38,16 +32,9 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { AccountSwitcher } from '@/components/auth/AccountSwitcher';
 import LoginDialog from '@/components/auth/LoginDialog';
 import { useAppContext } from '@/hooks/useAppContext';
-
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { genUserName } from '@/lib/genUserName';
 import { BackupRestoreDialog } from './BackupRestoreDialog';
-import { DataExportDialog } from './DataExportDialog';
-import { OnboardingWelcome } from './OnboardingWelcome';
-import { BudgetPartnersDialog } from './BudgetPartnersDialog';
-import { CopyBudgetDialog } from './CopyBudgetDialog';
-import { DevelopmentSupportersDialog } from './DevelopmentSupportersDialog';
-import { useOnboarding } from '@/hooks/useOnboarding';
-import { useAppUpdate } from '@/hooks/useAppUpdate';
-import { useNWCSync } from '@/hooks/useNWCSync';
 
 interface BudgetHeaderProps {
   buckets: Bucket[];
@@ -59,24 +46,8 @@ interface BudgetHeaderProps {
   onOpenWallet: () => void;
   onSelectMonth?: (month: string) => void;
   unassignedCount?: number;
-  syncStatus?: 'idle' | 'syncing' | 'synced' | 'error';
-  hasUnsyncedChanges?: boolean;
-  onManualSync?: () => void;
-  canSync?: boolean;
-  // Budget Partners
-  isShared?: boolean;
-  ownerPubkey?: string;
-  partnerPubkeys?: string[];
-  lastEditedBy?: string;
-  lastEditedAt?: number;
-  sentInvitations?: import('@/lib/budgetTypes').SentInvitation[];
-  onInvitePartner?: (npub: string) => Promise<boolean>;
-  onRemovePartner?: (pubkey: string) => Promise<boolean>;
-  onCancelInvitation?: (invitation: import('@/lib/budgetTypes').SentInvitation) => Promise<boolean>;
-  // Copy Budget
-  availableMonths?: string[];
-  allBudgets?: import('@/lib/budgetTypes').MonthlyBudget[];
-  onCopyFromMonth?: (sourceMonth: string) => boolean;
+  saveStatus?: 'saved' | 'saving' | 'error';
+  isSynced?: boolean;
 }
 
 export function BudgetHeader({
@@ -89,22 +60,8 @@ export function BudgetHeader({
   onOpenWallet,
   onSelectMonth,
   unassignedCount = 0,
-  syncStatus = 'idle',
-  hasUnsyncedChanges = false,
-  onManualSync,
-  canSync = false,
-  isShared = false,
-  ownerPubkey,
-  partnerPubkeys = [],
-  lastEditedBy,
-  lastEditedAt,
-  sentInvitations = [],
-  onInvitePartner,
-  onRemovePartner,
-  onCancelInvitation,
-  availableMonths = [],
-  allBudgets = [],
-  onCopyFromMonth,
+  saveStatus = 'saved',
+  isSynced = false,
 }: BudgetHeaderProps) {
   const { data: priceData, isLoading: priceLoading } = useBitcoinPrice();
   const { isDark, toggle: toggleTheme } = useTheme();
@@ -114,19 +71,6 @@ export function BudgetHeader({
   const [showBitcoinEdu, setShowBitcoinEdu] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
   const [showBackup, setShowBackup] = useState(false);
-  const [showBitcoinProjects, setShowBitcoinProjects] = useState(false);
-  const [showFAQ, setShowFAQ] = useState(false);
-  const [showDataExport, setShowDataExport] = useState(false);
-  const [showOnboardingTour, setShowOnboardingTour] = useState(false);
-  const [showFeedback, setShowFeedback] = useState(false);
-  const [showClearSyncHistory, setShowClearSyncHistory] = useState(false);
-  const [showBudgetPartners, setShowBudgetPartners] = useState(false);
-  const [showCopyBudget, setShowCopyBudget] = useState(false);
-  const [showDevelopmentSupporters, setShowDevelopmentSupporters] = useState(false);
-
-  const { completeOnboarding } = useOnboarding();
-  const { updateAvailable, performUpdate } = useAppUpdate();
-  const { clearSyncHistory, isSyncing } = useNWCSync();
 
   // Generate list of months for picker (current month + 11 months back + 6 months forward)
   const getAvailableMonths = () => {
@@ -145,40 +89,21 @@ export function BudgetHeader({
     return months;
   };
 
-  // Calculate totals - use USD functions when in USD mode to respect stored USD amounts
-  const totalIncomeSats = calculateTotalIncome(buckets);
-  const totalExpensesSats = calculateTotalExpenses(buckets);
-  const remainingSats = calculateRemainingToBudget(buckets);
+  const totalIncome = calculateTotalIncome(buckets);
+  const totalExpenses = calculateTotalExpenses(buckets);
+  const remaining = calculateRemainingToBudget(buckets);
 
-  // USD totals (using stored USD amounts where available)
-  const totalIncomeUsd = priceData ? calculateTotalIncomeUsd(buckets, priceData.usdPerBtc) : 0;
-  const totalExpensesUsd = priceData ? calculateTotalExpensesUsd(buckets, priceData.usdPerBtc) : 0;
-  const remainingUsd = priceData ? calculateRemainingToBudgetUsd(buckets, priceData.usdPerBtc) : 0;
-
-  // Format amounts based on currency mode
-  const formatAmount = (sats: number, usdValue?: number) => {
-    if (currency === 'usd') {
-      if (usdValue !== undefined) {
-        return formatUsd(usdValue);
-      }
-      if (priceData) {
-        return formatUsd(satsToUsd(sats, priceData.usdPerBtc));
-      }
-      return '$0.00';
+  const formatAmount = (sats: number) => {
+    if (currency === 'usd' && priceData) {
+      return formatUsd(satsToUsd(sats, priceData.usdPerBtc));
     }
     return `${formatSats(sats)} sats`;
   };
 
   // Compact format for mobile
-  const formatAmountCompact = (sats: number, usdValue?: number) => {
-    if (currency === 'usd') {
-      if (usdValue !== undefined) {
-        return formatUsd(usdValue);
-      }
-      if (priceData) {
-        return formatUsd(satsToUsd(sats, priceData.usdPerBtc));
-      }
-      return '$0.00';
+  const formatAmountCompact = (sats: number) => {
+    if (currency === 'usd' && priceData) {
+      return formatUsd(satsToUsd(sats, priceData.usdPerBtc));
     }
     // Compact format: 1.2M, 50K, etc.
     if (sats >= 1_000_000) {
@@ -190,12 +115,7 @@ export function BudgetHeader({
     return formatSats(sats);
   };
 
-  // Use appropriate totals based on currency
-  const totalIncome = currency === 'usd' ? totalIncomeUsd : totalIncomeSats;
-  const totalExpenses = currency === 'usd' ? totalExpensesUsd : totalExpensesSats;
-  const remaining = currency === 'usd' ? remainingUsd : remainingSats;
-
-  const isZeroed = Math.abs(remaining) < 0.01 && totalIncome > 0;
+  const isZeroed = remaining === 0 && totalIncome > 0;
   const isOver = remaining < 0;
   const isUnder = remaining > 0 && totalIncome > 0;
 
@@ -208,10 +128,6 @@ export function BudgetHeader({
   const toggleLogo = () => {
     updateConfig((c) => ({ ...c, logoStyle: c.logoStyle === 'sats' ? 'bitcoin' : 'sats' }));
   };
-
-  // App developer's pubkey for donations - will be set by project maintainer
-  // For now, we'll note that this should be configured
-  const DEVELOPER_PUBKEY = ''; // TODO: Replace with actual developer pubkey for zaps
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 safe-top">
@@ -253,31 +169,25 @@ export function BudgetHeader({
               </Tooltip>
             )}
 
-            {/* Currency Toggle - Shows both ₿ and $ with active highlighted */}
+            {/* Currency Toggle */}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
                   variant="outline"
+                  size="icon"
                   onClick={onToggleCurrency}
                   disabled={priceLoading}
-                  className="h-8 sm:h-9 px-2 gap-0.5"
+                  className="h-8 w-8 sm:h-9 sm:w-9"
                 >
-                  <Bitcoin className={cn(
-                    "h-4 w-4 transition-colors",
-                    currency === 'sats' ? 'text-primary' : 'text-muted-foreground/50'
-                  )} />
-                  <span className="text-muted-foreground/50 text-xs">/</span>
-                  <DollarSign className={cn(
-                    "h-4 w-4 transition-colors",
-                    currency === 'usd' ? 'text-green-600' : 'text-muted-foreground/50'
-                  )} />
+                  {currency === 'sats' ? (
+                    <Bitcoin className="h-4 w-4" />
+                  ) : (
+                    <DollarSign className="h-4 w-4" />
+                  )}
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
-                <p>Toggle currency view</p>
-                <p className="text-xs text-muted-foreground">
-                  Currently showing: {currency === 'sats' ? 'Sats (₿)' : 'USD ($)'}
-                </p>
+                Switch to {currency === 'sats' ? 'USD' : 'Sats'} view
               </TooltipContent>
             </Tooltip>
 
@@ -306,6 +216,16 @@ export function BudgetHeader({
               </TooltipContent>
             </Tooltip>
 
+            {/* Theme Toggle */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleTheme}
+              className="h-8 w-8 sm:h-9 sm:w-9"
+            >
+              {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </Button>
+
             {/* Account Switcher (when logged in) */}
             {user && (
               <div className="ml-1">
@@ -319,12 +239,9 @@ export function BudgetHeader({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8 sm:h-9 sm:w-9 relative"
+                  className="h-8 w-8 sm:h-9 sm:w-9"
                 >
                   <Menu className="h-4 w-4" />
-                  {updateAvailable && (
-                    <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-500" />
-                  )}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
@@ -348,82 +265,15 @@ export function BudgetHeader({
                   <GraduationCap className="h-4 w-4 mr-2" />
                   Learn About Bitcoin
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => window.open('https://nostr.how', '_blank')}>
-                  <Key className="h-4 w-4 mr-2" />
-                  Learn About Nostr
-                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setShowDonate(true)}>
                   <Heart className="h-4 w-4 mr-2" />
-                  Support Sat Sorter
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setShowDevelopmentSupporters(true)}>
-                  <Star className="h-4 w-4 mr-2" />
-                  Development Supporters
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setShowBitcoinProjects(true)}>
-                  <Globe className="h-4 w-4 mr-2" />
-                  Other Bitcoin Projects
+                  Support Bitcoin Projects
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => setShowBudgetPartners(true)}>
-                  <Users className="h-4 w-4 mr-2" />
-                  Budget Partners
-                </DropdownMenuItem>
-                {onCopyFromMonth && (
-                  <DropdownMenuItem onClick={() => setShowCopyBudget(true)}>
-                    <Copy className="h-4 w-4 mr-2" />
-                    Copy Budget from Month
-                  </DropdownMenuItem>
-                )}
                 <DropdownMenuItem onClick={() => setShowBackup(true)}>
-                  <Wifi className="h-4 w-4 mr-2" />
-                  Nostr Relay Sync
+                  <Cloud className="h-4 w-4 mr-2" />
+                  Backup & Sync
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setShowDataExport(true)}>
-                  <Download className="h-4 w-4 mr-2" />
-                  Export & Backup Data
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setShowClearSyncHistory(true)}>
-                  <RotateCcw className="h-4 w-4 mr-2" />
-                  Clear Wallet Sync History
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => setShowOnboardingTour(true)}>
-                  <BookOpen className="h-4 w-4 mr-2" />
-                  How It Works Tour
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setShowFAQ(true)}>
-                  <HelpCircle className="h-4 w-4 mr-2" />
-                  FAQ & Help
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={toggleTheme}>
-                  {isDark ? <Sun className="h-4 w-4 mr-2" /> : <Moon className="h-4 w-4 mr-2" />}
-                  {isDark ? 'Light Mode' : 'Dark Mode'}
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => setShowFeedback(true)}>
-                  <MessageSquare className="h-4 w-4 mr-2" />
-                  Feedback & Requests
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => window.open('https://primal.net/p/npub1hq4rd0xalt9swws546kk9mm70uda4n64e30qc09uukvn9uz4dylqw6zqmg', '_blank')}
-                >
-                  <span className="mr-2 text-base">🤙</span>
-                  Follow on Nostr
-                </DropdownMenuItem>
-                {updateAvailable && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={performUpdate} className="text-primary">
-                      <span className="relative mr-2">
-                        <Download className="h-4 w-4" />
-                        <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-red-500" />
-                      </span>
-                      Update App
-                    </DropdownMenuItem>
-                  </>
-                )}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -465,24 +315,16 @@ export function BudgetHeader({
             <div className="space-y-0.5 sm:space-y-1">
               <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wide">Income</p>
               <p className="text-sm sm:text-lg font-bold text-success tabular-nums">
-                <span className="sm:hidden">
-                  {currency === 'usd' ? formatUsd(totalIncomeUsd) : formatAmountCompact(totalIncomeSats)}
-                </span>
-                <span className="hidden sm:inline">
-                  {currency === 'usd' ? formatUsd(totalIncomeUsd) : `${formatSats(totalIncomeSats)} sats`}
-                </span>
+                <span className="sm:hidden">{formatAmountCompact(totalIncome)}</span>
+                <span className="hidden sm:inline">{formatAmount(totalIncome)}</span>
               </p>
             </div>
 
             <div className="space-y-0.5 sm:space-y-1">
               <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wide">Planned</p>
               <p className="text-sm sm:text-lg font-bold tabular-nums">
-                <span className="sm:hidden">
-                  {currency === 'usd' ? formatUsd(totalExpensesUsd) : formatAmountCompact(totalExpensesSats)}
-                </span>
-                <span className="hidden sm:inline">
-                  {currency === 'usd' ? formatUsd(totalExpensesUsd) : `${formatSats(totalExpensesSats)} sats`}
-                </span>
+                <span className="sm:hidden">{formatAmountCompact(totalExpenses)}</span>
+                <span className="hidden sm:inline">{formatAmount(totalExpenses)}</span>
               </p>
             </div>
 
@@ -499,75 +341,13 @@ export function BudgetHeader({
                   isUnder && 'text-primary'
                 )}
               >
-                <span className="sm:hidden">
-                  {currency === 'usd' ? formatUsd(Math.abs(remainingUsd)) : formatAmountCompact(Math.abs(remainingSats))}
-                </span>
-                <span className="hidden sm:inline">
-                  {currency === 'usd' ? formatUsd(remainingUsd) : `${formatSats(remainingSats)} sats`}
-                </span>
+                <span className="sm:hidden">{formatAmountCompact(Math.abs(remaining))}</span>
+                <span className="hidden sm:inline">{formatAmount(remaining)}</span>
               </p>
             </div>
           </div>
 
-          {/* Nostr Relay Sync Status - Always present to prevent layout jump */}
-          <div className="flex justify-center items-center gap-2 h-7">
-            {syncStatus === 'syncing' && (
-              <Badge variant="outline" className="text-xs gap-1.5">
-                <Loader2 className="h-3 w-3 animate-spin" />
-                Syncing...
-              </Badge>
-            )}
-            {syncStatus === 'synced' && (
-              <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-xs gap-1.5">
-                <Check className="h-3 w-3" />
-                Synced
-              </Badge>
-            )}
-            {syncStatus === 'error' && (
-              <Badge variant="destructive" className="text-xs gap-1.5">
-                <AlertCircle className="h-3 w-3" />
-                Sync failed
-              </Badge>
-            )}
-            {/* Show sync button when logged in and there are unsynced changes or idle */}
-            {canSync && syncStatus === 'idle' && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant={hasUnsyncedChanges ? 'default' : 'ghost'}
-                    size="sm"
-                    className={cn(
-                      "h-7 text-xs gap-1.5",
-                      hasUnsyncedChanges && "animate-pulse"
-                    )}
-                    onClick={onManualSync}
-                  >
-                    <Wifi className="h-3 w-3" />
-                    {hasUnsyncedChanges ? 'Sync Now' : 'Sync'}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  {hasUnsyncedChanges
-                    ? 'You have unsaved changes. Click to sync now.'
-                    : 'Manually sync your budget to Nostr relays'
-                  }
-                </TooltipContent>
-              </Tooltip>
-            )}
-          </div>
-
-          {/* Shared Budget Indicator */}
-          {isShared && partnerPubkeys.length > 1 && (
-            <SharedBudgetIndicator
-              partnerPubkeys={partnerPubkeys}
-              lastEditedBy={lastEditedBy}
-              lastEditedAt={lastEditedAt}
-              currentUserPubkey={user?.pubkey}
-              onOpenPartners={() => setShowBudgetPartners(true)}
-            />
-          )}
-
-          {/* Zero-based budget indicator - only show for special states */}
+          {/* Zero-based budget indicator */}
           <div className="flex justify-center">
             {isZeroed ? (
               <Badge className="bg-success text-success-foreground text-xs">
@@ -575,17 +355,56 @@ export function BudgetHeader({
               </Badge>
             ) : isOver ? (
               <Badge variant="destructive" className="text-xs">
-                <span className="sm:hidden">
-                  Over by {currency === 'usd' ? formatUsd(Math.abs(remaining)) : formatAmountCompact(Math.abs(remainingSats))}
-                </span>
-                <span className="hidden sm:inline">
-                  ⚠ Over budget by {currency === 'usd' ? formatUsd(Math.abs(remaining)) : `${formatSats(Math.abs(remainingSats))} sats`}
-                </span>
+                <span className="sm:hidden">Over by {formatAmountCompact(Math.abs(remaining))}</span>
+                <span className="hidden sm:inline">⚠ Over budget by {formatAmount(Math.abs(remaining))}</span>
               </Badge>
-            ) : totalIncome === 0 ? (
+            ) : totalIncome > 0 ? (
+              <Badge variant="secondary" className="text-primary text-xs">
+                <span className="sm:hidden">{formatAmountCompact(remaining)} left</span>
+                <span className="hidden sm:inline">{formatAmount(remaining)} left to assign</span>
+              </Badge>
+            ) : (
               <Badge variant="secondary" className="text-xs">
                 Start by adding your income
               </Badge>
+            )}
+          </div>
+
+          {/* Save Status Indicator */}
+          <div className="flex justify-center -mt-1">
+            {saveStatus === 'saving' ? (
+              <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Saving...
+              </span>
+            ) : saveStatus === 'saved' && isSynced ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="text-[10px] text-green-600 dark:text-green-400 flex items-center gap-1 cursor-help">
+                    <CheckCircle2 className="h-3 w-3" />
+                    Synced to cloud
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Your budget is saved locally and synced to Nostr</p>
+                </TooltipContent>
+              </Tooltip>
+            ) : saveStatus === 'saved' ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="text-[10px] text-muted-foreground flex items-center gap-1 cursor-help">
+                    <CheckCircle2 className="h-3 w-3" />
+                    Saved locally
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Log in with Nostr to sync across devices</p>
+                </TooltipContent>
+              </Tooltip>
+            ) : saveStatus === 'error' ? (
+              <span className="text-[10px] text-destructive flex items-center gap-1">
+                Save failed
+              </span>
             ) : null}
           </div>
         </div>
@@ -765,14 +584,6 @@ export function BudgetHeader({
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => window.open('https://bitcoin.rocks', '_blank')}
-                  >
-                    <ExternalLink className="h-3 w-3 mr-1" />
-                    Bitcoin.rocks
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
                     onClick={() => window.open('https://hope.com', '_blank')}
                   >
                     <ExternalLink className="h-3 w-3 mr-1" />
@@ -794,71 +605,12 @@ export function BudgetHeader({
       </Dialog>
 
       {/* Donate Dialog (for guests) */}
-      {/* Support Developer Dialog */}
       <Dialog open={showDonate} onOpenChange={setShowDonate}>
         <DialogContent className="sm:max-w-[500px] max-h-[85vh]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Heart className="h-5 w-5 text-pink-500" />
-              Support Sat Sorter
-            </DialogTitle>
-            <DialogDescription>
-              Help me keep building and improving Sat Sorter
-            </DialogDescription>
-          </DialogHeader>
-          <ScrollArea className="max-h-[60vh] pr-4">
-            <div className="space-y-6 py-4">
-              <p className="text-sm text-muted-foreground">
-                I built Sat Sorter because I believe in Bitcoin and want to help people take control of their finances.
-                Your donation helps me continue building this app and adding new features.
-                Thanks for using Sat Sorter. Fix the money, fix the world. 🙏
-              </p>
-
-              <div className="p-4 border rounded-lg bg-primary/5 space-y-4">
-                <div className="space-y-2">
-                  <h3 className="font-semibold">⚡ Send Sats via Lightning</h3>
-                  <p className="text-sm text-muted-foreground">
-                    The fastest way to support us. Send any amount instantly.
-                  </p>
-                  <Button
-                    className="w-full"
-                    onClick={() => window.open('https://getalby.com/p/satsorter', '_blank')}
-                  >
-                    <Zap className="h-4 w-4 mr-2" />
-                    Donate via Alby
-                  </Button>
-                </div>
-              </div>
-
-              <div className="p-4 border rounded-lg space-y-2">
-                <h3 className="font-semibold">⚙️ What Your Donation Goes To</h3>
-                <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-                  <li>Building new features</li>
-                  <li>Bug fixes and improvements</li>
-                  <li>Development time</li>
-                  <li>Keeping Sat Sorter free for everyone</li>
-                </ul>
-              </div>
-
-              <div className="p-4 border rounded-lg space-y-2">
-                <h3 className="font-semibold">💡 Even a Little Helps</h3>
-                <p className="text-sm text-muted-foreground">
-                  Send whatever you can - 100 sats, 1000 sats, whatever feels right.
-                  Even small donations add up and help me dedicate more time to building this. ⚡
-                </p>
-              </div>
-            </div>
-          </ScrollArea>
-        </DialogContent>
-      </Dialog>
-
-      {/* Other Bitcoin Projects Dialog */}
-      <Dialog open={showBitcoinProjects} onOpenChange={setShowBitcoinProjects}>
-        <DialogContent className="sm:max-w-[500px] max-h-[85vh]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Globe className="h-5 w-5 text-primary" />
-              Support Other Bitcoin Projects
+              Support Bitcoin Projects
             </DialogTitle>
             <DialogDescription>
               Help build the future of freedom technology
@@ -959,509 +711,6 @@ export function BudgetHeader({
         open={showBackup}
         onOpenChange={setShowBackup}
       />
-
-      {/* Data Export Dialog */}
-      <DataExportDialog
-        open={showDataExport}
-        onOpenChange={setShowDataExport}
-      />
-
-      {/* Onboarding Tour Dialog */}
-      <OnboardingWelcome
-        open={showOnboardingTour}
-        onOpenChange={setShowOnboardingTour}
-        onComplete={completeOnboarding}
-      />
-
-      {/* Feedback Dialog */}
-      <Dialog open={showFeedback} onOpenChange={setShowFeedback}>
-        <DialogContent className="sm:max-w-[450px]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <MessageSquare className="h-5 w-5 text-primary" />
-              Feedback & Feature Requests
-            </DialogTitle>
-            <DialogDescription>
-              We'd love to hear from you!
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <p className="text-sm text-muted-foreground">
-              Have a bug to report, a feature request, or just want to say hi?
-              Reach out to us on Nostr — you can send a direct message or post publicly.
-            </p>
-
-            <div className="space-y-3">
-              <Button
-                className="w-full"
-                onClick={() => window.open('https://primal.net/messages/npub1hq4rd0xalt9swws546kk9mm70uda4n64e30qc09uukvn9uz4dylqw6zqmg', '_blank')}
-              >
-                <MessageSquare className="h-4 w-4 mr-2" />
-                Send a Direct Message
-              </Button>
-
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => window.open('https://primal.net/p/npub1hq4rd0xalt9swws546kk9mm70uda4n64e30qc09uukvn9uz4dylqw6zqmg', '_blank')}
-              >
-                <ExternalLink className="h-4 w-4 mr-2" />
-                Post Publicly on Nostr
-              </Button>
-            </div>
-
-            <div className="p-3 bg-muted rounded-lg">
-              <p className="text-xs text-muted-foreground">
-                <strong>Tip:</strong> When reporting a bug, please include:
-              </p>
-              <ul className="text-xs text-muted-foreground mt-1 list-disc list-inside">
-                <li>What you were trying to do</li>
-                <li>What happened instead</li>
-                <li>Your device and browser</li>
-              </ul>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Clear Wallet Sync History Dialog */}
-      <Dialog open={showClearSyncHistory} onOpenChange={setShowClearSyncHistory}>
-        <DialogContent className="sm:max-w-[450px]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <RotateCcw className="h-5 w-5 text-primary" />
-              Clear Wallet Sync History
-            </DialogTitle>
-            <DialogDescription>
-              Re-import all transactions from your connected wallets
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="p-4 border rounded-lg bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800">
-              <p className="text-sm text-amber-800 dark:text-amber-200">
-                <strong>When to use this:</strong>
-              </p>
-              <ul className="text-sm text-amber-700 dark:text-amber-300 mt-2 space-y-1 list-disc list-inside">
-                <li>Your budget was reset but wallet sync history wasn't</li>
-                <li>Transactions are being skipped that shouldn't be</li>
-                <li>You want to re-import all transactions from scratch</li>
-              </ul>
-            </div>
-
-            <div className="p-4 border rounded-lg space-y-2">
-              <p className="text-sm font-medium">What this does:</p>
-              <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-                <li>Clears the record of previously synced transactions</li>
-                <li>Resets the "last synced" timestamp</li>
-                <li>Triggers a full re-sync from all connected wallets</li>
-              </ul>
-            </div>
-
-            <div className="p-4 border rounded-lg bg-muted">
-              <p className="text-sm text-muted-foreground">
-                <strong>Note:</strong> This will NOT delete any existing transactions from your budget.
-                If you have duplicates after clearing, you may need to manually remove them.
-              </p>
-            </div>
-
-            <div className="flex gap-3 pt-2">
-              <Button
-                variant="outline"
-                className="flex-1"
-                onClick={() => setShowClearSyncHistory(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="default"
-                className="flex-1"
-                onClick={() => {
-                  clearSyncHistory();
-                  setShowClearSyncHistory(false);
-                }}
-                disabled={isSyncing}
-              >
-                {isSyncing ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Syncing...
-                  </>
-                ) : (
-                  <>
-                    <RotateCcw className="h-4 w-4 mr-2" />
-                    Clear & Re-sync
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Budget Partners Dialog */}
-      <BudgetPartnersDialog
-        open={showBudgetPartners}
-        onOpenChange={setShowBudgetPartners}
-        isShared={isShared}
-        ownerPubkey={ownerPubkey}
-        partnerPubkeys={partnerPubkeys}
-        sentInvitations={sentInvitations}
-        onInvitePartner={onInvitePartner || (async () => false)}
-        onRemovePartner={onRemovePartner}
-        onCancelInvitation={onCancelInvitation}
-      />
-
-      {/* Copy Budget Dialog */}
-      {onCopyFromMonth && (
-        <CopyBudgetDialog
-          open={showCopyBudget}
-          onOpenChange={setShowCopyBudget}
-          currentMonth={currentMonth}
-          availableMonths={availableMonths}
-          budgets={allBudgets}
-          onCopyFromMonth={onCopyFromMonth}
-        />
-      )}
-
-      {/* FAQ & Help Dialog */}
-      <Dialog open={showFAQ} onOpenChange={setShowFAQ}>
-        <DialogContent className="sm:max-w-[600px] max-h-[85vh]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <HelpCircle className="h-5 w-5 text-primary" />
-              FAQ & Help
-            </DialogTitle>
-            <DialogDescription>
-              Common questions about Sat Sorter
-            </DialogDescription>
-          </DialogHeader>
-          <ScrollArea className="max-h-[65vh] pr-4">
-            <div className="space-y-6 py-4">
-              {/* What is Zero-Based Budgeting */}
-              <div className="space-y-3">
-                <h3 className="font-semibold text-lg">💰 What is zero-based budgeting?</h3>
-                <div className="p-4 border rounded-lg">
-                  <p className="text-sm text-muted-foreground">
-                    Zero-based budgeting means giving every satoshi a job <strong>before</strong> you spend it.
-                    Your income minus your planned expenses should equal zero. This doesn't mean you spend
-                    everything — savings and investments are categories too! The goal is intentionality:
-                    knowing exactly where every sat goes.
-                  </p>
-                </div>
-              </div>
-
-              <Separator />
-
-              {/* Why No Credit Card Tracking */}
-              <div className="space-y-3">
-                <h3 className="font-semibold text-lg">💳 Why doesn't Sat Sorter connect to my bank or credit cards?</h3>
-                <div className="p-4 border rounded-lg bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800">
-                  <p className="text-sm text-amber-800 dark:text-amber-200 mb-3">
-                    <strong>Privacy is the reason.</strong> Traditional bank and credit card integrations require
-                    sharing your login credentials or connecting through third-party services like Plaid.
-                  </p>
-                  <p className="text-sm text-amber-700 dark:text-amber-300 mb-3">
-                    These services can see, store, and analyze all your financial data — where you shop,
-                    what you buy, your spending patterns, and your net worth. This data is often sold
-                    to advertisers, used for credit scoring, or shared with partners.
-                  </p>
-                  <p className="text-sm text-amber-700 dark:text-amber-300">
-                    Sat Sorter is built on the principle that <strong>your financial data belongs to you</strong>.
-                    We don't have servers that store your data, and we never will. For fiat expenses, you can
-                    manually enter transactions or import CSV exports from your bank.
-                  </p>
-                </div>
-              </div>
-
-              <Separator />
-
-              {/* Transaction Import Methods */}
-              <div className="space-y-3">
-                <h3 className="font-semibold text-lg flex items-center gap-2">
-                  <Wallet className="h-5 w-5 text-primary" />
-                  How do I import transactions?
-                </h3>
-
-                <div className="space-y-4">
-                  <div className="p-4 border rounded-lg bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800">
-                    <h4 className="font-semibold text-green-800 dark:text-green-200 mb-2">
-                      🐝 Alby Hub (Auto-Import)
-                    </h4>
-                    <p className="text-sm text-green-700 dark:text-green-300 mb-2">
-                      Connect via NWC for automatic Lightning transaction import:
-                    </p>
-                    <ul className="text-sm text-green-700 dark:text-green-300 space-y-1 list-disc list-inside">
-                      <li><strong>Alby Hub only</strong> - Other NWC wallets don't support transaction listing</li>
-                      <li>Get your NWC URI from Alby Hub settings</li>
-                      <li>Scan QR code or paste the connection string</li>
-                      <li>New transactions sync automatically</li>
-                    </ul>
-                  </div>
-
-                  <div className="p-4 border rounded-lg bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800">
-                    <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-2">
-                      📁 CSV Import
-                    </h4>
-                    <p className="text-sm text-blue-700 dark:text-blue-300 mb-2">
-                      Export transactions from your wallet and import the CSV file:
-                    </p>
-                    <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1 list-disc list-inside">
-                      <li><strong>Phoenix</strong> - Settings → Payment History → Export</li>
-                      <li><strong>BlueWallet</strong> - Wallet → ••• → Export Transactions</li>
-                      <li><strong>Zeus</strong> - History → Export</li>
-                      <li><strong>Bank statements</strong> - Most banks offer CSV export</li>
-                    </ul>
-                  </div>
-
-                  <div className="p-4 border rounded-lg bg-muted">
-                    <h4 className="font-semibold mb-2">
-                      ✏️ Manual Entry
-                    </h4>
-                    <p className="text-sm text-muted-foreground">
-                      You can always add transactions manually. This works for cash, any wallet,
-                      or payment method. Tap the + button to add income or expenses.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <Separator />
-
-              {/* Privacy Section */}
-              <div className="space-y-3">
-                <h3 className="font-semibold text-lg flex items-center gap-2">
-                  <Shield className="h-5 w-5 text-primary" />
-                  How does Sat Sorter protect my privacy?
-                </h3>
-
-                <div className="p-4 border rounded-lg space-y-3">
-                  <div className="bg-primary/5 p-3 rounded-lg">
-                    <p className="text-sm font-medium text-primary">🔒 Your Data Stays Yours</p>
-                    <ul className="text-xs text-muted-foreground mt-2 space-y-1">
-                      <li>• <strong>No central server</strong> - Everything runs in your browser</li>
-                      <li>• <strong>Local storage</strong> - Budget data saved on your device</li>
-                      <li>• <strong>Encrypted sync</strong> - Cloud backup uses NIP-44 encryption</li>
-                      <li>• <strong>Only you can decrypt</strong> - Uses your Nostr keys</li>
-                      <li>• <strong>Open source</strong> - Verify the code yourself</li>
-                    </ul>
-                  </div>
-
-                  <p className="text-sm text-muted-foreground">
-                    When you connect Alby Hub, data flows directly from your wallet to your browser.
-                    Sat Sorter never sees, stores, or transmits your transaction data to any server.
-                  </p>
-                </div>
-              </div>
-
-              <Separator />
-
-              {/* Nostr Sync Section */}
-              <div className="space-y-3">
-                <h3 className="font-semibold text-lg flex items-center gap-2">
-                  <Wifi className="h-5 w-5 text-primary" />
-                  How does syncing across devices work?
-                </h3>
-
-                <div className="p-4 border rounded-lg space-y-3">
-                  <p className="text-sm text-muted-foreground">
-                    Your budget syncs across devices using <strong>Nostr relays</strong> instead of a central cloud server.
-                  </p>
-
-                  <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-                    <li>Data is encrypted with YOUR Nostr keys</li>
-                    <li>Relays store encrypted data they can't read</li>
-                    <li>You choose which relays to use</li>
-                    <li>No single point of failure</li>
-                    <li>True ownership of your data</li>
-                  </ul>
-
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Go to <strong>Menu → Nostr Relay Sync</strong> to manage your relays.
-                  </p>
-                </div>
-              </div>
-
-              <Separator />
-
-              {/* Why Bitcoin */}
-              <div className="space-y-3">
-                <h3 className="font-semibold text-lg">₿ Why budget in sats instead of dollars?</h3>
-                <div className="p-4 border rounded-lg">
-                  <p className="text-sm text-muted-foreground mb-2">
-                    The dollar loses purchasing power every year due to inflation. What costs $100 today
-                    might cost $105 next year. Bitcoin has a fixed supply of 21 million coins — no one can
-                    print more.
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    By budgeting in sats, you're thinking in terms of sound money. You can still view
-                    everything in USD using the currency toggle — Sat Sorter supports both! But building
-                    the habit of thinking in sats helps you transition to a Bitcoin standard.
-                  </p>
-                </div>
-              </div>
-
-              <Separator />
-
-              {/* Do I need Nostr */}
-              <div className="space-y-3">
-                <h3 className="font-semibold text-lg">🔑 Do I need a Nostr account?</h3>
-                <div className="p-4 border rounded-lg">
-                  <p className="text-sm text-muted-foreground mb-2">
-                    <strong>No!</strong> You can use Sat Sorter without logging in. Your data will be
-                    stored locally in your browser.
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    However, if you want to sync your budget across devices or back it up to the cloud,
-                    you'll need to log in with Nostr. This gives you encrypted backup and sync without
-                    trusting any central server with your data.
-                  </p>
-                </div>
-              </div>
-
-              <Separator />
-
-              {/* What if I lose my data */}
-              <div className="space-y-3">
-                <h3 className="font-semibold text-lg">💾 What if I clear my browser data?</h3>
-                <div className="p-4 border rounded-lg">
-                  <p className="text-sm text-muted-foreground mb-2">
-                    If you're logged in with Nostr and have synced your data, you can recover it by
-                    logging in again on any device. Your encrypted budget will be downloaded from
-                    Nostr relays.
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    If you're not logged in, we recommend using <strong>Menu → Export & Backup Data</strong>
-                    to regularly download a backup file. You can also install Sat Sorter as a PWA (Progressive
-                    Web App) for a more app-like experience.
-                  </p>
-                </div>
-              </div>
-
-              <Separator />
-
-              {/* Getting Started Section */}
-              <div className="space-y-3">
-                <h3 className="font-semibold text-lg">🚀 Quick Start Guide</h3>
-
-                <div className="p-4 border rounded-lg space-y-3">
-                  <ol className="text-sm text-muted-foreground space-y-2 list-decimal list-inside">
-                    <li><strong>Add your income</strong> - Tap the + button and add your monthly income</li>
-                    <li><strong>Create buckets</strong> - Add categories like Rent, Food, Savings, etc.</li>
-                    <li><strong>Assign every sat</strong> - Distribute your income until "Left to Budget" is zero</li>
-                    <li><strong>Track spending</strong> - Add transactions as you spend throughout the month</li>
-                    <li><strong>Connect a wallet</strong> - (Optional) Link Alby Hub for automatic tracking</li>
-                    <li><strong>Log in with Nostr</strong> - (Optional) Enable encrypted cloud backup</li>
-                  </ol>
-                </div>
-              </div>
-
-              <Separator />
-
-              {/* Need Help Section */}
-              <div className="space-y-3">
-                <h3 className="font-semibold text-lg">Need More Help?</h3>
-
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => window.open('https://nwc.dev', '_blank')}
-                  >
-                    <ExternalLink className="h-3 w-3 mr-1" />
-                    NWC Documentation
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => window.open('https://getalby.com', '_blank')}
-                  >
-                    <ExternalLink className="h-3 w-3 mr-1" />
-                    Get Alby Wallet
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => window.open('https://nostr.how', '_blank')}
-                  >
-                    <ExternalLink className="h-3 w-3 mr-1" />
-                    Learn About Nostr
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </ScrollArea>
-        </DialogContent>
-      </Dialog>
-
-      {/* Development Supporters Dialog */}
-      <DevelopmentSupportersDialog
-        open={showDevelopmentSupporters}
-        onOpenChange={setShowDevelopmentSupporters}
-      />
     </header>
-  );
-}
-
-// Helper component for shared budget indicator with last edited info
-function SharedBudgetIndicator({
-  partnerPubkeys,
-  lastEditedBy,
-  lastEditedAt,
-  currentUserPubkey,
-  onOpenPartners,
-}: {
-  partnerPubkeys: string[];
-  lastEditedBy?: string;
-  lastEditedAt?: number;
-  currentUserPubkey?: string;
-  onOpenPartners: () => void;
-}) {
-  // Fetch the name of the last editor
-  const lastEditor = useAuthor(lastEditedBy || '');
-  const lastEditorName = useMemo(() => {
-    if (!lastEditedBy) return null;
-    if (lastEditedBy === currentUserPubkey) return 'you';
-    return lastEditor.data?.metadata?.name ||
-           lastEditor.data?.metadata?.display_name ||
-           genUserName(lastEditedBy);
-  }, [lastEditedBy, currentUserPubkey, lastEditor.data]);
-
-  // Format relative time
-  const relativeTime = useMemo(() => {
-    if (!lastEditedAt) return null;
-    const now = Math.floor(Date.now() / 1000);
-    const diff = now - lastEditedAt;
-
-    if (diff < 60) return 'just now';
-    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-    if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
-    return new Date(lastEditedAt * 1000).toLocaleDateString();
-  }, [lastEditedAt]);
-
-  return (
-    <div className="flex justify-center">
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            onClick={onOpenPartners}
-            className="inline-flex flex-col items-center gap-0.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <span className="inline-flex items-center gap-1.5">
-              <Users className="h-3 w-3" />
-              <span>Shared with {partnerPubkeys.length - 1} {partnerPubkeys.length === 2 ? 'partner' : 'partners'}</span>
-            </span>
-            {lastEditorName && relativeTime && (
-              <span className="text-[10px] text-muted-foreground/70">
-                Last edited by {lastEditorName} • {relativeTime}
-              </span>
-            )}
-          </button>
-        </TooltipTrigger>
-        <TooltipContent>
-          <p>This is a shared budget. Click to manage partners.</p>
-        </TooltipContent>
-      </Tooltip>
-    </div>
   );
 }

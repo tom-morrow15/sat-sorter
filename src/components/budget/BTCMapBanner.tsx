@@ -13,7 +13,6 @@ import {
   Building,
   Loader2,
   Settings2,
-  RefreshCw,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -36,7 +35,6 @@ import {
   type BTCMapElement,
 } from '@/hooks/useBTCMap';
 import { LocationSetup } from './LocationSetup';
-import { useToast } from '@/hooks/useToast';
 import { cn } from '@/lib/utils';
 
 // Icon mapping for categories
@@ -223,68 +221,14 @@ function MerchantDetailDialog({ merchant, open, onOpenChange }: MerchantDetailDi
 }
 
 export function BTCMapBanner() {
-  const { merchants, isLoading, hasLocation, settings, totalMerchants, refetch, toggleShowATMs } = useBTCMap();
+  const { merchants, isLoading, hasLocation, settings, totalMerchants } = useBTCMap();
   const [selectedMerchant, setSelectedMerchant] = useState<(BTCMapElement & { distance: number }) | null>(null);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
   const [showLocationSetup, setShowLocationSetup] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const { toast } = useToast();
 
   const handleMerchantClick = (merchant: BTCMapElement & { distance: number }) => {
     setSelectedMerchant(merchant);
     setShowDetailDialog(true);
-  };
-
-  const handleRefresh = async () => {
-    console.log('[BTCMapBanner] Refresh button clicked');
-    setIsRefreshing(true);
-
-    toast({
-      title: 'Refreshing...',
-      description: 'Fetching latest merchant data from BTCMap',
-    });
-
-    try {
-      const result = await refetch();
-      console.log('[BTCMapBanner] Refetch result:', result);
-
-      // Handle both possible return formats
-      let count = 0;
-      if (result?.data?.length !== undefined) {
-        // Direct array format
-        count = result.data.length;
-      } else if (result?.data?.data?.length !== undefined) {
-        // Nested format from query result
-        count = result.data.data.length;
-      }
-
-      toast({
-        title: 'Merchants refreshed!',
-        description: count > 0
-          ? `Found ${count.toLocaleString()} Bitcoin merchants`
-          : 'Merchant data refreshed',
-      });
-    } catch (error) {
-      console.error('[BTCMapBanner] Refresh error:', error);
-      toast({
-        title: 'Refresh failed',
-        description: error instanceof Error ? error.message : 'Could not refresh merchant data. Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      // Add a small delay so the animation is visible
-      setTimeout(() => setIsRefreshing(false), 500);
-    }
-  };
-
-  const handleToggleATMs = () => {
-    toggleShowATMs();
-  };
-
-  const handleLocationSet = () => {
-    // Automatically refresh merchants when location is set
-    console.log('[BTCMapBanner] Location set, auto-refreshing merchants');
-    handleRefresh();
   };
 
   // No location set - show setup prompt
@@ -305,30 +249,14 @@ export function BTCMapBanner() {
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2 w-full sm:w-auto">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => {
-                    console.log('[BTCMapBanner] Refresh button onClick fired');
-                    handleRefresh();
-                  }}
-                  disabled={isRefreshing}
-                  title="Refresh merchant data"
-                  className="h-9 w-9"
-                >
-                  <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
-                </Button>
-                <Button type="button" onClick={() => setShowLocationSetup(true)} className="flex-1 sm:flex-initial">
-                  Set Location
-                </Button>
-              </div>
+              <Button onClick={() => setShowLocationSetup(true)} className="w-full sm:w-auto">
+                Set Location
+              </Button>
             </div>
           </CardContent>
         </Card>
 
-        <LocationSetup open={showLocationSetup} onOpenChange={setShowLocationSetup} onLocationSet={handleLocationSet} />
+        <LocationSetup open={showLocationSetup} onOpenChange={setShowLocationSetup} />
       </>
     );
   }
@@ -367,20 +295,6 @@ export function BTCMapBanner() {
               </div>
               <div className="flex items-center gap-2 w-full sm:w-auto">
                 <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    console.log('[BTCMapBanner] Refresh button (no merchants) clicked');
-                    handleRefresh();
-                  }}
-                  disabled={isRefreshing}
-                  className="flex-initial"
-                >
-                  <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
-                </Button>
-                <Button
-                  type="button"
                   variant="outline"
                   size="sm"
                   onClick={() => setShowLocationSetup(true)}
@@ -390,7 +304,6 @@ export function BTCMapBanner() {
                   Change
                 </Button>
                 <Button
-                  type="button"
                   variant="ghost"
                   size="sm"
                   onClick={() => window.open('https://btcmap.org/add-location', '_blank')}
@@ -436,21 +349,6 @@ export function BTCMapBanner() {
             </div>
             <div className="flex items-center gap-1 flex-shrink-0">
               <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-8 w-8 p-0"
-                onClick={() => {
-                  console.log('[BTCMapBanner] Refresh button (carousel) clicked');
-                  handleRefresh();
-                }}
-                disabled={isRefreshing}
-                title="Refresh merchants"
-              >
-                <RefreshCw className={cn("h-3.5 w-3.5", isRefreshing && "animate-spin")} />
-              </Button>
-              <Button
-                type="button"
                 variant="outline"
                 size="sm"
                 className="h-8 px-2 text-xs whitespace-nowrap"
@@ -462,7 +360,7 @@ export function BTCMapBanner() {
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-8 w-8 p-0"
+                className="h-8 px-2 text-xs"
                 onClick={() => window.open('https://btcmap.org', '_blank')}
                 title="View full map on BTCMap.org"
               >
@@ -506,7 +404,7 @@ export function BTCMapBanner() {
       />
 
       {/* Location setup dialog */}
-      <LocationSetup open={showLocationSetup} onOpenChange={setShowLocationSetup} onLocationSet={handleLocationSet} />
+      <LocationSetup open={showLocationSetup} onOpenChange={setShowLocationSetup} />
     </>
   );
 }

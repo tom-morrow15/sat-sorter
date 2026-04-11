@@ -26,16 +26,17 @@ export function useNostrPublish(): UseMutationResult<NostrEvent> {
           created_at: t.created_at ?? Math.floor(Date.now() / 1000),
         });
 
-        // Use longer timeout (15s) for publishing to allow slow relays
-        await nostr.event(event, { signal: AbortSignal.timeout(15000) });
+        await nostr.event(event, { signal: AbortSignal.timeout(5000) });
         return event;
       } else {
         throw new Error("User is not logged in");
       }
     },
-    onError: () => {
-      // Silently handle publish errors - they're expected when relays are unavailable
-      // The calling code should handle errors if user feedback is needed
+    onError: (error) => {
+      console.error("Failed to publish event:", error);
+    },
+    onSuccess: (data) => {
+      console.log("Event published successfully:", data);
     },
   });
 }

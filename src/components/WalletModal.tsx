@@ -1,8 +1,5 @@
 import { useState, forwardRef } from 'react';
-import {
-  Wallet, Plus, Trash2, Zap, Globe, WalletMinimal, CheckCircle, X,
-  RefreshCw, Clock, FileSpreadsheet, Link2, QrCode
-} from 'lucide-react';
+import { Wallet, Plus, Trash2, Zap, Globe, WalletMinimal, CheckCircle, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -11,6 +8,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from '@/components/ui/dialog';
 import {
   Drawer,
@@ -18,6 +16,7 @@ import {
   DrawerDescription,
   DrawerHeader,
   DrawerTitle,
+  DrawerTrigger,
   DrawerClose,
 } from '@/components/ui/drawer';
 import { Input } from '@/components/ui/input';
@@ -25,30 +24,25 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Switch } from '@/components/ui/switch';
 import { useNWC } from '@/hooks/useNWCContext';
 import { useWallet } from '@/hooks/useWallet';
 import { useToast } from '@/hooks/useToast';
 import { useIsMobile } from '@/hooks/useIsMobile';
-import { useNWCSync } from '@/hooks/useNWCSync';
-import { DataSourcesDialog } from './DataSourcesDialog';
-import { QRScanner } from './QRScanner';
 import type { NWCConnection, NWCInfo } from '@/hooks/useNWC';
 import type { WebLNProvider } from "@webbtc/webln-types";
 
-interface WalletModalControlledProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+interface WalletModalProps {
+  children?: React.ReactNode;
+  className?: string;
 }
 
-// Extracted AddWalletContent
+// Extracted AddWalletContent to prevent re-renders
 const AddWalletContent = forwardRef<HTMLDivElement, {
   alias: string;
   setAlias: (value: string) => void;
   connectionUri: string;
   setConnectionUri: (value: string) => void;
-  onScanQR?: () => void;
-}>(({ alias, setAlias, connectionUri, setConnectionUri, onScanQR }, ref) => (
+}>(({ alias, setAlias, connectionUri, setConnectionUri }, ref) => (
   <div className="space-y-4 px-4" ref={ref}>
     <div>
       <Label htmlFor="alias">Wallet Name (optional)</Label>
@@ -68,41 +62,12 @@ const AddWalletContent = forwardRef<HTMLDivElement, {
         onChange={(e) => setConnectionUri(e.target.value)}
         rows={3}
       />
-      <div className="flex items-center justify-between mt-2">
-        <p className="text-xs text-muted-foreground">
-          Get this from your wallet app (e.g., Alby, Zeus, Primal).
-        </p>
-        {onScanQR && (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={onScanQR}
-          >
-            <QrCode className="h-4 w-4 mr-1" />
-            Scan
-          </Button>
-        )}
-      </div>
     </div>
   </div>
 ));
 AddWalletContent.displayName = 'AddWalletContent';
 
-// Format relative time
-function formatLastSync(timestamp: number | null): string {
-  if (!timestamp) return 'Never';
-
-  const now = Date.now();
-  const diff = now - timestamp * 1000;
-
-  if (diff < 60000) return 'Just now';
-  if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
-  if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
-  return new Date(timestamp * 1000).toLocaleDateString();
-}
-
-// Extracted WalletContent
+// Extracted WalletContent to prevent re-renders
 const WalletContent = forwardRef<HTMLDivElement, {
   webln: WebLNProvider | null;
   hasNWC: boolean;
@@ -112,14 +77,6 @@ const WalletContent = forwardRef<HTMLDivElement, {
   handleSetActive: (cs: string) => void;
   handleRemoveConnection: (cs: string) => void;
   setAddDialogOpen: (open: boolean) => void;
-  // Sync props
-  isSyncing: boolean;
-  autoSyncEnabled: boolean;
-  lastSyncTimestamp: number | null;
-  onSync: () => void;
-  onToggleAutoSync: () => void;
-  // Data sources
-  onOpenDataSources: () => void;
 }>(({
   webln,
   hasNWC,
@@ -128,18 +85,12 @@ const WalletContent = forwardRef<HTMLDivElement, {
   activeConnection,
   handleSetActive,
   handleRemoveConnection,
-  setAddDialogOpen,
-  isSyncing,
-  autoSyncEnabled,
-  lastSyncTimestamp,
-  onSync,
-  onToggleAutoSync,
-  onOpenDataSources,
+  setAddDialogOpen
 }, ref) => (
   <div className="space-y-6 px-4 pb-4" ref={ref}>
     {/* Current Status */}
     <div className="space-y-3">
-      <h3 className="font-medium">Connection Status</h3>
+      <h3 className="font-medium">Current Status</h3>
       <div className="grid gap-3">
         {/* WebLN */}
         <div className="flex items-center justify-between p-3 border rounded-lg">
@@ -180,75 +131,6 @@ const WalletContent = forwardRef<HTMLDivElement, {
         </div>
       </div>
     </div>
-
-    {/* Transaction Sync Section - Only show when wallet connected */}
-    {hasNWC && (
-      <>
-        <Separator />
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="font-medium">Transaction Sync</h3>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={onSync}
-              disabled={isSyncing}
-            >
-              <RefreshCw className={`h-4 w-4 mr-1 ${isSyncing ? 'animate-spin' : ''}`} />
-              {isSyncing ? 'Syncing...' : 'Sync Now'}
-            </Button>
-          </div>
-
-          {/* Last Sync Info */}
-          <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Clock className="h-4 w-4" />
-              <span>Last synced: {formatLastSync(lastSyncTimestamp)}</span>
-            </div>
-          </div>
-
-          {/* Auto-sync Toggle */}
-          <div className="flex items-center justify-between p-3 border rounded-lg">
-            <div>
-              <p className="text-sm font-medium">Auto-sync</p>
-              <p className="text-xs text-muted-foreground">
-                Automatically import new transactions every 5 minutes
-              </p>
-            </div>
-            <Switch
-              checked={autoSyncEnabled}
-              onCheckedChange={onToggleAutoSync}
-            />
-          </div>
-
-          <p className="text-xs text-muted-foreground">
-            💡 <strong>Note:</strong> Transaction sync requires your wallet to support the
-            <code className="mx-1 px-1 bg-muted rounded">list_transactions</code>
-            method. Not all wallets support this feature.
-          </p>
-        </div>
-      </>
-    )}
-
-    <Separator />
-
-    {/* Import Transactions Section */}
-    <div className="space-y-3">
-      <h3 className="font-medium">Import Transactions</h3>
-      <p className="text-sm text-muted-foreground">
-        Import transactions from your wallet or a CSV file
-      </p>
-      <Button
-        variant="outline"
-        className="w-full justify-start"
-        onClick={onOpenDataSources}
-      >
-        <Link2 className="h-4 w-4 mr-2" />
-        Connect Data Sources
-        <span className="ml-auto text-xs text-muted-foreground">NWC, CSV, more...</span>
-      </Button>
-    </div>
-
     <Separator />
     {/* NWC Management */}
     <div className="space-y-4">
@@ -256,14 +138,13 @@ const WalletContent = forwardRef<HTMLDivElement, {
         <h3 className="font-medium">Nostr Wallet Connect</h3>
         <Button size="sm" variant="outline" onClick={() => setAddDialogOpen(true)}>
           <Plus className="h-4 w-4 mr-1" />
-          Add Wallet
+          Add
         </Button>
       </div>
       {/* Connected Wallets List */}
       {connections.length === 0 ? (
         <div className="text-center py-6 text-muted-foreground">
           <p className="text-sm">No wallets connected</p>
-          <p className="text-xs mt-1">Connect your Lightning wallet to track transactions</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -314,7 +195,7 @@ const WalletContent = forwardRef<HTMLDivElement, {
         <Separator />
         <div className="text-center py-4 space-y-2">
           <p className="text-sm text-muted-foreground">
-            Connect your wallet to automatically track your Lightning transactions.
+            Install a WebLN extension or connect a NWC wallet for zaps.
           </p>
         </div>
       </>
@@ -323,22 +204,13 @@ const WalletContent = forwardRef<HTMLDivElement, {
 ));
 WalletContent.displayName = 'WalletContent';
 
-export function WalletModalControlled({ open, onOpenChange }: WalletModalControlledProps) {
+export function WalletModal({ children, className }: WalletModalProps) {
+  const [open, setOpen] = useState(false);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
-  const [showDataSources, setShowDataSources] = useState(false);
-  const [showQRScanner, setShowQRScanner] = useState(false);
   const [connectionUri, setConnectionUri] = useState('');
   const [alias, setAlias] = useState('');
   const [isConnecting, setIsConnecting] = useState(false);
   const isMobile = useIsMobile();
-
-  const handleQRScan = (result: string) => {
-    // Check if it's a valid NWC URI
-    if (result.startsWith('nostr+walletconnect://') || result.startsWith('nostrwalletconnect://')) {
-      setConnectionUri(result);
-      setShowQRScanner(false);
-    }
-  };
 
   const {
     connections,
@@ -350,15 +222,6 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
   } = useNWC();
 
   const { webln } = useWallet();
-
-  const {
-    isSyncing,
-    autoSyncEnabled,
-    lastSyncTimestamp,
-    syncTransactions,
-    startAutoSync,
-    stopAutoSync,
-  } = useNWCSync();
 
   const hasNWC = connections.length > 0 && connections.some(c => c.isConnected);
   const { toast } = useToast();
@@ -394,20 +257,8 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
     setActiveConnection(connectionString);
     toast({
       title: 'Active wallet changed',
-      description: 'The selected wallet is now active.',
+      description: 'The selected wallet is now active for zaps.',
     });
-  };
-
-  const handleSync = () => {
-    syncTransactions(true);
-  };
-
-  const handleToggleAutoSync = () => {
-    if (autoSyncEnabled) {
-      stopAutoSync();
-    } else {
-      startAutoSync();
-    }
   };
 
   const walletContentProps = {
@@ -419,12 +270,6 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
     handleSetActive,
     handleRemoveConnection,
     setAddDialogOpen,
-    isSyncing,
-    autoSyncEnabled,
-    lastSyncTimestamp,
-    onSync: handleSync,
-    onToggleAutoSync: handleToggleAutoSync,
-    onOpenDataSources: () => setShowDataSources(true),
   };
 
   const addWalletDialog = (
@@ -433,7 +278,7 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
         <DialogHeader>
           <DialogTitle>Connect NWC Wallet</DialogTitle>
           <DialogDescription>
-            Enter your connection string or scan a QR code.
+            Enter your connection string from a compatible wallet.
           </DialogDescription>
         </DialogHeader>
         <AddWalletContent
@@ -441,7 +286,6 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
           setAlias={setAlias}
           connectionUri={connectionUri}
           setConnectionUri={setConnectionUri}
-          onScanQR={() => setShowQRScanner(true)}
         />
         <DialogFooter className="px-4">
           <Button
@@ -459,9 +303,17 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
   if (isMobile) {
     return (
       <>
-        <Drawer open={open} onOpenChange={onOpenChange}>
-          <DrawerContent className="max-h-[90vh] flex flex-col">
-            <DrawerHeader className="text-center relative flex-shrink-0">
+        <Drawer open={open} onOpenChange={setOpen}>
+          <DrawerTrigger asChild>
+            {children || (
+              <Button variant="outline" size="sm" className={className}>
+                <Wallet className="h-4 w-4 mr-2" />
+                Wallet Settings
+              </Button>
+            )}
+          </DrawerTrigger>
+          <DrawerContent className="h-full">
+            <DrawerHeader className="text-center relative">
               <DrawerClose asChild>
                 <Button variant="ghost" size="sm" className="absolute right-4 top-4">
                   <X className="h-4 w-4" />
@@ -473,33 +325,30 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
                 Lightning Wallet
               </DrawerTitle>
               <DrawerDescription>
-                Connect your wallet to track transactions automatically.
+                Connect your lightning wallet to send zaps instantly.
               </DrawerDescription>
             </DrawerHeader>
-            <div className="flex-1 overflow-y-auto overscroll-contain pb-8">
+            <div className="overflow-y-auto">
               <WalletContent {...walletContentProps} />
             </div>
           </DrawerContent>
         </Drawer>
         {/* Render Add Wallet as a separate Drawer for mobile */}
         <Drawer open={addDialogOpen} onOpenChange={setAddDialogOpen}>
-          <DrawerContent className="max-h-[85vh] flex flex-col">
-            <DrawerHeader className="flex-shrink-0">
+          <DrawerContent>
+            <DrawerHeader>
               <DrawerTitle>Connect NWC Wallet</DrawerTitle>
               <DrawerDescription>
-                Enter your connection string or scan a QR code.
+                Enter your connection string from a compatible wallet.
               </DrawerDescription>
             </DrawerHeader>
-            <div className="flex-1 overflow-y-auto overscroll-contain">
-              <AddWalletContent
-                alias={alias}
-                setAlias={setAlias}
-                connectionUri={connectionUri}
-                setConnectionUri={setConnectionUri}
-                onScanQR={() => setShowQRScanner(true)}
-              />
-            </div>
-            <div className="p-4 flex-shrink-0 border-t bg-background">
+            <AddWalletContent
+              alias={alias}
+              setAlias={setAlias}
+              connectionUri={connectionUri}
+              setConnectionUri={setConnectionUri}
+            />
+            <div className="p-4">
               <Button
                 onClick={handleAddConnection}
                 disabled={isConnecting || !connectionUri.trim()}
@@ -510,21 +359,21 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
             </div>
           </DrawerContent>
         </Drawer>
-        <DataSourcesDialog open={showDataSources} onOpenChange={setShowDataSources} />
-        <QRScanner
-          open={showQRScanner}
-          onOpenChange={setShowQRScanner}
-          onScan={handleQRScan}
-          title="Scan NWC QR Code"
-          description="Scan the QR code from your wallet app"
-        />
       </>
     );
   }
 
   return (
     <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogTrigger asChild>
+          {children || (
+            <Button variant="outline" size="sm" className={className}>
+              <Wallet className="h-4 w-4 mr-2" />
+              Wallet Settings
+            </Button>
+          )}
+        </DialogTrigger>
         <DialogContent className="sm:max-w-[500px] max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -532,21 +381,13 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
               Lightning Wallet
             </DialogTitle>
             <DialogDescription>
-              Connect your wallet to track transactions automatically.
+              Connect your lightning wallet to send zaps instantly.
             </DialogDescription>
           </DialogHeader>
           <WalletContent {...walletContentProps} />
         </DialogContent>
       </Dialog>
       {addWalletDialog}
-      <DataSourcesDialog open={showDataSources} onOpenChange={setShowDataSources} />
-      <QRScanner
-        open={showQRScanner}
-        onOpenChange={setShowQRScanner}
-        onScan={handleQRScan}
-        title="Scan NWC QR Code"
-        description="Scan the QR code from your wallet app"
-      />
     </>
   );
 }
