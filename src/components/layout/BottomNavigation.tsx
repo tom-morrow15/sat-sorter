@@ -142,23 +142,21 @@ export function BottomNavigation() {
           );
         })}
 
-        {/* Save button */}
-        {user && (
-          <button
-            onClick={handleSave}
-            disabled={saveState === 'saving'}
-            className={cn(
-              'flex flex-col items-center justify-center flex-1 h-full gap-0.5 transition-colors',
-              getSaveColor(),
-              saveState === 'saving' && 'opacity-60'
-            )}
-          >
-            <Cloud className={cn('h-5 w-5', saveState === 'saving' && 'animate-pulse')} />
-            <span className="text-[10px] leading-tight">
-              {saveState === 'saving' ? 'Saving' : saveState === 'success' ? 'Saved!' : 'Save'}
-            </span>
-          </button>
-        )}
+        {/* Save button - ALWAYS SHOW, prompt to login if not logged in */}
+        <button
+          onClick={handleSave}
+          disabled={saveState === 'saving'}
+          className={cn(
+            'flex flex-col items-center justify-center flex-1 h-full gap-0.5 transition-colors',
+            getSaveColor(),
+            saveState === 'saving' && 'opacity-60'
+          )}
+        >
+          <Cloud className={cn('h-5 w-5', saveState === 'saving' && 'animate-pulse')} />
+          <span className="text-[10px] leading-tight">
+            {saveState === 'saving' ? 'Saving' : saveState === 'success' ? 'Saved!' : 'Save'}
+          </span>
+        </button>
       </div>
     </nav>
   );
