@@ -53,6 +53,13 @@ export default function Budget() {
     addPartner,
     removePartner,
     changePartnerPermission,
+    templates,
+    defaultTemplateId,
+    saveAsTemplate,
+    updateTemplate,
+    deleteTemplate,
+    setDefaultTemplate,
+    applyTemplate,
   } = useBudget();
 
   useSeoMeta({
@@ -115,6 +122,13 @@ export default function Budget() {
         onAddPartner={addPartner}
         onRemovePartner={removePartner}
         onChangePartnerPermission={changePartnerPermission}
+        templates={templates}
+        defaultTemplateId={defaultTemplateId}
+        onSaveTemplate={saveAsTemplate}
+        onUpdateTemplate={updateTemplate}
+        onDeleteTemplate={deleteTemplate}
+        onSetDefaultTemplate={setDefaultTemplate}
+        onApplyTemplate={applyTemplate}
       />
 
       <main className="container mx-auto px-3 sm:px-4 py-4 lg:py-6">

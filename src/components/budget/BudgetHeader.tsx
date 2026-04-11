@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bitcoin, DollarSign, ChevronLeft, ChevronRight, Wallet, Zap, Calendar, Menu, Info, Heart, ExternalLink, Shield, Globe, GraduationCap, User, LogIn, UserPlus, Cloud, Moon, Sun, Users, RotateCw } from 'lucide-react';
+import { Bitcoin, DollarSign, ChevronLeft, ChevronRight, Wallet, Zap, Calendar, Menu, Info, Heart, ExternalLink, Shield, Globe, GraduationCap, User, LogIn, UserPlus, Cloud, Moon, Sun, Users, RotateCw, Layers } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -28,7 +28,7 @@ import {
   calculateRemainingToBudgetSats,
   formatMonth,
 } from '@/lib/budgetTypes';
-import type { Bucket, BudgetPartner } from '@/lib/budgetTypes';
+import type { Bucket, BudgetPartner, BudgetTemplate } from '@/lib/budgetTypes';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/hooks/useTheme';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
@@ -39,6 +39,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { genUserName } from '@/lib/genUserName';
 import { BackupRestoreDialog } from './BackupRestoreDialog';
 import { ManagePartnersDialog } from './ManagePartnersDialog';
+import { ManageBudgetTemplateDialog } from './ManageBudgetTemplateDialog';
+import { ApplyTemplateDialog } from './ApplyTemplateDialog';
 
 interface BudgetHeaderProps {
   buckets: Bucket[];
@@ -55,6 +57,13 @@ interface BudgetHeaderProps {
   onAddPartner?: (pubkey: string, permission: 'view' | 'edit') => void;
   onRemovePartner?: (pubkey: string) => void;
   onChangePartnerPermission?: (pubkey: string, permission: 'view' | 'edit') => void;
+  templates?: BudgetTemplate[];
+  defaultTemplateId?: string;
+  onSaveTemplate?: (name: string, description?: string) => void;
+  onUpdateTemplate?: (templateId: string, name: string, description?: string) => void;
+  onDeleteTemplate?: (templateId: string) => void;
+  onSetDefaultTemplate?: (templateId: string) => void;
+  onApplyTemplate?: (templateId: string) => void;
 }
 
 export function BudgetHeader({
@@ -72,6 +81,13 @@ export function BudgetHeader({
   onAddPartner,
   onRemovePartner,
   onChangePartnerPermission,
+  templates = [],
+  defaultTemplateId,
+  onSaveTemplate,
+  onUpdateTemplate,
+  onDeleteTemplate,
+  onSetDefaultTemplate,
+  onApplyTemplate,
 }: BudgetHeaderProps) {
   const { data: priceData, isLoading: priceLoading } = useBitcoinPrice();
   const { isDark, toggle: toggleTheme } = useTheme();
@@ -82,6 +98,8 @@ export function BudgetHeader({
   const [showLogin, setShowLogin] = useState(false);
   const [showBackup, setShowBackup] = useState(false);
   const [showPartners, setShowPartners] = useState(false);
+  const [showManageTemplates, setShowManageTemplates] = useState(false);
+  const [showApplyTemplate, setShowApplyTemplate] = useState(false);
 
   // Generate list of months for picker (current month + 11 months back + 6 months forward)
   const getAvailableMonths = () => {
@@ -298,12 +316,28 @@ export function BudgetHeader({
                            {partners.length}
                          </Badge>
                        )}
-                     </DropdownMenuItem>
-                     <DropdownMenuSeparator />
-                   </>
-                  )}
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleRefresh}>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => setShowManageTemplates(true)}>
+                        <Layers className="h-4 w-4 mr-2" />
+                        Budget Templates
+                        {templates.length > 0 && (
+                          <Badge variant="secondary" className="ml-2 text-xs">
+                            {templates.length}
+                          </Badge>
+                        )}
+                      </DropdownMenuItem>
+                      {templates.length > 0 && (
+                        <DropdownMenuItem onClick={() => setShowApplyTemplate(true)}>
+                          <Layers className="h-4 w-4 mr-2" />
+                          Apply Template
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuSeparator />
+                    </>
+                   )}
+                   <DropdownMenuSeparator />
+                   <DropdownMenuItem onClick={handleRefresh}>
                     <RotateCw className="h-4 w-4 mr-2" />
                     Refresh App
                   </DropdownMenuItem>
@@ -717,11 +751,34 @@ export function BudgetHeader({
         onChangePermission={onChangePartnerPermission || (() => {})}
       />
 
-      {/* Backup & Sync Dialog */}
-      <BackupRestoreDialog
-        open={showBackup}
-        onOpenChange={setShowBackup}
-      />
-    </header>
-  );
-}
+       {/* Budget Template Manager Dialog */}
+       <ManageBudgetTemplateDialog
+         open={showManageTemplates}
+         onOpenChange={setShowManageTemplates}
+         templates={templates}
+         defaultTemplateId={defaultTemplateId}
+         onSaveTemplate={onSaveTemplate || (() => {})}
+         onUpdateTemplate={onUpdateTemplate || (() => {})}
+         onDeleteTemplate={onDeleteTemplate || (() => {})}
+         onSetDefaultTemplate={onSetDefaultTemplate || (() => {})}
+         currentBudgetName={currentMonth}
+       />
+
+       {/* Apply Template Dialog */}
+       <ApplyTemplateDialog
+         open={showApplyTemplate}
+         onOpenChange={setShowApplyTemplate}
+         templates={templates}
+         defaultTemplateId={defaultTemplateId}
+         onApply={onApplyTemplate || (() => {})}
+         currentMonth={currentMonth}
+       />
+
+       {/* Backup & Sync Dialog */}
+       <BackupRestoreDialog
+         open={showBackup}
+         onOpenChange={setShowBackup}
+       />
+     </header>
+   );
+ }

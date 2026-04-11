@@ -7,6 +7,7 @@ import {
   LineItem,
   Transaction,
   BudgetPartner,
+  BudgetTemplate,
   createDefaultBuckets,
   getCurrentMonth,
   generateId,
@@ -325,6 +326,82 @@ export function useBudget() {
     setState(prev => ({ ...prev, userRole: role }));
   }, [setState]);
 
+  // Save current budget as a template
+  const saveAsTemplate = useCallback((name: string, description?: string) => {
+    const now = Math.floor(Date.now() / 1000);
+    const template: BudgetTemplate = {
+      id: generateId(),
+      name,
+      description,
+      buckets: currentBudget.buckets.map(b => ({
+        ...b,
+        id: generateId(), // New IDs for template
+        lineItems: b.lineItems.map(li => ({
+          ...li,
+          id: generateId(), // New IDs for template
+        })),
+      })),
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    setState(prev => {
+      const templates = prev.templates || [];
+      return { ...prev, templates: [...templates, template] };
+    });
+
+    return template;
+  }, [currentBudget, setState]);
+
+  // Update existing template
+  const updateTemplate = useCallback((templateId: string, name: string, description?: string) => {
+    setState(prev => ({
+      ...prev,
+      templates: (prev.templates || []).map(t =>
+        t.id === templateId
+          ? { ...t, name, description, updatedAt: Math.floor(Date.now() / 1000) }
+          : t
+      ),
+    }));
+  }, [setState]);
+
+  // Delete a template
+  const deleteTemplate = useCallback((templateId: string) => {
+    setState(prev => ({
+      ...prev,
+      templates: (prev.templates || []).filter(t => t.id !== templateId),
+      // Clear default if deleted template was default
+      defaultTemplateId: prev.defaultTemplateId === templateId ? undefined : prev.defaultTemplateId,
+    }));
+  }, [setState]);
+
+  // Set a template as default
+  const setDefaultTemplate = useCallback((templateId: string) => {
+    setState(prev => ({ ...prev, defaultTemplateId: templateId }));
+  }, [setState]);
+
+  // Apply template to current month
+  const applyTemplate = useCallback((templateId: string) => {
+    const template = (state.templates || []).find(t => t.id === templateId);
+    if (!template) return;
+
+    const newBuckets = template.buckets.map(b => ({
+      ...b,
+      id: generateId(),
+      lineItems: b.lineItems.map(li => ({
+        ...li,
+        id: generateId(),
+      })),
+    }));
+
+    const updatedBudget = {
+      ...currentBudget,
+      buckets: newBuckets,
+    };
+
+    saveBudget(updatedBudget);
+  }, [state.templates, currentBudget, saveBudget]);
+
   return {
     // State
     currentBudget,
@@ -334,6 +411,8 @@ export function useBudget() {
     fullState: state, // Expose full state for sync operations
     partners: state.partners || [],
     userRole: state.userRole || 'owner',
+    templates: state.templates || [],
+    defaultTemplateId: state.defaultTemplateId,
 
     // Month actions
     setCurrentMonth,
@@ -360,6 +439,13 @@ export function useBudget() {
     removePartner,
     changePartnerPermission,
     setUserRole,
+
+    // Template actions
+    saveAsTemplate,
+    updateTemplate,
+    deleteTemplate,
+    setDefaultTemplate,
+    applyTemplate,
 
     // Budget duplication
     duplicateFromMonth,

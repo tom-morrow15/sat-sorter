@@ -51,6 +51,16 @@ export interface BudgetPartner {
   lastActive?: number; // Unix timestamp of last activity
 }
 
+export interface BudgetTemplate {
+  id: string;
+  name: string; // e.g., "Standard Household Budget"
+  description?: string;
+  buckets: Bucket[]; // Template categories with line items
+  createdAt: number; // Unix timestamp
+  updatedAt: number; // Unix timestamp
+  isDefault?: boolean; // Mark one template as default
+}
+
 export interface BudgetState {
   currentMonth: string;
   budgets: MonthlyBudget[];
@@ -58,6 +68,8 @@ export interface BudgetState {
   lastSynced?: number; // Unix timestamp of last Nostr sync
   partners?: BudgetPartner[]; // List of budget partners
   userRole?: 'owner' | 'editor' | 'viewer'; // Current user's role in this budget (defaults to 'owner' for creator)
+  templates?: BudgetTemplate[]; // Saved budget templates
+  defaultTemplateId?: string; // ID of template to use for new months
 }
 
 // Helper to generate unique IDs
