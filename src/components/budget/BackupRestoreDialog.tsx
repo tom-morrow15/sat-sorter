@@ -201,17 +201,15 @@ export function BackupRestoreDialog({ open, onOpenChange }: BackupRestoreDialogP
               <div className="space-y-3">
            {/* Status */}
                  <div className="flex items-center justify-between p-3 border rounded-lg">
-                   <div className="flex items-center gap-3 flex-1">
+                   <div className="flex items-center gap-3">
                      <div className="flex gap-1">
                        <Laptop className="h-4 w-4 text-muted-foreground" />
                        <Smartphone className="h-4 w-4 text-muted-foreground" />
                      </div>
-                     <div className="flex-1">
+                     <div>
                        <p className="text-sm font-medium">Cloud Status</p>
                        <p className="text-xs text-muted-foreground">
-                         {syncStatus.isSyncing ? (
-                           'Syncing...'
-                         ) : isLoadingRemote ? (
+                         {isLoadingRemote ? (
                            'Checking...'
                          ) : remoteBudget ? (
                            `Last synced: ${formatTimestamp(remoteTimestamp!)}`
@@ -219,11 +217,6 @@ export function BackupRestoreDialog({ open, onOpenChange }: BackupRestoreDialogP
                            'No backup found'
                          )}
                        </p>
-                       {syncStatus.lastSynced && !isLoadingRemote && !syncStatus.isSyncing && (
-                         <p className="text-xs text-green-600 mt-1">
-                           ✓ Auto-saving enabled
-                         </p>
-                       )}
                      </div>
                    </div>
                    {remoteBudget && (

@@ -14,12 +14,7 @@ interface SyncStatus {
   error: string | null;
 }
 
-interface UseBudgetSyncOptions {
-  autoSave?: boolean;
-  autoSaveInterval?: number; // ms
-}
-
-export function useBudgetSync(options?: UseBudgetSyncOptions) {
+export function useBudgetSync() {
   const { nostr } = useNostr();
   const { user } = useCurrentUser();
   const { mutateAsync: publish } = useNostrPublish();
@@ -150,42 +145,7 @@ export function useBudgetSync(options?: UseBudgetSyncOptions) {
     }
   }, [user, refetch]);
 
-  // Upload silently (for auto-save)
-  const silentUpload = useCallback(async (budgetState: BudgetState): Promise<boolean> => {
-    if (!user?.pubkey || !user?.signer?.nip44) {
-      return false;
-    }
 
-    try {
-      // Encrypt the budget data with NIP-44 (to self)
-      const encrypted = await user.signer.nip44.encrypt(
-        user.pubkey,
-        JSON.stringify(budgetState)
-      );
-
-      // Publish as NIP-78 event
-      await publish({
-        kind: BUDGET_KIND,
-        content: encrypted,
-        tags: [
-          ['d', APP_IDENTIFIER],
-          ['alt', 'Sat Sorter budget data (encrypted)'],
-        ],
-      });
-
-      // Update sync timestamp silently (don't show UI)
-      setSyncStatus(prev => ({
-        ...prev,
-        lastSynced: Math.floor(Date.now() / 1000),
-      }));
-
-      return true;
-    } catch (e) {
-      console.warn('Silent budget sync failed:', e);
-      // Don't update error status for silent syncs
-      return false;
-    }
-  }, [user, publish]);
 
   return {
     // Remote data
@@ -196,7 +156,6 @@ export function useBudgetSync(options?: UseBudgetSyncOptions) {
     // Sync actions
     uploadBudget,
     downloadBudget,
-    silentUpload,
 
     // Status
     syncStatus,
