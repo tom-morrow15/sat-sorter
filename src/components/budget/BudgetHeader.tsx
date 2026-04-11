@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bitcoin, DollarSign, ChevronLeft, ChevronRight, Wallet, Zap, Calendar, Menu, Info, Heart, ExternalLink, Shield, Globe, GraduationCap, User, LogIn, UserPlus, Cloud, Moon, Sun, Users } from 'lucide-react';
+import { Bitcoin, DollarSign, ChevronLeft, ChevronRight, Wallet, Zap, Calendar, Menu, Info, Heart, ExternalLink, Shield, Globe, GraduationCap, User, LogIn, UserPlus, Cloud, Moon, Sun, Users, RotateCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -145,6 +145,11 @@ export function BudgetHeader({
 
   const toggleLogo = () => {
     updateConfig((c) => ({ ...c, logoStyle: c.logoStyle === 'sats' ? 'bitcoin' : 'sats' }));
+  };
+
+  const handleRefresh = () => {
+    // Full page reload - useful for PWA and when login state changes
+    window.location.reload();
   };
 
   return (
@@ -296,12 +301,18 @@ export function BudgetHeader({
                      </DropdownMenuItem>
                      <DropdownMenuSeparator />
                    </>
-                 )}
-                 <DropdownMenuItem onClick={() => setShowBackup(true)}>
-                   <Cloud className="h-4 w-4 mr-2" />
-                   Backup & Sync
-                 </DropdownMenuItem>
-               </DropdownMenuContent>
+                  )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleRefresh}>
+                    <RotateCw className="h-4 w-4 mr-2" />
+                    Refresh App
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setShowBackup(true)}>
+                    <Cloud className="h-4 w-4 mr-2" />
+                    Backup & Sync
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
             </DropdownMenu>
           </div>
         </div>
