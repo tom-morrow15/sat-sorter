@@ -11,7 +11,15 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useBitcoinPrice, formatSats, satsToUsd, usdToSats, formatUsd } from '@/hooks/useBitcoinPrice';
+import { useBudget } from '@/hooks/useBudget';
 import { cn } from '@/lib/utils';
 
 interface QuickAddFABProps {
@@ -28,10 +36,13 @@ interface QuickAddFABProps {
 
 export function QuickAddFAB({ onAddTransaction, currency }: QuickAddFABProps) {
   const { data: priceData } = useBitcoinPrice();
+  const { currentBudget } = useBudget();
   const [open, setOpen] = useState(false);
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
   const [isIncome, setIsIncome] = useState(false);
+  const [selectedLineItemId, setSelectedLineItemId] = useState<string | null>(null);
+  const [selectedBucketId, setSelectedBucketId] = useState<string | null>(null);
 
   const handleAddTransaction = () => {
     if (!description.trim() || !amount.trim()) {
@@ -53,14 +64,16 @@ export function QuickAddFAB({ onAddTransaction, currency }: QuickAddFABProps) {
       description: description.trim(),
       amount: Math.round(satsAmount),
       isIncome,
-      bucketId: null,
-      lineItemId: null,
+      bucketId: selectedBucketId,
+      lineItemId: selectedLineItemId,
     });
 
     // Reset form
     setDescription('');
     setAmount('');
     setIsIncome(false);
+    setSelectedLineItemId(null);
+    setSelectedBucketId(null);
     setOpen(false);
   };
 
@@ -171,18 +184,60 @@ export function QuickAddFAB({ onAddTransaction, currency }: QuickAddFABProps) {
                 <Button
                   variant={!isIncome ? 'default' : 'outline'}
                   className="flex-1"
-                  onClick={() => setIsIncome(false)}
+                  onClick={() => {
+                    setIsIncome(false);
+                    setSelectedLineItemId(null);
+                    setSelectedBucketId(null);
+                  }}
                 >
                   Expense
                 </Button>
                 <Button
                   variant={isIncome ? 'default' : 'outline'}
                   className="flex-1"
-                  onClick={() => setIsIncome(true)}
+                  onClick={() => {
+                    setIsIncome(true);
+                    setSelectedLineItemId(null);
+                    setSelectedBucketId(null);
+                  }}
                 >
                   Income
                 </Button>
               </div>
+            </div>
+
+            {/* Line Item Selection */}
+            <div className="space-y-2">
+              <Label htmlFor="line-item">Assign to (optional)</Label>
+              <Select value={selectedLineItemId || ''} onValueChange={(value) => {
+                if (!value) {
+                  setSelectedLineItemId(null);
+                  setSelectedBucketId(null);
+                  return;
+                }
+                // value is "bucketId:lineItemId"
+                const [bucketId, lineItemId] = value.split(':');
+                setSelectedBucketId(bucketId);
+                setSelectedLineItemId(lineItemId);
+              }}>
+                <SelectTrigger id="line-item">
+                  <SelectValue placeholder="Select a line item..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">None - Assign later</SelectItem>
+                  {currentBudget.buckets
+                    .filter(b => b.isIncome === isIncome)
+                    .map((bucket) => (
+                      <optgroup key={bucket.id} label={bucket.name}>
+                        {bucket.lineItems.map((item) => (
+                          <SelectItem key={item.id} value={`${bucket.id}:${item.id}`}>
+                            {item.name}
+                          </SelectItem>
+                        ))}
+                      </optgroup>
+                    ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Preview */}

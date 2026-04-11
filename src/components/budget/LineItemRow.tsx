@@ -136,17 +136,17 @@ export function LineItemRow({
             className="h-9 text-sm flex-1"
             placeholder="Item name"
           />
-          <Input
-            ref={inputRef}
-            type="number"
-            value={editAmount}
-            onChange={(e) => setEditAmount(e.target.value)}
-            onKeyDown={handleKeyDown}
-            className="h-9 w-full sm:w-32 text-right text-sm tabular-nums"
-            placeholder="0"
-            min="0"
-            step={currency === 'usd' ? '0.01' : '1'}
-          />
+           <Input
+             ref={inputRef}
+             type="number"
+             value={editAmount}
+             onChange={(e) => setEditAmount(e.target.value)}
+             onKeyDown={handleKeyDown}
+             className="h-9 w-full sm:w-32 text-right text-sm tabular-nums"
+             placeholder={currency === 'usd' ? '0.00' : '0'}
+             min="0"
+             step={currency === 'usd' ? '0.01' : '1'}
+           />
         </div>
         <div className="flex justify-between gap-2">
           {/* Delete button - visible in edit mode for mobile access */}
@@ -214,7 +214,10 @@ export function LineItemRow({
         >
           {/* Show compact on very small screens */}
           <span className="sm:hidden">{formatAmount(lineItem.plannedAmount, true)}</span>
-          <span className="hidden sm:inline">{formatAmount(lineItem.plannedAmount)} sats</span>
+          <span className="hidden sm:inline">
+            {formatAmount(lineItem.plannedAmount)}
+            {currency === 'sats' && ' sats'}
+          </span>
         </div>
 
         {/* Action buttons - only on hover/desktop */}

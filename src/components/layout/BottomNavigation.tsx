@@ -37,27 +37,30 @@ export function BottomNavigation() {
     currency: 'sats',
   });
 
-  // Initialize last saved budget on first load
-  useEffect(() => {
-    if (!user?.pubkey || !lastSavedBudgetRef.current) {
-      lastSavedBudgetRef.current = JSON.stringify(currentBudget);
-    }
-  }, [user?.pubkey, currentBudget]);
-
   // Track when budget changes and mark as unsaved
   useEffect(() => {
     // Only track changes if user is logged in
-    if (!user?.pubkey) return;
-
-    // Only run this if we have a saved reference
-    if (!lastSavedBudgetRef.current) return;
+    if (!user?.pubkey) {
+      lastSavedBudgetRef.current = '';
+      return;
+    }
 
     // Convert current budget to string for comparison
     const currentBudgetStr = JSON.stringify(currentBudget);
 
+    // If last saved is empty, initialize it (first load)
+    if (!lastSavedBudgetRef.current) {
+      lastSavedBudgetRef.current = currentBudgetStr;
+      setSaveState('ready');
+      return;
+    }
+
     // Check if budget has changed since last save
-    if (currentBudgetStr !== lastSavedBudgetRef.current && saveState === 'ready') {
-      setSaveState('unsaved');
+    if (currentBudgetStr !== lastSavedBudgetRef.current) {
+      // Only change to unsaved if we're in ready state
+      if (saveState === 'ready' || saveState === 'unsaved') {
+        setSaveState('unsaved');
+      }
     }
   }, [currentBudget, user?.pubkey, saveState]);
 
