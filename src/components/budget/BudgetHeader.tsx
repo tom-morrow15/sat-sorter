@@ -23,6 +23,9 @@ import {
   calculateTotalIncome,
   calculateTotalExpenses,
   calculateRemainingToBudget,
+  calculateTotalIncomeSats,
+  calculateTotalExpensesSats,
+  calculateRemainingToBudgetSats,
   formatMonth,
 } from '@/lib/budgetTypes';
 import type { Bucket } from '@/lib/budgetTypes';
@@ -85,9 +88,16 @@ export function BudgetHeader({
     return months;
   };
 
-  const totalIncome = calculateTotalIncome(buckets);
-  const totalExpenses = calculateTotalExpenses(buckets);
-  const remaining = calculateRemainingToBudget(buckets);
+  // Use sats versions when BTC price is available (to use USD source of truth)
+  const totalIncome = priceData
+    ? calculateTotalIncomeSats(buckets, priceData.usdPerBtc)
+    : calculateTotalIncome(buckets);
+  const totalExpenses = priceData
+    ? calculateTotalExpensesSats(buckets, priceData.usdPerBtc)
+    : calculateTotalExpenses(buckets);
+  const remaining = priceData
+    ? calculateRemainingToBudgetSats(buckets, priceData.usdPerBtc)
+    : calculateRemainingToBudget(buckets);
 
   const formatAmount = (sats: number) => {
     if (currency === 'usd' && priceData) {

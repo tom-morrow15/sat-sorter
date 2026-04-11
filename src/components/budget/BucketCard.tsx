@@ -43,7 +43,7 @@ import {
 import { LineItemRow } from './LineItemRow';
 import { AddTransactionDialog } from './AddTransactionDialog';
 import { useBitcoinPrice, formatSats, satsToUsd, formatUsd } from '@/hooks/useBitcoinPrice';
-import { calculateBucketTotal, calculateSpentForBucket } from '@/lib/budgetTypes';
+import { calculateBucketTotal, calculateBucketTotalSats, calculateSpentForBucket } from '@/lib/budgetTypes';
 import type { Bucket, LineItem, Transaction } from '@/lib/budgetTypes';
 import type { BTCMapElement } from '@/hooks/useBTCMap';
 import { cn } from '@/lib/utils';
@@ -125,7 +125,10 @@ export function BucketCard({
   const [showTransactionDialog, setShowTransactionDialog] = useState(false);
 
   const Icon = iconMap[bucket.icon] || Wallet;
-  const total = calculateBucketTotal(bucket);
+  // Use sats version when BTC price is available (to use USD source of truth)
+  const total = priceData
+    ? calculateBucketTotalSats(bucket, priceData.usdPerBtc)
+    : calculateBucketTotal(bucket);
   const spent = calculateSpentForBucket(bucket, transactions);
 
   const formatAmount = (sats: number, compact = false) => {

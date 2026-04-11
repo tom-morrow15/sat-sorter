@@ -65,16 +65,28 @@ export function LineItemRow({
 
   // Get editable amount value - show empty string if 0 so it looks like placeholder
   const getEditableAmount = () => {
-    if (lineItem.plannedAmount === 0) {
+    // When in USD mode, use the stored USD amount (source of truth)
+    if (currency === 'usd') {
+      if (lineItem.plannedAmountUsd && lineItem.plannedAmountUsd > 0) {
+        return lineItem.plannedAmountUsd.toFixed(2);
+      }
+      // Fallback for legacy line items
+      if (lineItem.plannedAmount === 0) {
+        return '';
+      }
+      if (priceData) {
+        return satsToUsd(lineItem.plannedAmount, priceData.usdPerBtc).toFixed(2);
+      }
       return '';
     }
-    if (currency === 'usd' && priceData) {
-      return satsToUsd(lineItem.plannedAmount, priceData.usdPerBtc).toFixed(2);
+    // When in sats mode, use the sats amount
+    if (lineItem.plannedAmount === 0) {
+      return '';
     }
     return lineItem.plannedAmount.toString();
   };
 
-  // Parse input amount to sats
+  // Parse input amount and calculate corresponding sats using current price
   const parseAmountToSats = (value: string): number => {
     const num = parseFloat(value) || 0;
     if (currency === 'usd' && priceData) {
@@ -90,11 +102,23 @@ export function LineItemRow({
   };
 
   const handleSave = () => {
-    const newAmount = parseAmountToSats(editAmount);
-    onUpdate(bucketId, lineItem.id, {
+    const newAmountSats = parseAmountToSats(editAmount);
+    const updates: Partial<LineItem> = {
       name: editName.trim() || lineItem.name,
-      plannedAmount: newAmount >= 0 ? newAmount : 0,
-    });
+      plannedAmount: newAmountSats >= 0 ? newAmountSats : 0,
+    };
+
+    // When in USD mode, store the USD amount as source of truth
+    if (currency === 'usd') {
+      const usdAmount = parseFloat(editAmount) || 0;
+      updates.plannedAmountUsd = usdAmount >= 0 ? usdAmount : 0;
+      // Store the BTC price at the time of budget creation/update
+      if (priceData) {
+        updates.btcPriceAtBudget = priceData.usdPerBtc;
+      }
+    }
+
+    onUpdate(bucketId, lineItem.id, updates);
     setIsEditing(false);
   };
 

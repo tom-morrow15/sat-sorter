@@ -35,7 +35,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useBitcoinPrice, formatSats, satsToUsd, usdToSats, formatUsd } from '@/hooks/useBitcoinPrice';
-import { getUnassignedTransactions } from '@/lib/budgetTypes';
+import { getUnassignedTransactions, getTransactionUsdAmount, getTransactionSatAmount } from '@/lib/budgetTypes';
 import type { Transaction, Bucket } from '@/lib/budgetTypes';
 import { cn } from '@/lib/utils';
 
@@ -88,9 +88,16 @@ export function TransactionsPanel({
     return filteredTransactions.length > 0 ? filteredTransactions : [...unassigned, ...assigned];
   }, [filteredTransactions, unassigned, assigned]);
 
-  const formatAmount = (sats: number) => {
-    if (currency === 'usd' && priceData) {
-      return formatUsd(satsToUsd(sats, priceData.usdPerBtc));
+  const formatAmount = (sats: number, transaction?: Transaction) => {
+    if (currency === 'usd') {
+      if (transaction && priceData) {
+        // Use source-of-truth USD amount
+        const usdAmount = getTransactionUsdAmount(transaction, priceData.usdPerBtc);
+        return formatUsd(usdAmount);
+      }
+      if (priceData) {
+        return formatUsd(satsToUsd(sats, priceData.usdPerBtc));
+      }
     }
     return `${formatSats(sats)} sats`;
   };
@@ -106,14 +113,23 @@ export function TransactionsPanel({
   const handleAddTransaction = () => {
     const amount = parseAmountToSats(newAmount);
     if (amount > 0 && newDescription.trim()) {
-      onAddTransaction({
+      const transaction: any = {
         amount,
         description: newDescription.trim(),
         date: new Date().toISOString(),
         lineItemId: null,
         bucketId: null,
         isIncome: newIsIncome,
-      });
+      };
+
+      // When in USD mode, store the USD amount as source of truth
+      if (currency === 'usd' && priceData) {
+        const usdAmount = parseFloat(newAmount) || 0;
+        transaction.amountUsd = usdAmount;
+        transaction.btcPriceAtEntry = priceData.usdPerBtc;
+      }
+
+      onAddTransaction(transaction);
       setNewAmount('');
       setNewDescription('');
       setNewIsIncome(false);
@@ -214,15 +230,15 @@ export function TransactionsPanel({
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span
-                        className={cn(
-                          'font-semibold tabular-nums',
-                          transaction.isIncome ? 'text-success' : ''
-                        )}
-                      >
-                        {transaction.isIncome ? '+' : '-'}
-                        {formatAmount(transaction.amount)}
-                      </span>
+                          <span
+                            className={cn(
+                              'text-sm font-medium tabular-nums',
+                              transaction.isIncome ? 'text-success' : ''
+                            )}
+                          >
+                            {transaction.isIncome ? '+' : '-'}
+                            {formatAmount(transaction.amount, transaction)}
+                          </span>
                       <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
                     </div>
                   </button>
@@ -381,7 +397,7 @@ export function TransactionsPanel({
                             )}
                           >
                             {transaction.isIncome ? '+' : '-'}
-                            {formatAmount(transaction.amount)}
+                            {formatAmount(transaction.amount, transaction)}
                           </span>
                           <Button
                             size="icon"

@@ -31,6 +31,8 @@ interface AddTransactionDialogProps {
     date: string;
     description: string;
     amount: number;
+    amountUsd?: number;
+    btcPriceAtEntry?: number;
     isIncome: boolean;
     bucketId: string | null;
     lineItemId: string | null;
@@ -70,14 +72,23 @@ export function AddTransactionDialog({
   const handleSave = () => {
     if (!description.trim() || totalSats <= 0 || !selectedLineItemId) return;
 
-    onSave({
+    const transaction: any = {
       date: new Date().toISOString().split('T')[0],
       description: description.trim(),
       amount: totalSats,
       isIncome,
       bucketId: selectedBucketId,
       lineItemId: selectedLineItemId,
-    });
+    };
+
+    // When in USD mode, store the USD amount as source of truth
+    if (currency === 'usd' && priceData) {
+      const usdAmount = parseFloat(amountInput) || 0;
+      transaction.amountUsd = usdAmount;
+      transaction.btcPriceAtEntry = priceData.usdPerBtc;
+    }
+
+    onSave(transaction);
 
     // Reset form
     setDescription('');

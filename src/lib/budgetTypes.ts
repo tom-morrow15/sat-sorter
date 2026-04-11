@@ -2,7 +2,9 @@
 
 export interface Transaction {
   id: string;
-  amount: number; // in sats
+  amount: number; // in sats - calculated from amountUsd
+  amountUsd?: number; // USD amount - source of truth when user inputs USD
+  btcPriceAtEntry?: number; // USD price of BTC when transaction was created
   description: string;
   date: string; // ISO date string
   lineItemId: string | null; // null means unassigned
@@ -150,6 +152,20 @@ export function calculateBucketTotal(bucket: Bucket): number {
   return bucket.lineItems.reduce((sum, item) => sum + item.plannedAmount, 0);
 }
 
+/**
+ * Calculate bucket total in sats, using USD amounts if available (source of truth)
+ */
+export function calculateBucketTotalSats(bucket: Bucket, currentBtcPrice?: number): number {
+  if (!currentBtcPrice) {
+    // Fallback: just sum the sats
+    return calculateBucketTotal(bucket);
+  }
+
+  return bucket.lineItems.reduce((sum, item) => {
+    return sum + getLineItemSatAmount(item, currentBtcPrice);
+  }, 0);
+}
+
 export function calculateTotalIncome(buckets: Bucket[]): number {
   return buckets
     .filter(b => b.isIncome)
@@ -164,6 +180,67 @@ export function calculateTotalExpenses(buckets: Bucket[]): number {
 
 export function calculateRemainingToBudget(buckets: Bucket[]): number {
   return calculateTotalIncome(buckets) - calculateTotalExpenses(buckets);
+}
+
+/**
+ * Calculate total income in sats using USD amounts if available
+ */
+export function calculateTotalIncomeSats(buckets: Bucket[], currentBtcPrice?: number): number {
+  return buckets
+    .filter(b => b.isIncome)
+    .reduce((sum, bucket) => sum + calculateBucketTotalSats(bucket, currentBtcPrice), 0);
+}
+
+/**
+ * Calculate total expenses in sats using USD amounts if available
+ */
+export function calculateTotalExpensesSats(buckets: Bucket[], currentBtcPrice?: number): number {
+  return buckets
+    .filter(b => !b.isIncome)
+    .reduce((sum, bucket) => sum + calculateBucketTotalSats(bucket, currentBtcPrice), 0);
+}
+
+/**
+ * Calculate remaining to budget in sats using USD amounts if available
+ */
+export function calculateRemainingToBudgetSats(buckets: Bucket[], currentBtcPrice?: number): number {
+  return calculateTotalIncomeSats(buckets, currentBtcPrice) - calculateTotalExpensesSats(buckets, currentBtcPrice);
+}
+
+/**
+ * Get the actual amount in sats for a transaction
+ * If USD amount is set, convert from it (to ensure consistency)
+ * Otherwise use the stored sats amount
+ */
+export function getTransactionSatAmount(transaction: Transaction, currentBtcPrice?: number): number {
+  // If USD amount is set, that's the source of truth
+  if (transaction.amountUsd && transaction.amountUsd > 0) {
+    if (!currentBtcPrice) {
+      console.warn('getTransactionSatAmount: USD amount present but no BTC price provided');
+      return transaction.amount; // Fallback to stored sats
+    }
+    return Math.round(transaction.amountUsd / currentBtcPrice * 100_000_000);
+  }
+  // Otherwise use stored sats
+  return transaction.amount;
+}
+
+/**
+ * Get the actual amount in USD for a transaction
+ * If USD amount is set, use it (source of truth)
+ * Otherwise convert from sats using provided price
+ */
+export function getTransactionUsdAmount(transaction: Transaction, currentBtcPrice?: number): number {
+  // If USD amount is set, that's the source of truth
+  if (transaction.amountUsd && transaction.amountUsd > 0) {
+    return transaction.amountUsd;
+  }
+  // Otherwise convert from sats
+  if (!currentBtcPrice) {
+    console.warn('getTransactionUsdAmount: No USD amount and no BTC price provided');
+    return 0;
+  }
+  return transaction.amount / 100_000_000 * currentBtcPrice;
 }
 
 // Calculate spent amount for a line item
