@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -98,17 +99,22 @@ export function AddTransactionDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
-          <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
-            <Input
-              id="description"
-              placeholder="e.g., Grocery store, Salary payment"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              autoFocus
-            />
-          </div>
+         <div className="space-y-4 py-4">
+           <div className="space-y-2">
+             <Label htmlFor="description">Description</Label>
+             <Textarea
+               id="description"
+               placeholder="e.g., Weekly groceries, Monthly salary..."
+               value={description}
+               onChange={(e) => setDescription(e.target.value)}
+               rows={3}
+               className="resize-none"
+               autoFocus
+             />
+             <p className="text-xs text-muted-foreground">
+               Add details to help you remember this transaction.
+             </p>
+           </div>
 
            <div className="space-y-2">
              <Label htmlFor="amount">Amount ({currency === 'usd' ? 'USD' : 'sats'})</Label>

@@ -15,6 +15,7 @@ import { DataSourcesDialog } from './DataSourcesDialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
@@ -451,15 +452,20 @@ export function TransactionsPanel({
               </Button>
             </div>
 
-            <div className="space-y-2">
-              <Label>Description</Label>
-              <Input
-                value={newDescription}
-                onChange={(e) => setNewDescription(e.target.value)}
-                placeholder="e.g., Coffee shop, Grocery store..."
-                autoFocus
-              />
-            </div>
+             <div className="space-y-2">
+               <Label>Description</Label>
+               <Textarea
+                 value={newDescription}
+                 onChange={(e) => setNewDescription(e.target.value)}
+                 placeholder="e.g., Coffee shop on Main St, Weekly groceries..."
+                 rows={3}
+                 className="resize-none"
+                 autoFocus
+               />
+               <p className="text-xs text-muted-foreground">
+                 Add details to help you remember this transaction.
+               </p>
+             </div>
 
             <div className="space-y-2">
               <Label>Amount ({currency === 'usd' ? 'USD' : 'sats'})</Label>
