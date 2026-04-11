@@ -109,6 +109,7 @@ export function BucketCard({
   onAddLineItem,
   onUpdateLineItem,
   onDeleteLineItem,
+  onAddTransaction,
 }: BucketCardProps) {
   const { data: priceData } = useBitcoinPrice();
   const [isOpen, setIsOpen] = useState(true);
