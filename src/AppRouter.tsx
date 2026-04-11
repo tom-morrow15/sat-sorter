@@ -1,8 +1,7 @@
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
 import { ScrollToTop } from "./components/ScrollToTop";
 import { MainLayout } from "./components/layout/MainLayout";
 
-import Index from "./pages/Index";
 import HomePage from "./pages/HomePage";
 import SpendingBreakdownPage from "./pages/SpendingBreakdownPage";
 import LocalSpendPage from "./pages/LocalSpendPage";
@@ -15,8 +14,8 @@ export function AppRouter() {
     <BrowserRouter>
       <ScrollToTop />
       <Routes>
-        {/* Landing page - no nav */}
-        <Route path="/" element={<Index />} />
+        {/* Root redirect to home */}
+        <Route path="/" element={<Navigate to="/home" replace />} />
 
         {/* App pages - with bottom navigation */}
         <Route
