@@ -87,19 +87,19 @@ export function QuickAddFAB({ onAddTransaction, currency }: QuickAddFABProps) {
 
   return (
     <>
-      {/* Floating Action Button */}
+      {/* Floating Action Button - positioned above nav bar */}
       <button
         onClick={() => setOpen(true)}
         className={cn(
-          'fixed bottom-6 right-6 z-40',
-          'sm:bottom-6 sm:right-6',
+          'fixed right-6 z-50',
+          'sm:right-6',
           'h-14 w-14 rounded-full shadow-lg hover:shadow-xl',
           'flex items-center justify-center transition-all duration-200',
           'bg-primary text-primary-foreground hover:bg-primary/90',
           'active:scale-95'
         )}
         style={{
-          bottom: 'max(1.5rem, env(safe-area-inset-bottom))',
+          bottom: 'calc(max(1.5rem, env(safe-area-inset-bottom)) + 76px)',
           right: 'max(1.5rem, env(safe-area-inset-right))',
         }}
       >

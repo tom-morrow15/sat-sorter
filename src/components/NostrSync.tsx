@@ -124,11 +124,6 @@ export function NostrSync() {
             budgets: remoteBudget.budgets.length,
             month: remoteBudget.currentMonth,
           });
-
-          toast({
-            title: 'Budget restored from cloud',
-            description: `Loaded ${remoteBudget.budgets.length} month(s) of budget data.`,
-          });
         } catch (decryptError) {
           console.error('[NostrSync] Failed to decrypt budget:', decryptError);
         }
@@ -142,7 +137,7 @@ export function NostrSync() {
     return () => {
       isMounted = false;
     };
-  }, [user?.pubkey, user?.signer?.nip44, nostr, setLocalBudget, localBudget.currentMonth, toast]);
+  }, [user?.pubkey, user?.signer?.nip44, nostr, setLocalBudget]);
 
   return null;
 }
