@@ -1,8 +1,9 @@
 import { useState, useMemo } from 'react';
-import { Plus, Bitcoin, Zap, Wallet, Info, Copy } from 'lucide-react';
+import { Plus, Bitcoin, Zap, Wallet, Info, Copy, Lock } from 'lucide-react';
 import { useSeoMeta, useHead } from '@unhead/react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/useToast';
 import { BudgetHeader } from '@/components/budget/BudgetHeader';
 import { BudgetDashboard } from '@/components/budget/BudgetDashboard';
@@ -18,6 +19,7 @@ import { useBudget } from '@/hooks/useBudget';
 import { useWallet } from '@/hooks/useWallet';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useBTCMap } from '@/hooks/useBTCMap';
+import { canAddBucket } from '@/lib/budgetPermissions';
 
 export default function Budget() {
   const [showAddBucket, setShowAddBucket] = useState(false);
@@ -46,6 +48,11 @@ export default function Budget() {
     duplicateFromMonth,
     getPreviousMonth,
     hasPreviousMonthBudget,
+    partners,
+    userRole,
+    addPartner,
+    removePartner,
+    changePartnerPermission,
   } = useBudget();
 
   useSeoMeta({
@@ -103,20 +110,38 @@ export default function Budget() {
         onOpenWallet={() => setShowWalletModal(true)}
         onSelectMonth={setCurrentMonth}
         unassignedCount={unassignedCount}
+        partners={partners}
+        userRole={userRole}
+        onAddPartner={addPartner}
+        onRemovePartner={removePartner}
+        onChangePartnerPermission={changePartnerPermission}
       />
 
       <main className="container mx-auto px-3 sm:px-4 py-4 lg:py-6">
         {/* Alerts Section - Full width */}
-        <div className="space-y-3 mb-4">
-          {/* Login prompt for guests */}
-          {!user && (
-            <Alert className="border-primary/30 bg-primary/5">
-              <Info className="h-4 w-4 text-primary" />
-              <AlertDescription className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <span className="text-sm">
-                  Log in with Nostr to sync your budget across devices.
-                </span>
-                <LoginArea className="shrink-0" />
+         <div className="space-y-3 mb-4">
+           {/* Role indicator for partners */}
+           {userRole !== 'owner' && (
+             <Alert className="border-amber-300 bg-amber-50 dark:bg-amber-950/30">
+               <Lock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+               <AlertDescription className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                 <span className="text-sm text-amber-900 dark:text-amber-100">
+                   You're viewing this budget as a <Badge variant="secondary" className="ml-1">{userRole === 'viewer' ? 'Viewer' : 'Editor'}</Badge>
+                   {userRole === 'viewer' ? ' - view-only access' : ' - you can edit but not delete'}
+                 </span>
+               </AlertDescription>
+             </Alert>
+           )}
+
+           {/* Login prompt for guests */}
+           {!user && (
+             <Alert className="border-primary/30 bg-primary/5">
+               <Info className="h-4 w-4 text-primary" />
+               <AlertDescription className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                 <span className="text-sm">
+                   Log in with Nostr to sync your budget across devices.
+                 </span>
+                 <LoginArea className="shrink-0" />
               </AlertDescription>
             </Alert>
           )}
@@ -173,24 +198,26 @@ export default function Budget() {
               />
             )}
 
-            {/* Section header for expenses */}
-            <div className="flex items-center justify-between pt-2">
-              <div className="flex items-center gap-2">
-                <h2 className="text-base font-semibold">Expense Categories</h2>
-                <span className="text-sm text-muted-foreground">
-                  ({expenseBuckets.length})
-                </span>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowAddBucket(true)}
-              >
-                <Plus className="h-4 w-4 mr-1" />
-                <span className="hidden sm:inline">Add Category</span>
-                <span className="sm:hidden">Add</span>
-              </Button>
-            </div>
+             {/* Section header for expenses */}
+             <div className="flex items-center justify-between pt-2">
+               <div className="flex items-center gap-2">
+                 <h2 className="text-base font-semibold">Expense Categories</h2>
+                 <span className="text-sm text-muted-foreground">
+                   ({expenseBuckets.length})
+                 </span>
+               </div>
+               <Button
+                 variant="outline"
+                 size="sm"
+                 onClick={() => setShowAddBucket(true)}
+                 disabled={!canAddBucket(userRole)}
+                 title={!canAddBucket(userRole) ? 'You don\'t have permission to add categories' : undefined}
+               >
+                 <Plus className="h-4 w-4 mr-1" />
+                 <span className="hidden sm:inline">Add Category</span>
+                 <span className="sm:hidden">Add</span>
+               </Button>
+             </div>
 
             {/* Expense buckets */}
             <div className="space-y-3">

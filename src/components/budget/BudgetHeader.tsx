@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bitcoin, DollarSign, ChevronLeft, ChevronRight, Wallet, Zap, Calendar, Menu, Info, Heart, ExternalLink, Shield, Globe, GraduationCap, User, LogIn, UserPlus, Cloud, Moon, Sun } from 'lucide-react';
+import { Bitcoin, DollarSign, ChevronLeft, ChevronRight, Wallet, Zap, Calendar, Menu, Info, Heart, ExternalLink, Shield, Globe, GraduationCap, User, LogIn, UserPlus, Cloud, Moon, Sun, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -28,7 +28,7 @@ import {
   calculateRemainingToBudgetSats,
   formatMonth,
 } from '@/lib/budgetTypes';
-import type { Bucket } from '@/lib/budgetTypes';
+import type { Bucket, BudgetPartner } from '@/lib/budgetTypes';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/hooks/useTheme';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
@@ -38,6 +38,7 @@ import { useAppContext } from '@/hooks/useAppContext';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { genUserName } from '@/lib/genUserName';
 import { BackupRestoreDialog } from './BackupRestoreDialog';
+import { ManagePartnersDialog } from './ManagePartnersDialog';
 
 interface BudgetHeaderProps {
   buckets: Bucket[];
@@ -49,6 +50,11 @@ interface BudgetHeaderProps {
   onOpenWallet: () => void;
   onSelectMonth?: (month: string) => void;
   unassignedCount?: number;
+  partners?: BudgetPartner[];
+  userRole?: 'owner' | 'editor' | 'viewer';
+  onAddPartner?: (pubkey: string, permission: 'view' | 'edit') => void;
+  onRemovePartner?: (pubkey: string) => void;
+  onChangePartnerPermission?: (pubkey: string, permission: 'view' | 'edit') => void;
 }
 
 export function BudgetHeader({
@@ -61,6 +67,11 @@ export function BudgetHeader({
   onOpenWallet,
   onSelectMonth,
   unassignedCount = 0,
+  partners = [],
+  userRole = 'owner',
+  onAddPartner,
+  onRemovePartner,
+  onChangePartnerPermission,
 }: BudgetHeaderProps) {
   const { data: priceData, isLoading: priceLoading } = useBitcoinPrice();
   const { isDark, toggle: toggleTheme } = useTheme();
@@ -70,6 +81,7 @@ export function BudgetHeader({
   const [showBitcoinEdu, setShowBitcoinEdu] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
   const [showBackup, setShowBackup] = useState(false);
+  const [showPartners, setShowPartners] = useState(false);
 
   // Generate list of months for picker (current month + 11 months back + 6 months forward)
   const getAvailableMonths = () => {
@@ -271,6 +283,20 @@ export function BudgetHeader({
                    {isDark ? 'Light Mode' : 'Dark Mode'}
                  </DropdownMenuItem>
                  <DropdownMenuSeparator />
+                 {user && (
+                   <>
+                     <DropdownMenuItem onClick={() => setShowPartners(true)}>
+                       <Users className="h-4 w-4 mr-2" />
+                       Budget Partners
+                       {partners.length > 0 && (
+                         <Badge variant="secondary" className="ml-2 text-xs">
+                           {partners.length}
+                         </Badge>
+                       )}
+                     </DropdownMenuItem>
+                     <DropdownMenuSeparator />
+                   </>
+                 )}
                  <DropdownMenuItem onClick={() => setShowBackup(true)}>
                    <Cloud className="h-4 w-4 mr-2" />
                    Backup & Sync
@@ -667,6 +693,17 @@ export function BudgetHeader({
         isOpen={showLogin}
         onClose={() => setShowLogin(false)}
         onLogin={() => setShowLogin(false)}
+      />
+
+      {/* Budget Partners Dialog */}
+      <ManagePartnersDialog
+        open={showPartners}
+        onOpenChange={setShowPartners}
+        partners={partners}
+        userRole={userRole}
+        onAddPartner={onAddPartner || (() => {})}
+        onRemovePartner={onRemovePartner || (() => {})}
+        onChangePermission={onChangePartnerPermission || (() => {})}
       />
 
       {/* Backup & Sync Dialog */}

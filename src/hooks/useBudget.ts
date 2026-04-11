@@ -6,6 +6,7 @@ import {
   Bucket,
   LineItem,
   Transaction,
+  BudgetPartner,
   createDefaultBuckets,
   getCurrentMonth,
   generateId,
@@ -284,6 +285,46 @@ export function useBudget() {
     return state.budgets.some(b => b.month === prevMonth);
   }, [state.budgets, getPreviousMonth]);
 
+  // Add a partner to the budget
+  const addPartner = useCallback((pubkey: string, permission: 'view' | 'edit') => {
+    setState(prev => {
+      const partners = prev.partners || [];
+      // Avoid duplicates
+      if (partners.some(p => p.pubkey === pubkey)) {
+        return prev;
+      }
+      const newPartner: BudgetPartner = {
+        pubkey,
+        permission,
+        addedAt: Math.floor(Date.now() / 1000),
+      };
+      return { ...prev, partners: [...partners, newPartner] };
+    });
+  }, [setState]);
+
+  // Remove a partner from the budget
+  const removePartner = useCallback((pubkey: string) => {
+    setState(prev => ({
+      ...prev,
+      partners: (prev.partners || []).filter(p => p.pubkey !== pubkey),
+    }));
+  }, [setState]);
+
+  // Change a partner's permission level
+  const changePartnerPermission = useCallback((pubkey: string, permission: 'view' | 'edit') => {
+    setState(prev => ({
+      ...prev,
+      partners: (prev.partners || []).map(p =>
+        p.pubkey === pubkey ? { ...p, permission } : p
+      ),
+    }));
+  }, [setState]);
+
+  // Set user role
+  const setUserRole = useCallback((role: 'owner' | 'editor' | 'viewer') => {
+    setState(prev => ({ ...prev, userRole: role }));
+  }, [setState]);
+
   return {
     // State
     currentBudget,
@@ -291,6 +332,8 @@ export function useBudget() {
     currency: state.currency,
     availableMonths,
     fullState: state, // Expose full state for sync operations
+    partners: state.partners || [],
+    userRole: state.userRole || 'owner',
 
     // Month actions
     setCurrentMonth,
@@ -311,6 +354,12 @@ export function useBudget() {
     updateTransaction,
     deleteTransaction,
     assignTransaction,
+
+    // Partner actions
+    addPartner,
+    removePartner,
+    changePartnerPermission,
+    setUserRole,
 
     // Budget duplication
     duplicateFromMonth,

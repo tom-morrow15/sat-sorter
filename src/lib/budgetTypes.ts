@@ -43,11 +43,21 @@ export interface MonthlyBudget {
   transactions: Transaction[];
 }
 
+export interface BudgetPartner {
+  pubkey: string;
+  name?: string; // Display name
+  permission: 'view' | 'edit'; // view-only or can edit
+  addedAt: number; // Unix timestamp when partner was added
+  lastActive?: number; // Unix timestamp of last activity
+}
+
 export interface BudgetState {
   currentMonth: string;
   budgets: MonthlyBudget[];
   currency: 'sats' | 'usd';
   lastSynced?: number; // Unix timestamp of last Nostr sync
+  partners?: BudgetPartner[]; // List of budget partners
+  userRole?: 'owner' | 'editor' | 'viewer'; // Current user's role in this budget (defaults to 'owner' for creator)
 }
 
 // Helper to generate unique IDs
