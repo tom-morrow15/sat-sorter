@@ -199,33 +199,40 @@ export function BackupRestoreDialog({ open, onOpenChange }: BackupRestoreDialogP
               </div>
             ) : (
               <div className="space-y-3">
-                {/* Status */}
-                <div className="flex items-center justify-between p-3 border rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <div className="flex gap-1">
-                      <Laptop className="h-4 w-4 text-muted-foreground" />
-                      <Smartphone className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">Cloud Status</p>
-                      <p className="text-xs text-muted-foreground">
-                        {isLoadingRemote ? (
-                          'Checking...'
-                        ) : remoteBudget ? (
-                          `Last synced: ${formatTimestamp(remoteTimestamp!)}`
-                        ) : (
-                          'No backup found'
-                        )}
-                      </p>
-                    </div>
-                  </div>
-                  {remoteBudget && (
-                    <Badge variant="secondary" className="text-green-600">
-                      <CheckCircle className="h-3 w-3 mr-1" />
-                      Available
-                    </Badge>
-                  )}
-                </div>
+           {/* Status */}
+                 <div className="flex items-center justify-between p-3 border rounded-lg">
+                   <div className="flex items-center gap-3 flex-1">
+                     <div className="flex gap-1">
+                       <Laptop className="h-4 w-4 text-muted-foreground" />
+                       <Smartphone className="h-4 w-4 text-muted-foreground" />
+                     </div>
+                     <div className="flex-1">
+                       <p className="text-sm font-medium">Cloud Status</p>
+                       <p className="text-xs text-muted-foreground">
+                         {syncStatus.isSyncing ? (
+                           'Syncing...'
+                         ) : isLoadingRemote ? (
+                           'Checking...'
+                         ) : remoteBudget ? (
+                           `Last synced: ${formatTimestamp(remoteTimestamp!)}`
+                         ) : (
+                           'No backup found'
+                         )}
+                       </p>
+                       {syncStatus.lastSynced && !isLoadingRemote && !syncStatus.isSyncing && (
+                         <p className="text-xs text-green-600 mt-1">
+                           ✓ Auto-saving enabled
+                         </p>
+                       )}
+                     </div>
+                   </div>
+                   {remoteBudget && (
+                     <Badge variant="secondary" className="text-green-600">
+                       <CheckCircle className="h-3 w-3 mr-1" />
+                       Available
+                     </Badge>
+                   )}
+                 </div>
 
                 {/* Sync buttons */}
                 <div className="grid grid-cols-2 gap-2">

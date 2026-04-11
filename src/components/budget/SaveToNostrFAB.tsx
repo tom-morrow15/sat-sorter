@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Cloud, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -20,13 +20,26 @@ export function SaveToNostrFAB({ onSaveStart, onSaveComplete }: SaveToNostrFABPr
   const { toast } = useToast();
   const [saveState, setSaveState] = useState<SaveState>('ready');
   
-  const { uploadBudget } = useBudgetSync();
+  const { uploadBudget, syncStatus } = useBudgetSync();
   
   const [localBudget] = useLocalStorage<BudgetState>('sat-sorter-budget', {
     currentMonth: '',
     budgets: [],
     currency: 'sats',
   });
+
+  // Show success briefly if auto-saved
+  useEffect(() => {
+    if (syncStatus.lastSynced && saveState === 'ready') {
+      // Budget was auto-saved by background sync
+      const now = Math.floor(Date.now() / 1000);
+      const secondsAgo = now - syncStatus.lastSynced;
+      if (secondsAgo < 3) {
+        setSaveState('success');
+        setTimeout(() => setSaveState('ready'), 2000);
+      }
+    }
+  }, [syncStatus.lastSynced, saveState]);
 
   const handleSave = async () => {
     if (!user?.pubkey) {

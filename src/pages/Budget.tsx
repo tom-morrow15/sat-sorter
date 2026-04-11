@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Plus, Bitcoin, Zap, Wallet, Info, Copy } from 'lucide-react';
 import { useSeoMeta, useHead } from '@unhead/react';
+import { useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/useToast';
@@ -18,6 +19,7 @@ import { useBudget } from '@/hooks/useBudget';
 import { useWallet } from '@/hooks/useWallet';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useBTCMap } from '@/hooks/useBTCMap';
+import { useBudgetSync } from '@/hooks/useBudgetSync';
 
 export default function Budget() {
   const [showAddBucket, setShowAddBucket] = useState(false);
@@ -27,6 +29,11 @@ export default function Budget() {
   const { user } = useCurrentUser();
   const { hasNWC } = useWallet();
   const { merchants } = useBTCMap();
+  const { silentUpload, canSync } = useBudgetSync();
+
+  // Auto-save timer ref
+  const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const pendingChangesRef = useRef(false);
 
   const {
     currentBudget,
@@ -46,6 +53,7 @@ export default function Budget() {
     duplicateFromMonth,
     getPreviousMonth,
     hasPreviousMonthBudget,
+    fullState,
   } = useBudget();
 
   useSeoMeta({
@@ -58,6 +66,49 @@ export default function Budget() {
       { rel: 'icon', type: 'image/svg+xml', href: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">₿</text></svg>' },
     ],
   });
+
+  // Auto-save to Nostr when logged in
+  useEffect(() => {
+    if (!user?.pubkey || !canSync) {
+      pendingChangesRef.current = false;
+      return;
+    }
+
+    // Mark that there are pending changes
+    pendingChangesRef.current = true;
+
+    // Clear existing timer
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+    }
+
+    // Set new timer for debounced save (2 seconds)
+    autoSaveTimerRef.current = setTimeout(() => {
+      if (pendingChangesRef.current) {
+        silentUpload(fullState);
+        pendingChangesRef.current = false;
+      }
+    }, 2000);
+
+    return () => {
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
+      }
+    };
+  }, [fullState, user?.pubkey, canSync, silentUpload]);
+
+  // Auto-save on page unload if there are pending changes
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (pendingChangesRef.current && user?.pubkey && canSync) {
+        silentUpload(fullState);
+        pendingChangesRef.current = false;
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [fullState, user?.pubkey, canSync, silentUpload]);
 
   // Month navigation
   const handlePreviousMonth = () => {
