@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { Plus, Bitcoin, Zap, Wallet, Info, Copy } from 'lucide-react';
 import { useSeoMeta, useHead } from '@unhead/react';
 import { Button } from '@/components/ui/button';
@@ -12,6 +12,7 @@ import { TransactionsPanel } from '@/components/budget/TransactionsPanel';
 import { BTCMapBanner } from '@/components/budget/BTCMapBanner';
 import { WalletModalControlled } from '@/components/budget/WalletModalControlled';
 import { QuickAddFAB } from '@/components/budget/QuickAddFAB';
+import { SaveToNostrFAB } from '@/components/budget/SaveToNostrFAB';
 import { LoginArea } from '@/components/auth/LoginArea';
 import { useBudget } from '@/hooks/useBudget';
 import { useWallet } from '@/hooks/useWallet';
@@ -21,7 +22,6 @@ import { useBTCMap } from '@/hooks/useBTCMap';
 export default function Budget() {
   const [showAddBucket, setShowAddBucket] = useState(false);
   const [showWalletModal, setShowWalletModal] = useState(false);
-  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved');
   const { toast } = useToast();
 
   const { user } = useCurrentUser();
@@ -47,15 +47,6 @@ export default function Budget() {
     getPreviousMonth,
     hasPreviousMonthBudget,
   } = useBudget();
-
-  // Track save status whenever budget changes
-  useEffect(() => {
-    setSaveStatus('saving');
-    const timeout = setTimeout(() => {
-      setSaveStatus('saved');
-    }, 500);
-    return () => clearTimeout(timeout);
-  }, [currentBudget]);
 
   useSeoMeta({
     title: 'Sat Sorter - Bitcoin Budget App',
@@ -112,8 +103,6 @@ export default function Budget() {
         onOpenWallet={() => setShowWalletModal(true)}
         onSelectMonth={setCurrentMonth}
         unassignedCount={unassignedCount}
-        saveStatus={saveStatus}
-        isSynced={!!user}
       />
 
       <main className="container mx-auto px-3 sm:px-4 py-4 lg:py-6">
@@ -320,11 +309,14 @@ export default function Budget() {
         />
       )}
 
-      {/* Quick Add FAB */}
+      {/* Quick Add FAB - Bottom right */}
       <QuickAddFAB
         onAddTransaction={addTransaction}
         currency={currency}
       />
+
+      {/* Save to Nostr FAB - Bottom right, stacked above Quick Add */}
+      <SaveToNostrFAB />
     </div>
   );
 }

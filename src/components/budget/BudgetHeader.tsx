@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Bitcoin, DollarSign, ChevronLeft, ChevronRight, Wallet, Moon, Sun, Zap, Calendar, Menu, Info, Heart, ExternalLink, Shield, Globe, GraduationCap, User, LogIn, UserPlus, Cloud, CheckCircle2, Loader2 } from 'lucide-react';
+import { useState } from 'react';
+import { Bitcoin, DollarSign, ChevronLeft, ChevronRight, Wallet, Moon, Sun, Zap, Calendar, Menu, Info, Heart, ExternalLink, Shield, Globe, GraduationCap, User, LogIn, UserPlus, Cloud } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -46,8 +46,6 @@ interface BudgetHeaderProps {
   onOpenWallet: () => void;
   onSelectMonth?: (month: string) => void;
   unassignedCount?: number;
-  saveStatus?: 'saved' | 'saving' | 'error';
-  isSynced?: boolean;
 }
 
 export function BudgetHeader({
@@ -60,8 +58,6 @@ export function BudgetHeader({
   onOpenWallet,
   onSelectMonth,
   unassignedCount = 0,
-  saveStatus = 'saved',
-  isSynced = false,
 }: BudgetHeaderProps) {
   const { data: priceData, isLoading: priceLoading } = useBitcoinPrice();
   const { isDark, toggle: toggleTheme } = useTheme();
@@ -368,44 +364,6 @@ export function BudgetHeader({
                 Start by adding your income
               </Badge>
             )}
-          </div>
-
-          {/* Save Status Indicator */}
-          <div className="flex justify-center -mt-1">
-            {saveStatus === 'saving' ? (
-              <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                <Loader2 className="h-3 w-3 animate-spin" />
-                Saving...
-              </span>
-            ) : saveStatus === 'saved' && isSynced ? (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="text-[10px] text-green-600 dark:text-green-400 flex items-center gap-1 cursor-help">
-                    <CheckCircle2 className="h-3 w-3" />
-                    Synced to cloud
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Your budget is saved locally and synced to Nostr</p>
-                </TooltipContent>
-              </Tooltip>
-            ) : saveStatus === 'saved' ? (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="text-[10px] text-muted-foreground flex items-center gap-1 cursor-help">
-                    <CheckCircle2 className="h-3 w-3" />
-                    Saved locally
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Log in with Nostr to sync across devices</p>
-                </TooltipContent>
-              </Tooltip>
-            ) : saveStatus === 'error' ? (
-              <span className="text-[10px] text-destructive flex items-center gap-1">
-                Save failed
-              </span>
-            ) : null}
           </div>
         </div>
       </div>
