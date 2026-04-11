@@ -63,8 +63,11 @@ export function LineItemRow({
     return `${formatSats(sats)}`;
   };
 
-  // Get editable amount value
+  // Get editable amount value - show empty string if 0 so it looks like placeholder
   const getEditableAmount = () => {
+    if (lineItem.plannedAmount === 0) {
+      return '';
+    }
     if (currency === 'usd' && priceData) {
       return satsToUsd(lineItem.plannedAmount, priceData.usdPerBtc).toFixed(2);
     }

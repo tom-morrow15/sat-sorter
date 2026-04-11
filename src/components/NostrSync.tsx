@@ -76,68 +76,82 @@ export function NostrSync() {
     syncRelaysFromNostr();
   }, [user, config.relayMetadata.updatedAt, nostr, updateConfig]);
 
-  // Download budget from Nostr on login (one-time per session)
-  useEffect(() => {
-    if (!user?.pubkey || !user?.signer?.nip44) return;
+   // Download budget from Nostr on login (one-time per session)
+   // ONLY if user doesn't have local budget data yet
+   useEffect(() => {
+     if (!user?.pubkey || !user?.signer?.nip44) return;
 
-    let isMounted = true;
-    let hasAttempted = false;
+     let isMounted = true;
+     let hasAttempted = false;
 
-    const downloadBudgetFromNostr = async () => {
-      // Only attempt once per user session
-      if (hasAttempted) return;
-      hasAttempted = true;
+     const downloadBudgetFromNostr = async () => {
+       // Only attempt once per user session
+       if (hasAttempted) return;
+       hasAttempted = true;
 
-      try {
-        console.log('[NostrSync] Checking for saved budget on Nostr...');
-        
-        const events = await nostr.query(
-          [{
-            kinds: [BUDGET_KIND],
-            authors: [user.pubkey],
-            '#d': [APP_IDENTIFIER],
-            limit: 1,
-          }],
-          { signal: AbortSignal.timeout(10000) }
-        );
+       // Don't overwrite local budget if user already has one
+       if (localBudget.budgets.length > 0) {
+         console.log('[NostrSync] Local budget exists, skipping remote download');
+         return;
+       }
 
-        if (events.length === 0) {
-          console.log('[NostrSync] No saved budget found on Nostr');
-          return;
-        }
+       try {
+         console.log('[NostrSync] Checking for saved budget on Nostr...');
+         
+         const events = await nostr.query(
+           [{
+             kinds: [BUDGET_KIND],
+             authors: [user.pubkey],
+             '#d': [APP_IDENTIFIER],
+             limit: 1,
+           }],
+           { signal: AbortSignal.timeout(10000) }
+         );
 
-        if (!isMounted) return;
+         if (events.length === 0) {
+           console.log('[NostrSync] No saved budget found on Nostr');
+           return;
+         }
 
-        const latestEvent = events[0];
-        
-        try {
-          const decrypted = await user.signer.nip44.decrypt(user.pubkey, latestEvent.content);
-          const remoteBudget: BudgetState = JSON.parse(decrypted);
+         if (!isMounted) return;
 
-          // Preserve local month preference, use remote budget data
-          setLocalBudget({
-            ...remoteBudget,
-            currentMonth: localBudget.currentMonth || remoteBudget.currentMonth,
-          });
-          
-          console.log('[NostrSync] Budget downloaded from Nostr:', {
-            budgets: remoteBudget.budgets.length,
-            month: remoteBudget.currentMonth,
-          });
-        } catch (decryptError) {
-          console.error('[NostrSync] Failed to decrypt budget:', decryptError);
-        }
-      } catch (error) {
-        console.error('[NostrSync] Failed to download budget:', error);
-      }
-    };
+         const latestEvent = events[0];
+         
+         try {
+           const decrypted = await user.signer.nip44.decrypt(user.pubkey, latestEvent.content);
+           const remoteBudget: BudgetState = JSON.parse(decrypted);
 
-    downloadBudgetFromNostr();
+           // Only merge if remote has data
+           if (remoteBudget.budgets.length > 0) {
+             setLocalBudget({
+               ...remoteBudget,
+               currentMonth: localBudget.currentMonth || remoteBudget.currentMonth,
+             });
+             
+             console.log('[NostrSync] Budget downloaded from Nostr:', {
+               budgets: remoteBudget.budgets.length,
+               month: remoteBudget.currentMonth,
+             });
 
-    return () => {
-      isMounted = false;
-    };
-  }, [user?.pubkey, user?.signer?.nip44, nostr, setLocalBudget]);
+             toast({
+               title: 'Budget synced from cloud',
+               description: 'Your saved budget has been restored.',
+             });
+           }
+         } catch (decryptError) {
+           console.error('[NostrSync] Failed to decrypt budget:', decryptError);
+         }
+       } catch (error) {
+         console.error('[NostrSync] Failed to download budget:', error);
+       }
+     };
+
+     downloadBudgetFromNostr();
+
+     return () => {
+       isMounted = false;
+     };
+   }, [user?.pubkey, user?.signer?.nip44, nostr, setLocalBudget, localBudget.budgets.length, toast]);
 
   return null;
 }
