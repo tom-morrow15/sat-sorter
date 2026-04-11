@@ -57,12 +57,9 @@ export function BottomNavigation() {
 
     // Check if budget has changed since last save
     if (currentBudgetStr !== lastSavedBudgetRef.current) {
-      // Only change to unsaved if we're in ready state
-      if (saveState === 'ready' || saveState === 'unsaved') {
-        setSaveState('unsaved');
-      }
+      setSaveState('unsaved');
     }
-  }, [currentBudget, user?.pubkey, saveState]);
+  }, [currentBudget, user?.pubkey]);
 
   const navItems: NavItem[] = [
     {
