@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Home, PieChart, MapPin, Receipt, Cloud } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useBudgetSync } from '@/hooks/useBudgetSync';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
@@ -12,13 +10,6 @@ import type { BudgetState } from '@/lib/budgetTypes';
 import { cn } from '@/lib/utils';
 
 type SaveState = 'ready' | 'saving' | 'success' | 'error' | 'unsaved';
-
-interface NavItem {
-  path: string;
-  icon: React.ReactNode;
-  label: string;
-  tooltip: string;
-}
 
 export function BottomNavigation() {
   const location = useLocation();
@@ -39,56 +30,23 @@ export function BottomNavigation() {
 
   // Track when budget changes and mark as unsaved
   useEffect(() => {
-    // Only track changes if user is logged in
     if (!user?.pubkey) {
       lastSavedBudgetRef.current = '';
       return;
     }
 
-    // Convert current budget to string for comparison
     const currentBudgetStr = JSON.stringify(currentBudget);
 
-    // If last saved is empty, initialize it (first load)
     if (!lastSavedBudgetRef.current) {
       lastSavedBudgetRef.current = currentBudgetStr;
       setSaveState('ready');
       return;
     }
 
-    // Check if budget has changed since last save
     if (currentBudgetStr !== lastSavedBudgetRef.current) {
       setSaveState('unsaved');
     }
   }, [currentBudget, user?.pubkey]);
-
-  const navItems: NavItem[] = [
-    {
-      path: '/home',
-      icon: <Home className="h-5 w-5" />,
-      label: 'Home',
-      tooltip: 'Budget overview',
-    },
-    {
-      path: '/breakdown',
-      icon: <PieChart className="h-5 w-5" />,
-      label: 'Breakdown',
-      tooltip: 'Spending breakdown',
-    },
-    {
-      path: '/local-spend',
-      icon: <MapPin className="h-5 w-5" />,
-      label: 'Local',
-      tooltip: 'Spend Bitcoin locally',
-    },
-    {
-      path: '/transactions',
-      icon: <Receipt className="h-5 w-5" />,
-      label: 'Transactions',
-      tooltip: 'All transactions',
-    },
-  ];
-
-  const isActive = (path: string) => location.pathname === path;
 
   const handleSave = async () => {
     if (!user?.pubkey) {
@@ -107,7 +65,6 @@ export function BottomNavigation() {
       
       if (success) {
         setSaveState('success');
-        // Update last saved reference
         lastSavedBudgetRef.current = JSON.stringify(currentBudget);
         
         toast({
@@ -115,7 +72,6 @@ export function BottomNavigation() {
           description: `${localBudget.budgets.length} month(s) backed up to the cloud.`,
         });
 
-        // Reset to ready after 2 seconds
         setTimeout(() => {
           setSaveState('ready');
         }, 2000);
@@ -127,7 +83,6 @@ export function BottomNavigation() {
           variant: 'destructive',
         });
 
-        // Reset to unsaved after 3 seconds
         setTimeout(() => setSaveState('unsaved'), 3000);
       }
     } catch (error) {
@@ -138,46 +93,28 @@ export function BottomNavigation() {
         variant: 'destructive',
       });
 
-      // Reset to unsaved after 3 seconds
       setTimeout(() => setSaveState('unsaved'), 3000);
     }
   };
 
-  const getSaveIcon = () => {
+  const isActive = (path: string) => location.pathname === path;
+
+  const navItems = [
+    { path: '/home', icon: Home, label: 'Home' },
+    { path: '/breakdown', icon: PieChart, label: 'Breakdown' },
+    { path: '/local-spend', icon: MapPin, label: 'Local' },
+    { path: '/transactions', icon: Receipt, label: 'Receipts' },
+  ];
+
+  const getSaveColor = () => {
     switch (saveState) {
-      case 'saving':
-        return (
-          <div className="animate-spin">
-            <Cloud className="h-5 w-5" />
-          </div>
-        );
-      case 'success':
-        return <Cloud className="h-5 w-5 text-green-600" />;
+      case 'success': return 'text-green-500';
       case 'error':
-        return <Cloud className="h-5 w-5 text-red-600" />;
-      case 'unsaved':
-        return <Cloud className="h-5 w-5 text-red-600" />;
-      default:
-        return <Cloud className="h-5 w-5" />;
+      case 'unsaved': return 'text-red-500';
+      case 'saving': return 'text-muted-foreground';
+      default: return 'text-muted-foreground';
     }
   };
-
-  const getSaveTooltip = () => {
-    switch (saveState) {
-      case 'saving':
-        return 'Uploading to Nostr...';
-      case 'success':
-        return 'Budget backed up!';
-      case 'error':
-        return 'Upload failed. Click to try again.';
-      case 'unsaved':
-        return 'You have unsaved changes. Click to save.';
-      default:
-        return 'Back up to Nostr';
-    }
-  };
-
-
 
   return (
     <nav
@@ -186,57 +123,41 @@ export function BottomNavigation() {
         paddingBottom: 'env(safe-area-inset-bottom)',
       }}
     >
-      <div className="container mx-auto px-3 py-2 flex items-center justify-between gap-2">
-        {/* Navigation items */}
-        <div className="flex items-center gap-1 flex-1 justify-evenly">
-          {navItems.map((item) => (
-            <Tooltip key={item.path}>
-              <TooltipTrigger asChild>
-                <Button
-                  variant={isActive(item.path) ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => navigate(item.path)}
-                  className={cn(
-                    'flex flex-col items-center justify-center h-auto py-1 px-2 rounded-lg transition-all',
-                    isActive(item.path)
-                      ? 'bg-primary text-primary-foreground'
-                      : 'text-muted-foreground hover:text-foreground'
-                  )}
-                >
-                  {item.icon}
-                  <span className="text-[10px] mt-0.5 leading-tight">{item.label}</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="top">{item.tooltip}</TooltipContent>
-            </Tooltip>
-          ))}
-        </div>
+      <div className="flex items-center justify-around h-16">
+        {navItems.map((item) => {
+          const Icon = item.icon;
+          const active = isActive(item.path);
+          return (
+            <button
+              key={item.path}
+              onClick={() => navigate(item.path)}
+              className={cn(
+                'flex flex-col items-center justify-center flex-1 h-full gap-0.5 transition-colors',
+                active ? 'text-primary' : 'text-muted-foreground'
+              )}
+            >
+              <Icon className="h-5 w-5" />
+              <span className="text-[10px] leading-tight">{item.label}</span>
+            </button>
+          );
+        })}
 
-        {/* Divider */}
-        <div className="h-8 w-px bg-border flex-shrink-0" />
-
-        {/* Save button - only show if logged in */}
+        {/* Save button */}
         {user && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                onClick={handleSave}
-                disabled={saveState === 'saving'}
-                variant={saveState === 'success' ? 'default' : saveState === 'error' || saveState === 'unsaved' ? 'destructive' : 'ghost'}
-                size="sm"
-                className={cn(
-                  'flex flex-col items-center justify-center h-auto py-1 px-3 rounded-lg transition-all flex-shrink-0',
-                  saveState === 'success' && 'bg-green-600 hover:bg-green-700',
-                  (saveState === 'error' || saveState === 'unsaved') && 'bg-red-600 hover:bg-red-700',
-                  saveState !== 'success' && saveState !== 'error' && saveState !== 'unsaved' && 'text-muted-foreground hover:text-foreground'
-                )}
-              >
-                {getSaveIcon()}
-                <span className="text-[10px] mt-0.5 leading-tight">Save</span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="top">{getSaveTooltip()}</TooltipContent>
-          </Tooltip>
+          <button
+            onClick={handleSave}
+            disabled={saveState === 'saving'}
+            className={cn(
+              'flex flex-col items-center justify-center flex-1 h-full gap-0.5 transition-colors',
+              getSaveColor(),
+              saveState === 'saving' && 'opacity-60'
+            )}
+          >
+            <Cloud className={cn('h-5 w-5', saveState === 'saving' && 'animate-pulse')} />
+            <span className="text-[10px] leading-tight">
+              {saveState === 'saving' ? 'Saving' : saveState === 'success' ? 'Saved!' : 'Save'}
+            </span>
+          </button>
         )}
       </div>
     </nav>

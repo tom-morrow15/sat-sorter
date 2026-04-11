@@ -377,9 +377,7 @@ export function BucketCard({
                defaultBucketId={bucket.id}
                currency={currency}
                isIncome={bucket.isIncome}
-               onSave={(transactions) => {
-                 transactions.forEach(t => onAddTransaction?.(t));
-               }}
+               onSave={(transaction) => onAddTransaction?.(transaction)}
              />
            </CardContent>
         </CollapsibleContent>
