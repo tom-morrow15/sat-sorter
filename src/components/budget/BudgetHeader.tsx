@@ -298,24 +298,29 @@ export function BudgetHeader({
                      {isDark ? <Sun className="h-4 w-4 mr-2" /> : <Moon className="h-4 w-4 mr-2" />}
                      {isDark ? 'Light Mode' : 'Dark Mode'}
                    </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                 
+                 <DropdownMenuItem 
+                   onClick={() => {
+                     if (hasPreviousMonth && onCopyPreviousMonth) {
+                       onCopyPreviousMonth();
+                     }
+                   }}
+                   disabled={!hasPreviousMonth}
+                 >
+                   <Copy className="h-4 w-4 mr-2" />
+                   Copy Previous Month
+                 </DropdownMenuItem>
+                 
+                 <DropdownMenuItem 
+                   onClick={() => setShowResetConfirm(true)}
+                   className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                 >
+                   <AlertTriangle className="h-4 w-4 mr-2" />
+                   Reset This Month
+                 </DropdownMenuItem>
+                 
                  <DropdownMenuSeparator />
-                
-                {hasPreviousMonth && (
-                  <DropdownMenuItem onClick={() => onCopyPreviousMonth?.()}>
-                    <Copy className="h-4 w-4 mr-2" />
-                    Copy Previous Month
-                  </DropdownMenuItem>
-                )}
-                
-                <DropdownMenuItem 
-                  onClick={() => setShowResetConfirm(true)}
-                  className="text-destructive focus:text-destructive focus:bg-destructive/10"
-                >
-                  <AlertTriangle className="h-4 w-4 mr-2" />
-                  Reset This Month
-                </DropdownMenuItem>
-                
-                <DropdownMenuSeparator />
                    <DropdownMenuItem onClick={handleRefresh}>
                     <RotateCw className="h-4 w-4 mr-2" />
                     Refresh App
