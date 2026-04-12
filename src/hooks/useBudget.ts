@@ -247,10 +247,18 @@ export function useBudget() {
       };
     }
 
-    const sourceBudget = state.budgets.find(b => b.month === sourceMonth);
-    if (!sourceBudget) {
-      return { success: false, message: 'Source budget not found.' };
-    }
+     let sourceBudget = state.budgets.find(b => b.month === sourceMonth);
+     
+     // If no previous month budget exists, use a default template
+     if (!sourceBudget) {
+       // Create a default budget with just an income bucket
+       sourceBudget = {
+         id: generateId(),
+         month: sourceMonth,
+         buckets: createDefaultBuckets(),
+         transactions: [],
+       };
+     }
 
     // Create new buckets with new IDs but same structure and amounts
     const newBuckets = sourceBudget.buckets.map(bucket => ({
@@ -274,18 +282,20 @@ export function useBudget() {
     return { success: true, message: 'Budget copied successfully!' };
   }, [state.budgets, state.currentMonth, saveBudget]);
 
-  // Get the previous month string
-  const getPreviousMonth = useCallback(() => {
-    const [year, month] = state.currentMonth.split('-').map(Number);
-    const prevDate = new Date(year, month - 2);
-    return `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
-  }, [state.currentMonth]);
+   // Get the previous month string
+   const getPreviousMonth = useCallback(() => {
+     const [year, month] = state.currentMonth.split('-').map(Number);
+     // month is 1-indexed (1-12), but Date constructor expects 0-indexed (0-11)
+     // So subtract 1 to convert to 0-indexed, then subtract 1 more to go back one month
+     const prevDate = new Date(year, month - 1 - 1);
+     return `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
+   }, [state.currentMonth]);
 
-  // Check if previous month has a budget
-  const hasPreviousMonthBudget = useMemo(() => {
-    const prevMonth = getPreviousMonth();
-    return state.budgets.some(b => b.month === prevMonth);
-  }, [state.budgets, getPreviousMonth]);
+   // Check if previous month has a budget
+   const hasPreviousMonthBudget = useMemo(() => {
+     const prevMonth = getPreviousMonth();
+     return state.budgets.some(b => b.month === prevMonth);
+   }, [state.budgets, getPreviousMonth]);
 
   // Add a partner to the budget
   const addPartner = useCallback((pubkey: string, permission: 'view' | 'edit') => {

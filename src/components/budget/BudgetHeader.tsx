@@ -302,11 +302,8 @@ export function BudgetHeader({
                  
                  <DropdownMenuItem 
                    onClick={() => {
-                     if (hasPreviousMonth && onCopyPreviousMonth) {
-                       onCopyPreviousMonth();
-                     }
+                     onCopyPreviousMonth?.();
                    }}
-                   disabled={!hasPreviousMonth}
                  >
                    <Copy className="h-4 w-4 mr-2" />
                    Copy Previous Month
