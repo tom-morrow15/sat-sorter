@@ -45,12 +45,34 @@ export function LineItemRow({
   const inputRef = useRef<HTMLInputElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
 
-  const spent = calculateSpentForLineItem(lineItem.id, transactions);
-  const remaining = lineItem.plannedAmount - spent;
-  const percentSpent = lineItem.plannedAmount > 0
-    ? Math.min((spent / lineItem.plannedAmount) * 100, 100)
-    : 0;
-  const isOverBudget = remaining < 0;
+   const spent = calculateSpentForLineItem(lineItem.id, transactions);
+   const remaining = lineItem.plannedAmount - spent;
+   
+   // Calculate spent and remaining in USD when in USD mode
+   let spentUsd = 0;
+   let remainingUsd = 0;
+   let plannedAmountUsd = 0;
+   
+   if (currency === 'usd' && priceData) {
+     // Calculate total spent in USD from transactions
+     spentUsd = transactions
+       .filter(t => t.lineItemId === lineItem.id && !t.isIncome)
+       .reduce((sum, t) => {
+         const txUsd = t.amountUsd && t.amountUsd > 0 
+           ? t.amountUsd 
+           : (t.amount / 100_000_000) * priceData.usdPerBtc;
+         return sum + txUsd;
+       }, 0);
+     
+     // Get planned amount in USD
+     plannedAmountUsd = getLineItemUsdAmount(lineItem, priceData.usdPerBtc);
+     remainingUsd = plannedAmountUsd - spentUsd;
+   }
+   
+   const percentSpent = lineItem.plannedAmount > 0
+     ? Math.min((spent / lineItem.plannedAmount) * 100, 100)
+     : 0;
+   const isOverBudget = remaining < 0;
 
   // Format amount based on currency - compact for mobile
    // Format amount for display - use stored USD if available (source of truth)
@@ -63,6 +85,22 @@ export function LineItemRow({
 
      // For sats mode, format the sats amount
      const sats = lineItemData.plannedAmount || 0;
+     if (compact && sats >= 1_000_000) {
+       return `${(sats / 1_000_000).toFixed(1)}M`;
+     }
+     if (compact && sats >= 10_000) {
+       return `${(sats / 1_000).toFixed(0)}K`;
+     }
+     return `${formatSats(sats)}`;
+   };
+
+   // Format sats amounts for spent/remaining display
+   const formatSatsAmount = (sats: number, compact = false) => {
+     if (currency === 'usd' && priceData) {
+       // In USD mode, convert sats to USD for display
+       const usd = (sats / 100_000_000) * priceData.usdPerBtc;
+       return formatUsd(usd);
+     }
      if (compact && sats >= 1_000_000) {
        return `${(sats / 1_000_000).toFixed(1)}M`;
      }
@@ -328,16 +366,16 @@ export function LineItemRow({
                'whitespace-nowrap',
                isOverBudget ? 'text-destructive font-medium' : 'text-muted-foreground'
              )}>
-               <span className="sm:hidden">{formatAmount(spent, true)}</span>
-               <span className="hidden sm:inline">{formatAmount(spent)} spent</span>
+               <span className="sm:hidden">{formatSatsAmount(spent, true)}</span>
+               <span className="hidden sm:inline">{formatSatsAmount(spent)} spent</span>
              </span>
              
              <span className={cn(
                'whitespace-nowrap',
                remaining < 0 ? 'text-destructive font-medium' : 'text-muted-foreground'
              )}>
-               <span className="sm:hidden">{formatAmount(Math.max(0, remaining), true)}</span>
-               <span className="hidden sm:inline">{formatAmount(Math.max(0, remaining))} left</span>
+               <span className="sm:hidden">{formatSatsAmount(Math.max(0, remaining), true)}</span>
+               <span className="hidden sm:inline">{formatSatsAmount(Math.max(0, remaining))} left</span>
              </span>
            </div>
          </div>
