@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { useBitcoinPrice, formatSats, satsToUsd, usdToSats, formatUsd } from '@/hooks/useBitcoinPrice';
-import { calculateSpentForLineItem } from '@/lib/budgetTypes';
+import { calculateSpentForLineItem, getLineItemUsdAmount } from '@/lib/budgetTypes';
 import type { LineItem, Transaction } from '@/lib/budgetTypes';
 import type { BTCMapElement } from '@/hooks/useBTCMap';
 import { MerchantBadge } from './MerchantIndicator';
@@ -53,18 +53,24 @@ export function LineItemRow({
   const isOverBudget = remaining < 0;
 
   // Format amount based on currency - compact for mobile
-  const formatAmount = (sats: number, compact = false) => {
-    if (currency === 'usd' && priceData) {
-      return formatUsd(satsToUsd(sats, priceData.usdPerBtc));
-    }
-    if (compact && sats >= 1_000_000) {
-      return `${(sats / 1_000_000).toFixed(1)}M`;
-    }
-    if (compact && sats >= 10_000) {
-      return `${(sats / 1_000).toFixed(0)}K`;
-    }
-    return `${formatSats(sats)}`;
-  };
+   // Format amount for display - use stored USD if available (source of truth)
+   const formatAmount = (lineItemData?: typeof lineItem, compact = false) => {
+     // If lineItem provided and in USD mode, use stored USD amount
+     if (lineItemData && currency === 'usd' && priceData) {
+       const usdAmount = getLineItemUsdAmount(lineItemData, priceData.usdPerBtc);
+       return formatUsd(usdAmount);
+     }
+
+     // For sats mode, format the sats amount
+     const sats = lineItemData ? lineItemData.plannedAmount : 0;
+     if (compact && sats >= 1_000_000) {
+       return `${(sats / 1_000_000).toFixed(1)}M`;
+     }
+     if (compact && sats >= 10_000) {
+       return `${(sats / 1_000).toFixed(0)}K`;
+     }
+     return `${formatSats(sats)}`;
+   };
 
   // Get editable amount value - show empty string if 0 so it looks like placeholder
   const getEditableAmount = () => {
@@ -243,19 +249,19 @@ export function LineItemRow({
         </div>
 
         {/* Amount */}
-        <div
-          className={cn(
-            'text-right font-semibold tabular-nums text-sm flex-shrink-0',
-            isIncome && 'text-success'
-          )}
-        >
-          {/* Show compact on very small screens */}
-          <span className="sm:hidden">{formatAmount(lineItem.plannedAmount, true)}</span>
-          <span className="hidden sm:inline">
-            {formatAmount(lineItem.plannedAmount)}
-            {currency === 'sats' && ' sats'}
-          </span>
-        </div>
+         <div
+           className={cn(
+             'text-right font-semibold tabular-nums text-sm flex-shrink-0',
+             isIncome && 'text-success'
+           )}
+         >
+           {/* Show compact on very small screens */}
+           <span className="sm:hidden">{formatAmount(lineItem, true)}</span>
+           <span className="hidden sm:inline">
+             {formatAmount(lineItem)}
+             {currency === 'sats' && ' sats'}
+           </span>
+         </div>
 
         {/* Action buttons - only on hover/desktop */}
          <div className="hidden sm:flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">

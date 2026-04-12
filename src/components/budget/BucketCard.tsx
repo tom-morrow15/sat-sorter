@@ -44,7 +44,7 @@ import {
 import { LineItemRow } from './LineItemRow';
 import { AddTransactionDialog } from './AddTransactionDialog';
 import { useBitcoinPrice, formatSats, satsToUsd, formatUsd } from '@/hooks/useBitcoinPrice';
-import { calculateBucketTotal, calculateBucketTotalSats, calculateSpentForBucket } from '@/lib/budgetTypes';
+import { calculateBucketTotal, calculateBucketTotalSats, calculateBucketTotalUsd, calculateSpentForBucket } from '@/lib/budgetTypes';
 import type { Bucket, LineItem, Transaction } from '@/lib/budgetTypes';
 import type { BTCMapElement } from '@/hooks/useBTCMap';
 import { cn } from '@/lib/utils';
@@ -127,24 +127,44 @@ export function BucketCard({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const Icon = iconMap[bucket.icon] || Wallet;
-  // Use sats version when BTC price is available (to use USD source of truth)
-  const total = priceData
-    ? calculateBucketTotalSats(bucket, priceData.usdPerBtc)
-    : calculateBucketTotal(bucket);
-  const spent = calculateSpentForBucket(bucket, transactions);
+   
+   // Calculate total - use USD calculation when in USD mode to preserve stored amounts
+   let total: number;
+   let totalUsd: number | undefined;
+   
+   if (currency === 'usd' && priceData) {
+     // In USD mode, calculate and store the USD amount directly
+     totalUsd = calculateBucketTotalUsd(bucket, priceData.usdPerBtc);
+     // Also calculate sats equivalent for internal use if needed
+     total = calculateBucketTotalSats(bucket, priceData.usdPerBtc);
+   } else {
+     // In sats mode, use sats calculation
+     total = priceData
+       ? calculateBucketTotalSats(bucket, priceData.usdPerBtc)
+       : calculateBucketTotal(bucket);
+   }
+   
+   const spent = calculateSpentForBucket(bucket, transactions);
 
-  const formatAmount = (sats: number, compact = false) => {
-    if (currency === 'usd' && priceData) {
-      return formatUsd(satsToUsd(sats, priceData.usdPerBtc));
-    }
-    if (compact && sats >= 1_000_000) {
-      return `${(sats / 1_000_000).toFixed(1)}M`;
-    }
-    if (compact && sats >= 10_000) {
-      return `${(sats / 1_000).toFixed(0)}K`;
-    }
-    return `${formatSats(sats)} sats`;
-  };
+   const formatAmount = (sats: number, compact = false) => {
+     if (currency === 'usd' && priceData && totalUsd !== undefined) {
+       // In USD mode, display the stored USD total directly
+       if (compact && sats >= 1_000_000) {
+         return `${(totalUsd / 1_000_000).toFixed(1)}M`;
+       }
+       if (compact && sats >= 10_000) {
+         return `${(totalUsd / 1_000).toFixed(0)}K`;
+       }
+       return formatUsd(totalUsd);
+     }
+     if (compact && sats >= 1_000_000) {
+       return `${(sats / 1_000_000).toFixed(1)}M`;
+     }
+     if (compact && sats >= 10_000) {
+       return `${(sats / 1_000).toFixed(0)}K`;
+     }
+     return `${formatSats(sats)} sats`;
+   };
 
   const handleAddItem = () => {
     if (newItemName.trim()) {
