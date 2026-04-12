@@ -262,21 +262,36 @@ export function ManagePartnersDialog({
                       key={partner.pubkey}
                       className="flex items-center justify-between p-3 rounded-lg border bg-muted/50"
                     >
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium truncate">
-                            {partner.name || formatPubkey(partner.pubkey)}
-                          </span>
-                          <Badge
-                            variant="secondary"
-                            className="flex items-center gap-1 shrink-0"
-                          >
-                            {getPermissionIcon(partner.permission)}
-                            <span className="capitalize text-xs">
-                              {partner.permission === 'edit' ? 'Editor' : 'Viewer'}
-                            </span>
-                          </Badge>
-                        </div>
+                       <div className="flex-1 min-w-0">
+                         <div className="flex items-center gap-2">
+                           <span className="text-sm font-medium truncate">
+                             {partner.name || formatPubkey(partner.pubkey)}
+                           </span>
+                           <Badge
+                             variant="secondary"
+                             className="flex items-center gap-1 shrink-0"
+                           >
+                             {getPermissionIcon(partner.permission)}
+                             <span className="capitalize text-xs">
+                               {partner.permission === 'edit' ? 'Editor' : 'Viewer'}
+                             </span>
+                           </Badge>
+                           {partner.status === 'pending' && (
+                             <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-300 shrink-0">
+                               Pending
+                             </Badge>
+                           )}
+                           {partner.status === 'accepted' && (
+                             <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-300 shrink-0">
+                               Accepted ✓
+                             </Badge>
+                           )}
+                           {partner.status === 'declined' && (
+                             <Badge variant="outline" className="text-xs bg-red-50 text-red-700 border-red-300 shrink-0">
+                               Declined
+                             </Badge>
+                           )}
+                         </div>
                         {partner.lastActive && (
                           <p className="text-xs text-muted-foreground mt-1">
                             Last active{' '}

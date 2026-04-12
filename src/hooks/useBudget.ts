@@ -7,6 +7,7 @@ import {
   LineItem,
   Transaction,
   BudgetPartner,
+  BudgetPartnerInvite,
   BudgetTemplate,
   createDefaultBuckets,
   getCurrentMonth,
@@ -321,6 +322,77 @@ export function useBudget() {
     }));
   }, [setState]);
 
+  // Accept a budget partner invite
+  const acceptPartnerInvite = useCallback((inviteId: string) => {
+    setState(prev => {
+      const invites = prev.receivedInvites || [];
+      const invite = invites.find(i => i.id === inviteId);
+      
+      if (!invite) return prev;
+
+      // Update invite status to accepted
+      const updatedInvites = invites.map(i =>
+        i.id === inviteId
+          ? { ...i, status: 'accepted' as const, acceptedAt: Math.floor(Date.now() / 1000) }
+          : i
+      );
+
+      return { ...prev, receivedInvites: updatedInvites };
+    });
+  }, [setState]);
+
+  // Decline a budget partner invite
+  const declinePartnerInvite = useCallback((inviteId: string) => {
+    setState(prev => {
+      const invites = prev.receivedInvites || [];
+      const updatedInvites = invites.map(i =>
+        i.id === inviteId
+          ? { ...i, status: 'declined' as const }
+          : i
+      );
+      return { ...prev, receivedInvites: updatedInvites };
+    });
+  }, [setState]);
+
+  // Send a budget partner invite (when owner adds a partner, this creates an invite on their side)
+  const sendPartnerInvite = useCallback((toPubkey: string, budgetMonth: string, permission: 'view' | 'edit') => {
+    setState(prev => {
+      // This function is called by the budget owner
+      // It marks the partner as "pending" in the owner's view
+      const partners = prev.partners || [];
+      return {
+        ...prev,
+        partners: partners.map(p =>
+          p.pubkey === toPubkey && p.status !== 'accepted'
+            ? { ...p, status: 'pending' as const }
+            : p
+        ),
+      };
+    });
+  }, [setState]);
+
+  // Simulate receiving an invite (in real app, this comes from Nostr DM)
+  const receivePartnerInvite = useCallback((fromPubkey: string, budgetMonth: string, permission: 'view' | 'edit') => {
+    setState(prev => {
+      const invites = prev.receivedInvites || [];
+      // Check if invite already exists
+      if (invites.some(i => i.fromPubkey === fromPubkey && i.budgetMonth === budgetMonth)) {
+        return prev;
+      }
+
+      const newInvite: BudgetPartnerInvite = {
+        id: generateId(),
+        fromPubkey,
+        budgetMonth,
+        permission,
+        createdAt: Math.floor(Date.now() / 1000),
+        status: 'pending',
+      };
+
+      return { ...prev, receivedInvites: [...invites, newInvite] };
+    });
+  }, [setState]);
+
   // Set user role
   const setUserRole = useCallback((role: 'owner' | 'editor' | 'viewer') => {
     setState(prev => ({ ...prev, userRole: role }));
@@ -413,6 +485,7 @@ export function useBudget() {
     userRole: state.userRole || 'owner',
     templates: state.templates || [],
     defaultTemplateId: state.defaultTemplateId,
+    receivedInvites: state.receivedInvites || [],
 
     // Month actions
     setCurrentMonth,
@@ -439,6 +512,10 @@ export function useBudget() {
     removePartner,
     changePartnerPermission,
     setUserRole,
+    acceptPartnerInvite,
+    declinePartnerInvite,
+    sendPartnerInvite,
+    receivePartnerInvite,
 
     // Template actions
     saveAsTemplate,

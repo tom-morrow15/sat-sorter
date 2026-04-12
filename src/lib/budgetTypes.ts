@@ -49,6 +49,18 @@ export interface BudgetPartner {
   permission: 'view' | 'edit'; // view-only or can edit
   addedAt: number; // Unix timestamp when partner was added
   lastActive?: number; // Unix timestamp of last activity
+  status?: 'pending' | 'accepted' | 'declined'; // Partner acceptance status
+  acceptedAt?: number; // When partner accepted the invite
+}
+
+export interface BudgetPartnerInvite {
+  id: string; // Unique invite ID
+  fromPubkey: string; // Who invited this user
+  budgetMonth: string; // YYYY-MM format
+  permission: 'view' | 'edit';
+  createdAt: number; // Unix timestamp
+  status: 'pending' | 'accepted' | 'declined';
+  acceptedAt?: number;
 }
 
 export interface BudgetTemplate {
@@ -70,6 +82,7 @@ export interface BudgetState {
   userRole?: 'owner' | 'editor' | 'viewer'; // Current user's role in this budget (defaults to 'owner' for creator)
   templates?: BudgetTemplate[]; // Saved budget templates
   defaultTemplateId?: string; // ID of template to use for new months
+  receivedInvites?: BudgetPartnerInvite[]; // Invites received from other budget owners
 }
 
 // Helper to generate unique IDs
