@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Plus, Trash2, Shield, Eye } from 'lucide-react';
+import { Plus, Trash2, Shield, Eye, QrCode } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/useToast';
+import { QRScanner } from './QRScanner';
 import {
   Dialog,
   DialogContent,
@@ -48,6 +49,7 @@ export function ManagePartnersDialog({
   const [newPartnerPermission, setNewPartnerPermission] = useState<'view' | 'edit'>('edit');
   const [isAdding, setIsAdding] = useState(false);
   const [validationError, setValidationError] = useState('');
+  const [showQRScanner, setShowQRScanner] = useState(false);
   const { toast } = useToast();
 
   const isOwner = userRole === 'owner';
@@ -104,18 +106,34 @@ export function ManagePartnersDialog({
      );
    };
 
-   const handleRemovePartner = (pubkey: string) => {
-     const partner = partners.find(p => p.pubkey === pubkey);
-     if (confirm(`Remove ${partner?.name || formatPubkey(pubkey)} from this budget?`)) {
-       onRemovePartner(pubkey);
-       toast({
-         title: 'Partner Removed',
-         description: `${partner?.name || formatPubkey(pubkey)} has been removed.`,
-       });
-     }
-   };
+  const handleRemovePartner = (pubkey: string) => {
+    const partner = partners.find(p => p.pubkey === pubkey);
+    if (confirm(`Remove ${partner?.name || formatPubkey(pubkey)} from this budget?`)) {
+      onRemovePartner(pubkey);
+      toast({
+        title: 'Partner Removed',
+        description: `${partner?.name || formatPubkey(pubkey)} has been removed.`,
+      });
+    }
+  };
+
+  const handleQRScan = (scannedValue: string) => {
+    // Handle scanned QR code
+    // Could be: npub1..., nostr:npub1..., or raw hex
+    let pubkey = scannedValue.trim();
+    
+    // Remove nostr: prefix if present
+    if (pubkey.startsWith('nostr:')) {
+      pubkey = pubkey.substring(6);
+    }
+    
+    setNewPartnerPubkey(pubkey);
+    setShowQRScanner(false);
+    console.log('[ManagePartnersDialog] QR scanned:', pubkey);
+  };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
@@ -170,22 +188,34 @@ export function ManagePartnersDialog({
                    <CardContent className="pt-6 space-y-3">
                      <div className="space-y-2">
                        <Label htmlFor="partner-pubkey">Partner Nostr Address</Label>
-                       <Input
-                         id="partner-pubkey"
-                         placeholder="npub1... or public key"
-                         value={newPartnerPubkey}
-                         onChange={(e) => {
-                           setNewPartnerPubkey(e.target.value);
-                           setValidationError('');
-                         }}
-                         autoFocus
-                         className={validationError ? 'border-destructive' : ''}
-                       />
+                       <div className="flex gap-2">
+                         <Input
+                           id="partner-pubkey"
+                           placeholder="npub1... or public key"
+                           value={newPartnerPubkey}
+                           onChange={(e) => {
+                             setNewPartnerPubkey(e.target.value);
+                             setValidationError('');
+                           }}
+                           autoFocus
+                           className={validationError ? 'border-destructive' : ''}
+                         />
+                         <Button
+                           type="button"
+                           variant="outline"
+                           size="icon"
+                           onClick={() => setShowQRScanner(true)}
+                           title="Scan QR code"
+                           className="shrink-0"
+                         >
+                           <QrCode className="h-4 w-4" />
+                         </Button>
+                       </div>
                        {validationError ? (
                          <p className="text-xs text-destructive font-medium">{validationError}</p>
                        ) : (
                          <p className="text-xs text-muted-foreground">
-                           Enter their Nostr pubkey or npub address
+                           Enter their Nostr pubkey, npub address, or scan their QR code
                          </p>
                        )}
                      </div>
@@ -364,7 +394,17 @@ export function ManagePartnersDialog({
             Close
           </Button>
         </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
+       </DialogContent>
+     </Dialog>
+
+     {/* QR Scanner Dialog */}
+     <QRScanner
+       open={showQRScanner}
+       onOpenChange={setShowQRScanner}
+       onScan={handleQRScan}
+       title="Scan Partner's npub"
+       description="Point your camera at their QR code to get their Nostr address"
+     />
+    </>
+   );
+ }
