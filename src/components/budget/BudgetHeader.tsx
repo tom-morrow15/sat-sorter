@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bitcoin, DollarSign, ChevronLeft, ChevronRight, Wallet, Zap, Calendar, Menu, Info, Heart, ExternalLink, Shield, Globe, GraduationCap, User, LogIn, UserPlus, Cloud, Moon, Sun, Users, RotateCw, Layers } from 'lucide-react';
+import { Bitcoin, DollarSign, ChevronLeft, ChevronRight, Wallet, Zap, Calendar, Menu, Info, Heart, ExternalLink, Shield, Globe, GraduationCap, User, LogIn, UserPlus, Cloud, Moon, Sun, RotateCw, Layers } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -260,7 +260,11 @@ export function BudgetHeader({
             {/* Account Switcher (when logged in) */}
             {user && (
               <div className="ml-1">
-                <AccountSwitcher onAddAccountClick={() => setShowLogin(true)} />
+                <AccountSwitcher 
+                  onAddAccountClick={() => setShowLogin(true)}
+                  onBudgetPartnersClick={() => setShowPartners(true)}
+                  partnersCount={partners.length}
+                />
               </div>
             )}
 
@@ -306,36 +310,26 @@ export function BudgetHeader({
                    {isDark ? 'Light Mode' : 'Dark Mode'}
                  </DropdownMenuItem>
                  <DropdownMenuSeparator />
-                 {user && (
-                   <>
-                     <DropdownMenuItem onClick={() => setShowPartners(true)}>
-                       <Users className="h-4 w-4 mr-2" />
-                       Budget Partners
-                       {partners.length > 0 && (
-                         <Badge variant="secondary" className="ml-2 text-xs">
-                           {partners.length}
-                         </Badge>
+                  {user && (
+                    <>
+                       <DropdownMenuItem onClick={() => setShowManageTemplates(true)}>
+                         <Layers className="h-4 w-4 mr-2" />
+                         Budget Templates
+                         {templates.length > 0 && (
+                           <Badge variant="secondary" className="ml-2 text-xs">
+                             {templates.length}
+                           </Badge>
+                         )}
+                       </DropdownMenuItem>
+                       {templates.length > 0 && (
+                         <DropdownMenuItem onClick={() => setShowApplyTemplate(true)}>
+                           <Layers className="h-4 w-4 mr-2" />
+                           Apply Template
+                         </DropdownMenuItem>
                        )}
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => setShowManageTemplates(true)}>
-                        <Layers className="h-4 w-4 mr-2" />
-                        Budget Templates
-                        {templates.length > 0 && (
-                          <Badge variant="secondary" className="ml-2 text-xs">
-                            {templates.length}
-                          </Badge>
-                        )}
-                      </DropdownMenuItem>
-                      {templates.length > 0 && (
-                        <DropdownMenuItem onClick={() => setShowApplyTemplate(true)}>
-                          <Layers className="h-4 w-4 mr-2" />
-                          Apply Template
-                        </DropdownMenuItem>
-                      )}
-                      <DropdownMenuSeparator />
-                    </>
-                   )}
+                       <DropdownMenuSeparator />
+                     </>
+                    )}
                    <DropdownMenuSeparator />
                    <DropdownMenuItem onClick={handleRefresh}>
                     <RotateCw className="h-4 w-4 mr-2" />

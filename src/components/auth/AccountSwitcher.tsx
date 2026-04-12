@@ -25,9 +25,11 @@ import { genUserName } from '@/lib/genUserName';
 
 interface AccountSwitcherProps {
   onAddAccountClick: () => void;
+  onBudgetPartnersClick?: () => void;
+  partnersCount?: number;
 }
 
-export function AccountSwitcher({ onAddAccountClick }: AccountSwitcherProps) {
+export function AccountSwitcher({ onAddAccountClick, onBudgetPartnersClick, partnersCount = 0 }: AccountSwitcherProps) {
   const { currentUser, otherUsers, setLogin, removeLogin } = useLoggedInAccounts();
   const [showAbout, setShowAbout] = useState(false);
   const [showDonate, setShowDonate] = useState(false);
@@ -70,23 +72,35 @@ export function AccountSwitcher({ onAddAccountClick }: AccountSwitcherProps) {
             </div>
             {user.id === currentUser.id && <div className='w-2 h-2 rounded-full bg-primary'></div>}
           </DropdownMenuItem>
-        ))}
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          onClick={onAddAccountClick}
-          className='flex items-center gap-2 cursor-pointer p-2 rounded-md'
-        >
-          <UserPlus className='w-4 h-4' />
-          <span>Add another account</span>
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          onClick={() => removeLogin(currentUser.id)}
-          className='flex items-center gap-2 cursor-pointer p-2 rounded-md text-red-500'
-        >
-          <LogOut className='w-4 h-4' />
-          <span>Log out</span>
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
+         ))}
+         <DropdownMenuSeparator />
+         <DropdownMenuItem
+           onClick={() => removeLogin(currentUser.id)}
+           className='flex items-center gap-2 cursor-pointer p-2 rounded-md text-red-500'
+         >
+           <LogOut className='w-4 h-4' />
+           <span>Log out</span>
+         </DropdownMenuItem>
+         <DropdownMenuSeparator />
+         {/* Budget Partners */}
+         {onBudgetPartnersClick && (
+           <>
+             <DropdownMenuItem
+               onClick={onBudgetPartnersClick}
+               className='flex items-center gap-2 cursor-pointer p-2 rounded-md'
+             >
+               <UserPlus className='w-4 h-4' />
+               <span>Budget Partners</span>
+               {partnersCount > 0 && (
+                 <span className='ml-auto text-xs bg-primary/20 text-primary px-2 py-0.5 rounded'>
+                   {partnersCount}
+                 </span>
+               )}
+             </DropdownMenuItem>
+             <DropdownMenuSeparator />
+           </>
+         )}
+         <DropdownMenuSeparator />
         <DropdownMenuItem
           onClick={() => setShowAbout(true)}
           className='flex items-center gap-2 cursor-pointer p-2 rounded-md'
