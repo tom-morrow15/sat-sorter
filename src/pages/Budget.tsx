@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Plus, Bitcoin, Zap, Wallet, Info, Copy, Lock } from 'lucide-react';
 import { useSeoMeta, useHead } from '@unhead/react';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,7 @@ import { BudgetHeader } from '@/components/budget/BudgetHeader';
 import { BudgetDashboard } from '@/components/budget/BudgetDashboard';
 import { BucketCard } from '@/components/budget/BucketCard';
 import { AddBucketDialog } from '@/components/budget/AddBucketDialog';
+import { CopyBudgetDialog } from '@/components/budget/CopyBudgetDialog';
 import { TransactionsPanel } from '@/components/budget/TransactionsPanel';
 import { BTCMapBanner } from '@/components/budget/BTCMapBanner';
 import { WalletModalControlled } from '@/components/budget/WalletModalControlled';
@@ -24,6 +25,8 @@ import { canAddBucket } from '@/lib/budgetPermissions';
 export default function Budget() {
   const [showAddBucket, setShowAddBucket] = useState(false);
   const [showWalletModal, setShowWalletModal] = useState(false);
+  const [showCopyBudget, setShowCopyBudget] = useState(false);
+  const [previousMonth, setPreviousMonth] = useState<string | null>(null);
   const { toast } = useToast();
 
   const { user } = useCurrentUser();
@@ -34,6 +37,8 @@ export default function Budget() {
     currentBudget,
     currentMonth,
     currency,
+    availableMonths,
+    fullState,
     setCurrentMonth,
     toggleCurrency,
     addBucket,
@@ -72,6 +77,23 @@ export default function Budget() {
       { rel: 'icon', type: 'image/svg+xml', href: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">₿</text></svg>' },
     ],
   });
+
+  // Detect when user navigates to a new month with no budget and show copy prompt
+  useEffect(() => {
+    const hasBudget = currentBudget.buckets.length > 0;
+    
+    // Check if this is a new month (no budget) and there's a previous month available
+    if (!hasBudget && hasPreviousMonthBudget) {
+      // Only show if we haven't already shown it for this month
+      const prevMonth = getPreviousMonth();
+      if (previousMonth !== currentMonth) {
+        setPreviousMonth(currentMonth);
+        setTimeout(() => {
+          setShowCopyBudget(true);
+        }, 500); // Small delay to ensure month is displayed
+      }
+    }
+  }, [currentMonth, currentBudget.buckets.length, hasPreviousMonthBudget, getPreviousMonth, previousMonth]);
 
   // Month navigation
   const handlePreviousMonth = () => {
@@ -340,6 +362,30 @@ export default function Budget() {
         open={showAddBucket}
         onOpenChange={setShowAddBucket}
         onAdd={(name, color, icon) => addBucket(name, color, icon)}
+      />
+
+      {/* Copy Budget Dialog - Suggested when navigating to new month */}
+      <CopyBudgetDialog
+        open={showCopyBudget}
+        onOpenChange={setShowCopyBudget}
+        currentMonth={currentMonth}
+        availableMonths={availableMonths}
+        budgets={fullState.budgets}
+        onCopy={(sourceMonth) => {
+          const result = duplicateFromMonth(sourceMonth);
+          if (result.success) {
+            toast({
+              title: 'Budget Copied!',
+              description: result.message,
+            });
+          } else if (result.message) {
+            toast({
+              title: 'Cannot Copy Budget',
+              description: result.message,
+              variant: 'destructive',
+            });
+          }
+        }}
       />
 
       {/* Wallet Modal - controlled via state */}
