@@ -39,6 +39,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { genUserName } from '@/lib/genUserName';
 import { BackupRestoreDialog } from './BackupRestoreDialog';
 import { ManagePartnersDialog } from './ManagePartnersDialog';
+import { CopyBudgetDialog } from './CopyBudgetDialog';
 
 interface BudgetHeaderProps {
   buckets: Bucket[];
@@ -55,8 +56,9 @@ interface BudgetHeaderProps {
   onAddPartner?: (pubkey: string, permission: 'view' | 'edit') => void;
   onRemovePartner?: (pubkey: string) => void;
   onChangePartnerPermission?: (pubkey: string, permission: 'view' | 'edit') => void;
-  hasPreviousMonth?: boolean;
-  onCopyPreviousMonth?: () => void;
+  availableMonths?: string[];
+  allBudgets?: any[];
+  onCopyPreviousMonth?: (sourceMonth: string) => void;
   onResetBudgetMonth?: () => void;
 }
 
@@ -75,7 +77,8 @@ export function BudgetHeader({
   onAddPartner,
   onRemovePartner,
   onChangePartnerPermission,
-  hasPreviousMonth = false,
+  availableMonths = [],
+  allBudgets = [],
   onCopyPreviousMonth,
   onResetBudgetMonth,
 }: BudgetHeaderProps) {
@@ -89,6 +92,7 @@ export function BudgetHeader({
   const [showBackup, setShowBackup] = useState(false);
   const [showPartners, setShowPartners] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [showCopyBudget, setShowCopyBudget] = useState(false);
 
   // Generate list of months for picker (current month + 11 months back + 6 months forward)
   const getAvailableMonths = () => {
@@ -302,7 +306,7 @@ export function BudgetHeader({
                  
                  <DropdownMenuItem 
                    onClick={() => {
-                     onCopyPreviousMonth?.();
+                     setShowCopyBudget(true);
                    }}
                  >
                    <Copy className="h-4 w-4 mr-2" />
@@ -721,18 +725,31 @@ export function BudgetHeader({
         onLogin={() => setShowLogin(false)}
       />
 
-       {/* Budget Partners Dialog */}
-       <ManagePartnersDialog
-         open={showPartners}
-         onOpenChange={setShowPartners}
-         partners={partners}
-         userRole={userRole}
-         onAddPartner={onAddPartner || (() => {})}
-         onRemovePartner={onRemovePartner || (() => {})}
-         onChangePermission={onChangePartnerPermission || (() => {})}
-       />
+        {/* Budget Partners Dialog */}
+        <ManagePartnersDialog
+          open={showPartners}
+          onOpenChange={setShowPartners}
+          partners={partners}
+          userRole={userRole}
+          onAddPartner={onAddPartner || (() => {})}
+          onRemovePartner={onRemovePartner || (() => {})}
+          onChangePermission={onChangePartnerPermission || (() => {})}
+        />
 
-        {/* Reset Budget Month Confirmation Dialog */}
+         {/* Copy Budget Dialog */}
+         <CopyBudgetDialog
+           open={showCopyBudget}
+           onOpenChange={setShowCopyBudget}
+           currentMonth={currentMonth}
+           availableMonths={availableMonths}
+           budgets={allBudgets}
+           onCopy={(sourceMonth) => {
+             onCopyPreviousMonth?.(sourceMonth);
+             setShowCopyBudget(false);
+           }}
+         />
+
+         {/* Reset Budget Month Confirmation Dialog */}
         <Dialog open={showResetConfirm} onOpenChange={setShowResetConfirm}>
           <DialogContent>
             <DialogHeader>

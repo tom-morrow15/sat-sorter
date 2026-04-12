@@ -138,9 +138,10 @@ export default function Budget() {
         onAddPartner={addPartner}
         onRemovePartner={removePartner}
         onChangePartnerPermission={changePartnerPermission}
-        hasPreviousMonth={hasPreviousMonthBudget}
-        onCopyPreviousMonth={() => {
-          const result = duplicateFromMonth(getPreviousMonth());
+        availableMonths={availableMonths}
+        allBudgets={fullState.budgets}
+        onCopyPreviousMonth={(sourceMonth) => {
+          const result = duplicateFromMonth(sourceMonth);
           if (result.success) {
             toast({
               title: 'Budget copied!',

@@ -19,10 +19,10 @@ export default function TransactionsPage() {
     addTransaction,
     assignTransaction,
     deleteTransaction,
-    hasPreviousMonthBudget,
-    getPreviousMonth,
     duplicateFromMonth,
     resetCurrentMonth,
+    availableMonths,
+    fullState,
   } = useBudget();
 
   useSeoMeta({
@@ -57,9 +57,10 @@ export default function TransactionsPage() {
         onNextMonth={handleNextMonth}
         onOpenWallet={() => {}}
         onSelectMonth={setCurrentMonth}
-        hasPreviousMonth={hasPreviousMonthBudget}
-        onCopyPreviousMonth={() => {
-          const result = duplicateFromMonth(getPreviousMonth());
+        availableMonths={availableMonths}
+        allBudgets={fullState.budgets}
+        onCopyPreviousMonth={(sourceMonth) => {
+          const result = duplicateFromMonth(sourceMonth);
           if (result.success) {
             toast({
               title: 'Budget copied!',
