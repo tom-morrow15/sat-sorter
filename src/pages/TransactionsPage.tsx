@@ -3,10 +3,12 @@ import { useSearchParams } from 'react-router-dom';
 import { BudgetHeader } from '@/components/budget/BudgetHeader';
 import { TransactionsPanel } from '@/components/budget/TransactionsPanel';
 import { useBudget } from '@/hooks/useBudget';
+import { useToast } from '@/hooks/useToast';
 
 export default function TransactionsPage() {
   const [searchParams] = useSearchParams();
   const lineItemIdFilter = searchParams.get('lineItemId');
+  const { toast } = useToast();
 
   const {
     currentBudget,
@@ -17,6 +19,10 @@ export default function TransactionsPage() {
     addTransaction,
     assignTransaction,
     deleteTransaction,
+    hasPreviousMonthBudget,
+    getPreviousMonth,
+    duplicateFromMonth,
+    resetCurrentMonth,
   } = useBudget();
 
   useSeoMeta({
@@ -51,6 +57,29 @@ export default function TransactionsPage() {
         onNextMonth={handleNextMonth}
         onOpenWallet={() => {}}
         onSelectMonth={setCurrentMonth}
+        hasPreviousMonth={hasPreviousMonthBudget}
+        onCopyPreviousMonth={() => {
+          const result = duplicateFromMonth(getPreviousMonth());
+          if (result.success) {
+            toast({
+              title: 'Budget copied!',
+              description: result.message,
+            });
+          } else if (result.message) {
+            toast({
+              title: 'Cannot copy budget',
+              description: result.message,
+              variant: 'destructive',
+            });
+          }
+        }}
+        onResetBudgetMonth={() => {
+          resetCurrentMonth();
+          toast({
+            title: 'Budget reset',
+            description: 'Your budget for this month has been cleared.',
+          });
+        }}
       />
 
       <main className="container mx-auto px-3 sm:px-4 py-4 lg:py-6">

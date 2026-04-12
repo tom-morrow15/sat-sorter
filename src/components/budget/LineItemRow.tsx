@@ -205,28 +205,36 @@ export function LineItemRow({
     }
   };
 
-  if (isEditing) {
-    return (
-      <div className="py-3 px-3 sm:px-4 rounded-lg bg-muted/50 space-y-3">
-        <div className="flex flex-col sm:flex-row gap-2">
-           <Input
-             ref={nameInputRef}
-             value={editName}
-             onChange={(e) => setEditName(e.target.value)}
-             onKeyDown={handleKeyDown}
-             className="h-9 text-sm flex-1"
-             placeholder="e.g., Groceries, Gas, Rent"
-           />
+   if (isEditing) {
+     return (
+       <div className="py-3 px-3 sm:px-4 rounded-lg bg-muted/50 space-y-3">
+         <div className="flex flex-col sm:flex-row gap-2">
             <Input
-               ref={inputRef}
-               type="number"
-               value={editAmount}
-               onChange={(e) => setEditAmount(e.target.value)}
-               onKeyDown={handleKeyDown}
-               className="h-9 w-full sm:w-32 text-right text-sm tabular-nums"
-               min="0"
-               step={currency === 'usd' ? '0.01' : '1'}
-             />
+              ref={nameInputRef}
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              onKeyDown={handleKeyDown}
+              className="h-9 text-sm flex-1"
+              placeholder="e.g., Groceries, Gas, Rent"
+            />
+             <div className="relative h-9 w-full sm:w-32">
+                <Input
+                  ref={inputRef}
+                  type="number"
+                  value={editAmount}
+                  onChange={(e) => setEditAmount(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  className="h-9 w-full text-right text-sm tabular-nums"
+                  min="0"
+                  step={currency === 'usd' ? '0.01' : '1'}
+                  placeholder=" "
+                />
+                {!editAmount && (
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/40 pointer-events-none text-sm tabular-nums">
+                    {currency === 'usd' ? '$0.00' : '0'}
+                  </span>
+                )}
+              </div>
         </div>
         <div className="flex justify-between gap-2">
           {/* Delete button - visible in edit mode for mobile access */}

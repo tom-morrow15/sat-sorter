@@ -452,27 +452,35 @@ export function useBudget() {
     setState(prev => ({ ...prev, defaultTemplateId: templateId }));
   }, [setState]);
 
-  // Apply template to current month
-  const applyTemplate = useCallback((templateId: string) => {
-    const template = (state.templates || []).find(t => t.id === templateId);
-    if (!template) return;
+   // Apply template to current month
+   const applyTemplate = useCallback((templateId: string) => {
+     const template = (state.templates || []).find(t => t.id === templateId);
+     if (!template) return;
 
-    const newBuckets = template.buckets.map(b => ({
-      ...b,
-      id: generateId(),
-      lineItems: b.lineItems.map(li => ({
-        ...li,
-        id: generateId(),
-      })),
-    }));
+     const newBuckets = template.buckets.map(b => ({
+       ...b,
+       id: generateId(),
+       lineItems: b.lineItems.map(li => ({
+         ...li,
+         id: generateId(),
+       })),
+     }));
 
-    const updatedBudget = {
-      ...currentBudget,
-      buckets: newBuckets,
-    };
+     const updatedBudget = {
+       ...currentBudget,
+       buckets: newBuckets,
+     };
 
-    saveBudget(updatedBudget);
-  }, [state.templates, currentBudget, saveBudget]);
+     saveBudget(updatedBudget);
+   }, [state.templates, currentBudget, saveBudget]);
+
+   // Reset current month's budget to empty state
+   const resetCurrentMonth = useCallback(() => {
+     setState(prev => {
+       const newBudgets = prev.budgets.filter(b => b.month !== state.currentMonth);
+       return { ...prev, budgets: newBudgets };
+     });
+   }, [state.currentMonth, setState]);
 
   return {
     // State
@@ -524,9 +532,12 @@ export function useBudget() {
     setDefaultTemplate,
     applyTemplate,
 
-    // Budget duplication
-    duplicateFromMonth,
-    getPreviousMonth,
-    hasPreviousMonthBudget,
-  };
-}
+     // Budget duplication
+     duplicateFromMonth,
+     getPreviousMonth,
+     hasPreviousMonthBudget,
+
+     // Reset current month
+     resetCurrentMonth,
+   };
+ }

@@ -58,13 +58,7 @@ export default function Budget() {
     addPartner,
     removePartner,
     changePartnerPermission,
-    templates,
-    defaultTemplateId,
-    saveAsTemplate,
-    updateTemplate,
-    deleteTemplate,
-    setDefaultTemplate,
-    applyTemplate,
+    resetCurrentMonth,
   } = useBudget();
 
   useSeoMeta({
@@ -144,13 +138,29 @@ export default function Budget() {
         onAddPartner={addPartner}
         onRemovePartner={removePartner}
         onChangePartnerPermission={changePartnerPermission}
-        templates={templates}
-        defaultTemplateId={defaultTemplateId}
-        onSaveTemplate={saveAsTemplate}
-        onUpdateTemplate={updateTemplate}
-        onDeleteTemplate={deleteTemplate}
-        onSetDefaultTemplate={setDefaultTemplate}
-        onApplyTemplate={applyTemplate}
+        hasPreviousMonth={hasPreviousMonthBudget}
+        onCopyPreviousMonth={() => {
+          const result = duplicateFromMonth(getPreviousMonth());
+          if (result.success) {
+            toast({
+              title: 'Budget copied!',
+              description: result.message,
+            });
+          } else if (result.message) {
+            toast({
+              title: 'Cannot copy budget',
+              description: result.message,
+              variant: 'destructive',
+            });
+          }
+        }}
+        onResetBudgetMonth={() => {
+          resetCurrentMonth();
+          toast({
+            title: 'Budget reset',
+            description: 'Your budget for this month has been cleared.',
+          });
+        }}
       />
 
       <main className="container mx-auto px-3 sm:px-4 py-4 lg:py-6">
