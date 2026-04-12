@@ -54,15 +54,15 @@ export function LineItemRow({
 
   // Format amount based on currency - compact for mobile
    // Format amount for display - use stored USD if available (source of truth)
-   const formatAmount = (lineItemData?: typeof lineItem, compact = false) => {
-     // If lineItem provided and in USD mode, use stored USD amount
-     if (lineItemData && currency === 'usd' && priceData) {
+   const formatAmount = (lineItemData = lineItem, compact = false) => {
+     // In USD mode, use stored USD amount (source of truth)
+     if (currency === 'usd' && priceData) {
        const usdAmount = getLineItemUsdAmount(lineItemData, priceData.usdPerBtc);
        return formatUsd(usdAmount);
      }
 
      // For sats mode, format the sats amount
-     const sats = lineItemData ? lineItemData.plannedAmount : 0;
+     const sats = lineItemData.plannedAmount || 0;
      if (compact && sats >= 1_000_000) {
        return `${(sats / 1_000_000).toFixed(1)}M`;
      }
