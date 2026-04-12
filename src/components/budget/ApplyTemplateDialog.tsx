@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { CheckCircle2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/useToast';
 import {
   Dialog,
   DialogContent,
@@ -35,12 +36,27 @@ export function ApplyTemplateDialog({
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(
     defaultTemplateId || null
   );
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const { toast } = useToast();
 
   const handleApply = () => {
     if (selectedTemplateId) {
+      const template = templates.find(t => t.id === selectedTemplateId);
+      console.log('[ApplyTemplateDialog] Applying template:', template?.name);
       onApply(selectedTemplateId);
+      toast({
+        title: 'Template Applied',
+        description: `Template "${template?.name}" has been applied to ${currentMonth}.`,
+      });
       onOpenChange(false);
+      setShowConfirmation(false);
       setSelectedTemplateId(defaultTemplateId || null);
+    }
+  };
+
+  const handleApplyClick = () => {
+    if (selectedTemplateId) {
+      setShowConfirmation(true);
     }
   };
 
@@ -56,36 +72,65 @@ export function ApplyTemplateDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
-          {/* Warning about overwriting */}
-          {templates.length > 0 && (
-            <Card className="border-amber-200 bg-amber-50 dark:bg-amber-950/30">
-              <CardContent className="pt-4">
-                <div className="flex gap-2">
-                  <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
-                      This will replace your current budget structure
-                    </p>
-                    <p className="text-xs text-amber-800 dark:text-amber-200 mt-1">
-                      Any existing categories, line items, and transactions will be removed.
-                      You can undo this by refreshing without saving.
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+         <div className="space-y-4 py-4">
+           {/* Confirmation step */}
+           {showConfirmation && (
+             <Card className="border-red-300 bg-red-50 dark:bg-red-950/30">
+               <CardContent className="pt-4">
+                 <div className="flex gap-2">
+                   <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+                   <div>
+                     <p className="text-sm font-bold text-red-900 dark:text-red-100">
+                       ⚠️ This will permanently replace your budget
+                     </p>
+                     <p className="text-xs text-red-800 dark:text-red-200 mt-2">
+                       The following will be removed:
+                     </p>
+                     <ul className="text-xs text-red-800 dark:text-red-200 list-disc list-inside mt-1 ml-1">
+                       <li>All existing categories and line items</li>
+                       <li>All transactions for this month</li>
+                       <li>Current budget amounts</li>
+                     </ul>
+                     <p className="text-xs text-red-700 dark:text-red-300 mt-2 font-medium">
+                       Click "Yes, Replace Budget" to confirm, or "Cancel" to keep your current budget.
+                     </p>
+                   </div>
+                 </div>
+               </CardContent>
+             </Card>
+           )}
 
-          {/* Templates list */}
-          {templates.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <p className="text-sm">No templates available</p>
-              <p className="text-xs mt-1">Create a template first in the Template Manager</p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Select a template:</label>
+           {/* Warning about overwriting - shown before confirmation */}
+           {!showConfirmation && templates.length > 0 && (
+             <Card className="border-amber-200 bg-amber-50 dark:bg-amber-950/30">
+               <CardContent className="pt-4">
+                 <div className="flex gap-2">
+                   <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                   <div>
+                     <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
+                       This will replace your current budget structure
+                     </p>
+                     <p className="text-xs text-amber-800 dark:text-amber-200 mt-1">
+                       Any existing categories, line items, and transactions will be removed.
+                       You can undo this by refreshing without saving.
+                     </p>
+                   </div>
+                 </div>
+               </CardContent>
+             </Card>
+           )}
+
+           {/* Templates list - hidden during confirmation */}
+           {!showConfirmation && templates.length === 0 && (
+             <div className="text-center py-8 text-muted-foreground">
+               <p className="text-sm">No templates available</p>
+               <p className="text-xs mt-1">Create a template first in the Template Manager</p>
+             </div>
+           )}
+
+           {!showConfirmation && templates.length > 0 && (
+             <div className="space-y-2">
+               <label className="text-sm font-medium">Select a template:</label>
               <ScrollArea className="max-h-[300px]">
                 <div className="space-y-2 pr-4">
                   {templates.map((template) => (
@@ -128,12 +173,12 @@ export function ApplyTemplateDialog({
                     </button>
                   ))}
                 </div>
-              </ScrollArea>
-            </div>
-          )}
+               </ScrollArea>
+             </div>
+           )}
 
-          {/* Template preview */}
-          {selectedTemplate && (
+           {/* Template preview - hidden during confirmation */}
+           {!showConfirmation && selectedTemplate && (
             <Card className="bg-muted/50">
               <CardContent className="pt-4">
                 <h4 className="text-sm font-medium mb-2">Template Preview</h4>
@@ -157,26 +202,47 @@ export function ApplyTemplateDialog({
             </Card>
           )}
 
-          {/* Info box */}
-          <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
-            <p className="text-xs text-blue-900 dark:text-blue-100">
-              <strong>💡 Tip:</strong> The template will only copy your category structure
-              and line items. You'll need to set new amounts for each month based on your needs.
-            </p>
-          </div>
+           {/* Info box - hidden during confirmation */}
+           {!showConfirmation && (
+             <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
+               <p className="text-xs text-blue-900 dark:text-blue-100">
+                 <strong>💡 Tip:</strong> The template will only copy your category structure
+                 and line items. You'll need to set new amounts for each month based on your needs.
+               </p>
+             </div>
+           )}
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button
-            onClick={handleApply}
-            disabled={!selectedTemplateId || templates.length === 0}
-          >
-            Apply Template
-          </Button>
-        </DialogFooter>
+         <DialogFooter>
+           {showConfirmation ? (
+             <>
+               <Button 
+                 variant="outline" 
+                 onClick={() => setShowConfirmation(false)}
+               >
+                 Cancel
+               </Button>
+               <Button 
+                 onClick={handleApply}
+                 className="bg-amber-600 hover:bg-amber-700"
+               >
+                 Yes, Replace Budget
+               </Button>
+             </>
+           ) : (
+             <>
+               <Button variant="outline" onClick={() => onOpenChange(false)}>
+                 Cancel
+               </Button>
+               <Button
+                 onClick={handleApplyClick}
+                 disabled={!selectedTemplateId || templates.length === 0}
+               >
+                 Apply Template
+               </Button>
+             </>
+           )}
+         </DialogFooter>
       </DialogContent>
     </Dialog>
   );

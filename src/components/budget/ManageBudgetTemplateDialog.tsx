@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { useToast } from '@/hooks/useToast';
 import {
   Dialog,
   DialogContent,
@@ -45,18 +46,28 @@ export function ManageBudgetTemplateDialog({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [templateName, setTemplateName] = useState('');
   const [templateDescription, setTemplateDescription] = useState('');
+  const { toast } = useToast();
 
   const handleSave = () => {
     if (templateName.trim()) {
       if (editingId) {
         onUpdateTemplate(editingId, templateName.trim(), templateDescription.trim() || undefined);
+        toast({
+          title: 'Template Updated',
+          description: `"${templateName.trim()}" has been updated successfully.`,
+        });
         setEditingId(null);
       } else {
         onSaveTemplate(templateName.trim(), templateDescription.trim() || undefined);
+        toast({
+          title: 'Template Saved',
+          description: `"${templateName.trim()}" has been saved successfully.`,
+        });
         setIsCreating(false);
       }
       setTemplateName('');
       setTemplateDescription('');
+      console.log('[ManageBudgetTemplateDialog] Template saved successfully');
     }
   };
 
@@ -67,11 +78,31 @@ export function ManageBudgetTemplateDialog({
     setTemplateDescription('');
   };
 
-  const handleEditTemplate = (template: BudgetTemplate) => {
-    setEditingId(template.id);
-    setTemplateName(template.name);
-    setTemplateDescription(template.description || '');
-  };
+   const handleEditTemplate = (template: BudgetTemplate) => {
+     setEditingId(template.id);
+     setTemplateName(template.name);
+     setTemplateDescription(template.description || '');
+   };
+
+   const handleDeleteTemplate = (templateId: string) => {
+     const template = templates.find(t => t.id === templateId);
+     if (confirm(`Are you sure you want to delete "${template?.name}"? This action cannot be undone.`)) {
+       onDeleteTemplate(templateId);
+       toast({
+         title: 'Template Deleted',
+         description: `"${template?.name}" has been removed.`,
+       });
+     }
+   };
+
+   const handleSetDefault = (templateId: string) => {
+     const template = templates.find(t => t.id === templateId);
+     onSetDefaultTemplate(templateId);
+     toast({
+       title: 'Default Template Set',
+       description: `"${template?.name}" is now your default template.`,
+     });
+   };
 
   const formatDate = (timestamp: number) => {
     return new Date(timestamp * 1000).toLocaleDateString('en-US', {
@@ -195,36 +226,36 @@ export function ManageBudgetTemplateDialog({
 
                         <div className="flex gap-1 shrink-0">
                           {defaultTemplateId !== template.id && (
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="h-8 w-8"
-                              onClick={() => onSetDefaultTemplate(template.id)}
-                              title="Set as default"
-                            >
-                              <Star className="h-4 w-4" />
-                            </Button>
-                          )}
+                           <Button
+                             size="icon"
+                             variant="ghost"
+                             className="h-8 w-8"
+                             onClick={() => handleSetDefault(template.id)}
+                             title="Set as default"
+                           >
+                             <Star className="h-4 w-4" />
+                           </Button>
+                           )}
 
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-8 w-8"
-                            onClick={() => handleEditTemplate(template)}
-                            title="Edit template"
-                          >
-                            <Edit2 className="h-4 w-4" />
-                          </Button>
+                           <Button
+                             size="icon"
+                             variant="ghost"
+                             className="h-8 w-8"
+                             onClick={() => handleEditTemplate(template)}
+                             title="Edit template"
+                           >
+                             <Edit2 className="h-4 w-4" />
+                           </Button>
 
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-8 w-8 text-destructive hover:text-destructive"
-                            onClick={() => onDeleteTemplate(template.id)}
-                            title="Delete template"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                           <Button
+                             size="icon"
+                             variant="ghost"
+                             className="h-8 w-8 text-destructive hover:text-destructive"
+                             onClick={() => handleDeleteTemplate(template.id)}
+                             title="Delete template"
+                           >
+                             <Trash2 className="h-4 w-4" />
+                           </Button>
                         </div>
                       </div>
                     </div>

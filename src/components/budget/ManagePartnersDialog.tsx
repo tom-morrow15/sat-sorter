@@ -3,6 +3,7 @@ import { Plus, Trash2, Shield, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useToast } from '@/hooks/useToast';
 import {
   Dialog,
   DialogContent,
@@ -46,19 +47,46 @@ export function ManagePartnersDialog({
   const [newPartnerPubkey, setNewPartnerPubkey] = useState('');
   const [newPartnerPermission, setNewPartnerPermission] = useState<'view' | 'edit'>('edit');
   const [isAdding, setIsAdding] = useState(false);
+  const [validationError, setValidationError] = useState('');
+  const { toast } = useToast();
 
   const isOwner = userRole === 'owner';
 
   const handleAddPartner = () => {
-    if (newPartnerPubkey.trim()) {
-      // Basic validation - should be 64 char hex or npub address
-      if (newPartnerPubkey.length >= 56 || newPartnerPubkey.length === 64) {
-        onAddPartner(newPartnerPubkey.trim(), newPartnerPermission);
-        setNewPartnerPubkey('');
-        setNewPartnerPermission('edit');
-        setIsAdding(false);
-      }
+    const pubkey = newPartnerPubkey.trim();
+    setValidationError('');
+    
+    if (!pubkey) {
+      setValidationError('Please enter a Nostr address');
+      return;
     }
+
+    // Basic validation - should be 64 char hex or npub address (starts with 'npub1')
+    const isHex = /^[0-9a-f]{64}$/i.test(pubkey);
+    const isNpub = pubkey.startsWith('npub1') && pubkey.length >= 56;
+    
+    if (!isHex && !isNpub) {
+      setValidationError('Invalid format. Use a 64-character hex key or npub1... address');
+      console.warn('[ManagePartnersDialog] Invalid pubkey format:', pubkey);
+      return;
+    }
+
+    // Check if partner already exists
+    if (partners.some(p => p.pubkey === pubkey)) {
+      setValidationError('This partner is already added');
+      return;
+    }
+
+    console.log('[ManagePartnersDialog] Adding partner:', pubkey, 'with permission:', newPartnerPermission);
+    onAddPartner(pubkey, newPartnerPermission);
+    toast({
+      title: 'Partner Added',
+      description: `${formatPubkey(pubkey)} has been added with ${newPartnerPermission} permission.`,
+    });
+    setNewPartnerPubkey('');
+    setValidationError('');
+    setNewPartnerPermission('edit');
+    setIsAdding(false);
   };
 
   const formatPubkey = (pubkey: string) => {
@@ -68,13 +96,24 @@ export function ManagePartnersDialog({
     return pubkey;
   };
 
-  const getPermissionIcon = (permission: 'view' | 'edit') => {
-    return permission === 'edit' ? (
-      <Shield className="h-4 w-4" />
-    ) : (
-      <Eye className="h-4 w-4" />
-    );
-  };
+   const getPermissionIcon = (permission: 'view' | 'edit') => {
+     return permission === 'edit' ? (
+       <Shield className="h-4 w-4" />
+     ) : (
+       <Eye className="h-4 w-4" />
+     );
+   };
+
+   const handleRemovePartner = (pubkey: string) => {
+     const partner = partners.find(p => p.pubkey === pubkey);
+     if (confirm(`Remove ${partner?.name || formatPubkey(pubkey)} from this budget?`)) {
+       onRemovePartner(pubkey);
+       toast({
+         title: 'Partner Removed',
+         description: `${partner?.name || formatPubkey(pubkey)} has been removed.`,
+       });
+     }
+   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -126,22 +165,30 @@ export function ManagePartnersDialog({
                   <Plus className="h-4 w-4 mr-2" />
                   Add Partner
                 </Button>
-              ) : (
+               ) : (
                 <Card>
-                  <CardContent className="pt-6 space-y-3">
-                    <div className="space-y-2">
-                      <Label htmlFor="partner-pubkey">Partner Nostr Address</Label>
-                      <Input
-                        id="partner-pubkey"
-                        placeholder="npub1... or public key"
-                        value={newPartnerPubkey}
-                        onChange={(e) => setNewPartnerPubkey(e.target.value)}
-                        autoFocus
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Enter their Nostr pubkey or npub address
-                      </p>
-                    </div>
+                   <CardContent className="pt-6 space-y-3">
+                     <div className="space-y-2">
+                       <Label htmlFor="partner-pubkey">Partner Nostr Address</Label>
+                       <Input
+                         id="partner-pubkey"
+                         placeholder="npub1... or public key"
+                         value={newPartnerPubkey}
+                         onChange={(e) => {
+                           setNewPartnerPubkey(e.target.value);
+                           setValidationError('');
+                         }}
+                         autoFocus
+                         className={validationError ? 'border-destructive' : ''}
+                       />
+                       {validationError ? (
+                         <p className="text-xs text-destructive font-medium">{validationError}</p>
+                       ) : (
+                         <p className="text-xs text-muted-foreground">
+                           Enter their Nostr pubkey or npub address
+                         </p>
+                       )}
+                     </div>
 
                     <div className="space-y-2">
                       <Label htmlFor="partner-permission">Permission Level</Label>
@@ -258,15 +305,15 @@ export function ManagePartnersDialog({
                             </SelectContent>
                           </Select>
 
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-8 w-8 text-destructive hover:text-destructive"
-                            onClick={() => onRemovePartner(partner.pubkey)}
-                            title="Remove partner"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                           <Button
+                             size="icon"
+                             variant="ghost"
+                             className="h-8 w-8 text-destructive hover:text-destructive"
+                             onClick={() => handleRemovePartner(partner.pubkey)}
+                             title="Remove partner"
+                           >
+                             <Trash2 className="h-4 w-4" />
+                           </Button>
                         </div>
                       )}
                     </div>
