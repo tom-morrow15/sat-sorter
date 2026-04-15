@@ -276,7 +276,7 @@ const ICONS: IconOption[] = [
   { id: 'trending-down', Icon: TrendingDown, label: 'Debt Payoff', category: 'Financial' },
   { id: 'wallet-financial', Icon: Wallet, label: 'Money Management', category: 'Financial' },
   { id: 'tax', Icon: AlertCircle, label: 'Taxes', category: 'Financial' },
-  { id: 'insurance', Icon: Shield, label: 'Insurance', category: 'Financial' },
+  { id: 'insurance', Icon: AlertCircle, label: 'Insurance', category: 'Financial' },
   { id: 'retirement', Icon: PiggyBank, label: 'Retirement', category: 'Financial' },
 
   // General & Catch-all (15+ icons)
@@ -338,9 +338,6 @@ const CATEGORY_EMOJIS: Record<string, string> = {
   Financial: '💰',
   Other: '📋',
 };
-
-// Placeholder for Shield icon which doesn't exist
-const Shield = AlertCircle;
 
 export function AddBucketDialog({
   open,
