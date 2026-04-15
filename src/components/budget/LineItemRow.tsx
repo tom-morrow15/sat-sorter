@@ -187,11 +187,12 @@ export function LineItemRow({
     setIsEditing(false);
   };
 
-  const handleCancel = () => {
-    setEditName(lineItem.name);
-    setEditAmount(getEditableAmount());
-    setIsEditing(false);
-  };
+   const handleCancel = () => {
+     setEditName(lineItem.name);
+     setEditAmount(getEditableAmount());
+     setIsEditing(false);
+     setShowDeleteConfirm(false);
+   };
 
   const handleDeleteConfirmed = () => {
     onDelete(bucketId, lineItem.id);
@@ -224,61 +225,72 @@ export function LineItemRow({
   };
 
    if (isEditing) {
-     return (
-       <div className="py-3 px-3 sm:px-4 rounded-lg bg-muted/50 space-y-3">
-         <div className="flex flex-col sm:flex-row gap-2">
-            <Input
-              ref={nameInputRef}
-              value={editName}
-              onChange={(e) => setEditName(e.target.value)}
-              onKeyDown={handleKeyDown}
-              className="h-9 text-sm flex-1"
-              placeholder="e.g., Groceries, Gas, Rent"
-            />
-             <div className="relative h-9 w-full sm:w-32">
-                <Input
-                  ref={inputRef}
-                  type="number"
-                  value={editAmount}
-                  onChange={(e) => setEditAmount(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  className="h-9 w-full text-right text-sm tabular-nums"
-                  min="0"
-                  step={currency === 'usd' ? '0.01' : '1'}
-                  placeholder=" "
-                />
-                {!editAmount && (
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/40 pointer-events-none text-sm tabular-nums">
-                    {currency === 'usd' ? '$0.00' : '0'}
-                  </span>
-                )}
-              </div>
-        </div>
-        <div className="flex justify-between gap-2">
-          {/* Delete button - visible in edit mode for mobile access */}
-          <Button
-            size="sm"
-            variant="ghost"
-            className="text-destructive hover:text-destructive hover:bg-destructive/10"
-            onClick={() => setShowDeleteConfirm(true)}
-          >
-            <Trash2 className="h-4 w-4 mr-1" />
-            Delete
-          </Button>
-          <div className="flex gap-2">
-            <Button size="sm" variant="ghost" onClick={handleCancel}>
-              <X className="h-4 w-4 mr-1" />
-              Cancel
-            </Button>
-            <Button size="sm" onClick={handleSave}>
-              <Check className="h-4 w-4 mr-1" />
-              Save
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+      return (
+        <>
+          <div className="py-3 px-3 sm:px-4 rounded-lg bg-muted/50 space-y-3">
+            <div className="flex flex-col sm:flex-row gap-2">
+               <Input
+                 ref={nameInputRef}
+                 value={editName}
+                 onChange={(e) => setEditName(e.target.value)}
+                 onKeyDown={handleKeyDown}
+                 className="h-9 text-sm flex-1"
+                 placeholder="e.g., Groceries, Gas, Rent"
+               />
+                <div className="relative h-9 w-full sm:w-32">
+                   <Input
+                     ref={inputRef}
+                     type="number"
+                     value={editAmount}
+                     onChange={(e) => setEditAmount(e.target.value)}
+                     onKeyDown={handleKeyDown}
+                     className="h-9 w-full text-right text-sm tabular-nums"
+                     min="0"
+                     step={currency === 'usd' ? '0.01' : '1'}
+                     placeholder=" "
+                   />
+                   {!editAmount && (
+                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/40 pointer-events-none text-sm tabular-nums">
+                       {currency === 'usd' ? '$0.00' : '0'}
+                     </span>
+                   )}
+                 </div>
+           </div>
+           <div className="flex justify-between gap-2">
+             {/* Delete button - visible in edit mode for mobile access */}
+             <Button
+               size="sm"
+               variant="ghost"
+               className="text-destructive hover:text-destructive hover:bg-destructive/10"
+               onClick={() => setShowDeleteConfirm(true)}
+             >
+               <Trash2 className="h-4 w-4 mr-1" />
+               Delete
+             </Button>
+             <div className="flex gap-2">
+               <Button size="sm" variant="ghost" onClick={handleCancel}>
+                 <X className="h-4 w-4 mr-1" />
+                 Cancel
+               </Button>
+               <Button size="sm" onClick={handleSave}>
+                 <Check className="h-4 w-4 mr-1" />
+                 Save
+               </Button>
+             </div>
+           </div>
+       </div>
+
+       {/* Deletion confirmation dialog - also rendered here for non-edit mode */}
+       <DeletionConfirmDialog
+         open={showDeleteConfirm}
+         onOpenChange={setShowDeleteConfirm}
+         itemType="lineItem"
+         itemName={lineItem.name}
+         onConfirm={handleDeleteConfirmed}
+       />
+     </>
+   );
+ }
 
   return (
     <>
