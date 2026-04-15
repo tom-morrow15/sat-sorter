@@ -45,44 +45,48 @@ export function LineItemRow({
   const inputRef = useRef<HTMLInputElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
 
-   const spent = calculateSpentForLineItem(lineItem.id, transactions);
-   const remaining = lineItem.plannedAmount - spent;
-   
-   // Calculate spent and remaining in USD when in USD mode
-   let spentUsd = 0;
-   let remainingUsd = 0;
-   let plannedAmountUsd = 0;
-   
-   if (currency === 'usd' && priceData) {
-     // Calculate total spent in USD from transactions
-     spentUsd = transactions
-       .filter(t => t.lineItemId === lineItem.id && !t.isIncome)
-       .reduce((sum, t) => {
-         const txUsd = t.amountUsd && t.amountUsd > 0 
-           ? t.amountUsd 
-           : (t.amount / 100_000_000) * priceData.usdPerBtc;
-         return sum + txUsd;
-       }, 0);
-     
-     // Get planned amount in USD
-     plannedAmountUsd = getLineItemUsdAmount(lineItem, priceData.usdPerBtc);
-     remainingUsd = plannedAmountUsd - spentUsd;
-   }
-   
-    // Calculate percentage and remaining - use USD values when in USD mode
+    // Calculate spent in sats (from actual transactions)
+    const spentSats = calculateSpentForLineItem(lineItem.id, transactions);
+    
+    // Calculate amounts in display currency (USD or sats)
+    let spent = 0;
+    let remaining = 0;
     let percentSpent = 0;
     let isOverBudget = false;
     
     if (currency === 'usd' && priceData) {
-      // In USD mode, use USD amounts for calculations
+      // USD MODE: Calculate everything in USD using source-of-truth amounts
+      
+      // Get planned amount in USD (stored value, not converted)
+      const plannedAmountUsd = getLineItemUsdAmount(lineItem, priceData.usdPerBtc);
+      
+      // Calculate total spent in USD from transactions
+      const spentUsd = transactions
+        .filter(t => t.lineItemId === lineItem.id && !t.isIncome)
+        .reduce((sum, t) => {
+          const txUsd = t.amountUsd && t.amountUsd > 0 
+            ? t.amountUsd 
+            : (t.amount / 100_000_000) * priceData.usdPerBtc;
+          return sum + txUsd;
+        }, 0);
+      
+      // Set display values in USD
+      spent = spentUsd;
+      remaining = plannedAmountUsd - spentUsd;
+      
+      // Calculate percentage and over-budget status
       percentSpent = plannedAmountUsd > 0
         ? Math.min((spentUsd / plannedAmountUsd) * 100, 100)
         : 0;
-      isOverBudget = remainingUsd < 0;
+      isOverBudget = remaining < 0;
     } else {
-      // In sats mode, use sats amounts
+      // SATS MODE: Calculate everything in sats
+      spent = spentSats;
+      remaining = lineItem.plannedAmount - spentSats;
+      
+      // Calculate percentage and over-budget status
       percentSpent = lineItem.plannedAmount > 0
-        ? Math.min((spent / lineItem.plannedAmount) * 100, 100)
+        ? Math.min((spentSats / lineItem.plannedAmount) * 100, 100)
         : 0;
       isOverBudget = remaining < 0;
     }
@@ -107,21 +111,22 @@ export function LineItemRow({
      return `${formatSats(sats)}`;
    };
 
-   // Format sats amounts for spent/remaining display
-   const formatSatsAmount = (sats: number, compact = false) => {
-     if (currency === 'usd' && priceData) {
-       // In USD mode, convert sats to USD for display
-       const usd = (sats / 100_000_000) * priceData.usdPerBtc;
-       return formatUsd(usd);
-     }
-     if (compact && sats >= 1_000_000) {
-       return `${(sats / 1_000_000).toFixed(1)}M`;
-     }
-     if (compact && sats >= 10_000) {
-       return `${(sats / 1_000).toFixed(0)}K`;
-     }
-     return `${formatSats(sats)}`;
-   };
+    // Format amounts for spent/remaining display (amount is already in display currency)
+    const formatDisplayAmount = (amount: number, compact = false) => {
+      if (currency === 'usd') {
+        // In USD mode, amount is already in USD
+        return formatUsd(amount);
+      }
+      // In sats mode, amount is in sats
+      const sats = Math.round(amount);
+      if (compact && sats >= 1_000_000) {
+        return `${(sats / 1_000_000).toFixed(1)}M`;
+      }
+      if (compact && sats >= 10_000) {
+        return `${(sats / 1_000).toFixed(0)}K`;
+      }
+      return `${formatSats(sats)}`;
+    };
 
   // Get editable amount value - show empty string if 0 so it looks like placeholder
   const getEditableAmount = () => {
@@ -383,21 +388,21 @@ export function LineItemRow({
 
            {/* Spent / Remaining info row */}
            <div className="flex items-center justify-between text-xs tabular-nums">
-             <span className={cn(
-               'whitespace-nowrap',
-               isOverBudget ? 'text-destructive font-medium' : 'text-muted-foreground'
-             )}>
-               <span className="sm:hidden">{formatSatsAmount(spent, true)}</span>
-               <span className="hidden sm:inline">{formatSatsAmount(spent)} spent</span>
-             </span>
-             
-             <span className={cn(
-               'whitespace-nowrap',
-               remaining < 0 ? 'text-destructive font-medium' : 'text-muted-foreground'
-             )}>
-               <span className="sm:hidden">{formatSatsAmount(Math.max(0, remaining), true)}</span>
-               <span className="hidden sm:inline">{formatSatsAmount(Math.max(0, remaining))} left</span>
-             </span>
+              <span className={cn(
+                'whitespace-nowrap',
+                isOverBudget ? 'text-destructive font-medium' : 'text-muted-foreground'
+              )}>
+                <span className="sm:hidden">{formatDisplayAmount(spent, true)}</span>
+                <span className="hidden sm:inline">{formatDisplayAmount(spent)} spent</span>
+              </span>
+              
+              <span className={cn(
+                'whitespace-nowrap',
+                remaining < 0 ? 'text-destructive font-medium' : 'text-muted-foreground'
+              )}>
+                <span className="sm:hidden">{formatDisplayAmount(Math.max(0, remaining), true)}</span>
+                <span className="hidden sm:inline">{formatDisplayAmount(Math.max(0, remaining))} left</span>
+              </span>
            </div>
          </div>
         )}
