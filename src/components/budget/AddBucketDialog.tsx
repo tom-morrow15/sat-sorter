@@ -147,7 +147,7 @@ const ICONS: IconOption[] = [
   { id: 'wine', Icon: Wine, label: 'Alcohol', category: 'Food' },
   { id: 'salad', Icon: Salad, label: 'Healthy Eating', category: 'Food' },
   { id: 'apple', Icon: Apple, label: 'Fruits & Veggies', category: 'Food' },
-  { id: 'restaurant', Icon: UtensilsCrossed, label: 'Dining Out', category: 'Food' },
+   { id: 'restaurant', Icon: Utensils, label: 'Dining Out', category: 'Food' },
   { id: 'fast-food', Icon: Package, label: 'Fast Food', category: 'Food' },
   { id: 'delivery', Icon: Truck, label: 'Food Delivery', category: 'Food' },
   { id: 'bakery', Icon: Lightbulb, label: 'Bakery', category: 'Food' },
@@ -252,7 +252,7 @@ const ICONS: IconOption[] = [
   { id: 'car-rental', Icon: Car, label: 'Car Rental', category: 'Travel' },
   { id: 'activities', Icon: Activity, label: 'Activities', category: 'Travel' },
   { id: 'accommodation-alt', Icon: Home, label: 'Vacation Rental', category: 'Travel' },
-  { id: 'travel-insurance', Icon: Shield, label: 'Travel Insurance', category: 'Travel' },
+   { id: 'travel-insurance', Icon: AlertCircle, label: 'Travel Insurance', category: 'Travel' },
 
   // Financial (12 icons)
   { id: 'piggy-bank', Icon: PiggyBank, label: 'Savings', category: 'Financial' },
@@ -280,31 +280,6 @@ const ICONS: IconOption[] = [
   { id: 'settings', Icon: Settings, label: 'Adjustments', category: 'Other' },
   { id: 'checkmark', Icon: CheckCircle, label: 'Completed', category: 'Other' },
 ];
-
-// Placeholder icon for Shield which doesn't exist in lucide-react
-const Shield = AlertCircle;
-const UtensilsCrossed = Utensils;
-
-const COLORS = [
-  '#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899',
-  '#f43f5e', '#f59e0b', '#84cc16', '#14b8a6', '#0ea5e9', '#6366f1', '#d946ef', '#a855f7',
-  '#dc2626', '#ea580c', '#ca8a04', '#16a34a', '#0891b2', '#1d4ed8', '#7c3aed', '#be185d',
-];
-
-const CATEGORY_EMOJIS: Record<string, string> = {
-  Home: '🏠',
-  Transport: '🚗',
-  Food: '🍽️',
-  Health: '⚕️',
-  Entertainment: '🎮',
-  Subscriptions: '🔄',
-  Shopping: '🛍️',
-  Family: '👨‍👩‍👧‍👦',
-  Work: '💼',
-  Travel: '✈️',
-  Financial: '💰',
-  Other: '📋',
-};
 
 export function AddBucketDialog({
   open,
