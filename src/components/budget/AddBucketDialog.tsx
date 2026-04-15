@@ -37,6 +37,66 @@ import {
   Scissors,
   Wrench,
   AlertCircle,
+  Flame,
+  Wind,
+  Hammer,
+  Palette,
+  Trees,
+  Lock,
+  Package,
+  Truck,
+  Train,
+  Bus,
+  Bike,
+  Navigation,
+  MapPin,
+  Hotel,
+  ShoppingCart,
+  Salad,
+  Apple,
+  Crown,
+  Sparkles,
+  Tv,
+  Film,
+  MessageCircle,
+  Waves,
+  Map,
+  Compass,
+  Luggage,
+  Backpack,
+  Watch,
+  Eye,
+  Brain,
+  Ear,
+  Smile,
+  Flower2,
+  Activity,
+  CreditCard,
+  Percent,
+  BarChart3,
+  TrendingDown,
+  PieChart,
+  Cloud,
+  CloudRain,
+  Droplet,
+  Repeat,
+  RefreshCw,
+  Clock,
+  Calendar,
+  CheckCircle,
+  XCircle,
+  HelpCircle,
+  Settings,
+  Search,
+  Copy,
+  Trash2,
+  Edit,
+  Plus,
+  Minus,
+  MapPinOff,
+  Glasses,
+  DollarSign as DollarSignAlt,
+  Radio,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -65,64 +125,171 @@ interface IconOption {
 }
 
 const ICONS: IconOption[] = [
-  // Housing & Utilities
+  // Housing & Utilities (10+ icons)
   { id: 'home', Icon: Home, label: 'Housing', category: 'Home' },
   { id: 'zap', Icon: Zap, label: 'Electricity', category: 'Home' },
   { id: 'droplets', Icon: Droplets, label: 'Water', category: 'Home' },
   { id: 'wifi', Icon: Wifi, label: 'Internet', category: 'Home' },
   { id: 'wrench', Icon: Wrench, label: 'Maintenance', category: 'Home' },
-  
-  // Transportation
-  { id: 'car', Icon: Car, label: 'Transportation', category: 'Transport' },
+  { id: 'hammer', Icon: Hammer, label: 'Repairs', category: 'Home' },
+  { id: 'palette', Icon: Palette, label: 'Renovations', category: 'Home' },
+  { id: 'flame', Icon: Flame, label: 'Heating/Gas', category: 'Home' },
+  { id: 'wind', Icon: Wind, label: 'HVAC', category: 'Home' },
+  { id: 'lock', Icon: Lock, label: 'Security', category: 'Home' },
+
+  // Transportation (15+ icons)
+  { id: 'car', Icon: Car, label: 'Car', category: 'Transport' },
+  { id: 'truck', Icon: Truck, label: 'Truck/Van', category: 'Transport' },
+  { id: 'train', Icon: Train, label: 'Train', category: 'Transport' },
+  { id: 'bus', Icon: Bus, label: 'Bus/Transit', category: 'Transport' },
+  { id: 'bike', Icon: Bike, label: 'Bicycle', category: 'Transport' },
   { id: 'smartphone', Icon: Smartphone, label: 'Phone Bill', category: 'Transport' },
-  
-  // Food & Dining
-  { id: 'utensils', Icon: Utensils, label: 'Food', category: 'Food' },
-  { id: 'coffee', Icon: Coffee, label: 'Coffee & Tea', category: 'Food' },
-  { id: 'wine', Icon: Wine, label: 'Dining Out', category: 'Food' },
-  
-  // Health & Wellness
+  { id: 'navigation', Icon: Navigation, label: 'GPS/Maps', category: 'Transport' },
+  { id: 'fuel', Icon: Flame, label: 'Fuel/Gas', category: 'Transport' },
+  { id: 'parking', Icon: MapPin, label: 'Parking', category: 'Transport' },
+  { id: 'insurance-auto', Icon: AlertCircle, label: 'Auto Insurance', category: 'Transport' },
+  { id: 'taxi', Icon: Car, label: 'Taxi/Uber', category: 'Transport' },
+  { id: 'tolls', Icon: DollarSign, label: 'Tolls', category: 'Transport' },
+
+  // Food & Dining (15+ icons)
+  { id: 'utensils', Icon: Utensils, label: 'Food/Groceries', category: 'Food' },
+  { id: 'shopping-cart', Icon: ShoppingCart, label: 'Groceries', category: 'Food' },
+  { id: 'coffee', Icon: Coffee, label: 'Coffee', category: 'Food' },
+  { id: 'wine', Icon: Wine, label: 'Alcohol', category: 'Food' },
+  { id: 'dining', Icon: Utensils, label: 'Dining Out', category: 'Food' },
+  { id: 'salad', Icon: Salad, label: 'Healthy Eating', category: 'Food' },
+  { id: 'apple', Icon: Apple, label: 'Fruits & Veggies', category: 'Food' },
+  { id: 'restaurant', Icon: Coffee, label: 'Restaurant', category: 'Food' },
+  { id: 'fast-food', Icon: Package, label: 'Fast Food', category: 'Food' },
+  { id: 'delivery', Icon: Truck, label: 'Food Delivery', category: 'Food' },
+  { id: 'bakery', Icon: Coffee, label: 'Bakery', category: 'Food' },
+  { id: 'snacks', Icon: Apple, label: 'Snacks', category: 'Food' },
+  { id: 'meal-prep', Icon: Utensils, label: 'Meal Prep', category: 'Food' },
+
+  // Health & Wellness (15+ icons)
   { id: 'stethoscope', Icon: Stethoscope, label: 'Healthcare', category: 'Health' },
   { id: 'pill', Icon: Pill, label: 'Medications', category: 'Health' },
   { id: 'dumbbell', Icon: Dumbbell, label: 'Fitness', category: 'Health' },
-  
-  // Entertainment & Leisure
-  { id: 'music', Icon: Music, label: 'Music & Streaming', category: 'Entertainment' },
+  { id: 'activity', Icon: Activity, label: 'Gym', category: 'Health' },
+  { id: 'heart', Icon: Heart, label: 'Mental Health', category: 'Health' },
+  { id: 'brain', Icon: Brain, label: 'Therapy', category: 'Health' },
+  { id: 'eye', Icon: Eye, label: 'Vision/Optometry', category: 'Health' },
+  { id: 'ear', Icon: Ear, label: 'Hearing', category: 'Health' },
+  { id: 'smile', Icon: Smile, label: 'Dental', category: 'Health' },
+  { id: 'flower', Icon: Flower2, label: 'Wellness', category: 'Health' },
+  { id: 'apple-health', Icon: Apple, label: 'Nutrition', category: 'Health' },
+  { id: 'medical-supplies', Icon: Package, label: 'Medical Supplies', category: 'Health' },
+
+  // Entertainment & Leisure (20+ icons)
+  { id: 'music', Icon: Music, label: 'Music Streaming', category: 'Entertainment' },
   { id: 'gamepad', Icon: Gamepad2, label: 'Games', category: 'Entertainment' },
   { id: 'camera', Icon: Camera, label: 'Photography', category: 'Entertainment' },
-  { id: 'headphones', Icon: Headphones, label: 'Audio', category: 'Entertainment' },
+  { id: 'headphones', Icon: Headphones, label: 'Audio/Headphones', category: 'Entertainment' },
   { id: 'book', Icon: Book, label: 'Books & Learning', category: 'Entertainment' },
-  
-  // Shopping & Clothing
+  { id: 'tv', Icon: Tv, label: 'TV/Video Streaming', category: 'Entertainment' },
+  { id: 'film', Icon: Film, label: 'Movies', category: 'Entertainment' },
+  { id: 'radio', Icon: Radio, label: 'Podcasts', category: 'Entertainment' },
+  { id: 'waves', Icon: Waves, label: 'Audiobooks', category: 'Entertainment' },
+  { id: 'crown', Icon: Crown, label: 'Premium Services', category: 'Entertainment' },
+  { id: 'sparkles', Icon: Sparkles, label: 'Hobbies', category: 'Entertainment' },
+  { id: 'event', Icon: Calendar, label: 'Events/Concerts', category: 'Entertainment' },
+  { id: 'games-console', Icon: Gamepad2, label: 'Gaming Console', category: 'Entertainment' },
+  { id: 'art', Icon: Palette, label: 'Art & Crafts', category: 'Entertainment' },
+
+  // Subscriptions (12+ icons)
+  { id: 'repeat', Icon: Repeat, label: 'Subscriptions', category: 'Subscriptions' },
+  { id: 'refresh', Icon: RefreshCw, label: 'Memberships', category: 'Subscriptions' },
+  { id: 'crown-sub', Icon: Crown, label: 'Premium Tier', category: 'Subscriptions' },
+  { id: 'package-sub', Icon: Package, label: 'Package Deal', category: 'Subscriptions' },
+  { id: 'calendar-sub', Icon: Calendar, label: 'Annual Plan', category: 'Subscriptions' },
+  { id: 'clock-sub', Icon: Clock, label: 'Monthly Plan', category: 'Subscriptions' },
+  { id: 'phone-sub', Icon: Smartphone, label: 'Phone Plan', category: 'Subscriptions' },
+  { id: 'wifi-sub', Icon: Wifi, label: 'Internet Plan', category: 'Subscriptions' },
+  { id: 'music-sub', Icon: Music, label: 'Music Service', category: 'Subscriptions' },
+  { id: 'tv-sub', Icon: Tv, label: 'Streaming Service', category: 'Subscriptions' },
+  { id: 'cloud-sub', Icon: Cloud, label: 'Cloud Storage', category: 'Subscriptions' },
+  { id: 'software-sub', Icon: Settings, label: 'Software License', category: 'Subscriptions' },
+
+  // Shopping & Clothing (15+ icons)
   { id: 'shopping-bag', Icon: ShoppingBag, label: 'Shopping', category: 'Shopping' },
   { id: 'shirt', Icon: Shirt, label: 'Clothing', category: 'Shopping' },
-  { id: 'scissors', Icon: Scissors, label: 'Haircut', category: 'Shopping' },
-  
-  // Family & Lifestyle
+  { id: 'scissors', Icon: Scissors, label: 'Haircut/Salon', category: 'Shopping' },
+  { id: 'watch', Icon: Watch, label: 'Accessories', category: 'Shopping' },
+  { id: 'glasses', Icon: Glasses, label: 'Glasses/Contacts', category: 'Shopping' },
+  { id: 'jewelry', Icon: Crown, label: 'Jewelry', category: 'Shopping' },
+  { id: 'perfume', Icon: Sparkles, label: 'Beauty Products', category: 'Shopping' },
+  { id: 'makeup', Icon: Smile, label: 'Cosmetics', category: 'Shopping' },
+  { id: 'skincare', Icon: Flower2, label: 'Skincare', category: 'Shopping' },
+  { id: 'bag', Icon: ShoppingBag, label: 'Bags/Purses', category: 'Shopping' },
+  { id: 'shoes', Icon: Heart, label: 'Shoes', category: 'Shopping' },
+  { id: 'sporting-goods', Icon: Dumbbell, label: 'Sports Gear', category: 'Shopping' },
+
+  // Family & Lifestyle (15+ icons)
   { id: 'baby', Icon: Baby, label: 'Kids', category: 'Family' },
   { id: 'dog', Icon: Dog, label: 'Pets', category: 'Family' },
-  { id: 'heart', Icon: Heart, label: 'Lifestyle', category: 'Family' },
+  { id: 'heart-family', Icon: Heart, label: 'Lifestyle', category: 'Family' },
   { id: 'gift', Icon: Gift, label: 'Gifts', category: 'Family' },
-  
-  // Work & Education
+  { id: 'celebration', Icon: Sparkles, label: 'Celebrations', category: 'Family' },
+  { id: 'flower-gift', Icon: Flower2, label: 'Flowers', category: 'Family' },
+  { id: 'wedding', Icon: Heart, label: 'Wedding', category: 'Family' },
+  { id: 'baby-products', Icon: Baby, label: 'Baby Products', category: 'Family' },
+  { id: 'toys', Icon: Gamepad2, label: 'Toys', category: 'Family' },
+  { id: 'childcare', Icon: GraduationCap, label: 'Childcare', category: 'Family' },
+  { id: 'pet-care', Icon: Dog, label: 'Pet Care', category: 'Family' },
+  { id: 'party', Icon: Gift, label: 'Party Supplies', category: 'Family' },
+
+  // Work & Education (12+ icons)
   { id: 'briefcase', Icon: Briefcase, label: 'Work Expenses', category: 'Work' },
   { id: 'graduation-cap', Icon: GraduationCap, label: 'Education', category: 'Work' },
-  
-  // Travel
-  { id: 'plane', Icon: Plane, label: 'Travel', category: 'Travel' },
-  
-  // Financial
+  { id: 'book-work', Icon: Book, label: 'Courses', category: 'Work' },
+  { id: 'target-work', Icon: Target, label: 'Professional Dev', category: 'Work' },
+  { id: 'laptop', Icon: AlertCircle, label: 'Tech/Software', category: 'Work' },
+  { id: 'tools', Icon: Wrench, label: 'Tools', category: 'Work' },
+  { id: 'training', Icon: Trophy, label: 'Training', category: 'Work' },
+  { id: 'certification', Icon: CheckCircle, label: 'Certifications', category: 'Work' },
+  { id: 'conference', Icon: Calendar, label: 'Conferences', category: 'Work' },
+  { id: 'networking', Icon: MessageCircle, label: 'Networking', category: 'Work' },
+
+  // Travel (15+ icons)
+  { id: 'plane', Icon: Plane, label: 'Flights', category: 'Travel' },
+  { id: 'hotel', Icon: Hotel, label: 'Accommodation', category: 'Travel' },
+  { id: 'luggage', Icon: Luggage, label: 'Luggage', category: 'Travel' },
+  { id: 'backpack', Icon: Backpack, label: 'Travel Gear', category: 'Travel' },
+  { id: 'map', Icon: Map, label: 'Tours', category: 'Travel' },
+  { id: 'compass', Icon: Compass, label: 'Exploration', category: 'Travel' },
+  { id: 'navigation-travel', Icon: Navigation, label: 'Navigation', category: 'Travel' },
+  { id: 'camera-travel', Icon: Camera, label: 'Travel Photography', category: 'Travel' },
+  { id: 'passport', Icon: MapPin, label: 'Passport/Visas', category: 'Travel' },
+  { id: 'travel-insurance', Icon: AlertCircle, label: 'Travel Insurance', category: 'Travel' },
+  { id: 'car-rental', Icon: Car, label: 'Car Rental', category: 'Travel' },
+  { id: 'activities', Icon: Activity, label: 'Activities', category: 'Travel' },
+  { id: 'accommodation-alt', Icon: Home, label: 'Airbnb/Vacation', category: 'Travel' },
+
+  // Financial (15+ icons)
   { id: 'piggy-bank', Icon: PiggyBank, label: 'Savings', category: 'Financial' },
   { id: 'trending-up', Icon: TrendingUp, label: 'Investments', category: 'Financial' },
   { id: 'dollar-sign', Icon: DollarSign, label: 'Debt Payment', category: 'Financial' },
-  
-  // General & Catch-all
+  { id: 'credit-card', Icon: CreditCard, label: 'Credit Card', category: 'Financial' },
+  { id: 'percent', Icon: Percent, label: 'Interest/APY', category: 'Financial' },
+  { id: 'bar-chart', Icon: BarChart3, label: 'Financial Planning', category: 'Financial' },
+  { id: 'pie-chart', Icon: PieChart, label: 'Budget Analysis', category: 'Financial' },
+  { id: 'trending-down', Icon: TrendingDown, label: 'Debt Payoff', category: 'Financial' },
+  { id: 'wallet-financial', Icon: Wallet, label: 'Money Management', category: 'Financial' },
+  { id: 'tax', Icon: AlertCircle, label: 'Taxes', category: 'Financial' },
+  { id: 'insurance', Icon: Shield, label: 'Insurance', category: 'Financial' },
+  { id: 'retirement', Icon: PiggyBank, label: 'Retirement', category: 'Financial' },
+
+  // General & Catch-all (15+ icons)
   { id: 'wallet', Icon: Wallet, label: 'General', category: 'Other' },
   { id: 'target', Icon: Target, label: 'Goals', category: 'Other' },
-  { id: 'lightbulb', Icon: Lightbulb, label: 'Savings Goal', category: 'Other' },
+  { id: 'lightbulb', Icon: Lightbulb, label: 'Savings Goals', category: 'Other' },
   { id: 'trophy', Icon: Trophy, label: 'Rewards', category: 'Other' },
   { id: 'leaf', Icon: Leaf, label: 'Eco & Green', category: 'Other' },
-  { id: 'alert', Icon: AlertCircle, label: 'Emergency', category: 'Other' },
+  { id: 'alert', Icon: AlertCircle, label: 'Emergency Fund', category: 'Other' },
+  { id: 'trees', Icon: Trees, label: 'Environment', category: 'Other' },
+  { id: 'cloud', Icon: Cloud, label: 'Misc', category: 'Other' },
+  { id: 'settings', Icon: Settings, label: 'Adjustments', category: 'Other' },
+  { id: 'checkmark', Icon: CheckCircle, label: 'Completed Goals', category: 'Other' },
 ];
 
 const COLORS = [
@@ -135,7 +302,7 @@ const COLORS = [
   '#3b82f6', // blue
   '#8b5cf6', // violet
   '#ec4899', // pink
-  
+
   // Secondary palette
   '#f43f5e', // rose
   '#f59e0b', // amber
@@ -145,7 +312,7 @@ const COLORS = [
   '#6366f1', // indigo
   '#d946ef', // fuchsia
   '#a855f7', // purple
-  
+
   // Tertiary palette
   '#dc2626', // dark red
   '#ea580c', // dark orange
@@ -163,6 +330,7 @@ const CATEGORY_EMOJIS: Record<string, string> = {
   Food: '🍽️',
   Health: '⚕️',
   Entertainment: '🎮',
+  Subscriptions: '🔄',
   Shopping: '🛍️',
   Family: '👨‍👩‍👧‍👦',
   Work: '💼',
@@ -170,6 +338,9 @@ const CATEGORY_EMOJIS: Record<string, string> = {
   Financial: '💰',
   Other: '📋',
 };
+
+// Placeholder for Shield icon which doesn't exist
+const Shield = AlertCircle;
 
 export function AddBucketDialog({
   open,
@@ -225,6 +396,7 @@ export function AddBucketDialog({
     'Food',
     'Health',
     'Entertainment',
+    'Subscriptions',
     'Shopping',
     'Family',
     'Work',
@@ -270,31 +442,34 @@ export function AddBucketDialog({
           {/* Icon selection with search */}
           <div className="space-y-3">
             <Label htmlFor="icon-search" className="text-base font-semibold">
-              🎨 Choose Icon
+              🎨 Choose Icon ({filteredIcons.length} options)
             </Label>
             <Input
               id="icon-search"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search icons... (e.g., 'food', 'home', 'health')"
+              placeholder="Search icons... (e.g., 'food', 'home', 'health', 'subscriptions')"
               className="text-base"
             />
 
-            <div className="space-y-4">
+            <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
               {categoryOrder.map(
                 category =>
                   groupedIcons[category] && (
                     <div key={category}>
-                      <div className="flex items-center gap-2 mb-2">
+                      <div className="flex items-center gap-2 mb-3">
                         <span className="text-xl">
                           {CATEGORY_EMOJIS[category]}
                         </span>
                         <p className="text-sm font-semibold text-muted-foreground">
                           {category}
                         </p>
+                        <span className="text-xs bg-muted px-2 py-1 rounded">
+                          {groupedIcons[category].length}
+                        </span>
                         <div className="flex-1 h-px bg-border" />
                       </div>
-                      <div className="grid grid-cols-8 gap-2">
+                      <div className="grid grid-cols-8 gap-2 mb-1">
                         {groupedIcons[category].map(({ id, Icon, label }) => (
                           <button
                             key={id}
