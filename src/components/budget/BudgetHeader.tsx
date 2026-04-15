@@ -20,14 +20,17 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useBitcoinPrice, formatSats, satsToUsd, formatUsd } from '@/hooks/useBitcoinPrice';
 import {
-  calculateTotalIncome,
-  calculateTotalExpenses,
-  calculateRemainingToBudget,
-  calculateTotalIncomeSats,
-  calculateTotalExpensesSats,
-  calculateRemainingToBudgetSats,
-  formatMonth,
-} from '@/lib/budgetTypes';
+   calculateTotalIncome,
+   calculateTotalExpenses,
+   calculateRemainingToBudget,
+   calculateTotalIncomeSats,
+   calculateTotalExpensesSats,
+   calculateRemainingToBudgetSats,
+   calculateTotalIncomeUsd,
+   calculateTotalExpensesUsd,
+   calculateRemainingToBudgetUsd,
+   formatMonth,
+ } from '@/lib/budgetTypes';
 import type { Bucket, BudgetPartner } from '@/lib/budgetTypes';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/hooks/useTheme';
@@ -111,44 +114,60 @@ export function BudgetHeader({
     return months;
   };
 
-  // Use sats versions when BTC price is available (to use USD source of truth)
-  const totalIncome = priceData
-    ? calculateTotalIncomeSats(buckets, priceData.usdPerBtc)
-    : calculateTotalIncome(buckets);
-  const totalExpenses = priceData
-    ? calculateTotalExpensesSats(buckets, priceData.usdPerBtc)
-    : calculateTotalExpenses(buckets);
-  const remaining = priceData
-    ? calculateRemainingToBudgetSats(buckets, priceData.usdPerBtc)
-    : calculateRemainingToBudget(buckets);
+   // Calculate amounts in display currency
+   // In USD mode, use USD calculations to preserve stored amounts
+   // In sats mode, use sats calculations
+   let totalIncome: number;
+   let totalExpenses: number;
+   let remaining: number;
+   
+   if (currency === 'usd' && priceData) {
+     // USD mode: use USD calculations to avoid amounts shifting with BTC price
+     totalIncome = calculateTotalIncomeUsd(buckets, priceData.usdPerBtc);
+     totalExpenses = calculateTotalExpensesUsd(buckets, priceData.usdPerBtc);
+     remaining = calculateRemainingToBudgetUsd(buckets, priceData.usdPerBtc);
+   } else {
+     // Sats mode: use sats calculations
+     totalIncome = priceData
+       ? calculateTotalIncomeSats(buckets, priceData.usdPerBtc)
+       : calculateTotalIncome(buckets);
+     totalExpenses = priceData
+       ? calculateTotalExpensesSats(buckets, priceData.usdPerBtc)
+       : calculateTotalExpenses(buckets);
+     remaining = priceData
+       ? calculateRemainingToBudgetSats(buckets, priceData.usdPerBtc)
+       : calculateRemainingToBudget(buckets);
+   }
 
-  const formatAmount = (sats: number) => {
-    if (currency === 'usd' && priceData) {
-      return formatUsd(satsToUsd(sats, priceData.usdPerBtc));
-    }
-    return `${formatSats(sats)} sats`;
-  };
+   const formatAmount = (amount: number) => {
+     if (currency === 'usd') {
+       return formatUsd(amount);
+     }
+     return `${formatSats(Math.round(amount))} sats`;
+   };
 
-  // Compact format for mobile
-  const formatAmountCompact = (sats: number) => {
-    if (currency === 'usd' && priceData) {
-      return formatUsd(satsToUsd(sats, priceData.usdPerBtc));
-    }
-    // Compact format: 1.2M, 50K, etc.
-    if (sats >= 1_000_000) {
-      return `${(sats / 1_000_000).toFixed(1)}M`;
-    }
-    if (sats >= 1_000) {
-      return `${(sats / 1_000).toFixed(0)}K`;
-    }
-    return formatSats(sats);
-  };
+   // Compact format for mobile
+   const formatAmountCompact = (amount: number) => {
+     if (currency === 'usd') {
+       return formatUsd(amount);
+     }
+     // Compact format: 1.2M, 50K, etc.
+     const sats = Math.round(amount);
+     if (sats >= 1_000_000) {
+       return `${(sats / 1_000_000).toFixed(1)}M`;
+     }
+     if (sats >= 1_000) {
+       return `${(sats / 1_000).toFixed(0)}K`;
+     }
+     return formatSats(sats);
+   };
 
-   // Use small epsilon for floating point comparison in zero-based budgeting
-   const EPSILON = 0.01;
-   const isZeroed = Math.abs(remaining) < EPSILON && totalIncome > 0;
-   const isOver = remaining < -EPSILON;
-   const isUnder = remaining > EPSILON && totalIncome > 0;
+    // Use appropriate epsilon for floating point comparison in zero-based budgeting
+    // In USD mode, epsilon is $0.01; in sats mode, it's 1 sat
+    const EPSILON = currency === 'usd' ? 0.01 : 1;
+    const isZeroed = Math.abs(remaining) < EPSILON && totalIncome > 0;
+    const isOver = remaining < -EPSILON;
+    const isUnder = remaining > EPSILON && totalIncome > 0;
 
   const { user } = useCurrentUser();
   const { config, updateConfig } = useAppContext();
@@ -369,42 +388,42 @@ export function BudgetHeader({
             </Button>
           </div>
 
-          {/* Budget totals - Responsive grid */}
-          <div className="grid grid-cols-3 gap-2 sm:gap-4 text-center">
-            <div className="space-y-0.5 sm:space-y-1">
-              <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wide">Income</p>
-              <p className="text-sm sm:text-lg font-bold text-success tabular-nums">
-                <span className="sm:hidden">{formatAmountCompact(totalIncome)}</span>
-                <span className="hidden sm:inline">{formatAmount(totalIncome)}</span>
-              </p>
-            </div>
+           {/* Budget totals - Responsive grid */}
+           <div className="grid grid-cols-3 gap-2 sm:gap-4 text-center">
+             <div className="space-y-0.5 sm:space-y-1">
+               <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wide">Income</p>
+               <p className="text-sm sm:text-lg font-bold text-success tabular-nums">
+                 <span className="sm:hidden">{formatAmountCompact(totalIncome)}</span>
+                 <span className="hidden sm:inline">{formatAmount(totalIncome)}</span>
+               </p>
+             </div>
 
-            <div className="space-y-0.5 sm:space-y-1">
-              <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wide">Planned</p>
-              <p className="text-sm sm:text-lg font-bold tabular-nums">
-                <span className="sm:hidden">{formatAmountCompact(totalExpenses)}</span>
-                <span className="hidden sm:inline">{formatAmount(totalExpenses)}</span>
-              </p>
-            </div>
+             <div className="space-y-0.5 sm:space-y-1">
+               <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wide">Planned</p>
+               <p className="text-sm sm:text-lg font-bold tabular-nums">
+                 <span className="sm:hidden">{formatAmountCompact(totalExpenses)}</span>
+                 <span className="hidden sm:inline">{formatAmount(totalExpenses)}</span>
+               </p>
+             </div>
 
-            <div className="space-y-0.5 sm:space-y-1">
-              <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wide">
-                <span className="sm:hidden">Left</span>
-                <span className="hidden sm:inline">Left to Budget</span>
-              </p>
-              <p
-                className={cn(
-                  'text-sm sm:text-lg font-bold tabular-nums',
-                  isZeroed && 'text-success',
-                  isOver && 'text-destructive',
-                  isUnder && 'text-primary'
-                )}
-              >
-                <span className="sm:hidden">{formatAmountCompact(Math.abs(remaining))}</span>
-                <span className="hidden sm:inline">{formatAmount(remaining)}</span>
-              </p>
-            </div>
-          </div>
+             <div className="space-y-0.5 sm:space-y-1">
+               <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wide">
+                 <span className="sm:hidden">Left</span>
+                 <span className="hidden sm:inline">Left to Budget</span>
+               </p>
+               <p
+                 className={cn(
+                   'text-sm sm:text-lg font-bold tabular-nums',
+                   isZeroed && 'text-success',
+                   isOver && 'text-destructive',
+                   !isZeroed && !isOver && 'text-primary'
+                 )}
+               >
+                 <span className="sm:hidden">{formatAmountCompact(Math.abs(remaining))}</span>
+                 <span className="hidden sm:inline">{formatAmount(Math.abs(remaining))}</span>
+               </p>
+             </div>
+           </div>
 
           {/* Zero-based budget indicator */}
           <div className="flex justify-center">

@@ -128,36 +128,32 @@ export function BucketCard({
 
   const Icon = iconMap[bucket.icon] || Wallet;
    
-   // Calculate total - use USD calculation when in USD mode to preserve stored amounts
-   let total: number;
-   let totalUsd: number | undefined;
-   
-   if (currency === 'usd' && priceData) {
-     // In USD mode, calculate and store the USD amount directly
-     totalUsd = calculateBucketTotalUsd(bucket, priceData.usdPerBtc);
-     // Also calculate sats equivalent for internal use if needed
-     total = calculateBucketTotalSats(bucket, priceData.usdPerBtc);
-   } else {
-     // In sats mode, use sats calculation
-     total = priceData
-       ? calculateBucketTotalSats(bucket, priceData.usdPerBtc)
-       : calculateBucketTotal(bucket);
-   }
-   
-   const spent = calculateSpentForBucket(bucket, transactions);
+   // Calculate total in display currency
+    const total = currency === 'usd' && priceData
+      ? calculateBucketTotalUsd(bucket, priceData.usdPerBtc)
+      : (priceData
+        ? calculateBucketTotalSats(bucket, priceData.usdPerBtc)
+        : calculateBucketTotal(bucket));
+    
+    // Calculate spent - need to convert to USD if in USD mode
+    const spentSats = calculateSpentForBucket(bucket, transactions);
+    const spent = currency === 'usd' && priceData
+      ? satsToUsd(spentSats, priceData.usdPerBtc)
+      : spentSats;
 
-   const formatAmount = (sats: number, compact = false) => {
-      if (currency === 'usd' && priceData && totalUsd !== undefined) {
-        // In USD mode, always display USD format (never use compact notation like M/K)
-        return formatUsd(totalUsd);
-      }
-      if (compact && sats >= 1_000_000) {
-        return `${(sats / 1_000_000).toFixed(1)}M`;
-      }
-      if (compact && sats >= 10_000) {
-        return `${(sats / 1_000).toFixed(0)}K`;
-      }
-      return `${formatSats(sats)} sats`;
+    const formatAmount = (amount: number, compact = false) => {
+       if (currency === 'usd') {
+         // In USD mode, always display USD format (never use compact notation like M/K)
+         return formatUsd(amount);
+       }
+       const sats = Math.round(amount);
+       if (compact && sats >= 1_000_000) {
+         return `${(sats / 1_000_000).toFixed(1)}M`;
+       }
+       if (compact && sats >= 10_000) {
+         return `${(sats / 1_000).toFixed(0)}K`;
+       }
+       return `${formatSats(sats)} sats`;
     };
 
   const handleAddItem = () => {
