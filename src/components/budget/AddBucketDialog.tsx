@@ -77,26 +77,15 @@ import {
   TrendingDown,
   PieChart,
   Cloud,
-  CloudRain,
-  Droplet,
   Repeat,
   RefreshCw,
   Clock,
   Calendar,
   CheckCircle,
-  XCircle,
-  HelpCircle,
   Settings,
-  Search,
-  Copy,
-  Trash2,
-  Edit,
-  Plus,
-  Minus,
-  MapPinOff,
-  Glasses,
-  DollarSign as DollarSignAlt,
   Radio,
+  Glasses,
+  Briefcase as BriefcaseAlt,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -125,7 +114,7 @@ interface IconOption {
 }
 
 const ICONS: IconOption[] = [
-  // Housing & Utilities (10+ icons)
+  // Housing & Utilities (10 icons)
   { id: 'home', Icon: Home, label: 'Housing', category: 'Home' },
   { id: 'zap', Icon: Zap, label: 'Electricity', category: 'Home' },
   { id: 'droplets', Icon: Droplets, label: 'Water', category: 'Home' },
@@ -137,7 +126,7 @@ const ICONS: IconOption[] = [
   { id: 'wind', Icon: Wind, label: 'HVAC', category: 'Home' },
   { id: 'lock', Icon: Lock, label: 'Security', category: 'Home' },
 
-  // Transportation (15+ icons)
+  // Transportation (12 icons)
   { id: 'car', Icon: Car, label: 'Car', category: 'Transport' },
   { id: 'truck', Icon: Truck, label: 'Truck/Van', category: 'Transport' },
   { id: 'train', Icon: Train, label: 'Train', category: 'Transport' },
@@ -145,28 +134,28 @@ const ICONS: IconOption[] = [
   { id: 'bike', Icon: Bike, label: 'Bicycle', category: 'Transport' },
   { id: 'smartphone', Icon: Smartphone, label: 'Phone Bill', category: 'Transport' },
   { id: 'navigation', Icon: Navigation, label: 'GPS/Maps', category: 'Transport' },
-  { id: 'fuel', Icon: Flame, label: 'Fuel/Gas', category: 'Transport' },
   { id: 'parking', Icon: MapPin, label: 'Parking', category: 'Transport' },
-  { id: 'insurance-auto', Icon: AlertCircle, label: 'Auto Insurance', category: 'Transport' },
-  { id: 'taxi', Icon: Car, label: 'Taxi/Uber', category: 'Transport' },
+  { id: 'gas', Icon: Zap, label: 'Fuel/Gas', category: 'Transport' },
+  { id: 'taxi', Icon: AlertCircle, label: 'Taxi/Uber', category: 'Transport' },
   { id: 'tolls', Icon: DollarSign, label: 'Tolls', category: 'Transport' },
+  { id: 'insurance-auto', Icon: AlertCircle, label: 'Auto Insurance', category: 'Transport' },
 
-  // Food & Dining (15+ icons)
+  // Food & Dining (13 icons)
   { id: 'utensils', Icon: Utensils, label: 'Food/Groceries', category: 'Food' },
   { id: 'shopping-cart', Icon: ShoppingCart, label: 'Groceries', category: 'Food' },
   { id: 'coffee', Icon: Coffee, label: 'Coffee', category: 'Food' },
   { id: 'wine', Icon: Wine, label: 'Alcohol', category: 'Food' },
-  { id: 'dining', Icon: Utensils, label: 'Dining Out', category: 'Food' },
   { id: 'salad', Icon: Salad, label: 'Healthy Eating', category: 'Food' },
   { id: 'apple', Icon: Apple, label: 'Fruits & Veggies', category: 'Food' },
-  { id: 'restaurant', Icon: Coffee, label: 'Restaurant', category: 'Food' },
+  { id: 'restaurant', Icon: UtensilsCrossed, label: 'Dining Out', category: 'Food' },
   { id: 'fast-food', Icon: Package, label: 'Fast Food', category: 'Food' },
   { id: 'delivery', Icon: Truck, label: 'Food Delivery', category: 'Food' },
-  { id: 'bakery', Icon: Coffee, label: 'Bakery', category: 'Food' },
-  { id: 'snacks', Icon: Apple, label: 'Snacks', category: 'Food' },
-  { id: 'meal-prep', Icon: Utensils, label: 'Meal Prep', category: 'Food' },
+  { id: 'bakery', Icon: Lightbulb, label: 'Bakery', category: 'Food' },
+  { id: 'snacks', Icon: Gift, label: 'Snacks', category: 'Food' },
+  { id: 'meal-prep', Icon: Book, label: 'Meal Prep', category: 'Food' },
+  { id: 'dining-out', Icon: Crown, label: 'Fine Dining', category: 'Food' },
 
-  // Health & Wellness (15+ icons)
+  // Health & Wellness (12 icons)
   { id: 'stethoscope', Icon: Stethoscope, label: 'Healthcare', category: 'Health' },
   { id: 'pill', Icon: Pill, label: 'Medications', category: 'Health' },
   { id: 'dumbbell', Icon: Dumbbell, label: 'Fitness', category: 'Health' },
@@ -177,26 +166,26 @@ const ICONS: IconOption[] = [
   { id: 'ear', Icon: Ear, label: 'Hearing', category: 'Health' },
   { id: 'smile', Icon: Smile, label: 'Dental', category: 'Health' },
   { id: 'flower', Icon: Flower2, label: 'Wellness', category: 'Health' },
-  { id: 'apple-health', Icon: Apple, label: 'Nutrition', category: 'Health' },
-  { id: 'medical-supplies', Icon: Package, label: 'Medical Supplies', category: 'Health' },
+  { id: 'medical', Icon: Package, label: 'Medical Supplies', category: 'Health' },
+  { id: 'nutrition', Icon: Salad, label: 'Nutrition', category: 'Health' },
 
-  // Entertainment & Leisure (20+ icons)
-  { id: 'music', Icon: Music, label: 'Music Streaming', category: 'Entertainment' },
+  // Entertainment & Leisure (14 icons)
+  { id: 'music', Icon: Music, label: 'Music', category: 'Entertainment' },
   { id: 'gamepad', Icon: Gamepad2, label: 'Games', category: 'Entertainment' },
   { id: 'camera', Icon: Camera, label: 'Photography', category: 'Entertainment' },
   { id: 'headphones', Icon: Headphones, label: 'Audio/Headphones', category: 'Entertainment' },
-  { id: 'book', Icon: Book, label: 'Books & Learning', category: 'Entertainment' },
-  { id: 'tv', Icon: Tv, label: 'TV/Video Streaming', category: 'Entertainment' },
-  { id: 'film', Icon: Film, label: 'Movies', category: 'Entertainment' },
+  { id: 'book', Icon: Book, label: 'Books', category: 'Entertainment' },
+  { id: 'tv', Icon: Tv, label: 'Movies/TV', category: 'Entertainment' },
+  { id: 'film', Icon: Film, label: 'Cinema', category: 'Entertainment' },
   { id: 'radio', Icon: Radio, label: 'Podcasts', category: 'Entertainment' },
   { id: 'waves', Icon: Waves, label: 'Audiobooks', category: 'Entertainment' },
   { id: 'crown', Icon: Crown, label: 'Premium Services', category: 'Entertainment' },
   { id: 'sparkles', Icon: Sparkles, label: 'Hobbies', category: 'Entertainment' },
   { id: 'event', Icon: Calendar, label: 'Events/Concerts', category: 'Entertainment' },
-  { id: 'games-console', Icon: Gamepad2, label: 'Gaming Console', category: 'Entertainment' },
   { id: 'art', Icon: Palette, label: 'Art & Crafts', category: 'Entertainment' },
+  { id: 'trophy-ent', Icon: Trophy, label: 'Hobbies/Sports', category: 'Entertainment' },
 
-  // Subscriptions (12+ icons)
+  // Subscriptions (12 icons)
   { id: 'repeat', Icon: Repeat, label: 'Subscriptions', category: 'Subscriptions' },
   { id: 'refresh', Icon: RefreshCw, label: 'Memberships', category: 'Subscriptions' },
   { id: 'crown-sub', Icon: Crown, label: 'Premium Tier', category: 'Subscriptions' },
@@ -206,51 +195,51 @@ const ICONS: IconOption[] = [
   { id: 'phone-sub', Icon: Smartphone, label: 'Phone Plan', category: 'Subscriptions' },
   { id: 'wifi-sub', Icon: Wifi, label: 'Internet Plan', category: 'Subscriptions' },
   { id: 'music-sub', Icon: Music, label: 'Music Service', category: 'Subscriptions' },
-  { id: 'tv-sub', Icon: Tv, label: 'Streaming Service', category: 'Subscriptions' },
+  { id: 'tv-sub', Icon: Tv, label: 'Streaming', category: 'Subscriptions' },
   { id: 'cloud-sub', Icon: Cloud, label: 'Cloud Storage', category: 'Subscriptions' },
-  { id: 'software-sub', Icon: Settings, label: 'Software License', category: 'Subscriptions' },
+  { id: 'software-sub', Icon: Settings, label: 'Software', category: 'Subscriptions' },
 
-  // Shopping & Clothing (15+ icons)
+  // Shopping & Clothing (12 icons)
   { id: 'shopping-bag', Icon: ShoppingBag, label: 'Shopping', category: 'Shopping' },
   { id: 'shirt', Icon: Shirt, label: 'Clothing', category: 'Shopping' },
-  { id: 'scissors', Icon: Scissors, label: 'Haircut/Salon', category: 'Shopping' },
+  { id: 'scissors', Icon: Scissors, label: 'Salon/Haircut', category: 'Shopping' },
   { id: 'watch', Icon: Watch, label: 'Accessories', category: 'Shopping' },
-  { id: 'glasses', Icon: Glasses, label: 'Glasses/Contacts', category: 'Shopping' },
-  { id: 'jewelry', Icon: Crown, label: 'Jewelry', category: 'Shopping' },
-  { id: 'perfume', Icon: Sparkles, label: 'Beauty Products', category: 'Shopping' },
-  { id: 'makeup', Icon: Smile, label: 'Cosmetics', category: 'Shopping' },
+  { id: 'glasses', Icon: Glasses, label: 'Eyewear', category: 'Shopping' },
+  { id: 'jewelry', Icon: Lightbulb, label: 'Jewelry', category: 'Shopping' },
+  { id: 'perfume', Icon: Sparkles, label: 'Beauty/Cosmetics', category: 'Shopping' },
   { id: 'skincare', Icon: Flower2, label: 'Skincare', category: 'Shopping' },
-  { id: 'bag', Icon: ShoppingBag, label: 'Bags/Purses', category: 'Shopping' },
-  { id: 'shoes', Icon: Heart, label: 'Shoes', category: 'Shopping' },
-  { id: 'sporting-goods', Icon: Dumbbell, label: 'Sports Gear', category: 'Shopping' },
+  { id: 'bag', Icon: Briefcase, label: 'Bags/Purses', category: 'Shopping' },
+  { id: 'shoes', Icon: Wallet, label: 'Shoes', category: 'Shopping' },
+  { id: 'sporting', Icon: Dumbbell, label: 'Sports Gear', category: 'Shopping' },
+  { id: 'home-decor', Icon: Palette, label: 'Home Decor', category: 'Shopping' },
 
-  // Family & Lifestyle (15+ icons)
+  // Family & Lifestyle (12 icons)
   { id: 'baby', Icon: Baby, label: 'Kids', category: 'Family' },
   { id: 'dog', Icon: Dog, label: 'Pets', category: 'Family' },
-  { id: 'heart-family', Icon: Heart, label: 'Lifestyle', category: 'Family' },
+  { id: 'heart-family', Icon: Heart, label: 'Relationships', category: 'Family' },
   { id: 'gift', Icon: Gift, label: 'Gifts', category: 'Family' },
-  { id: 'celebration', Icon: Sparkles, label: 'Celebrations', category: 'Family' },
+  { id: 'celebration', Icon: Target, label: 'Celebrations', category: 'Family' },
   { id: 'flower-gift', Icon: Flower2, label: 'Flowers', category: 'Family' },
   { id: 'wedding', Icon: Heart, label: 'Wedding', category: 'Family' },
-  { id: 'baby-products', Icon: Baby, label: 'Baby Products', category: 'Family' },
   { id: 'toys', Icon: Gamepad2, label: 'Toys', category: 'Family' },
   { id: 'childcare', Icon: GraduationCap, label: 'Childcare', category: 'Family' },
   { id: 'pet-care', Icon: Dog, label: 'Pet Care', category: 'Family' },
-  { id: 'party', Icon: Gift, label: 'Party Supplies', category: 'Family' },
+  { id: 'party', Icon: Sparkles, label: 'Party Supplies', category: 'Family' },
+  { id: 'baby-products', Icon: Baby, label: 'Baby Products', category: 'Family' },
 
-  // Work & Education (12+ icons)
-  { id: 'briefcase', Icon: Briefcase, label: 'Work Expenses', category: 'Work' },
+  // Work & Education (10 icons)
+  { id: 'briefcase', Icon: Briefcase, label: 'Work', category: 'Work' },
   { id: 'graduation-cap', Icon: GraduationCap, label: 'Education', category: 'Work' },
   { id: 'book-work', Icon: Book, label: 'Courses', category: 'Work' },
   { id: 'target-work', Icon: Target, label: 'Professional Dev', category: 'Work' },
-  { id: 'laptop', Icon: AlertCircle, label: 'Tech/Software', category: 'Work' },
   { id: 'tools', Icon: Wrench, label: 'Tools', category: 'Work' },
   { id: 'training', Icon: Trophy, label: 'Training', category: 'Work' },
   { id: 'certification', Icon: CheckCircle, label: 'Certifications', category: 'Work' },
-  { id: 'conference', Icon: Calendar, label: 'Conferences', category: 'Work' },
+  { id: 'conference', Icon: MapPin, label: 'Conferences', category: 'Work' },
   { id: 'networking', Icon: MessageCircle, label: 'Networking', category: 'Work' },
+  { id: 'laptop', Icon: Settings, label: 'Tech/Software', category: 'Work' },
 
-  // Travel (15+ icons)
+  // Travel (13 icons)
   { id: 'plane', Icon: Plane, label: 'Flights', category: 'Travel' },
   { id: 'hotel', Icon: Hotel, label: 'Accommodation', category: 'Travel' },
   { id: 'luggage', Icon: Luggage, label: 'Luggage', category: 'Travel' },
@@ -258,28 +247,28 @@ const ICONS: IconOption[] = [
   { id: 'map', Icon: Map, label: 'Tours', category: 'Travel' },
   { id: 'compass', Icon: Compass, label: 'Exploration', category: 'Travel' },
   { id: 'navigation-travel', Icon: Navigation, label: 'Navigation', category: 'Travel' },
-  { id: 'camera-travel', Icon: Camera, label: 'Travel Photography', category: 'Travel' },
-  { id: 'passport', Icon: MapPin, label: 'Passport/Visas', category: 'Travel' },
-  { id: 'travel-insurance', Icon: AlertCircle, label: 'Travel Insurance', category: 'Travel' },
+  { id: 'camera-travel', Icon: Camera, label: 'Photography', category: 'Travel' },
+  { id: 'passport', Icon: AlertCircle, label: 'Passport/Visas', category: 'Travel' },
   { id: 'car-rental', Icon: Car, label: 'Car Rental', category: 'Travel' },
   { id: 'activities', Icon: Activity, label: 'Activities', category: 'Travel' },
-  { id: 'accommodation-alt', Icon: Home, label: 'Airbnb/Vacation', category: 'Travel' },
+  { id: 'accommodation-alt', Icon: Home, label: 'Vacation Rental', category: 'Travel' },
+  { id: 'travel-insurance', Icon: Shield, label: 'Travel Insurance', category: 'Travel' },
 
-  // Financial (15+ icons)
+  // Financial (12 icons)
   { id: 'piggy-bank', Icon: PiggyBank, label: 'Savings', category: 'Financial' },
   { id: 'trending-up', Icon: TrendingUp, label: 'Investments', category: 'Financial' },
   { id: 'dollar-sign', Icon: DollarSign, label: 'Debt Payment', category: 'Financial' },
   { id: 'credit-card', Icon: CreditCard, label: 'Credit Card', category: 'Financial' },
   { id: 'percent', Icon: Percent, label: 'Interest/APY', category: 'Financial' },
-  { id: 'bar-chart', Icon: BarChart3, label: 'Financial Planning', category: 'Financial' },
-  { id: 'pie-chart', Icon: PieChart, label: 'Budget Analysis', category: 'Financial' },
+  { id: 'bar-chart', Icon: BarChart3, label: 'Planning', category: 'Financial' },
+  { id: 'pie-chart', Icon: PieChart, label: 'Analysis', category: 'Financial' },
   { id: 'trending-down', Icon: TrendingDown, label: 'Debt Payoff', category: 'Financial' },
-  { id: 'wallet-financial', Icon: Wallet, label: 'Money Management', category: 'Financial' },
+  { id: 'wallet-financial', Icon: Wallet, label: 'Management', category: 'Financial' },
   { id: 'tax', Icon: AlertCircle, label: 'Taxes', category: 'Financial' },
-  { id: 'insurance', Icon: AlertCircle, label: 'Insurance', category: 'Financial' },
+  { id: 'insurance', Icon: Heart, label: 'Insurance', category: 'Financial' },
   { id: 'retirement', Icon: PiggyBank, label: 'Retirement', category: 'Financial' },
 
-  // General & Catch-all (15+ icons)
+  // General & Catch-all (10 icons)
   { id: 'wallet', Icon: Wallet, label: 'General', category: 'Other' },
   { id: 'target', Icon: Target, label: 'Goals', category: 'Other' },
   { id: 'lightbulb', Icon: Lightbulb, label: 'Savings Goals', category: 'Other' },
@@ -289,39 +278,17 @@ const ICONS: IconOption[] = [
   { id: 'trees', Icon: Trees, label: 'Environment', category: 'Other' },
   { id: 'cloud', Icon: Cloud, label: 'Misc', category: 'Other' },
   { id: 'settings', Icon: Settings, label: 'Adjustments', category: 'Other' },
-  { id: 'checkmark', Icon: CheckCircle, label: 'Completed Goals', category: 'Other' },
+  { id: 'checkmark', Icon: CheckCircle, label: 'Completed', category: 'Other' },
 ];
 
+// Placeholder icon for Shield which doesn't exist in lucide-react
+const Shield = AlertCircle;
+const UtensilsCrossed = Utensils;
+
 const COLORS = [
-  // Primary palette
-  '#ef4444', // red
-  '#f97316', // orange
-  '#eab308', // yellow
-  '#22c55e', // green
-  '#06b6d4', // cyan
-  '#3b82f6', // blue
-  '#8b5cf6', // violet
-  '#ec4899', // pink
-
-  // Secondary palette
-  '#f43f5e', // rose
-  '#f59e0b', // amber
-  '#84cc16', // lime
-  '#14b8a6', // teal
-  '#0ea5e9', // sky
-  '#6366f1', // indigo
-  '#d946ef', // fuchsia
-  '#a855f7', // purple
-
-  // Tertiary palette
-  '#dc2626', // dark red
-  '#ea580c', // dark orange
-  '#ca8a04', // dark amber
-  '#16a34a', // dark green
-  '#0891b2', // dark cyan
-  '#1d4ed8', // dark blue
-  '#7c3aed', // dark violet
-  '#be185d', // dark pink
+  '#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899',
+  '#f43f5e', '#f59e0b', '#84cc16', '#14b8a6', '#0ea5e9', '#6366f1', '#d946ef', '#a855f7',
+  '#dc2626', '#ea580c', '#ca8a04', '#16a34a', '#0891b2', '#1d4ed8', '#7c3aed', '#be185d',
 ];
 
 const CATEGORY_EMOJIS: Record<string, string> = {
@@ -368,14 +335,12 @@ export function AddBucketDialog({
     onOpenChange(false);
   };
 
-  // Filter icons based on search
   const filteredIcons = ICONS.filter(
     icon =>
       icon.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
       icon.category.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Group icons by category
   const groupedIcons = filteredIcons.reduce(
     (acc, icon) => {
       if (!acc[icon.category]) {
@@ -403,11 +368,10 @@ export function AddBucketDialog({
   ];
 
   const selectedIconData = ICONS.find(i => i.id === selectedIcon);
-  const selectedCategory = selectedIconData?.category || 'Other';
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[520px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[520px] max-h-[90vh]">
         <DialogHeader>
           <DialogTitle className="text-2xl">
             ✨ Create Budget Category
@@ -417,7 +381,7 @@ export function AddBucketDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6 py-4">
+        <div className="space-y-6 py-4 overflow-y-auto max-h-[calc(90vh-200px)]">
           {/* Name input */}
           <div className="space-y-2">
             <Label htmlFor="bucket-name" className="text-base font-semibold">
@@ -445,11 +409,11 @@ export function AddBucketDialog({
               id="icon-search"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search icons... (e.g., 'food', 'home', 'health', 'subscriptions')"
+              placeholder="Search icons..."
               className="text-base"
             />
 
-            <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
+            <div className="space-y-4">
               {categoryOrder.map(
                 category =>
                   groupedIcons[category] && (
@@ -524,7 +488,6 @@ export function AddBucketDialog({
                   )}
                   style={{
                     backgroundColor: color,
-                    ringColor: selectedColor === color ? color : undefined,
                   }}
                   title={color}
                 />
@@ -539,7 +502,7 @@ export function AddBucketDialog({
             </p>
             <div className="flex items-center gap-4">
               <div
-                className="h-14 w-14 rounded-lg flex items-center justify-center shadow-lg transform transition-transform hover:scale-105"
+                className="h-14 w-14 rounded-lg flex items-center justify-center shadow-lg"
                 style={{ backgroundColor: `${selectedColor}20` }}
               >
                 {(() => {
