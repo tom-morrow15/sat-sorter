@@ -278,8 +278,29 @@ const ICONS: IconOption[] = [
   { id: 'trees', Icon: Trees, label: 'Environment', category: 'Other' },
   { id: 'cloud', Icon: Cloud, label: 'Misc', category: 'Other' },
   { id: 'settings', Icon: Settings, label: 'Adjustments', category: 'Other' },
-  { id: 'checkmark', Icon: CheckCircle, label: 'Completed', category: 'Other' },
+   { id: 'checkmark', Icon: CheckCircle, label: 'Completed', category: 'Other' },
 ];
+
+const COLORS = [
+  '#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899',
+  '#f43f5e', '#f59e0b', '#84cc16', '#14b8a6', '#0ea5e9', '#6366f1', '#d946ef', '#a855f7',
+  '#dc2626', '#ea580c', '#ca8a04', '#16a34a', '#0891b2', '#1d4ed8', '#7c3aed', '#be185d',
+];
+
+const CATEGORY_EMOJIS: Record<string, string> = {
+  Home: '🏠',
+  Transport: '🚗',
+  Food: '🍽️',
+  Health: '⚕️',
+  Entertainment: '🎮',
+  Subscriptions: '🔄',
+  Shopping: '🛍️',
+  Family: '👨‍👩‍👧‍👦',
+  Work: '💼',
+  Travel: '✈️',
+  Financial: '💰',
+  Other: '📋',
+};
 
 export function AddBucketDialog({
   open,
