@@ -144,9 +144,11 @@ export function BudgetHeader({
     return formatSats(sats);
   };
 
-  const isZeroed = remaining === 0 && totalIncome > 0;
-  const isOver = remaining < 0;
-  const isUnder = remaining > 0 && totalIncome > 0;
+   // Use small epsilon for floating point comparison in zero-based budgeting
+   const EPSILON = 0.01;
+   const isZeroed = Math.abs(remaining) < EPSILON && totalIncome > 0;
+   const isOver = remaining < -EPSILON;
+   const isUnder = remaining > EPSILON && totalIncome > 0;
 
   const { user } = useCurrentUser();
   const { config, updateConfig } = useAppContext();

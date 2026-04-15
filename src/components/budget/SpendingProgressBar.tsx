@@ -1,4 +1,3 @@
-import { AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface SpendingProgressBarProps {
@@ -47,26 +46,15 @@ export function SpendingProgressBar({
         />
       </div>
       {showLabel && (
-        <div className="flex items-center justify-between text-xs">
-          <span className="text-muted-foreground">
-            {percentage.toFixed(0)}% spent
-            {!isOverBudget && remaining > 0 && (
-              <span className="ml-1">({remainingPercent.toFixed(0)}% left)</span>
-            )}
-          </span>
-          {isOverBudget && (
-            <span className="text-destructive font-medium">
-              Over budget!
-            </span>
-          )}
-          {isWarning && !isOverBudget && (
-            <div className="flex items-center gap-1 text-yellow-600 font-medium">
-              <AlertCircle className="h-3 w-3" />
-              {isCritical ? 'Critical' : 'Low'}
-            </div>
-          )}
-        </div>
-      )}
+         <div className="flex items-center justify-between text-xs">
+           <span className="text-muted-foreground">
+             {percentage.toFixed(0)}% spent
+             {!isOverBudget && remaining > 0 && (
+               <span className="ml-1">({remainingPercent.toFixed(0)}% left)</span>
+             )}
+           </span>
+         </div>
+       )}
     </div>
   );
 }

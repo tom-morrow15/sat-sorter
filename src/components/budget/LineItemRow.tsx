@@ -69,10 +69,23 @@ export function LineItemRow({
      remainingUsd = plannedAmountUsd - spentUsd;
    }
    
-   const percentSpent = lineItem.plannedAmount > 0
-     ? Math.min((spent / lineItem.plannedAmount) * 100, 100)
-     : 0;
-   const isOverBudget = remaining < 0;
+    // Calculate percentage and remaining - use USD values when in USD mode
+    let percentSpent = 0;
+    let isOverBudget = false;
+    
+    if (currency === 'usd' && priceData) {
+      // In USD mode, use USD amounts for calculations
+      percentSpent = plannedAmountUsd > 0
+        ? Math.min((spentUsd / plannedAmountUsd) * 100, 100)
+        : 0;
+      isOverBudget = remainingUsd < 0;
+    } else {
+      // In sats mode, use sats amounts
+      percentSpent = lineItem.plannedAmount > 0
+        ? Math.min((spent / lineItem.plannedAmount) * 100, 100)
+        : 0;
+      isOverBudget = remaining < 0;
+    }
 
   // Format amount based on currency - compact for mobile
    // Format amount for display - use stored USD if available (source of truth)

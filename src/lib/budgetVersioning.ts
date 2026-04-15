@@ -266,9 +266,10 @@ export function getSyncStatusMessage(status: SyncStatus): string {
 
 /**
  * Serialize snapshot for Nostr transmission
+ * Uses compact JSON format (no whitespace) to minimize size
  */
 export function serializeSnapshot(snapshot: BudgetSnapshot): string {
-  return JSON.stringify(snapshot, null, 2);
+  return JSON.stringify(snapshot);
 }
 
 /**

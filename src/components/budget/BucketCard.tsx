@@ -147,24 +147,18 @@ export function BucketCard({
    const spent = calculateSpentForBucket(bucket, transactions);
 
    const formatAmount = (sats: number, compact = false) => {
-     if (currency === 'usd' && priceData && totalUsd !== undefined) {
-       // In USD mode, display the stored USD total directly
-       if (compact && sats >= 1_000_000) {
-         return `${(totalUsd / 1_000_000).toFixed(1)}M`;
-       }
-       if (compact && sats >= 10_000) {
-         return `${(totalUsd / 1_000).toFixed(0)}K`;
-       }
-       return formatUsd(totalUsd);
-     }
-     if (compact && sats >= 1_000_000) {
-       return `${(sats / 1_000_000).toFixed(1)}M`;
-     }
-     if (compact && sats >= 10_000) {
-       return `${(sats / 1_000).toFixed(0)}K`;
-     }
-     return `${formatSats(sats)} sats`;
-   };
+      if (currency === 'usd' && priceData && totalUsd !== undefined) {
+        // In USD mode, always display USD format (never use compact notation like M/K)
+        return formatUsd(totalUsd);
+      }
+      if (compact && sats >= 1_000_000) {
+        return `${(sats / 1_000_000).toFixed(1)}M`;
+      }
+      if (compact && sats >= 10_000) {
+        return `${(sats / 1_000).toFixed(0)}K`;
+      }
+      return `${formatSats(sats)} sats`;
+    };
 
   const handleAddItem = () => {
     if (newItemName.trim()) {
@@ -247,12 +241,7 @@ export function BucketCard({
                   <span className="sm:hidden">{formatAmount(total, true)}</span>
                   <span className="hidden sm:inline">{formatAmount(total)}</span>
                 </p>
-                {!bucket.isIncome && total > 0 && (
-                  <p className="text-[10px] sm:text-xs text-muted-foreground tabular-nums">
-                    <span className="sm:hidden">{formatAmount(spent, true)} spent</span>
-                    <span className="hidden sm:inline">{formatAmount(spent)} spent</span>
-                  </p>
-                )}
+
               </div>
 
               {/* Actions menu */}
