@@ -140,11 +140,15 @@ export function useManualSync() {
         error: null,
       }));
 
-      try {
-        const encrypted = await user.signer.nip44.encrypt(
-          user.pubkey,
-          JSON.stringify(localSnapshot)
-        );
+       try {
+         // Import the serialization function
+         const { serializeSnapshot } = await import('@/lib/budgetVersioning');
+         const serialized = await serializeSnapshot(localSnapshot);
+         
+         const encrypted = await user.signer.nip44.encrypt(
+           user.pubkey,
+           serialized
+         );
 
         await publish({
           kind: BUDGET_KIND,

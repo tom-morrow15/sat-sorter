@@ -266,15 +266,80 @@ export function getSyncStatusMessage(status: SyncStatus): string {
 
 /**
  * Serialize snapshot for Nostr transmission
- * Uses compact JSON format (no whitespace) to minimize size
+ * Uses compact JSON format and compression to minimize size
  */
-export function serializeSnapshot(snapshot: BudgetSnapshot): string {
-  return JSON.stringify(snapshot);
+export async function serializeSnapshot(snapshot: BudgetSnapshot): Promise<string> {
+  const json = JSON.stringify(snapshot);
+  
+  // Compress using gzip via the Compression Streams API if available
+  if (typeof CompressionStream !== 'undefined') {
+    try {
+      const cs = new CompressionStream('gzip');
+      const writer = cs.writable.getWriter();
+      writer.write(new TextEncoder().encode(json));
+      writer.close();
+      
+      const compressedChunks: Uint8Array[] = [];
+      const reader = cs.readable.getReader();
+      
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        compressedChunks.push(value);
+      }
+      
+      // Convert compressed data to base64 for JSON serialization
+      const compressed = new Uint8Array(
+        compressedChunks.reduce((acc, chunk) => [...acc, ...chunk], [] as number[])
+      );
+      return btoa(String.fromCharCode.apply(null, Array.from(compressed)));
+    } catch (error) {
+      console.warn('Compression failed, using uncompressed:', error);
+      return json;
+    }
+  }
+  
+  return json;
 }
 
 /**
  * Deserialize snapshot from Nostr
  */
-export function deserializeSnapshot(json: string): BudgetSnapshot {
-  return JSON.parse(json) as BudgetSnapshot;
+export async function deserializeSnapshot(data: string): Promise<BudgetSnapshot> {
+  try {
+    // Try to decompress if it looks like base64
+    if (data.length > 0 && !data.startsWith('{')) {
+      const compressed = new Uint8Array(
+        atob(data).split('').map(c => c.charCodeAt(0))
+      );
+      
+      if (typeof DecompressionStream !== 'undefined') {
+        const ds = new DecompressionStream('gzip');
+        const writer = ds.writable.getWriter();
+        writer.write(compressed);
+        writer.close();
+        
+        const decompressedChunks: Uint8Array[] = [];
+        const reader = ds.readable.getReader();
+        
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          decompressedChunks.push(value);
+        }
+        
+        const decompressed = new TextDecoder().decode(
+          new Uint8Array(
+            decompressedChunks.reduce((acc, chunk) => [...acc, ...chunk], [] as number[])
+          )
+        );
+        return JSON.parse(decompressed) as BudgetSnapshot;
+      }
+    }
+  } catch (error) {
+    console.warn('Decompression failed, trying raw JSON:', error);
+  }
+  
+  // Fallback to raw JSON parsing
+  return JSON.parse(data) as BudgetSnapshot;
 }
