@@ -179,10 +179,28 @@ export function BudgetHeader({
     updateConfig((c) => ({ ...c, logoStyle: c.logoStyle === 'sats' ? 'bitcoin' : 'sats' }));
   };
 
-  const handleRefresh = () => {
-    // Full page reload - useful for PWA and when login state changes
-    window.location.reload();
-  };
+   const handleRefresh = async () => {
+     // Clear all caches to force fresh download of app code
+     if ('caches' in window) {
+       try {
+         const cacheNames = await caches.keys();
+         await Promise.all(cacheNames.map(name => caches.delete(name)));
+       } catch (e) {
+         console.warn('Failed to clear caches:', e);
+       }
+     }
+     // Unregister any service workers so they don't serve stale content
+     if ('serviceWorker' in navigator) {
+       try {
+         const registrations = await navigator.serviceWorker.getRegistrations();
+         await Promise.all(registrations.map(reg => reg.unregister()));
+       } catch (e) {
+         console.warn('Failed to unregister service workers:', e);
+       }
+     }
+     // Hard reload - bypass cache
+     window.location.reload();
+   };
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 safe-top">
