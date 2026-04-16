@@ -13,6 +13,7 @@ import { OfflineIndicator } from "@/components/OfflineIndicator";
 import { NostrLoginProvider } from '@nostrify/react/login';
 import { AppProvider } from '@/components/AppProvider';
 import { NWCProvider } from '@/contexts/NWCContext';
+import { BudgetProvider } from '@/contexts/BudgetContext';
 import { AppConfig } from '@/contexts/AppContext';
 import AppRouter from './AppRouter';
 
@@ -53,13 +54,15 @@ export function App() {
             <NostrProvider>
               <NostrSync />
               <NWCProvider>
-                <TooltipProvider>
-                  <Toaster />
-                  <OfflineIndicator />
-                  <Suspense>
-                    <AppRouter />
-                  </Suspense>
-                </TooltipProvider>
+                <BudgetProvider>
+                  <TooltipProvider>
+                    <Toaster />
+                    <OfflineIndicator />
+                    <Suspense>
+                      <AppRouter />
+                    </Suspense>
+                  </TooltipProvider>
+                </BudgetProvider>
               </NWCProvider>
             </NostrProvider>
           </NostrLoginProvider>

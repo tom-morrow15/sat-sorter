@@ -54,7 +54,7 @@ export function ManagePartnersDialog({
   const { toast } = useToast();
 
   // Debug: log whenever partners prop changes
-  console.log('[ManagePartnersDialog] Rendered with partners:', partners.length, 'userRole:', userRole, partners);
+  console.log('[ManagePartnersDialog] Rendered with partners:', partners.length, 'userRole:', userRole);
 
   const isOwner = userRole === 'owner';
 

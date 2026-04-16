@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from 'react';
-import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { useBudgetContext } from '@/contexts/BudgetContext';
 import {
   BudgetState,
   MonthlyBudget,
@@ -15,14 +15,9 @@ import {
   formatMonth,
 } from '@/lib/budgetTypes';
 
-const DEFAULT_STATE: BudgetState = {
-  currentMonth: getCurrentMonth(),
-  budgets: [],
-  currency: 'sats',
-};
-
 export function useBudget() {
-  const [state, setState] = useLocalStorage<BudgetState>('sat-sorter-budget', DEFAULT_STATE);
+  // Use shared context so all components share the same state instance
+  const { state, setState } = useBudgetContext();
 
   // Get or create budget for current month
   const currentBudget = useMemo((): MonthlyBudget => {
