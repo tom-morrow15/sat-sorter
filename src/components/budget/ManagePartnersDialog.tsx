@@ -315,7 +315,11 @@ export function ManagePartnersDialog({
 
           {/* Partners list */}
           <div className="space-y-2">
-            <Label>Current Partners</Label>
+            <Label>Current Partners ({partners.length})</Label>
+            {/* DEBUG: Show raw partners data to help debug */}
+            <div className="text-xs bg-yellow-50 border border-yellow-200 rounded p-2 font-mono break-all">
+              DEBUG - partners array: {JSON.stringify(partners.map(p => ({pk: p.pubkey.slice(0, 10), perm: p.permission, status: p.status})))}
+            </div>
             {partners.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <p className="text-sm">No partners yet</p>
