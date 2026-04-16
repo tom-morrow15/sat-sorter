@@ -35,6 +35,7 @@ import type { Bucket, BudgetPartner } from '@/lib/budgetTypes';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/hooks/useTheme';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { usePartners } from '@/hooks/usePartners';
 import { AccountSwitcher } from '@/components/auth/AccountSwitcher';
 import LoginDialog from '@/components/auth/LoginDialog';
 import { useAppContext } from '@/hooks/useAppContext';
@@ -87,6 +88,8 @@ export function BudgetHeader({
 }: BudgetHeaderProps) {
   const { data: priceData, isLoading: priceLoading } = useBitcoinPrice();
   const { isDark, toggle: toggleTheme } = useTheme();
+  // Use Nostr-native partners hook for the count badge
+  const { partners: nostrPartners } = usePartners();
   const [showMonthPicker, setShowMonthPicker] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
   const [showDonate, setShowDonate] = useState(false);
@@ -295,7 +298,7 @@ export function BudgetHeader({
                 <AccountSwitcher 
                   onAddAccountClick={() => setShowLogin(true)}
                   onBudgetPartnersClick={() => setShowPartners(true)}
-                  partnersCount={partners.length}
+                  partnersCount={nostrPartners.length}
                 />
               </div>
             )}
@@ -768,11 +771,7 @@ export function BudgetHeader({
         <ManagePartnersDialog
           open={showPartners}
           onOpenChange={setShowPartners}
-          partners={partners}
           userRole={userRole}
-          onAddPartner={onAddPartner || (() => {})}
-          onRemovePartner={onRemovePartner || (() => {})}
-          onChangePermission={onChangePartnerPermission || (() => {})}
         />
 
          {/* Copy Budget Dialog */}

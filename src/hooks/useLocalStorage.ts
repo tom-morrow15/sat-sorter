@@ -37,14 +37,9 @@ export function useLocalStorage<T>(
   // Use functional setState to avoid stale closure issues
   // This ensures that when called with a function, it uses the actual latest state
   const setValue = useCallback((value: T | ((prev: T) => T)) => {
-    console.log(`[useLocalStorage] setValue called for key: ${key}`);
     setState((prevState) => {
       try {
         const valueToStore = value instanceof Function ? value(prevState) : value;
-        console.log(`[useLocalStorage] State update for ${key}:`, {
-          prevState: typeof prevState === 'object' ? Object.keys(prevState as object) : prevState,
-          newState: typeof valueToStore === 'object' ? Object.keys(valueToStore as object) : valueToStore,
-        });
         const serialized = serializeRef.current(valueToStore);
         localStorage.setItem(key, serialized);
         

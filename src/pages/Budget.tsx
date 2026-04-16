@@ -61,11 +61,6 @@ export default function Budget() {
     resetCurrentMonth,
   } = useBudget();
 
-  // Debug: log whenever partners state changes
-  useEffect(() => {
-    console.log('[Budget.tsx] Partners state changed:', partners.length, partners);
-  }, [partners]);
-
   useSeoMeta({
     title: 'Sat Sorter - Bitcoin Budget App',
     description: 'Zero-based budgeting on a Bitcoin standard. Give every sat a job.',

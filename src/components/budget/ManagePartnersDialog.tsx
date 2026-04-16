@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { Plus, Trash2, Shield, Eye, QrCode } from 'lucide-react';
+import { Plus, Trash2, Shield, Eye, QrCode, Loader2 } from 'lucide-react';
 import { nip19 } from 'nostr-tools';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/useToast';
+import { usePartners } from '@/hooks/usePartners';
 import { QRScanner } from './QRScanner';
 import {
   Dialog,
@@ -24,42 +25,36 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import type { BudgetPartner } from '@/lib/budgetTypes';
-import { cn } from '@/lib/utils';
 
 interface ManagePartnersDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  partners: BudgetPartner[];
   userRole?: 'owner' | 'editor' | 'viewer';
-  onAddPartner: (pubkey: string, permission: 'view' | 'edit') => void;
-  onRemovePartner: (pubkey: string) => void;
-  onChangePermission: (pubkey: string, permission: 'view' | 'edit') => void;
 }
 
 export function ManagePartnersDialog({
   open,
   onOpenChange,
-  partners,
   userRole = 'owner',
-  onAddPartner,
-  onRemovePartner,
-  onChangePermission,
 }: ManagePartnersDialogProps) {
+  // Use Nostr-native partners hook - this bypasses localStorage sync issues
+  const { partners, isLoading, addPartner, removePartner, changePartnerPermission } = usePartners();
+  
   const [newPartnerPubkey, setNewPartnerPubkey] = useState('');
   const [newPartnerPermission, setNewPartnerPermission] = useState<'view' | 'edit'>('edit');
   const [isAdding, setIsAdding] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [validationError, setValidationError] = useState('');
   const [showQRScanner, setShowQRScanner] = useState(false);
   const { toast } = useToast();
 
-  // Debug: log whenever partners prop changes
+  // Debug: log whenever partners changes
   console.log('[ManagePartnersDialog] Rendered with partners:', partners.length, 'userRole:', userRole);
 
   const isOwner = userRole === 'owner';
 
-   const handleAddPartner = () => {
-     let pubkey = newPartnerPubkey.trim();
+   const handleAddPartner = async () => {
+     const pubkey = newPartnerPubkey.trim();
      setValidationError('');
      
      if (!pubkey) {
@@ -100,16 +95,28 @@ export function ManagePartnersDialog({
        return;
      }
 
-     console.log('[ManagePartnersDialog] Adding partner:', hexPubkey, 'with permission:', newPartnerPermission);
-     onAddPartner(hexPubkey, newPartnerPermission);
-     toast({
-       title: 'Partner Added',
-       description: `${formatPubkey(hexPubkey)} has been added with ${newPartnerPermission} permission.`,
-     });
-     setNewPartnerPubkey('');
-     setValidationError('');
-     setNewPartnerPermission('edit');
-     setIsAdding(false);
+     setIsSubmitting(true);
+     try {
+       console.log('[ManagePartnersDialog] Adding partner:', hexPubkey, 'with permission:', newPartnerPermission);
+       await addPartner(hexPubkey, newPartnerPermission);
+       toast({
+         title: 'Partner Added',
+         description: `${formatPubkey(hexPubkey)} has been added. They can now see this budget when they log in with their Nostr account.`,
+       });
+       setNewPartnerPubkey('');
+       setValidationError('');
+       setNewPartnerPermission('edit');
+       setIsAdding(false);
+     } catch (error) {
+       console.error('[ManagePartnersDialog] Failed to add partner:', error);
+       toast({
+         title: 'Failed to add partner',
+         description: error instanceof Error ? error.message : 'Please try again.',
+         variant: 'destructive',
+       });
+     } finally {
+       setIsSubmitting(false);
+     }
    };
 
   const formatPubkey = (pubkey: string) => {
@@ -127,14 +134,22 @@ export function ManagePartnersDialog({
      );
    };
 
-  const handleRemovePartner = (pubkey: string) => {
+  const handleRemovePartner = async (pubkey: string) => {
     const partner = partners.find(p => p.pubkey === pubkey);
     if (confirm(`Remove ${partner?.name || formatPubkey(pubkey)} from this budget?`)) {
-      onRemovePartner(pubkey);
-      toast({
-        title: 'Partner Removed',
-        description: `${partner?.name || formatPubkey(pubkey)} has been removed.`,
-      });
+      try {
+        await removePartner(pubkey);
+        toast({
+          title: 'Partner Removed',
+          description: `${partner?.name || formatPubkey(pubkey)} has been removed.`,
+        });
+      } catch (error) {
+        toast({
+          title: 'Failed to remove partner',
+          description: error instanceof Error ? error.message : 'Please try again.',
+          variant: 'destructive',
+        });
+      }
     }
   };
 
@@ -291,9 +306,16 @@ export function ManagePartnersDialog({
                       <Button
                         size="sm"
                         onClick={handleAddPartner}
-                        disabled={!newPartnerPubkey.trim()}
+                        disabled={!newPartnerPubkey.trim() || isSubmitting}
                       >
-                        Add
+                        {isSubmitting ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Adding...
+                          </>
+                        ) : (
+                          'Add'
+                        )}
                       </Button>
                       <Button
                         size="sm"
@@ -303,6 +325,7 @@ export function ManagePartnersDialog({
                           setNewPartnerPubkey('');
                           setNewPartnerPermission('edit');
                         }}
+                        disabled={isSubmitting}
                       >
                         Cancel
                       </Button>
@@ -316,11 +339,12 @@ export function ManagePartnersDialog({
           {/* Partners list */}
           <div className="space-y-2">
             <Label>Current Partners ({partners.length})</Label>
-            {/* DEBUG: Show raw partners data to help debug */}
-            <div className="text-xs bg-yellow-50 border border-yellow-200 rounded p-2 font-mono break-all">
-              DEBUG - partners array: {JSON.stringify(partners.map(p => ({pk: p.pubkey.slice(0, 10), perm: p.permission, status: p.status})))}
-            </div>
-            {partners.length === 0 ? (
+            {isLoading ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Loader2 className="h-6 w-6 mx-auto mb-2 animate-spin" />
+                <p className="text-sm">Loading partners from Nostr...</p>
+              </div>
+            ) : partners.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <p className="text-sm">No partners yet</p>
                 {isOwner && (
@@ -373,12 +397,12 @@ export function ManagePartnersDialog({
                         )}
                       </div>
 
-                      {isOwner && (
+                       {isOwner && (
                         <div className="flex gap-1 ml-2 shrink-0">
                           <Select
                             value={partner.permission}
                             onValueChange={(value) =>
-                              onChangePermission(
+                              changePartnerPermission(
                                 partner.pubkey,
                                 value as 'view' | 'edit'
                               )

@@ -21,9 +21,6 @@ const BudgetContext = createContext<BudgetContextValue | null>(null);
 export function BudgetProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useLocalStorage<BudgetState>('sat-sorter-budget', DEFAULT_STATE);
 
-  // Debug: log state changes
-  console.log('[BudgetProvider] Rendered with state - partners:', state.partners?.length || 0, 'budgets:', state.budgets.length);
-
   const value = useMemo(
     () => ({ state, setState }),
     [state, setState]
