@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Plus, Trash2, Shield, Eye, QrCode } from 'lucide-react';
+import { nip19 } from 'nostr-tools';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -54,42 +55,59 @@ export function ManagePartnersDialog({
 
   const isOwner = userRole === 'owner';
 
-  const handleAddPartner = () => {
-    const pubkey = newPartnerPubkey.trim();
-    setValidationError('');
-    
-    if (!pubkey) {
-      setValidationError('Please enter a Nostr address');
-      return;
-    }
+   const handleAddPartner = () => {
+     let pubkey = newPartnerPubkey.trim();
+     setValidationError('');
+     
+     if (!pubkey) {
+       setValidationError('Please enter a Nostr address');
+       return;
+     }
 
-    // Basic validation - should be 64 char hex or npub address (starts with 'npub1')
-    const isHex = /^[0-9a-f]{64}$/i.test(pubkey);
-    const isNpub = pubkey.startsWith('npub1') && pubkey.length >= 56;
-    
-    if (!isHex && !isNpub) {
-      setValidationError('Invalid format. Use a 64-character hex key or npub1... address');
-      console.warn('[ManagePartnersDialog] Invalid pubkey format:', pubkey);
-      return;
-    }
+     // Try to decode if it's an npub address
+     let hexPubkey: string;
+     const isHex = /^[0-9a-f]{64}$/i.test(pubkey);
+     const isNpub = pubkey.startsWith('npub1');
 
-    // Check if partner already exists
-    if (partners.some(p => p.pubkey === pubkey)) {
-      setValidationError('This partner is already added');
-      return;
-    }
+     if (isNpub) {
+       try {
+         const decoded = nip19.decode(pubkey);
+         if (decoded.type !== 'npub') {
+           setValidationError('Invalid Nostr address. Please use an npub address or hex public key.');
+           console.warn('[ManagePartnersDialog] Invalid NIP-19 type:', decoded.type);
+           return;
+         }
+         hexPubkey = decoded.data;
+       } catch (error) {
+         setValidationError('Invalid Nostr address format. Please check the address and try again.');
+         console.warn('[ManagePartnersDialog] Failed to decode npub:', error);
+         return;
+       }
+     } else if (isHex) {
+       hexPubkey = pubkey.toLowerCase();
+     } else {
+       setValidationError('Invalid format. Use a 64-character hex key or npub1... address');
+       console.warn('[ManagePartnersDialog] Invalid pubkey format:', pubkey);
+       return;
+     }
 
-    console.log('[ManagePartnersDialog] Adding partner:', pubkey, 'with permission:', newPartnerPermission);
-    onAddPartner(pubkey, newPartnerPermission);
-    toast({
-      title: 'Partner Added',
-      description: `${formatPubkey(pubkey)} has been added with ${newPartnerPermission} permission.`,
-    });
-    setNewPartnerPubkey('');
-    setValidationError('');
-    setNewPartnerPermission('edit');
-    setIsAdding(false);
-  };
+     // Check if partner already exists (compare hex pubkeys)
+     if (partners.some(p => p.pubkey === hexPubkey)) {
+       setValidationError('This partner is already added');
+       return;
+     }
+
+     console.log('[ManagePartnersDialog] Adding partner:', hexPubkey, 'with permission:', newPartnerPermission);
+     onAddPartner(hexPubkey, newPartnerPermission);
+     toast({
+       title: 'Partner Added',
+       description: `${formatPubkey(hexPubkey)} has been added with ${newPartnerPermission} permission.`,
+     });
+     setNewPartnerPubkey('');
+     setValidationError('');
+     setNewPartnerPermission('edit');
+     setIsAdding(false);
+   };
 
   const formatPubkey = (pubkey: string) => {
     if (pubkey.length > 16) {
@@ -117,20 +135,38 @@ export function ManagePartnersDialog({
     }
   };
 
-  const handleQRScan = (scannedValue: string) => {
-    // Handle scanned QR code
-    // Could be: npub1..., nostr:npub1..., or raw hex
-    let pubkey = scannedValue.trim();
-    
-    // Remove nostr: prefix if present
-    if (pubkey.startsWith('nostr:')) {
-      pubkey = pubkey.substring(6);
-    }
-    
-    setNewPartnerPubkey(pubkey);
-    setShowQRScanner(false);
-    console.log('[ManagePartnersDialog] QR scanned:', pubkey);
-  };
+   const handleQRScan = (scannedValue: string) => {
+     // Handle scanned QR code
+     // Could be: npub1..., nostr:npub1..., or raw hex
+     let value = scannedValue.trim();
+     
+     // Remove nostr: prefix if present
+     if (value.startsWith('nostr:')) {
+       value = value.substring(6);
+     }
+     
+     // If it's an npub, decode it to hex for internal storage
+     if (value.startsWith('npub1')) {
+       try {
+         const decoded = nip19.decode(value);
+         if (decoded.type === 'npub') {
+           setNewPartnerPubkey(decoded.data);
+           console.log('[ManagePartnersDialog] QR scanned (decoded to hex):', decoded.data);
+         } else {
+           setNewPartnerPubkey(value);
+           console.log('[ManagePartnersDialog] QR scanned (kept as is):', value);
+         }
+       } catch (error) {
+         console.warn('[ManagePartnersDialog] Failed to decode QR scanned npub:', error);
+         setNewPartnerPubkey(value);
+       }
+     } else {
+       setNewPartnerPubkey(value);
+       console.log('[ManagePartnersDialog] QR scanned:', value);
+     }
+     
+     setShowQRScanner(false);
+   };
 
   return (
     <>
