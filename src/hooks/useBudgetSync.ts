@@ -78,6 +78,69 @@ export function useBudgetSync() {
       return false;
     }
 
+    // SAFETY GUARD: refuse to upload an empty budget. This prevents a bad
+    // state (e.g. freshly-initialized browser that hasn't finished downloading
+    // the user's remote budget) from wiping out the user's saved data.
+    if (!budgetState.budgets || budgetState.budgets.length === 0) {
+      console.warn('[useBudgetSync] Refusing to upload empty budget state to protect remote data');
+      setSyncStatus(prev => ({
+        ...prev,
+        error: 'Refusing to upload an empty budget. Reload the app and try again.',
+      }));
+      return false;
+    }
+
+    // SAFETY GUARD: if the remote already has a budget that is significantly
+    // larger than what we're about to upload, warn and refuse. This catches
+    // the case where another device has more data than this one.
+    try {
+      const existingEvents = await nostr.query(
+        [{
+          kinds: [BUDGET_KIND],
+          authors: [user.pubkey],
+          '#d': [APP_IDENTIFIER],
+          limit: 1,
+        }],
+        { signal: AbortSignal.timeout(5000) }
+      );
+
+      if (existingEvents.length > 0 && user.signer.nip44) {
+        try {
+          const existingContent = await user.signer.nip44.decrypt(
+            user.pubkey,
+            existingEvents[0].content
+          );
+          const parsed = JSON.parse(existingContent);
+          // Handle both plain BudgetState and snapshot-wrapped payloads
+          const existingState: BudgetState = parsed?.data?.budgets ? parsed.data : parsed;
+
+          if (existingState?.budgets?.length) {
+            const localMonths = new Set(budgetState.budgets.map(b => b.month));
+            const missingMonths = existingState.budgets.filter(b => !localMonths.has(b.month));
+
+            if (missingMonths.length > 0) {
+              console.warn(
+                '[useBudgetSync] Upload would drop months present on remote, aborting',
+                { missing: missingMonths.map(b => b.month) }
+              );
+              setSyncStatus(prev => ({
+                ...prev,
+                isSyncing: false,
+                error: `Cannot save: remote has ${missingMonths.length} month(s) not in local data (${missingMonths.map(b => b.month).join(', ')}). Please reload to merge first.`,
+              }));
+              return false;
+            }
+          }
+        } catch (e) {
+          // If we can't decrypt/parse remote, proceed with upload
+          console.log('[useBudgetSync] Could not verify remote state before upload:', e);
+        }
+      }
+    } catch (e) {
+      // If the pre-check fails entirely (network), proceed with upload
+      console.log('[useBudgetSync] Pre-upload check failed, proceeding:', e);
+    }
+
     setSyncStatus(prev => ({ ...prev, isSyncing: true, error: null }));
 
     try {
@@ -116,7 +179,7 @@ export function useBudgetSync() {
       }));
       return false;
     }
-  }, [user, publish, queryClient]);
+  }, [user, publish, queryClient, nostr]);
 
   // Download budget data from Nostr
   const downloadBudget = useCallback(async (): Promise<BudgetState | null> => {

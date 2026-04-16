@@ -134,6 +134,19 @@ export function useManualSync() {
         return false;
       }
 
+      // SAFETY GUARD: refuse to push an empty snapshot. This stops an
+      // accidental upload from a fresh/empty state wiping out the user's
+      // saved data on other devices.
+      const snapshotData = (localSnapshot as unknown as { data?: BudgetState }).data;
+      if (snapshotData && Array.isArray(snapshotData.budgets) && snapshotData.budgets.length === 0) {
+        setState(prev => ({
+          ...prev,
+          error: 'Refusing to push an empty budget to cloud. Reload and try again.',
+        }));
+        console.warn('[useManualSync] Refusing to push empty snapshot');
+        return false;
+      }
+
       setState(prev => ({
         ...prev,
         isSyncing: true,

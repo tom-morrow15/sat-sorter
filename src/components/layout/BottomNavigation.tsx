@@ -52,8 +52,25 @@ export function BottomNavigation() {
        return;
      }
 
-     // First run: initialize saved state if empty
+     // First run: initialize saved state
      if (!hasInitialized.current) {
+       // SAFETY: don't prime the saved-state tracker with an empty budget.
+       // This commonly happens right after login while NostrSync is still
+       // downloading the remote budget. If we primed with the empty state
+       // here, the user's subsequent real budget (once downloaded) would be
+       // flagged as "unsaved changes", which could lead to an accidental
+       // upload that wipes remote data on other devices.
+       const hasData =
+         fullState.budgets && fullState.budgets.length > 0 &&
+         fullState.budgets.some(b => b.buckets && b.buckets.length > 0);
+
+       if (!savedBudgetStr && !hasData) {
+         console.log('[SaveButton] Skipping init — budget is empty (waiting for sync)');
+         // Don't mark as initialized; allow re-run once data arrives
+         setSaveState('ready');
+         return;
+       }
+
        hasInitialized.current = true;
        console.log('[SaveButton] First load, initializing with current budget');
        if (!savedBudgetStr) {
@@ -83,7 +100,7 @@ export function BottomNavigation() {
          setSaveState('unsaved');
        }
      }
-   }, [currentBudgetStr, savedBudgetStr, saveState]);
+   }, [currentBudgetStr, savedBudgetStr, saveState, fullState.budgets, setSavedBudgetStr]);
 
   const handleSave = async () => {
     if (!user?.pubkey) {
