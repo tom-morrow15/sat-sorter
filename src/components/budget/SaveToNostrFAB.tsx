@@ -20,7 +20,9 @@ interface SaveToNostrFABProps {
 
 type SaveState = 'ready' | 'saving' | 'success' | 'error' | 'not-logged-in' | 'unsaved';
 
-const SAVED_BUDGET_KEY = 'sat-sorter-saved-budget-fab';
+// Shared save key - MUST match the one in BottomNavigation.tsx
+// This ensures both save buttons stay in sync
+const SAVED_BUDGET_KEY = 'sat-sorter-saved-budget';
 
 export function SaveToNostrFAB({ onSaveStart, onSaveComplete, onOpenSyncDialog }: SaveToNostrFABProps) {
   const { user } = useCurrentUser();
@@ -42,10 +44,13 @@ export function SaveToNostrFAB({ onSaveStart, onSaveComplete, onOpenSyncDialog }
   });
 
   // Current budget as string for change detection
+  // Include all state that should be saved: budgets, currency, month, partners, templates
   const currentBudgetStr = JSON.stringify({
     budgets: fullState.budgets,
     currency: fullState.currency,
     currentMonth: fullState.currentMonth,
+    partners: fullState.partners || [],
+    templates: fullState.templates || [],
   });
 
   // Reset on user change (login/logout)

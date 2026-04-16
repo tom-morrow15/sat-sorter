@@ -303,13 +303,16 @@ export function useBudget() {
       const partners = prev.partners || [];
       // Avoid duplicates
       if (partners.some(p => p.pubkey === pubkey)) {
+        console.log('[useBudget] Partner already exists:', pubkey);
         return prev;
       }
       const newPartner: BudgetPartner = {
         pubkey,
         permission,
         addedAt: Math.floor(Date.now() / 1000),
+        status: 'pending', // Start as pending until they accept
       };
+      console.log('[useBudget] Adding new partner:', pubkey, 'with permission:', permission);
       return { ...prev, partners: [...partners, newPartner] };
     });
   }, [setState]);

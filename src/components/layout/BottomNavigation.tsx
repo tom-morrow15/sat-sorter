@@ -27,10 +27,13 @@ export function BottomNavigation() {
 
   // Current budget as string (memoized) - includes all state that should be saved
    // Note: We DON'T memoize this - we always recompute it so we can detect changes
+   // Include partners and templates to detect those changes too
    const currentBudgetStr = JSON.stringify({
      budgets: fullState.budgets,
      currency: fullState.currency,
      currentMonth: fullState.currentMonth,
+     partners: fullState.partners || [],
+     templates: fullState.templates || [],
    });
 
    // Reset on user change (login/logout)
