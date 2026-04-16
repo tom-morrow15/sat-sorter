@@ -189,7 +189,7 @@ export function ManagePartnersDialog({
   return (
     <>
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[500px] max-w-[calc(100vw-2rem)] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Budget Partners</DialogTitle>
           <DialogDescription>
@@ -210,7 +210,7 @@ export function ManagePartnersDialog({
             </p>
             {userRole === 'owner' && (
               <p className="text-xs text-muted-foreground mt-1">
-                You can add/remove partners and manage permissions. Don't forget to save to sync changes!
+                You can add/remove partners and manage permissions. Changes are saved automatically to Nostr.
               </p>
             )}
             {userRole === 'editor' && (
@@ -353,52 +353,44 @@ export function ManagePartnersDialog({
               </div>
             ) : (
               <ScrollArea className="max-h-[300px]">
-                <div className="space-y-2 pr-4">
+                <div className="space-y-2 pr-2">
                   {partners.map((partner) => (
                     <div
                       key={partner.pubkey}
-                      className="flex items-center justify-between p-3 rounded-lg border bg-muted/50"
+                      className="p-3 rounded-lg border bg-muted/50 space-y-2"
                     >
-                       <div className="flex-1 min-w-0">
-                         <div className="flex items-center gap-2">
-                           <span className="text-sm font-medium truncate">
-                             {partner.name || formatPubkey(partner.pubkey)}
-                           </span>
-                           <Badge
-                             variant="secondary"
-                             className="flex items-center gap-1 shrink-0"
-                           >
-                             {getPermissionIcon(partner.permission)}
-                             <span className="capitalize text-xs">
-                               {partner.permission === 'edit' ? 'Editor' : 'Viewer'}
-                             </span>
-                           </Badge>
-                           {partner.status === 'pending' && (
-                             <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-300 shrink-0">
-                               Pending
-                             </Badge>
-                           )}
-                           {partner.status === 'accepted' && (
-                             <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-300 shrink-0">
-                               Accepted ✓
-                             </Badge>
-                           )}
-                           {partner.status === 'declined' && (
-                             <Badge variant="outline" className="text-xs bg-red-50 text-red-700 border-red-300 shrink-0">
-                               Declined
-                             </Badge>
-                           )}
-                         </div>
-                        {partner.lastActive && (
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Last active{' '}
-                            {new Date(partner.lastActive * 1000).toLocaleDateString()}
-                          </p>
+                      {/* Top row: pubkey and status badges */}
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm font-medium truncate flex-1 min-w-0">
+                          {partner.name || formatPubkey(partner.pubkey)}
+                        </span>
+                        {partner.status === 'pending' && (
+                          <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-300 shrink-0">
+                            Pending
+                          </Badge>
+                        )}
+                        {partner.status === 'accepted' && (
+                          <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-300 shrink-0">
+                            Accepted ✓
+                          </Badge>
+                        )}
+                        {partner.status === 'declined' && (
+                          <Badge variant="outline" className="text-xs bg-red-50 text-red-700 border-red-300 shrink-0">
+                            Declined
+                          </Badge>
                         )}
                       </div>
 
-                       {isOwner && (
-                        <div className="flex gap-1 ml-2 shrink-0">
+                      {partner.lastActive && (
+                        <p className="text-xs text-muted-foreground">
+                          Last active{' '}
+                          {new Date(partner.lastActive * 1000).toLocaleDateString()}
+                        </p>
+                      )}
+
+                      {/* Bottom row: permission controls and remove button */}
+                      {isOwner ? (
+                        <div className="flex items-center gap-2 pt-1">
                           <Select
                             value={partner.permission}
                             onValueChange={(value) =>
@@ -408,25 +400,45 @@ export function ManagePartnersDialog({
                               )
                             }
                           >
-                            <SelectTrigger className="h-8 w-24 text-xs">
+                            <SelectTrigger className="h-8 flex-1 text-xs">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="view">View</SelectItem>
-                              <SelectItem value="edit">Edit</SelectItem>
+                              <SelectItem value="view">
+                                <div className="flex items-center gap-2">
+                                  <Eye className="h-3 w-3" />
+                                  <span>View Only</span>
+                                </div>
+                              </SelectItem>
+                              <SelectItem value="edit">
+                                <div className="flex items-center gap-2">
+                                  <Shield className="h-3 w-3" />
+                                  <span>Can Edit</span>
+                                </div>
+                              </SelectItem>
                             </SelectContent>
                           </Select>
 
-                           <Button
-                             size="icon"
-                             variant="ghost"
-                             className="h-8 w-8 text-destructive hover:text-destructive"
-                             onClick={() => handleRemovePartner(partner.pubkey)}
-                             title="Remove partner"
-                           >
-                             <Trash2 className="h-4 w-4" />
-                           </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8 text-destructive hover:text-destructive shrink-0"
+                            onClick={() => handleRemovePartner(partner.pubkey)}
+                            title="Remove partner"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
+                      ) : (
+                        <Badge
+                          variant="secondary"
+                          className="flex items-center gap-1 w-fit"
+                        >
+                          {getPermissionIcon(partner.permission)}
+                          <span className="capitalize text-xs">
+                            {partner.permission === 'edit' ? 'Editor' : 'Viewer'}
+                          </span>
+                        </Badge>
                       )}
                     </div>
                   ))}
@@ -439,10 +451,9 @@ export function ManagePartnersDialog({
           <div className="space-y-3">
             <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
               <p className="text-xs text-blue-900 dark:text-blue-100">
-                <strong>ℹ️ How it works:</strong> When you add a partner, they won't see the budget
-                automatically. After adding them here, click the Save button in the bottom nav bar to
-                sync the partner list to Nostr. Then share this app URL with them so they can log in
-                with their Nostr account and see the shared budget.
+                <strong>ℹ️ How it works:</strong> Partners are saved automatically to Nostr. 
+                Share this app URL with your partner so they can log in with their Nostr 
+                account and see the shared budget.
               </p>
             </div>
 
