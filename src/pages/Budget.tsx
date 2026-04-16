@@ -14,7 +14,6 @@ import { TransactionsPanel } from '@/components/budget/TransactionsPanel';
 import { BTCMapBanner } from '@/components/budget/BTCMapBanner';
 import { WalletModalControlled } from '@/components/budget/WalletModalControlled';
 import { QuickAddFAB } from '@/components/budget/QuickAddFAB';
-import { SaveToNostrFAB } from '@/components/budget/SaveToNostrFAB';
 import { LoginArea } from '@/components/auth/LoginArea';
 import { useBudget } from '@/hooks/useBudget';
 import { useWallet } from '@/hooks/useWallet';
@@ -413,8 +412,6 @@ export default function Budget() {
         currency={currency}
       />
 
-      {/* Save to Nostr FAB - Bottom right, stacked above Quick Add */}
-      <SaveToNostrFAB />
     </div>
   );
 }
