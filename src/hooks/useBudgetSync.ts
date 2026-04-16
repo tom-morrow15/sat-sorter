@@ -55,8 +55,19 @@ export function useBudgetSync() {
         }
 
         const decrypted = await user.signer.nip44.decrypt(user.pubkey, latestEvent.content);
-        const budgetData: BudgetState = JSON.parse(decrypted);
-        
+        const parsed = JSON.parse(decrypted);
+        // Handle both plain BudgetState and snapshot-wrapped payloads
+        // (useManualSync wraps data in { data, version, checksum, ... })
+        let budgetData: BudgetState;
+        if (parsed && typeof parsed === 'object' && 'data' in parsed && parsed.data && 'budgets' in parsed.data) {
+          budgetData = parsed.data as BudgetState;
+        } else if (parsed && typeof parsed === 'object' && 'budgets' in parsed) {
+          budgetData = parsed as BudgetState;
+        } else {
+          console.warn('[useBudgetSync] Unknown remote budget shape');
+          return null;
+        }
+
         return {
           data: budgetData,
           timestamp: latestEvent.created_at,
@@ -71,74 +82,108 @@ export function useBudgetSync() {
     refetchOnWindowFocus: false,
   });
 
-  // Upload budget data to Nostr
-  const uploadBudget = useCallback(async (budgetState: BudgetState): Promise<boolean> => {
+  // Upload budget data to Nostr.
+  // Options:
+  //   allowEmpty   – allow uploading a budget with zero months (normally rejected
+  //                  as a safety measure). Use only for legitimate "wipe all" flows.
+  //   skipRemoteCheck – skip the pre-upload remote sanity check (used when the
+  //                     caller has already confirmed the operation with the user).
+  const uploadBudget = useCallback(async (
+    budgetState: BudgetState,
+    options: { allowEmpty?: boolean; skipRemoteCheck?: boolean } = {}
+  ): Promise<boolean> => {
     if (!user?.pubkey || !user?.signer?.nip44) {
       setSyncStatus(prev => ({ ...prev, error: 'Not logged in or signer unavailable' }));
       return false;
     }
 
-    // SAFETY GUARD: refuse to upload an empty budget. This prevents a bad
-    // state (e.g. freshly-initialized browser that hasn't finished downloading
-    // the user's remote budget) from wiping out the user's saved data.
-    if (!budgetState.budgets || budgetState.budgets.length === 0) {
+    // SAFETY GUARD: refuse to upload an empty budget unless explicitly allowed.
+    // This prevents a bad state (e.g. freshly-initialized browser that hasn't
+    // finished downloading the user's remote budget) from wiping out saved data.
+    if (!options.allowEmpty && (!budgetState.budgets || budgetState.budgets.length === 0)) {
       console.warn('[useBudgetSync] Refusing to upload empty budget state to protect remote data');
       setSyncStatus(prev => ({
         ...prev,
-        error: 'Refusing to upload an empty budget. Reload the app and try again.',
+        error: 'Refusing to upload an empty budget — this would wipe your saved data on other devices. If this is intentional, use the Backup dialog to force-sync.',
       }));
       return false;
     }
 
-    // SAFETY GUARD: if the remote already has a budget that is significantly
-    // larger than what we're about to upload, warn and refuse. This catches
-    // the case where another device has more data than this one.
-    try {
-      const existingEvents = await nostr.query(
-        [{
-          kinds: [BUDGET_KIND],
-          authors: [user.pubkey],
-          '#d': [APP_IDENTIFIER],
-          limit: 1,
-        }],
-        { signal: AbortSignal.timeout(5000) }
-      );
+    // SAFETY GUARD: if the remote has MORE data than we're about to upload
+    // (extra months, or richer content in overlapping months), warn and refuse.
+    // This catches the case where another device has more data than this one
+    // — usually because the login-time sync hasn't completed yet. Legitimate
+    // destructive flows (reset, delete month) can opt out via skipRemoteCheck.
+    if (!options.skipRemoteCheck) {
+      try {
+        const existingEvents = await nostr.query(
+          [{
+            kinds: [BUDGET_KIND],
+            authors: [user.pubkey],
+            '#d': [APP_IDENTIFIER],
+            limit: 1,
+          }],
+          { signal: AbortSignal.timeout(5000) }
+        );
 
-      if (existingEvents.length > 0 && user.signer.nip44) {
-        try {
-          const existingContent = await user.signer.nip44.decrypt(
-            user.pubkey,
-            existingEvents[0].content
-          );
-          const parsed = JSON.parse(existingContent);
-          // Handle both plain BudgetState and snapshot-wrapped payloads
-          const existingState: BudgetState = parsed?.data?.budgets ? parsed.data : parsed;
+        if (existingEvents.length > 0 && user.signer.nip44) {
+          try {
+            const existingContent = await user.signer.nip44.decrypt(
+              user.pubkey,
+              existingEvents[0].content
+            );
+            const parsed = JSON.parse(existingContent);
+            // Handle both plain BudgetState and snapshot-wrapped payloads
+            const existingState: BudgetState = parsed?.data?.budgets ? parsed.data : parsed;
 
-          if (existingState?.budgets?.length) {
-            const localMonths = new Set(budgetState.budgets.map(b => b.month));
-            const missingMonths = existingState.budgets.filter(b => !localMonths.has(b.month));
+            if (existingState?.budgets?.length) {
+              // Score each month by richness (transactions + line items +
+              // non-zero amounts). Refuse if the remote's total score is
+              // strictly greater than ours — that would indicate data loss.
+              const scoreBudget = (b: typeof existingState.budgets[number]): number => {
+                const liCount = b.buckets.reduce((s, bk) => s + bk.lineItems.length, 0);
+                const plannedSum = b.buckets.reduce(
+                  (s, bk) => s + bk.lineItems.reduce(
+                    (x, li) => x + (li.plannedAmount || 0) + (li.plannedAmountUsd || 0), 0
+                  ), 0
+                );
+                return b.transactions.length * 1000 + liCount * 10 + (plannedSum > 0 ? 5 : 0);
+              };
+              const totalScore = (bs: typeof existingState.budgets) =>
+                bs.reduce((s, b) => s + scoreBudget(b), 0);
 
-            if (missingMonths.length > 0) {
-              console.warn(
-                '[useBudgetSync] Upload would drop months present on remote, aborting',
-                { missing: missingMonths.map(b => b.month) }
-              );
-              setSyncStatus(prev => ({
-                ...prev,
-                isSyncing: false,
-                error: `Cannot save: remote has ${missingMonths.length} month(s) not in local data (${missingMonths.map(b => b.month).join(', ')}). Please reload to merge first.`,
-              }));
-              return false;
+              const remoteScore = totalScore(existingState.budgets);
+              const localScore = totalScore(budgetState.budgets);
+
+              // Significant data loss: remote is substantially richer than local
+              if (remoteScore > 0 && localScore < remoteScore * 0.5) {
+                const localMonths = new Set(budgetState.budgets.map(b => b.month));
+                const missingMonths = existingState.budgets
+                  .filter(b => !localMonths.has(b.month))
+                  .map(b => b.month);
+                console.warn(
+                  '[useBudgetSync] Upload would lose data vs remote, aborting',
+                  { remoteScore, localScore, missingMonths }
+                );
+                setSyncStatus(prev => ({
+                  ...prev,
+                  isSyncing: false,
+                  error: missingMonths.length > 0
+                    ? `Cannot save: remote has additional months not in local data (${missingMonths.join(', ')}). Please reload to merge first.`
+                    : 'Cannot save: remote has more data than local. Please reload to merge first.',
+                }));
+                return false;
+              }
             }
+          } catch (e) {
+            // If we can't decrypt/parse remote, proceed with upload
+            console.log('[useBudgetSync] Could not verify remote state before upload:', e);
           }
-        } catch (e) {
-          // If we can't decrypt/parse remote, proceed with upload
-          console.log('[useBudgetSync] Could not verify remote state before upload:', e);
         }
+      } catch (e) {
+        // If the pre-check fails entirely (network), proceed with upload
+        console.log('[useBudgetSync] Pre-upload check failed, proceeding:', e);
       }
-    } catch (e) {
-      // If the pre-check fails entirely (network), proceed with upload
-      console.log('[useBudgetSync] Pre-upload check failed, proceeding:', e);
     }
 
     setSyncStatus(prev => ({ ...prev, isSyncing: true, error: null }));
