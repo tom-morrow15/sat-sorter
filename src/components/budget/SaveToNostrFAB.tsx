@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Database, Loader2, CheckCircle2, AlertCircle, Settings } from 'lucide-react';
+import { Save, Loader2, CheckCircle2, AlertCircle, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
@@ -229,11 +229,11 @@ export function SaveToNostrFAB({ onSaveStart, onSaveComplete, onOpenSyncDialog }
        case 'error':
          return <AlertCircle className="h-5 w-5" />;
        case 'unsaved':
-         return <Database className="h-5 w-5" />;
+         return <Save className="h-5 w-5" />;
        case 'not-logged-in':
-         return <Database className="h-5 w-5" />;
+         return <Save className="h-5 w-5" />;
        default:
-         return <Database className="h-5 w-5" />;
+         return <Save className="h-5 w-5" />;
      }
    };
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Home, PieChart, MapPin, Receipt, Database, Wallet } from 'lucide-react';
+import { Home, PieChart, MapPin, Receipt, Save, Wallet } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useBudgetSync } from '@/hooks/useBudgetSync';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
@@ -214,7 +214,7 @@ export function BottomNavigation() {
              getSaveButtonStyles()
            )}
          >
-           <Database className={cn('h-5 w-5', saveState === 'saving' && 'animate-bounce')} />
+           <Save className={cn('h-5 w-5', saveState === 'saving' && 'animate-bounce')} />
            <span className="text-[10px]">{getSaveLabel()}</span>
          </button>
       </div>
