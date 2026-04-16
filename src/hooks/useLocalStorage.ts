@@ -1,7 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 
+// Custom event name for same-tab synchronization
+const LOCAL_STORAGE_SYNC_EVENT = 'local-storage-sync';
+
 /**
  * Generic hook for managing localStorage state
+ * Synchronizes state between components in the same tab AND across tabs
  */
 export function useLocalStorage<T>(
   key: string,
@@ -36,7 +40,14 @@ export function useLocalStorage<T>(
     setState((prevState) => {
       try {
         const valueToStore = value instanceof Function ? value(prevState) : value;
-        localStorage.setItem(key, serializeRef.current(valueToStore));
+        const serialized = serializeRef.current(valueToStore);
+        localStorage.setItem(key, serialized);
+        
+        // Dispatch custom event so other useLocalStorage instances in same tab sync up
+        window.dispatchEvent(new CustomEvent(LOCAL_STORAGE_SYNC_EVENT, {
+          detail: { key, value: serialized }
+        }));
+        
         return valueToStore;
       } catch (error) {
         console.warn(`Failed to save ${key} to localStorage:`, error);
@@ -45,8 +56,9 @@ export function useLocalStorage<T>(
     });
   }, [key]);
 
-  // Sync with localStorage changes from other tabs
+  // Sync with localStorage changes
   useEffect(() => {
+    // Handle changes from other tabs
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === key && e.newValue !== null) {
         try {
@@ -57,8 +69,25 @@ export function useLocalStorage<T>(
       }
     };
 
+    // Handle changes from other useLocalStorage instances in SAME tab
+    const handleCustomSync = (e: Event) => {
+      const customEvent = e as CustomEvent<{ key: string; value: string }>;
+      if (customEvent.detail?.key === key && customEvent.detail?.value) {
+        try {
+          setState(deserializeRef.current(customEvent.detail.value));
+        } catch (error) {
+          console.warn(`Failed to sync ${key} from custom event:`, error);
+        }
+      }
+    };
+
     window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+    window.addEventListener(LOCAL_STORAGE_SYNC_EVENT, handleCustomSync);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener(LOCAL_STORAGE_SYNC_EVENT, handleCustomSync);
+    };
   }, [key]);
 
   return [state, setValue] as const;

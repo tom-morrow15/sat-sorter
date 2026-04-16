@@ -53,6 +53,9 @@ export function ManagePartnersDialog({
   const [showQRScanner, setShowQRScanner] = useState(false);
   const { toast } = useToast();
 
+  // Debug: log whenever partners prop changes
+  console.log('[ManagePartnersDialog] Rendered with partners:', partners.length, 'userRole:', userRole, partners);
+
   const isOwner = userRole === 'owner';
 
    const handleAddPartner = () => {

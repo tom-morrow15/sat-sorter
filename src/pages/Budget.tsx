@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+
 import { Plus, Bitcoin, Zap, Wallet, Info, Copy, Lock } from 'lucide-react';
 import { useSeoMeta, useHead } from '@unhead/react';
 import { Button } from '@/components/ui/button';
@@ -59,6 +60,11 @@ export default function Budget() {
     changePartnerPermission,
     resetCurrentMonth,
   } = useBudget();
+
+  // Debug: log whenever partners state changes
+  useEffect(() => {
+    console.log('[Budget.tsx] Partners state changed:', partners.length, partners);
+  }, [partners]);
 
   useSeoMeta({
     title: 'Sat Sorter - Bitcoin Budget App',
