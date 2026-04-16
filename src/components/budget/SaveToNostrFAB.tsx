@@ -1,11 +1,12 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Cloud, Loader2, CheckCircle2, AlertCircle, Settings } from 'lucide-react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { Save, Loader2, CheckCircle2, AlertCircle, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useToast } from '@/hooks/useToast';
 import { useManualSync } from '@/hooks/useManualSync';
+import { useBudget } from '@/hooks/useBudget';
 import { MergeConflictDialog } from './MergeConflictDialog';
 import { SyncHistoryDialog } from './SyncHistoryDialog';
 import type { BudgetState } from '@/lib/budgetTypes';
@@ -17,15 +18,20 @@ interface SaveToNostrFABProps {
   onOpenSyncDialog?: () => void;
 }
 
-type SaveState = 'ready' | 'saving' | 'success' | 'error' | 'not-logged-in';
+type SaveState = 'ready' | 'saving' | 'success' | 'error' | 'not-logged-in' | 'unsaved';
+
+const SAVED_BUDGET_KEY = 'sat-sorter-saved-budget-fab';
 
 export function SaveToNostrFAB({ onSaveStart, onSaveComplete, onOpenSyncDialog }: SaveToNostrFABProps) {
   const { user } = useCurrentUser();
   const { toast } = useToast();
+  const { fullState } = useBudget();
   const [saveState, setSaveState] = useState<SaveState>('ready');
   const [showMergeDialog, setShowMergeDialog] = useState(false);
   const [showHistoryDialog, setShowHistoryDialog] = useState(false);
   const [isResolvingConflict, setIsResolvingConflict] = useState(false);
+  const [savedBudgetStr, setSavedBudgetStr] = useLocalStorage<string>(SAVED_BUDGET_KEY, '');
+  const hasInitialized = useRef(false);
   
   const { pushToCloud, pullFromCloud, checkSyncStatus, canSync, isSyncing, syncStatus, localSnapshot, cloudSnapshot } = useManualSync();
   
@@ -34,6 +40,40 @@ export function SaveToNostrFAB({ onSaveStart, onSaveComplete, onOpenSyncDialog }
     budgets: [],
     currency: 'sats',
   });
+
+  // Current budget as string for change detection
+  const currentBudgetStr = JSON.stringify({
+    budgets: fullState.budgets,
+    currency: fullState.currency,
+    currentMonth: fullState.currentMonth,
+  });
+
+  // Reset on user change (login/logout)
+  useEffect(() => {
+    if (user) {
+      hasInitialized.current = false;
+    }
+  }, [user?.pubkey]);
+
+  // Initialize and check for changes
+  useEffect(() => {
+    // First run: initialize saved state if empty
+    if (!hasInitialized.current) {
+      hasInitialized.current = true;
+      if (!savedBudgetStr) {
+        setSavedBudgetStr(currentBudgetStr);
+        setSaveState('ready');
+      } else if (savedBudgetStr !== currentBudgetStr) {
+        setSaveState('unsaved');
+      }
+      return;
+    }
+
+    // Always check for changes - if current differs from saved, mark as unsaved
+    if (currentBudgetStr !== savedBudgetStr && saveState !== 'saving') {
+      setSaveState('unsaved');
+    }
+  }, [currentBudgetStr, savedBudgetStr, saveState]);
 
   // Update sync status on mount and when local budget changes
   useEffect(() => {
@@ -108,156 +148,168 @@ export function SaveToNostrFAB({ onSaveStart, onSaveComplete, onOpenSyncDialog }
     }
   }, [setLocalBudget, toast]);
 
-  const handleSave = async () => {
-    if (!user?.pubkey) {
-      setSaveState('not-logged-in');
-      toast({
-        title: 'Log in required',
-        description: 'Log in with Nostr to save your budget to the cloud.',
-        variant: 'destructive',
-      });
-      setTimeout(() => setSaveState('ready'), 3000);
-      return;
-    }
+   const handleSave = async () => {
+     if (!user?.pubkey) {
+       setSaveState('not-logged-in');
+       toast({
+         title: 'Log in required',
+         description: 'Log in with Nostr to save your budget to the cloud.',
+         variant: 'destructive',
+       });
+       setTimeout(() => setSaveState('unsaved'), 3000);
+       return;
+     }
 
-    if (!canSync) {
-      toast({
-        title: 'Encryption not available',
-        description: 'Your Nostr signer does not support encryption. Try a different signer.',
-        variant: 'destructive',
-      });
-      return;
-    }
+     if (!canSync) {
+       toast({
+         title: 'Encryption not available',
+         description: 'Your Nostr signer does not support encryption. Try a different signer.',
+         variant: 'destructive',
+       });
+       return;
+     }
 
-    setSaveState('saving');
-    onSaveStart?.();
+     setSaveState('saving');
+     onSaveStart?.();
 
-    try {
-      const snapshot = await createSnapshot(localBudget, [], syncStatus?.cloudChecksum);
+     try {
+       const snapshot = await createSnapshot(localBudget, [], syncStatus?.cloudChecksum);
 
-      // Check for conflicts before pushing
-      if (syncStatus?.status === 'cloud-newer' && cloudSnapshot) {
-        setShowMergeDialog(true);
-        setSaveState('ready');
-        onSaveComplete?.();
-        return;
-      }
+       // Check for conflicts before pushing
+       if (syncStatus?.status === 'cloud-newer' && cloudSnapshot) {
+         setShowMergeDialog(true);
+         setSaveState('unsaved');
+         onSaveComplete?.();
+         return;
+       }
 
-      const success = await pushToCloud(snapshot);
+       const success = await pushToCloud(snapshot);
 
-      if (success) {
-        setSaveState('success');
-        toast({
-          title: '✅ Saved to Nostr!',
-          description: `Version ${snapshot.version} backed up. Synced: ${formatSyncTime(snapshot.createdAt)}`,
-        });
+       if (success) {
+         // Mark as saved
+         setSavedBudgetStr(currentBudgetStr);
+         setSaveState('success');
+         toast({
+           title: '✅ Saved to Nostr!',
+           description: `Version ${snapshot.version} backed up. Synced: ${formatSyncTime(snapshot.createdAt)}`,
+         });
 
-        setTimeout(() => {
-          setSaveState('ready');
-          onSaveComplete?.();
-        }, 2000);
-      } else {
-        setSaveState('error');
-        toast({
-          title: 'Save failed',
-          description: 'Could not upload to Nostr. Check your connection and try again.',
-          variant: 'destructive',
-        });
+         setTimeout(() => {
+           setSaveState('ready');
+           onSaveComplete?.();
+         }, 2000);
+       } else {
+         setSaveState('error');
+         toast({
+           title: 'Save failed',
+           description: 'Could not upload to Nostr. Check your connection and try again.',
+           variant: 'destructive',
+         });
 
-        setTimeout(() => setSaveState('ready'), 3000);
-      }
-    } catch (error) {
-      setSaveState('error');
-      toast({
-        title: 'Save error',
-        description: error instanceof Error ? error.message : 'An unexpected error occurred.',
-        variant: 'destructive',
-      });
+         setTimeout(() => setSaveState('unsaved'), 3000);
+       }
+     } catch (error) {
+       setSaveState('error');
+       toast({
+         title: 'Save error',
+         description: error instanceof Error ? error.message : 'An unexpected error occurred.',
+         variant: 'destructive',
+       });
 
-      setTimeout(() => setSaveState('ready'), 3000);
-    }
-  };
+       setTimeout(() => setSaveState('unsaved'), 3000);
+     }
+   };
 
-  const getIcon = () => {
-    switch (saveState) {
-      case 'saving':
-        return <Loader2 className="h-5 w-5 animate-spin" />;
-      case 'success':
-        return <CheckCircle2 className="h-5 w-5" />;
-      case 'error':
-        return <AlertCircle className="h-5 w-5" />;
-      case 'not-logged-in':
-        return <Cloud className="h-5 w-5" />;
-      default:
-        return <Cloud className="h-5 w-5" />;
-    }
-  };
+   const getIcon = () => {
+     switch (saveState) {
+       case 'saving':
+         return <Loader2 className="h-5 w-5 animate-spin" />;
+       case 'success':
+         return <CheckCircle2 className="h-5 w-5" />;
+       case 'error':
+         return <AlertCircle className="h-5 w-5" />;
+       case 'unsaved':
+         return <Save className="h-5 w-5" />;
+       case 'not-logged-in':
+         return <Save className="h-5 w-5" />;
+       default:
+         return <Save className="h-5 w-5" />;
+     }
+   };
 
-  const getLabel = () => {
-    switch (saveState) {
-      case 'saving':
-        return 'Saving...';
-      case 'success':
-        return 'Saved!';
-      case 'error':
-        return 'Failed';
-      case 'not-logged-in':
-        return 'Login';
-      default:
-        return 'Save';
-    }
-  };
+   const getLabel = () => {
+     switch (saveState) {
+       case 'saving':
+         return 'Saving...';
+       case 'success':
+         return 'Saved!';
+       case 'error':
+         return 'Failed';
+       case 'unsaved':
+         return 'Save*';
+       case 'not-logged-in':
+         return 'Login';
+       default:
+         return 'Save';
+     }
+   };
 
-  const getTooltip = () => {
-    let status = '';
+   const getTooltip = () => {
+     let status = '';
 
-    if (syncStatus) {
-      status = getSyncStatusMessage(syncStatus);
-    }
+     if (syncStatus) {
+       status = getSyncStatusMessage(syncStatus);
+     }
 
-    switch (saveState) {
-      case 'saving':
-        return 'Uploading your budget to Nostr...';
-      case 'success':
-        return `Saved! Version ${syncStatus?.localVersion || 1}`;
-      case 'error':
-        return 'Upload failed. Click to try again.';
-      case 'not-logged-in':
-        return 'Log in with Nostr to save to cloud';
-      default:
-        return status ? `Click to save. ${status}` : 'Save your budget to Nostr cloud';
-    }
-  };
+     switch (saveState) {
+       case 'saving':
+         return 'Uploading your budget to Nostr...';
+       case 'success':
+         return `Saved! Version ${syncStatus?.localVersion || 1}`;
+       case 'error':
+         return 'Upload failed. Click to try again.';
+       case 'unsaved':
+         return 'You have unsaved changes. Click to save your budget to Nostr.';
+       case 'not-logged-in':
+         return 'Log in with Nostr to save to cloud';
+       default:
+         return status ? `Click to save. ${status}` : 'Save your budget to Nostr cloud';
+     }
+   };
 
-  const getButtonVariant = () => {
-    switch (saveState) {
-      case 'success':
-        return 'default';
-      case 'error':
-        return 'destructive';
-      case 'not-logged-in':
-        return 'outline';
-      default:
-        return 'default';
-    }
-  };
+   const getButtonVariant = () => {
+     switch (saveState) {
+       case 'success':
+         return 'default';
+       case 'error':
+         return 'destructive';
+       case 'unsaved':
+         return 'destructive';
+       case 'not-logged-in':
+         return 'outline';
+       default:
+         return 'default';
+     }
+   };
 
-  const getButtonClass = () => {
-    let baseClass = 'fixed z-40 rounded-full shadow-lg h-14 w-14 flex items-center justify-center transition-all duration-200';
+   const getButtonClass = () => {
+     let baseClass = 'fixed z-40 rounded-full shadow-lg h-14 w-14 flex items-center justify-center transition-all duration-200';
 
-    switch (saveState) {
-      case 'saving':
-        return baseClass + ' bg-blue-600 hover:bg-blue-700';
-      case 'success':
-        return baseClass + ' bg-green-600 hover:bg-green-700';
-      case 'error':
-        return baseClass + ' bg-red-600 hover:bg-red-700';
-      case 'not-logged-in':
-        return baseClass + ' bg-gray-500 hover:bg-gray-600';
-      default:
-        return baseClass + ' bg-blue-600 hover:bg-blue-700';
-    }
-  };
+     switch (saveState) {
+       case 'saving':
+         return baseClass + ' bg-blue-600 hover:bg-blue-700';
+       case 'success':
+         return baseClass + ' bg-green-600 hover:bg-green-700';
+       case 'unsaved':
+         return baseClass + ' bg-red-600 hover:bg-red-700';
+       case 'error':
+         return baseClass + ' bg-red-600 hover:bg-red-700';
+       case 'not-logged-in':
+         return baseClass + ' bg-gray-500 hover:bg-gray-600';
+       default:
+         return baseClass + ' bg-blue-600 hover:bg-blue-700';
+     }
+   };
 
   return (
     <>
@@ -280,21 +332,21 @@ export function SaveToNostrFAB({ onSaveStart, onSaveComplete, onOpenSyncDialog }
         )}
 
         <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              onClick={handleSave}
-              disabled={saveState === 'saving' || isSyncing || !user}
-              variant={getButtonVariant()}
-              size="lg"
-              className={getButtonClass()}
-            >
-              {getIcon()}
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="left" className="mb-2">
-            <p>{getTooltip()}</p>
-          </TooltipContent>
-        </Tooltip>
+           <TooltipTrigger asChild>
+             <Button
+               onClick={handleSave}
+               disabled={saveState === 'saving' || isSyncing || !user || saveState === 'not-logged-in'}
+               variant={getButtonVariant()}
+               size="lg"
+               className={getButtonClass()}
+             >
+               {getIcon()}
+             </Button>
+           </TooltipTrigger>
+           <TooltipContent side="left" className="mb-2">
+             <p>{getTooltip()}</p>
+           </TooltipContent>
+         </Tooltip>
 
         {/* Open history dialog button */}
         {user && (
