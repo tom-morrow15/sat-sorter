@@ -164,22 +164,21 @@ export default function SpendingBreakdownPage() {
                 {monthLabel}
               </p>
 
-              <div className="mt-4">
+              <div className="mt-6">
                 <SpendingGauge
                   segments={gaugeSegments}
-                  capacity={totalBudget > 0 ? toDisplay(totalBudget).value : undefined}
                   size={360}
-                  thickness={24}
+                  thickness={26}
                   gap={3}
                 >
-                  <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                  <p className="text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground">
                     Spent
                   </p>
-                  <p className="text-4xl sm:text-5xl font-bold tabular-nums mt-1">
+                  <p className="text-4xl sm:text-5xl font-bold tabular-nums mt-1 leading-none">
                     {totalSpentDisplay.label}
                   </p>
                   {totalBudget > 0 && (
-                    <p className="text-xs text-muted-foreground mt-1 tabular-nums">
+                    <p className="text-xs text-muted-foreground mt-2 tabular-nums">
                       of {totalBudgetDisplay.label} budget
                     </p>
                   )}
