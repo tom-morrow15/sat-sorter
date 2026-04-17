@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect } from 'react';
-import { useState, useRef, useEffect } from 'react';
 import { Trash2, GripVertical, Edit2, Check, X, Receipt } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

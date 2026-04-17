@@ -70,15 +70,16 @@ export function AddTransactionDialog({
   };
 
   const handleSave = () => {
-    if (!description.trim() || totalSats <= 0 || !selectedLineItemId) return;
+    if (!description.trim() || totalSats <= 0 || !selectedLineItemId || !selectedBucketId) return;
 
     const transaction: any = {
-      date: new Date().toISOString().split('T')[0],
+      date: new Date().toISOString(),
       description: description.trim(),
       amount: totalSats,
       isIncome,
       bucketId: selectedBucketId,
       lineItemId: selectedLineItemId,
+      source: 'manual',
     };
 
     // When in USD mode, store the USD amount as source of truth

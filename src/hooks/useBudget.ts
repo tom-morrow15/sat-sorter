@@ -33,16 +33,23 @@ export function useBudget() {
     };
   }, [state.budgets, state.currentMonth]);
 
-  // Save current budget
+    // Save current budget
   const saveBudget = useCallback((budget: MonthlyBudget) => {
     setState(prev => {
       const existingIndex = prev.budgets.findIndex(b => b.month === budget.month);
       const newBudgets = [...prev.budgets];
 
+      // Ensure transactions array exists
+      const safeBudget = {
+        ...budget,
+        transactions: budget.transactions || [],
+        buckets: budget.buckets || [],
+      };
+
       if (existingIndex >= 0) {
-        newBudgets[existingIndex] = budget;
+        newBudgets[existingIndex] = safeBudget;
       } else {
-        newBudgets.push(budget);
+        newBudgets.push(safeBudget);
       }
 
       return { ...prev, budgets: newBudgets };
@@ -176,9 +183,16 @@ export function useBudget() {
 
   // Add a transaction
   const addTransaction = useCallback((transaction: Omit<Transaction, 'id'>) => {
+    // Defensive: ensure required fields are present
+    if (!transaction.bucketId || !transaction.lineItemId) {
+      console.error('[useBudget] Cannot add transaction without bucketId or lineItemId', transaction);
+      throw new Error('Transaction must have bucketId and lineItemId');
+    }
+
     const newTransaction: Transaction = {
       ...transaction,
       id: generateId(),
+      date: transaction.date || new Date().toISOString(),
     };
 
     const updatedBudget = {
