@@ -387,16 +387,16 @@ export function BucketCard({
                </div>
              )}
 
-              {/* Add Transaction Dialog */}
-              <AddTransactionDialog
-                open={showTransactionDialog}
-                onOpenChange={setShowTransactionDialog}
-                buckets={buckets || []}
-                defaultBucketId={bucket.id}
-                currency={currency}
-                isIncome={bucket.isIncome}
-                onSave={(transaction) => onAddTransaction?.(transaction)}
-              />
+               {/* Add Transaction Dialog */}
+               <AddTransactionDialog
+                 open={showTransactionDialog}
+                 onOpenChange={setShowTransactionDialog}
+                 buckets={buckets || []}
+                 defaultBucketId={bucket.id}
+                 currency={currency}
+                 isIncome={bucket.isIncome}
+                 onSave={(transaction) => onAddTransaction?.(transaction)}
+               />
             </CardContent>
          </CollapsibleContent>
        </Collapsible>

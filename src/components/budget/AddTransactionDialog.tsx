@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useBitcoinPrice, satsToUsd, usdToSats, formatSats, formatUsd } from '@/hooks/useBitcoinPrice';
+import { useToast } from '@/hooks/useToast';
 import type { Bucket } from '@/lib/budgetTypes';
 
 interface AddTransactionDialogProps {
@@ -49,6 +50,7 @@ export function AddTransactionDialog({
   onSave,
 }: AddTransactionDialogProps) {
   const { data: priceData } = useBitcoinPrice();
+  const { toast } = useToast();
   const [description, setDescription] = useState('');
   const [amountInput, setAmountInput] = useState('');
   const [selectedBucketId, setSelectedBucketId] = useState(defaultBucketId || '');
@@ -91,6 +93,12 @@ export function AddTransactionDialog({
 
     onSave(transaction);
 
+    // Show success toast
+    toast({
+      title: 'Transaction added',
+      description: `${isIncome ? 'Income' : 'Expense'} recorded: ${description.trim()}`,
+    });
+
     // Reset form
     setDescription('');
     setAmountInput('');
@@ -99,7 +107,7 @@ export function AddTransactionDialog({
     onOpenChange(false);
   };
 
-  const canSave = description.trim() && totalSats > 0 && selectedLineItemId !== '';
+   const canSave = description.trim() && totalSats > 0 && selectedLineItemId !== '' && selectedBucketId !== '';
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

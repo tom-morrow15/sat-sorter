@@ -183,11 +183,6 @@ export function useBudget() {
 
   // Add a transaction
   const addTransaction = useCallback((transaction: Omit<Transaction, 'id'>) => {
-    // Defensive: warn if required fields are missing, but still allow creation
-    if (!transaction.bucketId || !transaction.lineItemId) {
-      console.warn('[useBudget] Transaction missing bucketId or lineItemId - it will appear as unassigned', transaction);
-    }
-
     const newTransaction: Transaction = {
       ...transaction,
       id: generateId(),

@@ -83,15 +83,15 @@ export default function TransactionsPage() {
         }}
       />
 
-      <main className="container mx-auto px-3 sm:px-4 py-4 lg:py-6">
-        <div className="space-y-4">
-          {/* Title */}
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold">Transactions</h1>
-            <p className="text-muted-foreground text-sm mt-1">
-              All transactions for {new Date(`${currentMonth}-01`).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-            </p>
-          </div>
+       <main className="container mx-auto px-3 sm:px-4 py-4 lg:py-6">
+         <div className="space-y-4">
+           {/* Title */}
+           <div>
+             <h1 className="text-2xl sm:text-3xl font-bold">Transactions</h1>
+             <p className="text-muted-foreground text-sm mt-1">
+               All transactions for {new Date(`${currentMonth}-01`).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+             </p>
+           </div>
 
            {/* Transactions Panel */}
            <TransactionsPanel

@@ -84,7 +84,10 @@ export function TransactionsPanel({
   }, [transactions, lineItemIdFilter]);
 
   const unassigned = getUnassignedTransactions(transactionsByLineItem);
-  const assigned = transactionsByLineItem.filter(t => t.lineItemId !== null);
+  // Sort assigned transactions by date (newest first) so recent additions are visible at the top
+  const assigned = transactionsByLineItem
+    .filter(t => t.lineItemId !== null)
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   // Use filtered transactions if filter is active, otherwise show all
   const displayedTransactions = useMemo(() => {
@@ -268,11 +271,11 @@ export function TransactionsPanel({
             <div>
               <div className="flex items-center gap-2 mb-2">
                 <CheckCircle2 className="h-4 w-4 text-success" />
-                <span className="text-sm font-medium">Categorized</span>
+                <span className="text-sm font-medium">Categorized ({assigned.length})</span>
               </div>
-              <ScrollArea className="max-h-[300px] w-full">
+              <ScrollArea className="max-h-[500px] w-full">
                 <div className="space-y-1">
-                  {assigned.slice(0, 10).map((transaction) => {
+                  {assigned.map((transaction) => {
                     const bucket = buckets.find(b => b.id === transaction.bucketId);
                     const lineItem = bucket?.lineItems.find(
                       l => l.id === transaction.lineItemId
