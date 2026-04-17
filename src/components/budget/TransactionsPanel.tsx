@@ -34,7 +34,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { useBitcoinPrice, formatSats, satsToUsd, usdToSats, formatUsd } from '@/hooks/useBitcoinPrice';
 import { getUnassignedTransactions, getTransactionUsdAmount, getTransactionSatAmount } from '@/lib/budgetTypes';
 import type { Transaction, Bucket } from '@/lib/budgetTypes';
@@ -273,7 +272,7 @@ export function TransactionsPanel({
                 <CheckCircle2 className="h-4 w-4 text-success" />
                 <span className="text-sm font-medium">Categorized ({assigned.length})</span>
               </div>
-              <ScrollArea className="max-h-[500px] w-full">
+              <div className="w-full">
                 <div className="space-y-1">
                   {assigned.map((transaction) => {
                     const bucket = buckets.find(b => b.id === transaction.bucketId);
@@ -344,7 +343,7 @@ export function TransactionsPanel({
                     );
                   })}
                 </div>
-              </ScrollArea>
+              </div>
             </div>
           )}
 
@@ -356,7 +355,7 @@ export function TransactionsPanel({
                   Search Results ({filteredTransactions.length})
                 </span>
               </div>
-              <ScrollArea className="max-h-[300px] w-full">
+              <div className="w-full">
                 <div className="space-y-1">
                   {filteredTransactions.map((transaction) => {
                     const bucket = buckets.find(b => b.id === transaction.bucketId);
@@ -434,7 +433,7 @@ export function TransactionsPanel({
                     );
                   })}
                 </div>
-              </ScrollArea>
+              </div>
             </div>
           )}
 
