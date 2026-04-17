@@ -1,24 +1,50 @@
 import { useMemo } from 'react';
 import { useSeoMeta } from '@unhead/react';
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
+import {
+  Home,
+  Car,
+  Utensils,
+  Heart,
+  PiggyBank,
+  Wallet,
+  ShoppingBag,
+  Briefcase,
+  GraduationCap,
+  Plane,
+  Gift,
+  Music,
+  Dumbbell,
+  Baby,
+  Dog,
+  Stethoscope,
+  type LucideIcon,
+} from 'lucide-react';
 import { BudgetHeader } from '@/components/budget/BudgetHeader';
+import { SpendingGauge } from '@/components/budget/SpendingGauge';
 import { useBudget } from '@/hooks/useBudget';
 import { calculateSpentForBucket } from '@/lib/budgetTypes';
 import { formatSats, satsToUsd } from '@/hooks/useBitcoinPrice';
 import { useBitcoinPrice } from '@/hooks/useBitcoinPrice';
 
-const COLORS = [
-  '#3b82f6', // blue
-  '#8b5cf6', // purple
-  '#f59e0b', // amber
-  '#ec4899', // pink
-  '#06b6d4', // cyan
-  '#10b981', // emerald
-  '#f97316', // orange
-  '#6366f1', // indigo
-  '#14b8a6', // teal
-  '#d97706', // orange-600
-];
+// Same icon map as BucketCard so the visuals stay consistent across the app.
+const iconMap: Record<string, LucideIcon> = {
+  home: Home,
+  car: Car,
+  utensils: Utensils,
+  heart: Heart,
+  'piggy-bank': PiggyBank,
+  wallet: Wallet,
+  'shopping-bag': ShoppingBag,
+  briefcase: Briefcase,
+  'graduation-cap': GraduationCap,
+  plane: Plane,
+  gift: Gift,
+  music: Music,
+  dumbbell: Dumbbell,
+  baby: Baby,
+  dog: Dog,
+  stethoscope: Stethoscope,
+};
 
 export default function SpendingBreakdownPage() {
   const { currentBudget, currency, currentMonth, toggleCurrency, setCurrentMonth } = useBudget();
@@ -45,35 +71,71 @@ export default function SpendingBreakdownPage() {
     );
   };
 
-  // Calculate spending by bucket
+  // Build per-category data using the bucket's own color + icon.
   const breakdownData = useMemo(() => {
-    const expenseBuckets = currentBudget.buckets.filter(b => !b.isIncome);
-    
+    const expenseBuckets = currentBudget.buckets.filter((b) => !b.isIncome);
+
     return expenseBuckets
-      .map(bucket => {
+      .map((bucket) => {
         const spent = calculateSpentForBucket(bucket, currentBudget.transactions);
+        const planned = bucket.lineItems.reduce((sum, item) => sum + item.plannedAmount, 0);
         return {
+          id: bucket.id,
           name: bucket.name,
-          value: spent,
-          spent: spent,
-          budget: bucket.lineItems.reduce((sum, item) => sum + item.plannedAmount, 0),
+          color: bucket.color,
+          icon: bucket.icon,
+          spent,
+          planned,
         };
       })
-      .filter(item => item.value > 0)
-      .sort((a, b) => b.value - a.value);
+      .filter((item) => item.spent > 0 || item.planned > 0)
+      .sort((a, b) => b.spent - a.spent);
   }, [currentBudget]);
 
-  const totalSpent = useMemo(() => {
-    return breakdownData.reduce((sum, item) => sum + item.value, 0);
-  }, [breakdownData]);
+  const totalSpent = useMemo(
+    () => breakdownData.reduce((sum, item) => sum + item.spent, 0),
+    [breakdownData]
+  );
 
-  const formatAmount = (sats: number) => {
+  const totalBudget = useMemo(
+    () => breakdownData.reduce((sum, item) => sum + item.planned, 0),
+    [breakdownData]
+  );
+
+  // Convert sats -> display currency.
+  const toDisplay = (sats: number): { value: number; label: string } => {
     if (currency === 'usd' && priceData) {
       const usd = satsToUsd(sats, priceData.usdPerBtc);
-      return `$${usd.toFixed(2)}`;
+      return {
+        value: usd,
+        label: usd.toLocaleString('en-US', {
+          style: 'currency',
+          currency: 'USD',
+          minimumFractionDigits: usd >= 1000 ? 0 : 2,
+          maximumFractionDigits: usd >= 1000 ? 0 : 2,
+        }),
+      };
     }
-    return `${formatSats(sats)} sats`;
+    return { value: sats, label: `${formatSats(sats)} sats` };
   };
+
+  const totalSpentDisplay = toDisplay(totalSpent);
+  const totalBudgetDisplay = toDisplay(totalBudget);
+
+  // Gauge segments — use display values so the arc matches what the user sees.
+  const gaugeSegments = breakdownData.map((b) => ({
+    id: b.id,
+    color: b.color,
+    value: toDisplay(b.spent).value,
+  }));
+
+  const monthLabel = useMemo(() => {
+    const [year, month] = currentMonth.split('-').map(Number);
+    return new Date(year, month - 1).toLocaleDateString(undefined, {
+      month: 'long',
+      year: 'numeric',
+    });
+  }, [currentMonth]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -88,82 +150,113 @@ export default function SpendingBreakdownPage() {
         onSelectMonth={setCurrentMonth}
       />
 
-      <main className="container mx-auto px-3 sm:px-4 py-4 lg:py-6">
-        <div className="space-y-6">
-          {/* Title */}
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold">Spending Breakdown</h1>
-            <p className="text-muted-foreground text-sm mt-1">
-              Your expenses by category this month
-            </p>
+      <main className="container mx-auto max-w-2xl px-4 py-6 lg:py-10">
+        {breakdownData.length === 0 ? (
+          <div className="text-center py-24">
+            <h1 className="text-2xl sm:text-3xl font-bold mb-2">Spending Breakdown</h1>
+            <p className="text-muted-foreground">No spending data yet for {monthLabel}.</p>
           </div>
+        ) : (
+          <div className="space-y-8">
+            {/* Gauge card */}
+            <section className="rounded-2xl bg-card border border-border/60 px-6 pt-8 pb-6 shadow-sm">
+              <p className="text-center text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                {monthLabel}
+              </p>
 
-          {breakdownData.length === 0 ? (
-            <div className="text-center py-12">
-              <p className="text-muted-foreground">No spending data yet</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Pie Chart */}
-              <div className="lg:col-span-2">
-                <div className="bg-card border rounded-lg p-6">
-                  <ResponsiveContainer width="100%" height={300}>
-                    <PieChart>
-                      <Pie
-                        data={breakdownData}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                        outerRadius={80}
-                        fill="#8884d8"
-                        dataKey="value"
-                      >
-                        {breakdownData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        formatter={(value) => formatAmount(value as number)}
+              <div className="mt-4">
+                <SpendingGauge
+                  segments={gaugeSegments}
+                  capacity={totalBudget > 0 ? toDisplay(totalBudget).value : undefined}
+                  size={360}
+                  thickness={24}
+                  gap={3}
+                >
+                  <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                    Spent
+                  </p>
+                  <p className="text-4xl sm:text-5xl font-bold tabular-nums mt-1">
+                    {totalSpentDisplay.label}
+                  </p>
+                  {totalBudget > 0 && (
+                    <p className="text-xs text-muted-foreground mt-1 tabular-nums">
+                      of {totalBudgetDisplay.label} budget
+                    </p>
+                  )}
+                </SpendingGauge>
+              </div>
+            </section>
+
+            {/* Categories list */}
+            <section>
+              <div className="flex items-center justify-between mb-3 px-1">
+                <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Spending Categories
+                </h2>
+                <span className="text-xs text-muted-foreground">
+                  {breakdownData.length} {breakdownData.length === 1 ? 'category' : 'categories'}
+                </span>
+              </div>
+
+              <ul className="rounded-2xl bg-card border border-border/60 divide-y divide-border/60 overflow-hidden shadow-sm">
+                {breakdownData.map((item) => {
+                  const Icon = iconMap[item.icon] || Wallet;
+                  const spentDisplay = toDisplay(item.spent);
+                  const plannedDisplay = item.planned > 0 ? toDisplay(item.planned) : null;
+                  const overBudget = item.planned > 0 && item.spent > item.planned;
+
+                  return (
+                    <li
+                      key={item.id}
+                      className="relative flex items-center gap-3 py-4 pl-5 pr-4"
+                    >
+                      {/* Colored left accent bar */}
+                      <span
+                        aria-hidden
+                        className="absolute left-0 top-2 bottom-2 w-1 rounded-r-full"
+                        style={{ backgroundColor: item.color }}
                       />
-                      <Legend />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
 
-              {/* Legend and Stats */}
-              <div className="space-y-4">
-                <div className="bg-card border rounded-lg p-6">
-                  <h3 className="font-semibold mb-4">Total Spent</h3>
-                  <p className="text-3xl font-bold text-primary">
-                    {formatAmount(totalSpent)}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {breakdownData.length} categories
-                  </p>
-                </div>
-
-                {/* Category Breakdown List */}
-                <div className="bg-card border rounded-lg p-6 space-y-3 max-h-96 overflow-y-auto">
-                  <h3 className="font-semibold mb-3">By Category</h3>
-                  {breakdownData.map((item, index) => (
-                    <div key={item.name} className="flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-2">
-                        <div
-                          className="h-3 w-3 rounded-full"
-                          style={{ backgroundColor: COLORS[index % COLORS.length] }}
-                        />
-                        <span className="text-muted-foreground">{item.name}</span>
+                      {/* Icon chip */}
+                      <div
+                        className="h-10 w-10 rounded-full flex items-center justify-center shrink-0"
+                        style={{ backgroundColor: `${item.color}1f` }} // ~12% alpha
+                      >
+                        <Icon className="h-5 w-5" style={{ color: item.color }} />
                       </div>
-                      <span className="font-medium">{formatAmount(item.value)}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
+
+                      {/* Name */}
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm truncate">{item.name}</p>
+                        {plannedDisplay && (
+                          <p className="text-xs text-muted-foreground tabular-nums mt-0.5">
+                            of {plannedDisplay.label} budgeted
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Amount */}
+                      <div className="text-right shrink-0">
+                        <p
+                          className={`text-sm font-semibold tabular-nums ${
+                            overBudget ? 'text-destructive' : ''
+                          }`}
+                        >
+                          {spentDisplay.label}
+                        </p>
+                        {plannedDisplay && (
+                          <p className="text-xs text-muted-foreground tabular-nums mt-0.5">
+                            {Math.round((item.spent / item.planned) * 100)}%
+                          </p>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          </div>
+        )}
       </main>
     </div>
   );
