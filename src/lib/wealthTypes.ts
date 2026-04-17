@@ -93,6 +93,138 @@ export function calculateWealthSummary(
   };
 }
 
+/**
+ * Convert a Unix timestamp (seconds) to a UTC day bucket key ("YYYY-MM-DD").
+ * Used to keep at most one snapshot per address per day, so historical data
+ * stays compact when synced across devices.
+ */
+export function dayBucket(timestampSec: number): string {
+  const d = new Date(timestampSec * 1000);
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/**
+ * Collapse balance history so there's at most one snapshot per address per
+ * UTC day. When multiple snapshots exist for the same address on the same
+ * day, the latest one wins. Returns snapshots sorted oldest -> newest.
+ */
+export function dedupeHistoryByDay(history: BalanceSnapshot[]): BalanceSnapshot[] {
+  const byKey = new Map<string, BalanceSnapshot>();
+  for (const snap of history) {
+    const key = `${snap.addressId}|${dayBucket(snap.timestamp)}`;
+    const existing = byKey.get(key);
+    if (!existing || snap.timestamp > existing.timestamp) {
+      byKey.set(key, snap);
+    }
+  }
+  return Array.from(byKey.values()).sort((a, b) => a.timestamp - b.timestamp);
+}
+
+/**
+ * Merge two wealth tracker states without losing user data.
+ *
+ * Watched addresses are merged by their `address` string (not by `id`, which
+ * is only meaningful within a single device). If both sides have the same
+ * Bitcoin address, we keep the entry with the earliest createdAt (so the id
+ * stays stable) but prefer the most recent label.
+ *
+ * Balance history is merged across both sides with day-level deduplication,
+ * and all addressIds are rewritten to the merged address id so cross-device
+ * history lines up on a single timeline.
+ */
+export function mergeWealthStates(
+  local: WealthTrackerState,
+  remote: WealthTrackerState
+): WealthTrackerState {
+  // Build a merged address list keyed by the btc address itself.
+  type MergedAddress = WatchedAddress & { _idAliases: Set<string> };
+  const byBtcAddr = new Map<string, MergedAddress>();
+
+  const ingest = (addrs: WatchedAddress[], isRemote: boolean) => {
+    for (const a of addrs) {
+      if (!a || !a.address) continue;
+      const existing = byBtcAddr.get(a.address);
+      if (!existing) {
+        byBtcAddr.set(a.address, {
+          ...a,
+          _idAliases: new Set([a.id]),
+        });
+      } else {
+        existing._idAliases.add(a.id);
+        // Keep the earliest createdAt so we have a stable creation date.
+        if (a.createdAt && (!existing.createdAt || a.createdAt < existing.createdAt)) {
+          existing.createdAt = a.createdAt;
+        }
+        // Prefer the remote label on ties — that's what the user explicitly
+        // saved — but only if it's non-empty.
+        if (isRemote && a.label && a.label.trim()) {
+          existing.label = a.label;
+        } else if (!existing.label && a.label) {
+          existing.label = a.label;
+        }
+      }
+    }
+  };
+
+  ingest(local.watchedAddresses || [], false);
+  ingest(remote.watchedAddresses || [], true);
+
+  // Build an alias map: any id ever used for an address -> the canonical id
+  // we'll keep in the merged state.
+  const idRemap = new Map<string, string>();
+  const mergedAddresses: WatchedAddress[] = [];
+  for (const merged of byBtcAddr.values()) {
+    const { _idAliases, ...rest } = merged;
+    for (const alias of _idAliases) {
+      idRemap.set(alias, rest.id);
+    }
+    mergedAddresses.push(rest);
+  }
+
+  // Combine histories, rewriting addressIds through the remap so snapshots
+  // for the same BTC address all share the same addressId.
+  const allHistory: BalanceSnapshot[] = [];
+  const pushAll = (items: BalanceSnapshot[]) => {
+    for (const s of items || []) {
+      if (!s || !s.addressId) continue;
+      const canonicalId = idRemap.get(s.addressId);
+      if (!canonicalId) continue; // orphan snapshot (address was deleted)
+      allHistory.push({ ...s, addressId: canonicalId });
+    }
+  };
+  pushAll(local.balanceHistory || []);
+  pushAll(remote.balanceHistory || []);
+
+  const mergedHistory = dedupeHistoryByDay(allHistory);
+
+  const lastSyncTime = Math.max(
+    local.lastSyncTime || 0,
+    remote.lastSyncTime || 0
+  );
+
+  return {
+    watchedAddresses: mergedAddresses,
+    balanceHistory: mergedHistory,
+    lastSyncTime: lastSyncTime || undefined,
+    // Don't carry over old error messages after a successful merge.
+    lastSyncError: undefined,
+  };
+}
+
+/**
+ * A small "richness" score used to detect whether a remote snapshot has more
+ * data than a local one — mirrors the safety guard in useBudgetSync so we
+ * never accidentally overwrite a device's richer state with a stub.
+ */
+export function scoreWealthState(state: WealthTrackerState): number {
+  const addrCount = state.watchedAddresses?.length || 0;
+  const histCount = state.balanceHistory?.length || 0;
+  return addrCount * 1000 + histCount;
+}
+
 // Validate Bitcoin address format (basic check)
 export function isValidBitcoinAddress(address: string): boolean {
   // Basic validation for common Bitcoin address formats

@@ -1,29 +1,64 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useLocalStorage } from './useLocalStorage';
 import { useBitcoinPrice } from './useBitcoinPrice';
 import { useMultipleAddressBalances } from './useAddressBalance';
+import { useWealthSync } from './useWealthSync';
+import { useCurrentUser } from './useCurrentUser';
 import {
   WealthTrackerState,
   generateAddressId,
   generateSnapshotId,
   calculateWealthSummary,
+  dayBucket,
+  dedupeHistoryByDay,
   WealthSummary,
 } from '@/lib/wealthTypes';
 
 const WEALTH_TRACKER_KEY = 'sat-sorter-wealth-tracker';
 
-// Only record a new snapshot for an address when it's been this long since the
-// last snapshot OR when the balance actually changed. Prevents history spam.
-const SNAPSHOT_THROTTLE_MS = 60 * 60 * 1000; // 1 hour
+// Debounce window before pushing local wealth changes to Nostr. Long enough
+// to batch rapid edits (e.g. renaming an address while the user types) but
+// short enough that switching devices feels snappy.
+const NOSTR_PUSH_DEBOUNCE_MS = 5_000;
 
 const DEFAULT_STATE: WealthTrackerState = {
   watchedAddresses: [],
   balanceHistory: [],
 };
 
+/**
+ * Build a stable string fingerprint of the parts of wealth state that we
+ * actually care about persisting to Nostr. Used to detect whether a push is
+ * needed after a local change.
+ */
+function persistentFingerprint(state: WealthTrackerState): string {
+  return JSON.stringify({
+    addresses: [...(state.watchedAddresses || [])]
+      .map((a) => ({ address: a.address, label: a.label, createdAt: a.createdAt }))
+      .sort((a, b) => (a.address < b.address ? -1 : 1)),
+    history: [...(state.balanceHistory || [])]
+      .map((s) => ({
+        addressId: s.addressId,
+        day: dayBucket(s.timestamp),
+        sats: s.balanceSats,
+      }))
+      .sort((a, b) =>
+        a.addressId === b.addressId
+          ? a.day < b.day
+            ? -1
+            : 1
+          : a.addressId < b.addressId
+          ? -1
+          : 1
+      ),
+  });
+}
+
 export function useWealthTracker() {
   const [state, setState] = useLocalStorage<WealthTrackerState>(WEALTH_TRACKER_KEY, DEFAULT_STATE);
   const { data: priceData } = useBitcoinPrice();
+  const { user } = useCurrentUser();
+  const { uploadWealth, canSync } = useWealthSync();
 
   // Fetch live balances for every watched address.
   const addresses = useMemo(
@@ -53,35 +88,35 @@ export function useWealthTracker() {
     return map;
   }, [balanceMap, state.watchedAddresses]);
 
-  // Whenever fresh balances come in, persist a snapshot so we can build the
-  // wealth-over-time chart.
+  // When fresh balances come in, record daily snapshots. We keep at most one
+  // snapshot per address per UTC day — the latest one wins — so the synced
+  // history stays compact no matter how often the user refreshes.
   useEffect(() => {
     if (!priceData || !balanceMap || balanceMap.size === 0) return;
 
     const nowSec = Math.floor(Date.now() / 1000);
-    const nowMs = Date.now();
+    const today = dayBucket(nowSec);
 
     setState((prev) => {
-      const newSnapshots = [...prev.balanceHistory];
       let changed = false;
+      // Snapshots we're keeping from history, indexed for fast edit-in-place.
+      const historyByKey = new Map<string, (typeof prev.balanceHistory)[number]>();
+      for (const snap of prev.balanceHistory) {
+        historyByKey.set(`${snap.addressId}|${dayBucket(snap.timestamp)}`, snap);
+      }
 
       for (const watched of prev.watchedAddresses) {
         const live = balanceMap.get(watched.address);
         if (!live) continue;
 
-        // Find the most recent snapshot for this address.
-        const history = prev.balanceHistory
-          .filter((b) => b.addressId === watched.id)
-          .sort((a, b) => a.timestamp - b.timestamp);
-        const last = history[history.length - 1];
+        const key = `${watched.id}|${today}`;
+        const existing = historyByKey.get(key);
 
-        const balanceChanged = !last || last.balanceSats !== live.balanceSats;
-        const enoughTimePassed =
-          !last || nowMs - last.timestamp * 1000 >= SNAPSHOT_THROTTLE_MS;
-
-        if (balanceChanged || enoughTimePassed) {
-          newSnapshots.push({
-            id: generateSnapshotId(),
+        // Only record a new snapshot if we don't have one today, or if today's
+        // recorded balance differs from what we just fetched.
+        if (!existing || existing.balanceSats !== live.balanceSats) {
+          historyByKey.set(key, {
+            id: existing?.id || generateSnapshotId(),
             addressId: watched.id,
             timestamp: nowSec,
             balanceSats: live.balanceSats,
@@ -96,7 +131,9 @@ export function useWealthTracker() {
 
       return {
         ...prev,
-        balanceHistory: newSnapshots,
+        balanceHistory: Array.from(historyByKey.values()).sort(
+          (a, b) => a.timestamp - b.timestamp
+        ),
         lastSyncTime: nowSec,
         lastSyncError: undefined,
       };
@@ -111,6 +148,62 @@ export function useWealthTracker() {
       lastSyncError: balanceError instanceof Error ? balanceError.message : String(balanceError),
     }));
   }, [balanceError, setState]);
+
+  // --- Nostr auto-push ---------------------------------------------------
+  //
+  // Whenever the persistent parts of wealth state change (addresses added /
+  // removed / renamed, or a new daily snapshot is recorded), push the state
+  // to Nostr after a short debounce. This keeps devices in sync automatically
+  // — no "Save" button needed like the budget flow.
+  const lastPushedFingerprint = useRef<string | null>(null);
+  const pushTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasInitialized = useRef(false);
+
+  useEffect(() => {
+    if (!user?.pubkey || !canSync) return;
+    // Don't push an empty state — NostrSync hasn't finished downloading yet,
+    // or the user really has no addresses. Either way, uploadWealth's guard
+    // would reject it, so no point scheduling.
+    if (state.watchedAddresses.length === 0) return;
+
+    const fingerprint = persistentFingerprint(state);
+
+    // First run for this user session: just record the baseline. Don't push
+    // yet — NostrSync may still be merging data in. This avoids a race where
+    // we push stale local state over richer remote data.
+    if (!hasInitialized.current) {
+      hasInitialized.current = true;
+      lastPushedFingerprint.current = fingerprint;
+      return;
+    }
+
+    if (fingerprint === lastPushedFingerprint.current) return;
+
+    if (pushTimer.current) clearTimeout(pushTimer.current);
+    pushTimer.current = setTimeout(async () => {
+      const latest = persistentFingerprint(state);
+      // Another change may have arrived while we were debouncing.
+      if (latest === lastPushedFingerprint.current) return;
+
+      const ok = await uploadWealth(state);
+      if (ok) {
+        lastPushedFingerprint.current = latest;
+      }
+    }, NOSTR_PUSH_DEBOUNCE_MS);
+
+    return () => {
+      if (pushTimer.current) clearTimeout(pushTimer.current);
+    };
+  }, [state, user?.pubkey, canSync, uploadWealth]);
+
+  // When the user changes (login / logout), reset the push baseline so the
+  // next user's state doesn't get pushed under the wrong identity.
+  useEffect(() => {
+    hasInitialized.current = false;
+    lastPushedFingerprint.current = null;
+  }, [user?.pubkey]);
+
+  // --- Mutations ---------------------------------------------------------
 
   // Add a new address to watch.
   const addAddress = useCallback(
@@ -169,7 +262,7 @@ export function useWealthTracker() {
 
       setState((prev) => ({
         ...prev,
-        balanceHistory: [
+        balanceHistory: dedupeHistoryByDay([
           ...prev.balanceHistory,
           {
             id: generateSnapshotId(),
@@ -179,7 +272,7 @@ export function useWealthTracker() {
             balanceUsd: (balanceSats / 100_000_000) * priceData.usdPerBtc,
             btcPrice: priceData.usdPerBtc,
           },
-        ],
+        ]),
       }));
     },
     [setState, priceData]
@@ -285,6 +378,9 @@ export function useWealthTracker() {
     isLoadingBalances,
     isFetchingBalances,
     balanceError,
+
+    // Nostr sync status
+    canSyncToNostr: canSync,
 
     // Actions
     addAddress,

@@ -4,10 +4,23 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useAppContext } from '@/hooks/useAppContext';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import type { BudgetState, MonthlyBudget } from '@/lib/budgetTypes';
+import type { WealthTrackerState } from '@/lib/wealthTypes';
+import { mergeWealthStates } from '@/lib/wealthTypes';
 import { useToast } from '@/hooks/useToast';
 
 const APP_IDENTIFIER = 'sat-sorter/budget-data';
 const BUDGET_KIND = 30078;
+
+// Wealth tracker — same NIP-78 kind, different d-tag so the two datasets
+// live side-by-side as separate addressable events.
+const WEALTH_APP_IDENTIFIER = 'sat-sorter/wealth-data';
+const WEALTH_KIND = 30078;
+const WEALTH_STORAGE_KEY = 'sat-sorter-wealth-tracker';
+
+const EMPTY_WEALTH_STATE: WealthTrackerState = {
+  watchedAddresses: [],
+  balanceHistory: [],
+};
 
 // Key used by the Save button to track "last saved state" so the save button
 // can correctly indicate whether there are unsaved changes. After a successful
@@ -145,9 +158,16 @@ export function NostrSync() {
     currency: 'sats',
   });
 
+  // Access local wealth tracker state (same storage key as useWealthTracker).
+  const [, setLocalWealth] = useLocalStorage<WealthTrackerState>(
+    WEALTH_STORAGE_KEY,
+    EMPTY_WEALTH_STATE
+  );
+
   // Track which pubkeys we've already attempted to sync for in this session
   // so we don't re-download on every re-render / re-login.
   const syncedPubkeys = useRef<Set<string>>(new Set());
+  const syncedWealthPubkeys = useRef<Set<string>>(new Set());
 
   // Also store the save-button tracker so we can prime it after download.
   const [, setSavedBudgetStr] = useLocalStorage<string>(SAVED_BUDGET_KEY, '');
@@ -344,6 +364,161 @@ export function NostrSync() {
     // We intentionally exclude localBudget from deps — this effect must only
     // run once per user session (we guard with syncedPubkeys). Including
     // localBudget would cause re-runs on every state change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.pubkey]);
+
+  // Download wealth tracker data from Nostr on login (once per session) and
+  // merge it with whatever is in local storage. Same pattern as budget sync.
+  useEffect(() => {
+    if (!user?.pubkey || !user?.signer?.nip44) return;
+
+    const pubkey = user.pubkey;
+    if (syncedWealthPubkeys.current.has(pubkey)) return;
+    syncedWealthPubkeys.current.add(pubkey);
+
+    let isMounted = true;
+
+    const downloadWealthFromNostr = async () => {
+      try {
+        console.log('[NostrSync] Checking for saved wealth tracker on Nostr...');
+
+        const events = await nostr.query(
+          [{
+            kinds: [WEALTH_KIND],
+            authors: [pubkey],
+            '#d': [WEALTH_APP_IDENTIFIER],
+            limit: 1,
+          }],
+          { signal: AbortSignal.timeout(10000) }
+        );
+
+        if (!isMounted) return;
+
+        if (events.length === 0) {
+          console.log('[NostrSync] No saved wealth data found on Nostr');
+          return;
+        }
+
+        const latestEvent = events.sort((a, b) => b.created_at - a.created_at)[0];
+
+        let decrypted: string;
+        try {
+          decrypted = await user.signer.nip44!.decrypt(pubkey, latestEvent.content);
+        } catch (decryptError) {
+          console.error('[NostrSync] Failed to decrypt wealth data:', decryptError);
+          return;
+        }
+
+        let remoteWealth: WealthTrackerState;
+        try {
+          const parsed = JSON.parse(decrypted);
+          if (
+            !parsed ||
+            typeof parsed !== 'object' ||
+            !Array.isArray(parsed.watchedAddresses)
+          ) {
+            console.warn('[NostrSync] Unknown remote wealth shape, skipping');
+            return;
+          }
+          remoteWealth = {
+            watchedAddresses: parsed.watchedAddresses,
+            balanceHistory: Array.isArray(parsed.balanceHistory) ? parsed.balanceHistory : [],
+            lastSyncTime: typeof parsed.lastSyncTime === 'number' ? parsed.lastSyncTime : undefined,
+          };
+        } catch (parseError) {
+          console.error('[NostrSync] Failed to parse wealth data:', parseError);
+          return;
+        }
+
+        if (!isMounted) return;
+
+        if (remoteWealth.watchedAddresses.length === 0) {
+          console.log('[NostrSync] Remote wealth data is empty, nothing to sync');
+          return;
+        }
+
+        // Pull fresh local state directly from localStorage to avoid
+        // closure-staleness issues from the initial render.
+        let freshLocal: WealthTrackerState = EMPTY_WEALTH_STATE;
+        try {
+          const raw = localStorage.getItem(WEALTH_STORAGE_KEY);
+          if (raw) {
+            const parsedLocal = JSON.parse(raw);
+            if (parsedLocal && Array.isArray(parsedLocal.watchedAddresses)) {
+              freshLocal = {
+                watchedAddresses: parsedLocal.watchedAddresses,
+                balanceHistory: Array.isArray(parsedLocal.balanceHistory)
+                  ? parsedLocal.balanceHistory
+                  : [],
+                lastSyncTime:
+                  typeof parsedLocal.lastSyncTime === 'number'
+                    ? parsedLocal.lastSyncTime
+                    : undefined,
+              };
+            }
+          }
+        } catch {
+          // fall through with empty local state
+        }
+
+        const merged = mergeWealthStates(freshLocal, remoteWealth);
+
+        // Sanity check: never drop addresses during merge.
+        const maxIncomingAddrs = Math.max(
+          freshLocal.watchedAddresses.length,
+          remoteWealth.watchedAddresses.length
+        );
+        if (merged.watchedAddresses.length < maxIncomingAddrs) {
+          console.error(
+            '[NostrSync] Wealth merge produced fewer addresses than expected, aborting',
+            {
+              local: freshLocal.watchedAddresses.length,
+              remote: remoteWealth.watchedAddresses.length,
+              merged: merged.watchedAddresses.length,
+            }
+          );
+          return;
+        }
+
+        setLocalWealth(merged);
+
+        console.log('[NostrSync] Wealth data merged from Nostr:', {
+          localAddrs: freshLocal.watchedAddresses.length,
+          remoteAddrs: remoteWealth.watchedAddresses.length,
+          mergedAddrs: merged.watchedAddresses.length,
+          mergedSnapshots: merged.balanceHistory.length,
+        });
+
+        // Only toast if remote actually restored something the user was missing.
+        const restoredAddrs =
+          merged.watchedAddresses.length - freshLocal.watchedAddresses.length;
+        if (freshLocal.watchedAddresses.length === 0) {
+          toast({
+            title: 'Wealth data synced',
+            description: `Restored ${remoteWealth.watchedAddresses.length} watched address${
+              remoteWealth.watchedAddresses.length === 1 ? '' : 'es'
+            } from the cloud.`,
+          });
+        } else if (restoredAddrs > 0) {
+          toast({
+            title: 'Wealth data synced',
+            description: `${restoredAddrs} additional address${
+              restoredAddrs === 1 ? '' : 'es'
+            } restored from Nostr.`,
+          });
+        }
+      } catch (error) {
+        console.error('[NostrSync] Failed to download wealth data:', error);
+        syncedWealthPubkeys.current.delete(pubkey);
+      }
+    };
+
+    downloadWealthFromNostr();
+
+    return () => {
+      isMounted = false;
+    };
+    // Same reasoning as the budget sync effect — run once per user session.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.pubkey]);
 
