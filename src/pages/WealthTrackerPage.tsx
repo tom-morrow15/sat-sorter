@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useSeoMeta } from '@unhead/react';
-import { Plus, Trash2, Edit2, RefreshCw } from 'lucide-react';
+import { Plus, RefreshCw, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { BudgetHeader } from '@/components/budget/BudgetHeader';
 import { useBudget } from '@/hooks/useBudget';
 import { useWealthTracker } from '@/hooks/useWealthTracker';
@@ -19,8 +20,20 @@ export default function WealthTrackerPage() {
 
   const { currentBudget, currentMonth, currency, toggleCurrency, setCurrentMonth } = useBudget();
   const { data: priceData } = useBitcoinPrice();
-  const { watchedAddresses, wealthSummary, addAddress, removeAddress, updateAddressLabel, recordBalance } =
-    useWealthTracker();
+  const {
+    watchedAddresses,
+    balanceHistory,
+    wealthSummary,
+    liveBalancesById,
+    isLoadingBalances,
+    isFetchingBalances,
+    balanceError,
+    lastSyncTime,
+    addAddress,
+    removeAddress,
+    updateAddressLabel,
+    refetchBalances,
+  } = useWealthTracker();
 
   useSeoMeta({
     title: 'Wealth Tracker - Sat Sorter',
@@ -51,6 +64,10 @@ export default function WealthTrackerPage() {
     }
   };
 
+  const lastSyncLabel = lastSyncTime
+    ? new Date(lastSyncTime * 1000).toLocaleString()
+    : null;
+
   return (
     <div className="min-h-screen bg-background">
       <BudgetHeader
@@ -67,18 +84,52 @@ export default function WealthTrackerPage() {
       <main className="container mx-auto px-3 sm:px-4 py-4 lg:py-6">
         <div className="space-y-6">
           {/* Page Title */}
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold">Wealth Tracker</h1>
-            <p className="text-muted-foreground text-sm mt-1">
-              Monitor your Bitcoin holdings across multiple addresses
-            </p>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold">Wealth Tracker</h1>
+              <p className="text-muted-foreground text-sm mt-1">
+                Monitor your Bitcoin holdings across multiple addresses
+              </p>
+              {lastSyncLabel && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Last synced {lastSyncLabel}
+                </p>
+              )}
+            </div>
+            {watchedAddresses.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => refetchBalances()}
+                disabled={isFetchingBalances}
+                className="gap-2"
+              >
+                <RefreshCw className={`h-4 w-4 ${isFetchingBalances ? 'animate-spin' : ''}`} />
+                {isFetchingBalances ? 'Refreshing…' : 'Refresh'}
+              </Button>
+            )}
           </div>
+
+          {/* Error alert */}
+          {balanceError && watchedAddresses.length > 0 && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Couldn&apos;t fetch balances from the blockchain. Check your connection and try again.
+              </AlertDescription>
+            </Alert>
+          )}
 
           {/* Wealth Summary */}
           {wealthSummary && <WealthSummaryWidget summary={wealthSummary} priceData={priceData} />}
 
           {/* Wealth Chart */}
-          {watchedAddresses.length > 0 && <WealthChart watchedAddresses={watchedAddresses} />}
+          {watchedAddresses.length > 0 && (
+            <WealthChart
+              watchedAddresses={watchedAddresses}
+              balanceHistory={balanceHistory}
+            />
+          )}
 
           {/* Address Manager */}
           <Card>
@@ -114,25 +165,37 @@ export default function WealthTrackerPage() {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {watchedAddresses.map((address) => (
-                    <AddressListItem
-                      key={address.id}
-                      address={address}
-                      isEditing={editingId === address.id}
-                      editingLabel={editingLabel}
-                      onEditStart={() => {
-                        setEditingId(address.id);
-                        setEditingLabel(address.label);
-                      }}
-                      onEditChange={setEditingLabel}
-                      onEditSave={() => handleSaveLabel(address.id)}
-                      onEditCancel={() => {
-                        setEditingId(null);
-                        setEditingLabel('');
-                      }}
-                      onRemove={removeAddress}
-                    />
-                  ))}
+                  {watchedAddresses.map((address) => {
+                    const liveSats = liveBalancesById.get(address.id);
+                    const hasLive = liveSats !== undefined;
+                    const usd =
+                      hasLive && priceData
+                        ? (liveSats / 100_000_000) * priceData.usdPerBtc
+                        : undefined;
+
+                    return (
+                      <AddressListItem
+                        key={address.id}
+                        address={address}
+                        isEditing={editingId === address.id}
+                        editingLabel={editingLabel}
+                        balanceSats={hasLive ? liveSats : undefined}
+                        balanceUsd={usd}
+                        isLoading={isLoadingBalances || (isFetchingBalances && !hasLive)}
+                        onEditStart={() => {
+                          setEditingId(address.id);
+                          setEditingLabel(address.label);
+                        }}
+                        onEditChange={setEditingLabel}
+                        onEditSave={() => handleSaveLabel(address.id)}
+                        onEditCancel={() => {
+                          setEditingId(null);
+                          setEditingLabel('');
+                        }}
+                        onRemove={removeAddress}
+                      />
+                    );
+                  })}
                 </div>
               )}
             </CardContent>
@@ -145,9 +208,9 @@ export default function WealthTrackerPage() {
                 <p className="font-medium">ℹ️ How it works:</p>
                 <ul className="text-xs space-y-1 ml-4 list-disc">
                   <li>Add any Bitcoin address (Legacy, SegWit, or Bech32)</li>
-                  <li>Balances are fetched from the blockchain via Blockstream API</li>
+                  <li>Balances are fetched from the blockchain via mempool.space</li>
                   <li>Historical snapshots track changes over time</li>
-                  <li>Refresh daily or manually to get the latest data</li>
+                  <li>Click Refresh to pull the latest balances on demand</li>
                   <li>Your data is stored locally in your browser</li>
                 </ul>
               </div>

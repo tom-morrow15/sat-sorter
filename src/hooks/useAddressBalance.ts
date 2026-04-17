@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { useBitcoinPrice } from './useBitcoinPrice';
 
-interface AddressBalance {
+export interface AddressBalance {
   address: string;
   balanceSats: number;
   confirmedBalance: number;
@@ -11,110 +10,116 @@ interface AddressBalance {
   txCount: number;
 }
 
+// Mempool.space supports CORS out-of-the-box and mirrors Blockstream's API shape.
+// Blockstream.info is kept as a fallback via the Shakespeare CORS proxy.
+const PRIMARY_API = 'https://mempool.space/api/address';
+const FALLBACK_API = 'https://proxy.shakespeare.diy/?url=https%3A%2F%2Fblockstream.info%2Fapi%2Faddress';
+
+interface ChainStats {
+  funded_txo_sum?: number;
+  spent_txo_sum?: number;
+  tx_count?: number;
+}
+
+interface AddressApiResponse {
+  address?: string;
+  chain_stats?: ChainStats;
+  mempool_stats?: ChainStats;
+}
+
+function parseAddressData(address: string, data: AddressApiResponse): AddressBalance {
+  const chainFunded = data.chain_stats?.funded_txo_sum ?? 0;
+  const chainSpent = data.chain_stats?.spent_txo_sum ?? 0;
+  const mempoolFunded = data.mempool_stats?.funded_txo_sum ?? 0;
+  const mempoolSpent = data.mempool_stats?.spent_txo_sum ?? 0;
+
+  // Current balance = funded - spent (applied across both chain and mempool).
+  const confirmedBalance = chainFunded - chainSpent;
+  const unconfirmedBalance = mempoolFunded - mempoolSpent;
+  const totalBalance = confirmedBalance + unconfirmedBalance;
+
+  return {
+    address,
+    balanceSats: totalBalance,
+    confirmedBalance,
+    unconfirmedBalance,
+    totalReceived: chainFunded,
+    totalSent: chainSpent,
+    txCount: (data.chain_stats?.tx_count ?? 0) + (data.mempool_stats?.tx_count ?? 0),
+  };
+}
+
+async function fetchAddress(address: string, signal?: AbortSignal): Promise<AddressBalance> {
+  let lastError: unknown;
+
+  for (const base of [PRIMARY_API, FALLBACK_API]) {
+    try {
+      const response = await fetch(`${base}/${address}`, { signal });
+      if (!response.ok) {
+        lastError = new Error(`API returned ${response.status}`);
+        continue;
+      }
+      const data = (await response.json()) as AddressApiResponse;
+      return parseAddressData(address, data);
+    } catch (err) {
+      if (signal?.aborted) throw err;
+      lastError = err;
+    }
+  }
+
+  throw lastError instanceof Error
+    ? lastError
+    : new Error('Failed to fetch address balance from all providers');
+}
+
 /**
- * Fetch Bitcoin address balance from Blockstream API
+ * Fetch Bitcoin address balance.
  * Supports: Legacy (1...), P2SH (3...), Bech32 (bc1...)
  */
 export function useAddressBalance(address: string | null) {
-  const { data: priceData } = useBitcoinPrice();
-
   return useQuery({
     queryKey: ['address-balance', address],
     queryFn: async ({ signal }): Promise<AddressBalance | null> => {
       if (!address) return null;
-
-      try {
-        // Using Blockstream API (free, no auth needed, rate limited but generous)
-        // Alternative: Mempool API would work too
-        const response = await fetch(
-          `https://blockstream.info/api/address/${address}`,
-          { signal }
-        );
-
-        if (!response.ok) {
-          throw new Error(`API returned ${response.status}`);
-        }
-
-        const data = await response.json();
-
-        // Blockstream API returns chain_stats for confirmed, mempool_stats for unconfirmed
-        const confirmedBalance = data.chain_stats?.funded_txo_sum ?? 0;
-        const unconfirmedBalance = data.mempool_stats?.funded_txo_sum ?? 0;
-        const totalBalance = confirmedBalance + unconfirmedBalance;
-
-        return {
-          address,
-          balanceSats: totalBalance,
-          confirmedBalance,
-          unconfirmedBalance,
-          totalReceived: data.chain_stats?.funded_txo_sum ?? 0,
-          totalSent: data.chain_stats?.spent_txo_sum ?? 0,
-          txCount: (data.chain_stats?.tx_count ?? 0) + (data.mempool_stats?.tx_count ?? 0),
-        };
-      } catch (error) {
-        console.error(`Failed to fetch balance for ${address}:`, error);
-        throw error;
-      }
+      return fetchAddress(address, signal);
     },
     enabled: !!address,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 15 * 60 * 1000, // 15 minutes (was cacheTime)
+    staleTime: 5 * 60 * 1000,
+    gcTime: 15 * 60 * 1000,
     retry: 2,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   });
 }
 
 /**
- * Fetch multiple address balances in parallel
+ * Fetch multiple address balances in parallel.
  */
 export function useMultipleAddressBalances(addresses: (string | null)[]) {
-  const { data: priceData } = useBitcoinPrice();
-
-  const validAddresses = addresses.filter((a) => a !== null) as string[];
+  const validAddresses = addresses.filter((a): a is string => !!a);
 
   return useQuery({
-    queryKey: ['multi-address-balance', validAddresses.join(',')],
+    queryKey: ['multi-address-balance', [...validAddresses].sort().join(',')],
     queryFn: async ({ signal }): Promise<Map<string, AddressBalance>> => {
       if (validAddresses.length === 0) return new Map();
 
-      try {
-        const results = await Promise.allSettled(
-          validAddresses.map((addr) =>
-            fetch(`https://blockstream.info/api/address/${addr}`, { signal })
-              .then((r) => {
-                if (!r.ok) throw new Error(`API returned ${r.status}`);
-                return r.json();
-              })
-              .then((data) => ({
-                address: addr,
-                balanceSats:
-                  (data.chain_stats?.funded_txo_sum ?? 0) +
-                  (data.mempool_stats?.funded_txo_sum ?? 0),
-                confirmedBalance: data.chain_stats?.funded_txo_sum ?? 0,
-                unconfirmedBalance: data.mempool_stats?.funded_txo_sum ?? 0,
-                totalReceived: data.chain_stats?.funded_txo_sum ?? 0,
-                totalSent: data.chain_stats?.spent_txo_sum ?? 0,
-                txCount: (data.chain_stats?.tx_count ?? 0) + (data.mempool_stats?.tx_count ?? 0),
-              }))
-          )
-        );
+      const results = await Promise.allSettled(
+        validAddresses.map((addr) => fetchAddress(addr, signal))
+      );
 
-        const balanceMap = new Map<string, AddressBalance>();
-        results.forEach((result, index) => {
-          if (result.status === 'fulfilled') {
-            balanceMap.set(validAddresses[index], result.value);
-          }
-        });
+      const balanceMap = new Map<string, AddressBalance>();
+      results.forEach((result, index) => {
+        if (result.status === 'fulfilled') {
+          balanceMap.set(validAddresses[index], result.value);
+        } else {
+          console.error(`Failed to fetch balance for ${validAddresses[index]}:`, result.reason);
+        }
+      });
 
-        return balanceMap;
-      } catch (error) {
-        console.error('Failed to fetch multiple address balances:', error);
-        throw error;
-      }
+      return balanceMap;
     },
     enabled: validAddresses.length > 0,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 15 * 60 * 1000, // 15 minutes
+    staleTime: 5 * 60 * 1000,
+    gcTime: 15 * 60 * 1000,
     retry: 1,
   });
 }

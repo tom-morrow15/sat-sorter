@@ -1,10 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
 
-interface PriceData {
+export interface PriceData {
   usdPerBtc: number;
   satsPerUsd: number;
   lastUpdated: Date;
 }
+
+// Backwards-compatible alias used throughout the app.
+export type BPData = PriceData;
 
 interface CoinGeckoResponse {
   bitcoin: {
