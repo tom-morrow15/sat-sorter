@@ -338,22 +338,24 @@ export function LineItemRow({
            </span>
          </div>
 
-        {/* Action buttons - only on hover/desktop */}
+        {/* Receipt icon - always visible when there are transactions (mobile + desktop) */}
+        {onViewTransactions && spent > 0 && (
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-7 w-7 text-primary flex-shrink-0"
+            onClick={(e) => {
+              e.stopPropagation();
+              onViewTransactions(lineItem.id);
+            }}
+            title="View transactions for this item"
+          >
+            <Receipt className="h-3.5 w-3.5" />
+          </Button>
+        )}
+
+        {/* Other action buttons - only on hover/desktop */}
          <div className="hidden sm:flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-           {onViewTransactions && spent > 0 && (
-             <Button
-               size="icon"
-               variant="ghost"
-               className="h-7 w-7"
-               onClick={(e) => {
-                 e.stopPropagation();
-                 onViewTransactions(lineItem.id);
-               }}
-               title="View transactions for this item"
-             >
-               <Receipt className="h-3.5 w-3.5" />
-             </Button>
-           )}
            <Button
              size="icon"
              variant="ghost"
