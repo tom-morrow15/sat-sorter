@@ -205,7 +205,7 @@ export function TransactionsPanel({
           {/* Search and Filter */}
           <div className="mb-4 pb-4 border-b">
             <TransactionSearchFilter
-              transactions={transactions}
+              transactions={transactionsByLineItem}
               buckets={buckets}
               onFilter={setFilteredTransactions}
             />
