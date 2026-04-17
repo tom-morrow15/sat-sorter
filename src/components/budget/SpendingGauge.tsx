@@ -34,13 +34,21 @@ function polar(cx: number, cy: number, r: number, deg: number) {
   };
 }
 
-/** Build an SVG arc path between two angles (in degrees). Drawn clockwise. */
+/**
+ * Build an SVG arc path between two angles (in degrees).
+ *
+ * Because `polar()` flips the Y axis so "up" in math coords = "up" on screen,
+ * we want the arc to sweep COUNTER-clockwise in math terms (through 90°, the
+ * top of the circle) — which corresponds to `sweep-flag=1` in SVG arc syntax.
+ * Going the other way would draw a "U" along the bottom of the circle, which
+ * made our semi-circle appear upside-down.
+ */
 function arcPath(cx: number, cy: number, r: number, startDeg: number, endDeg: number) {
   const start = polar(cx, cy, r, startDeg);
   const end = polar(cx, cy, r, endDeg);
   const sweep = Math.abs(endDeg - startDeg);
   const largeArc = sweep > 180 ? 1 : 0;
-  return `M ${start.x} ${start.y} A ${r} ${r} 0 ${largeArc} 0 ${end.x} ${end.y}`;
+  return `M ${start.x} ${start.y} A ${r} ${r} 0 ${largeArc} 1 ${end.x} ${end.y}`;
 }
 
 /**
