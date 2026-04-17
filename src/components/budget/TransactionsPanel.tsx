@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   ArrowDownLeft,
   ArrowUpRight,
@@ -67,14 +67,10 @@ export function TransactionsPanel({
   const [transactionToDelete, setTransactionToDelete] = useState<Transaction | null>(null);
   const [filteredTransactions, setFilteredTransactions] = useState<Transaction[]>([]);
 
-  // Add transaction form state
-  const [newAmount, setNewAmount] = useState('');
-  const [newDescription, setNewDescription] = useState('');
-  const [newIsIncome, setNewIsIncome] = useState(false);
-
-  // Assign form state
-  const [selectedBucketId, setSelectedBucketId] = useState<string>('');
-  const [selectedLineItemId, setSelectedLineItemId] = useState<string>('');
+  // Clear search/filter results whenever the lineItemIdFilter changes (e.g., when user clicks Clear button)
+  useEffect(() => {
+    setFilteredTransactions([]);
+  }, [lineItemIdFilter]);
 
   // Filter by lineItemId if provided
   const transactionsByLineItem = useMemo(() => {

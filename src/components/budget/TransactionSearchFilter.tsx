@@ -138,10 +138,23 @@ export function TransactionSearchFilter({
     onFilter([]);
   };
 
-  // Apply filters on mount if URL has params
+  // Apply filters on mount if URL has actual search/filter params
+  // (ignore lineItemId which is handled by the parent TransactionsPanel)
   useEffect(() => {
-    if (searchParams.toString()) {
+    const hasSearchParams =
+      searchParams.get('search') ||
+      searchParams.get('category') ||
+      searchParams.get('type') ||
+      searchParams.get('sort') ||
+      searchParams.get('startDate') ||
+      searchParams.get('endDate') ||
+      searchParams.get('minAmount') ||
+      searchParams.get('maxAmount');
+    if (hasSearchParams) {
       applyFilters();
+    } else {
+      // Clear any stale filtered results when no search params are active
+      onFilter([]);
     }
   }, [searchParams]);
 
