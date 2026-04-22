@@ -19,6 +19,16 @@ import {
   Search,
   Filter,
   ChevronDown,
+  Scissors,
+  Brush,
+  Palette,
+  Music2,
+  Image,
+  Wine,
+  Leaf,
+  Wrench,
+  Armchair,
+  Zap as Zapper,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -36,6 +46,7 @@ import {
   useBTCMap,
   getMerchantName,
   getMerchantCategory,
+  getSmartMerchantCategory,
   acceptsLightning,
   acceptsOnchain,
   formatDistance,
@@ -45,11 +56,12 @@ import { cn } from '@/lib/utils';
 
 // Icon mapping for individual categories
 const CATEGORY_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  // Food & Drink
   'restaurant': Utensils,
   'cafe': Coffee,
   'fast_food': Utensils,
-  'bar': Wifi,
-  'pub': Wifi,
+  'bar': Wine,
+  'pub': Wine,
   'bakery': Coffee,
   'pizza': Utensils,
   'burger': Utensils,
@@ -65,46 +77,143 @@ const CATEGORY_ICONS: Record<string, React.ComponentType<{ className?: string }>
   'middle_eastern': Utensils,
   'ice_cream': Coffee,
   'diner': Utensils,
+  'lounge': Wine,
+  // Shopping
   'supermarket': ShoppingBag,
   'convenience': ShoppingBag,
   'clothes': ShoppingBag,
+  'shoes': ShoppingBag,
+  'jewelry': ShoppingBag,
+  'accessories': ShoppingBag,
   'electronics': ShoppingBag,
-  'beauty': Heart,
-  'hardware': Building,
-  'books': BookOpen,
+  'computer': ShoppingBag,
+  'mobile_phone': ShoppingBag,
   'gift': ShoppingBag,
+  'florist': Leaf,
+  'garden_centre': Leaf,
+  'vintage_shop': ShoppingBag,
+  'antique_shop': ShoppingBag,
+  'organic_shop': Leaf,
+  'books': BookOpen,
+  'music': Music2,
+  'video': ShoppingBag,
+  'sports_shop': ShoppingBag,
+  // Personal Care & Beauty
+  'beauty': Heart,
+  'barber': Scissors,
+  'salon': Scissors,
+  'hairdresser': Scissors,
+  'tattoo': Heart,
+  'spa': Heart,
+  'massage': Heart,
+  'pharmacy': Heart,
+  'dentist': Heart,
+  'doctor': Heart,
+  // Services
+  'photography': Image,
+  'photographer': Image,
+  'art_gallery': Palette,
+  'art': Palette,
+  'music_venue': Music2,
+  'hardware': Wrench,
+  'tools': Wrench,
+  'coworking': Wifi,
+  'laundry': Wifi,
+  'post_office': Wifi,
+  'banking': Wifi,
+  'atm': Wifi,
+  'bank': Wifi,
+  'professional_services': Wifi,
+  // Transportation
   'fuel': Fuel,
   'car_repair': Truck,
   'car_rental': Truck,
   'taxi': Truck,
   'parking': Truck,
+  'car_sales': Truck,
+  'car_parts': Truck,
+  'bicycle': Truck,
+  'motorcycle': Truck,
+  'bicycle_repair': Wrench,
+  // Travel & Accommodation
   'hotel': Building,
   'hostel': Building,
   'apartment': Building,
-  'pharmacy': Heart,
+  'tourism_info': MapPin,
+  // Health & Fitness
   'gym': Dumbbell,
   'fitness_center': Dumbbell,
-  'dentist': Heart,
-  'doctor': Heart,
-  'spa': Heart,
-  'atm': Wifi,
-  'bank': Wifi,
-  'coworking': Wifi,
-  'laundry': Wifi,
-  'hairdresser': Heart,
-  'cinema': Dumbbell,
-  'theatre': Dumbbell,
-  'music': Dumbbell,
-  'sports': Dumbbell,
+  'leisure_sports': Dumbbell,
+  'park': Leaf,
+  // Entertainment & Education
+  'cinema': Music2,
+  'theatre': Music2,
+  'museum': Music2,
+  'entertainment': Music2,
   'school': BookOpen,
   'university': BookOpen,
+  'education': BookOpen,
+  // Pets
   'veterinary': PawPrint,
   'pet_shop': PawPrint,
+  // Wellness & Lifestyle
+  'wellness': Leaf,
+  'butcher': Utensils,
 };
 
 function getCategoryIcon(category: string): React.ComponentType<{ className?: string }> {
   const categoryLower = category.toLowerCase();
   return CATEGORY_ICONS[categoryLower] || Store;
+}
+
+function getCategoryDisplayName(category: string): string {
+  const categoryLower = category.toLowerCase();
+  
+  // Special mappings for readability
+  const displayNames: Record<string, string> = {
+    'barber': 'Barber & Hair',
+    'salon': 'Salon',
+    'hairdresser': 'Hair Services',
+    'massage': 'Massage & Wellness',
+    'spa': 'Spa',
+    'photography': 'Photography',
+    'photographer': 'Photographer',
+    'art_gallery': 'Art Gallery',
+    'art': 'Art',
+    'tattoo': 'Tattoo Studio',
+    'fitness_center': 'Fitness & Yoga',
+    'leisure_sports': 'Sports & Recreation',
+    'car_repair': 'Auto Repair',
+    'car_rental': 'Car Rental',
+    'car_sales': 'Car Sales',
+    'car_parts': 'Auto Parts',
+    'vintage_shop': 'Vintage Shop',
+    'antique_shop': 'Antique Shop',
+    'organic_shop': 'Organic Shop',
+    'garden_centre': 'Garden Center',
+    'professional_services': 'Professional Services',
+    'tourism_info': 'Tourism Info',
+    'music_venue': 'Music Venue',
+    'sports_shop': 'Sports Shop',
+    'bicycle_repair': 'Bike Repair',
+    'pet_shop': 'Pet Shop',
+    'fast_food': 'Fast Food',
+    'ice_cream': 'Ice Cream',
+    'mobile_phone': 'Mobile Phone',
+    'post_office': 'Post Office',
+    'middle_eastern': 'Middle Eastern',
+    'other': 'Other',
+  };
+
+  if (displayNames[categoryLower]) {
+    return displayNames[categoryLower];
+  }
+
+  // Default: convert snake_case to Title Case
+  return categoryLower
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
 }
 
 interface MerchantCardProps {
@@ -286,12 +395,12 @@ export function MerchantGrid() {
     setShowDetailDialog(true);
   };
 
-  // Dynamically discover unique categories and sort by count
+  // Dynamically discover unique categories and sort by count (using smart categorization)
   const availableCategories = useMemo(() => {
     const categoryMap = new Map<string, number>();
 
     merchants.forEach(merchant => {
-      const category = merchant.tags.category?.toLowerCase() || 'other';
+      const category = getSmartMerchantCategory(merchant);
       categoryMap.set(category, (categoryMap.get(category) || 0) + 1);
     });
 
@@ -303,12 +412,12 @@ export function MerchantGrid() {
     return categories;
   }, [merchants]);
 
-  // Group merchants by category
+  // Group merchants by category (using smart categorization)
   const groupedMerchants = useMemo(() => {
     const grouped: Record<string, (BTCMapElement & { distance: number })[]> = {};
 
     merchants.forEach(merchant => {
-      const category = merchant.tags.category?.toLowerCase() || 'other';
+      const category = getSmartMerchantCategory(merchant);
       if (!grouped[category]) {
         grouped[category] = [];
       }
@@ -387,7 +496,7 @@ export function MerchantGrid() {
             {/* Dynamic category buttons */}
             {availableCategories.map(({ category, count }) => {
               const CategoryIcon = getCategoryIcon(category);
-              const displayName = getMerchantCategory({ tags: { category } } as any);
+              const displayName = getCategoryDisplayName(category);
 
               return (
                 <TabsTrigger
@@ -412,7 +521,7 @@ export function MerchantGrid() {
                 const items = filteredMerchants[category];
                 if (!items || items.length === 0) return null;
 
-                const displayName = getMerchantCategory({ tags: { category } } as any);
+                const displayName = getCategoryDisplayName(category);
                 const CategoryIcon = getCategoryIcon(category);
 
                 return (

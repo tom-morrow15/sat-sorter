@@ -451,6 +451,193 @@ export function getMerchantCategory(element: BTCMapElement): string {
     .join(' ');
 }
 
+/**
+ * Get a smart category for a merchant by analyzing OSM tags
+ * Falls back to the standard category if no smart match is found
+ * This helps group merchants that have "other" as their category
+ */
+export function getSmartMerchantCategory(element: BTCMapElement): string {
+  const tags = element.osm_json.tags;
+  const category = element.tags.category?.toLowerCase() || '';
+  const name = (tags.name || tags['name:en'] || '').toLowerCase();
+
+  // If the main category is useful (not "other"), use it
+  if (category && category !== 'other') {
+    return category;
+  }
+
+  // Try to infer from amenity tag
+  if (tags.amenity) {
+    const amenity = tags.amenity.toLowerCase();
+    switch (amenity) {
+      case 'barber': return 'barber';
+      case 'salon': return 'salon';
+      case 'spa': return 'spa';
+      case 'massage': return 'massage';
+      case 'photographer': return 'photography';
+      case 'photography': return 'photography';
+      case 'artist_studio': return 'art_gallery';
+      case 'music_venue': return 'music';
+      case 'pub': return 'pub';
+      case 'bar': return 'bar';
+      case 'cafe': return 'cafe';
+      case 'restaurant': return 'restaurant';
+      case 'fast_food': return 'fast_food';
+      case 'ice_cream': return 'ice_cream';
+      case 'bakery': return 'bakery';
+      case 'pharmacy': return 'pharmacy';
+      case 'gym': return 'gym';
+      case 'fitness_center': return 'fitness_center';
+      case 'yoga': return 'fitness_center';
+      case 'swimming_pool': return 'leisure_sports';
+      case 'theatre': return 'theatre';
+      case 'cinema': return 'cinema';
+      case 'library': return 'education';
+      case 'school': return 'education';
+      case 'university': return 'education';
+      case 'college': return 'education';
+      case 'veterinary': return 'veterinary';
+      case 'pet_shop': return 'pet_shop';
+      case 'bank': return 'bank';
+      case 'atm': return 'atm';
+      case 'post_office': return 'services';
+      case 'laundry': return 'laundry';
+      case 'dry_cleaning': return 'laundry';
+      case 'florist': return 'shop_florist';
+      case 'garden_centre': return 'garden_centre';
+      case 'car_rental': return 'car_rental';
+      case 'taxi': return 'taxi';
+      case 'parking': return 'parking';
+      case 'fuel': return 'fuel';
+      case 'car_repair': return 'car_repair';
+      case 'mechanic': return 'car_repair';
+      case 'hotel': return 'hotel';
+      case 'guest_house': return 'hotel';
+      case 'hostel': return 'hostel';
+      case 'apartment': return 'apartment';
+      default: break;
+    }
+  }
+
+  // Try to infer from shop tag
+  if (tags.shop) {
+    const shop = tags.shop.toLowerCase();
+    switch (shop) {
+      case 'hairdresser': return 'hairdresser';
+      case 'beauty': return 'beauty';
+      case 'clothes': return 'clothes';
+      case 'shoes': return 'clothes';
+      case 'jewelry': return 'jewelry';
+      case 'accessories': return 'accessories';
+      case 'electronics': return 'electronics';
+      case 'computer': return 'electronics';
+      case 'mobile_phone': return 'electronics';
+      case 'car': return 'car_sales';
+      case 'car_parts': return 'car_parts';
+      case 'bicycle': return 'bicycle';
+      case 'motorcycle': return 'motorcycle';
+      case 'supermarket': return 'supermarket';
+      case 'grocery': return 'supermarket';
+      case 'convenience': return 'convenience';
+      case 'butcher': return 'butcher';
+      case 'bakery': return 'bakery';
+      case 'coffee': return 'cafe';
+      case 'ice_cream': return 'ice_cream';
+      case 'book': return 'books';
+      case 'music': return 'music';
+      case 'video': return 'video';
+      case 'gift': return 'gift';
+      case 'florist': return 'florist';
+      case 'garden': return 'garden_centre';
+      case 'hardware': return 'hardware';
+      case 'tools': return 'hardware';
+      case 'sports': return 'sports_shop';
+      case 'bicycle_repair': return 'bicycle_repair';
+      case 'photo': return 'photography';
+      case 'art': return 'art_gallery';
+      case 'vintage': return 'vintage_shop';
+      case 'antique': return 'antique_shop';
+      case 'tattoo': return 'tattoo';
+      case 'cbd': return 'wellness';
+      case 'herbalist': return 'wellness';
+      case 'organic': return 'organic_shop';
+      default: break;
+    }
+  }
+
+  // Try to infer from leisure tag
+  if (tags.leisure) {
+    const leisure = tags.leisure.toLowerCase();
+    switch (leisure) {
+      case 'yoga': return 'fitness_center';
+      case 'swimming_pool': return 'leisure_sports';
+      case 'sports_centre': return 'leisure_sports';
+      case 'fitness_centre': return 'fitness_center';
+      case 'playground': return 'leisure_sports';
+      case 'park': return 'park';
+      case 'picnic_table': return 'park';
+      case 'golf_course': return 'leisure_sports';
+      case 'bowling_alley': return 'leisure_sports';
+      case 'sauna': return 'spa';
+      case 'tanning_salon': return 'beauty';
+      default: break;
+    }
+  }
+
+  // Try to infer from tourism tag
+  if (tags.tourism) {
+    const tourism = tags.tourism.toLowerCase();
+    switch (tourism) {
+      case 'hotel': return 'hotel';
+      case 'guest_house': return 'hotel';
+      case 'hostel': return 'hostel';
+      case 'apartment': return 'apartment';
+      case 'attraction': return 'entertainment';
+      case 'museum': return 'museum';
+      case 'gallery': return 'art_gallery';
+      case 'theatre': return 'theatre';
+      case 'information': return 'tourism_info';
+      default: break;
+    }
+  }
+
+  // Try to infer from office tag
+  if (tags.office) {
+    const office = tags.office.toLowerCase();
+    switch (office) {
+      case 'photographer': return 'photography';
+      case 'lawyer': return 'professional_services';
+      case 'accountant': return 'professional_services';
+      case 'engineer': return 'professional_services';
+      case 'architect': return 'professional_services';
+      case 'it': return 'professional_services';
+      case 'coworking': return 'coworking';
+      default: break;
+    }
+  }
+
+  // Name-based inference for common merchants
+  if (name.length > 0) {
+    if (name.includes('yoga') || name.includes('pilates')) return 'fitness_center';
+    if (name.includes('massage') || name.includes('spa')) return 'massage';
+    if (name.includes('haircut') || name.includes('barber') || name.includes('salon')) return 'barber';
+    if (name.includes('photography')) return 'photography';
+    if (name.includes('tattoo')) return 'tattoo';
+    if (name.includes('pizza')) return 'pizza';
+    if (name.includes('burger')) return 'burger';
+    if (name.includes('sushi')) return 'sushi';
+    if (name.includes('yoga')) return 'fitness_center';
+    if (name.includes('cpr') || name.includes('training')) return 'education';
+    if (name.includes('cbd')) return 'wellness';
+    if (name.includes('photo')) return 'photography';
+    if (name.includes('art')) return 'art_gallery';
+    if (name.includes('hookah') || name.includes('lounge')) return 'lounge';
+  }
+
+  // Fall back to original category if available
+  return category || 'other';
+}
+
 // Check if merchant accepts Lightning
 export function acceptsLightning(element: BTCMapElement): boolean {
   return element.osm_json.tags['payment:lightning'] === 'yes';
