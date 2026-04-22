@@ -43,66 +43,68 @@ import {
 } from '@/hooks/useBTCMap';
 import { cn } from '@/lib/utils';
 
-// Category groups for better UX
-const CATEGORY_GROUPS: Record<string, {
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-  categories: string[];
-}> = {
-  'food': {
-    label: 'Food & Drink',
-    icon: Utensils,
-    categories: ['restaurant', 'cafe', 'fast_food', 'bakery', 'pizza', 'burger', 'sandwich', 'sushi', 'bbq', 'mexican', 'chinese', 'indian', 'thai', 'vietnamese', 'korean', 'middle_eastern', 'bar', 'pub', 'ice_cream', 'diner'],
-  },
-  'shopping': {
-    label: 'Shopping',
-    icon: ShoppingBag,
-    categories: ['supermarket', 'convenience', 'clothes', 'electronics', 'beauty', 'hardware', 'books', 'gift'],
-  },
-  'travel': {
-    label: 'Travel & Transport',
-    icon: Truck,
-    categories: ['fuel', 'car_repair', 'car_rental', 'taxi', 'parking', 'hotel', 'hostel', 'apartment'],
-  },
-  'health': {
-    label: 'Health & Fitness',
-    icon: Heart,
-    categories: ['pharmacy', 'gym', 'fitness_center', 'dentist', 'doctor', 'spa'],
-  },
-  'services': {
-    label: 'Services',
-    icon: Wifi,
-    categories: ['atm', 'bank', 'coworking', 'laundry', 'hairdresser'],
-  },
-  'entertainment': {
-    label: 'Entertainment',
-    icon: Dumbbell,
-    categories: ['cinema', 'theatre', 'music', 'sports'],
-  },
-  'education': {
-    label: 'Education',
-    icon: BookOpen,
-    categories: ['school', 'university'],
-  },
-  'pets': {
-    label: 'Pets',
-    icon: PawPrint,
-    categories: ['veterinary', 'pet_shop'],
-  },
+// Icon mapping for individual categories
+const CATEGORY_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  'restaurant': Utensils,
+  'cafe': Coffee,
+  'fast_food': Utensils,
+  'bar': Wifi,
+  'pub': Wifi,
+  'bakery': Coffee,
+  'pizza': Utensils,
+  'burger': Utensils,
+  'sandwich': Utensils,
+  'sushi': Utensils,
+  'bbq': Utensils,
+  'mexican': Utensils,
+  'chinese': Utensils,
+  'indian': Utensils,
+  'thai': Utensils,
+  'vietnamese': Utensils,
+  'korean': Utensils,
+  'middle_eastern': Utensils,
+  'ice_cream': Coffee,
+  'diner': Utensils,
+  'supermarket': ShoppingBag,
+  'convenience': ShoppingBag,
+  'clothes': ShoppingBag,
+  'electronics': ShoppingBag,
+  'beauty': Heart,
+  'hardware': Building,
+  'books': BookOpen,
+  'gift': ShoppingBag,
+  'fuel': Fuel,
+  'car_repair': Truck,
+  'car_rental': Truck,
+  'taxi': Truck,
+  'parking': Truck,
+  'hotel': Building,
+  'hostel': Building,
+  'apartment': Building,
+  'pharmacy': Heart,
+  'gym': Dumbbell,
+  'fitness_center': Dumbbell,
+  'dentist': Heart,
+  'doctor': Heart,
+  'spa': Heart,
+  'atm': Wifi,
+  'bank': Wifi,
+  'coworking': Wifi,
+  'laundry': Wifi,
+  'hairdresser': Heart,
+  'cinema': Dumbbell,
+  'theatre': Dumbbell,
+  'music': Dumbbell,
+  'sports': Dumbbell,
+  'school': BookOpen,
+  'university': BookOpen,
+  'veterinary': PawPrint,
+  'pet_shop': PawPrint,
 };
 
-function getCategoryGroup(category: string): string {
+function getCategoryIcon(category: string): React.ComponentType<{ className?: string }> {
   const categoryLower = category.toLowerCase();
-  for (const [groupId, group] of Object.entries(CATEGORY_GROUPS)) {
-    if (group.categories.includes(categoryLower)) {
-      return groupId;
-    }
-  }
-  return 'other';
-}
-
-function getGroupIcon(groupId: string) {
-  return CATEGORY_GROUPS[groupId]?.icon || Store;
+  return CATEGORY_ICONS[categoryLower] || Store;
 }
 
 interface MerchantCardProps {
@@ -111,7 +113,7 @@ interface MerchantCardProps {
 }
 
 function MerchantCard({ merchant, onClick }: MerchantCardProps) {
-  const GroupIcon = getGroupIcon(getCategoryGroup(merchant.tags.category || 'other'));
+  const CategoryIcon = getCategoryIcon(merchant.tags.category || 'other');
   const hasLightning = acceptsLightning(merchant);
   const hasOnchain = acceptsOnchain(merchant);
 
@@ -122,7 +124,7 @@ function MerchantCard({ merchant, onClick }: MerchantCardProps) {
     >
       <div className="flex items-start gap-3 mb-2">
         <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-          <GroupIcon className="h-5 w-5 text-primary" />
+          <CategoryIcon className="h-5 w-5 text-primary" />
         </div>
         <div className="flex-1 min-w-0">
           <p className="font-medium text-sm truncate group-hover:text-primary transition-colors">
@@ -165,7 +167,7 @@ interface MerchantDetailDialogProps {
 function MerchantDetailDialog({ merchant, open, onOpenChange }: MerchantDetailDialogProps) {
   if (!merchant) return null;
 
-  const GroupIcon = getGroupIcon(getCategoryGroup(merchant.tags.category || 'other'));
+  const CategoryIcon = getCategoryIcon(merchant.tags.category || 'other');
   const hasLightning = acceptsLightning(merchant);
   const hasOnchain = acceptsOnchain(merchant);
   const tags = merchant.osm_json.tags;
@@ -186,7 +188,7 @@ function MerchantDetailDialog({ merchant, open, onOpenChange }: MerchantDetailDi
         <DialogHeader>
           <div className="flex items-start gap-3">
             <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-              <GroupIcon className="h-6 w-6 text-primary" />
+              <CategoryIcon className="h-6 w-6 text-primary" />
             </div>
             <div className="min-w-0">
               <DialogTitle className="text-left truncate">{getMerchantName(merchant)}</DialogTitle>
@@ -277,28 +279,45 @@ export function MerchantGrid() {
   const [selectedMerchant, setSelectedMerchant] = useState<(BTCMapElement & { distance: number }) | null>(null);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedGroup, setSelectedGroup] = useState<string>('all');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
   const handleMerchantClick = (merchant: BTCMapElement & { distance: number }) => {
     setSelectedMerchant(merchant);
     setShowDetailDialog(true);
   };
 
+  // Dynamically discover unique categories and sort by count
+  const availableCategories = useMemo(() => {
+    const categoryMap = new Map<string, number>();
+
+    merchants.forEach(merchant => {
+      const category = merchant.tags.category?.toLowerCase() || 'other';
+      categoryMap.set(category, (categoryMap.get(category) || 0) + 1);
+    });
+
+    // Convert to array and sort by count (descending)
+    const categories = Array.from(categoryMap.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([category, count]) => ({ category, count }));
+
+    return categories;
+  }, [merchants]);
+
   // Group merchants by category
   const groupedMerchants = useMemo(() => {
     const grouped: Record<string, (BTCMapElement & { distance: number })[]> = {};
 
     merchants.forEach(merchant => {
-      const groupId = getCategoryGroup(merchant.tags.category || 'other');
-      if (!grouped[groupId]) {
-        grouped[groupId] = [];
+      const category = merchant.tags.category?.toLowerCase() || 'other';
+      if (!grouped[category]) {
+        grouped[category] = [];
       }
-      grouped[groupId].push(merchant);
+      grouped[category].push(merchant);
     });
 
-    // Sort merchants within each group by distance
-    Object.keys(grouped).forEach(groupId => {
-      grouped[groupId].sort((a, b) => a.distance - b.distance);
+    // Sort merchants within each category by distance
+    Object.keys(grouped).forEach(category => {
+      grouped[category].sort((a, b) => a.distance - b.distance);
     });
 
     return grouped;
@@ -311,15 +330,15 @@ export function MerchantGrid() {
 
     const filtered: Record<string, (BTCMapElement & { distance: number })[]> = {};
 
-    Object.entries(groupedMerchants).forEach(([groupId, items]) => {
+    Object.entries(groupedMerchants).forEach(([category, items]) => {
       const filteredItems = items.filter(merchant => {
         const name = getMerchantName(merchant).toLowerCase();
-        const category = getMerchantCategory(merchant).toLowerCase();
-        return name.includes(query) || category.includes(query);
+        const merchantCategory = getMerchantCategory(merchant).toLowerCase();
+        return name.includes(query) || merchantCategory.includes(query);
       });
 
       if (filteredItems.length > 0) {
-        filtered[groupId] = filteredItems;
+        filtered[category] = filteredItems;
       }
     });
 
@@ -327,15 +346,15 @@ export function MerchantGrid() {
   }, [groupedMerchants, searchQuery]);
 
   // Get merchants for current tab
-  const currentGroupMerchants = selectedGroup === 'all'
-    ? Object.values(filteredMerchants).flat()
-    : filteredMerchants[selectedGroup] || [];
+  const currentCategoryMerchants = selectedCategory === 'all'
+    ? Object.values(filteredMerchants).flat().sort((a, b) => a.distance - b.distance)
+    : filteredMerchants[selectedCategory] || [];
 
-  // Count merchants per group
-  const groupCounts = useMemo(() => {
+  // Count merchants per category
+  const categoryCounts = useMemo(() => {
     const counts: Record<string, number> = { all: merchants.length };
-    Object.entries(filteredMerchants).forEach(([groupId, items]) => {
-      counts[groupId] = items.length;
+    Object.entries(filteredMerchants).forEach(([category, items]) => {
+      counts[category] = items.length;
     });
     return counts;
   }, [filteredMerchants, merchants.length]);
@@ -354,42 +373,53 @@ export function MerchantGrid() {
           />
         </div>
 
-        {/* Category Tabs */}
-        <Tabs value={selectedGroup} onValueChange={setSelectedGroup} className="w-full">
-          <TabsList className="w-full grid grid-cols-4 lg:grid-cols-9 h-auto p-1 gap-1">
+        {/* Category Tabs - Dynamic based on available merchants */}
+        <Tabs value={selectedCategory} onValueChange={setSelectedCategory} className="w-full">
+          <TabsList className="w-full h-auto p-1 gap-1 flex-wrap justify-start">
+            {/* All button */}
             <TabsTrigger value="all" className="text-xs py-2">
               All
               <Badge variant="secondary" className="ml-1 text-[10px] py-0">
-                {groupCounts.all}
+                {categoryCounts.all}
               </Badge>
             </TabsTrigger>
-            {Object.entries(CATEGORY_GROUPS).map(([groupId, group]) => (
-              <TabsTrigger
-                key={groupId}
-                value={groupId}
-                className="text-xs py-2"
-                disabled={groupCounts[groupId] === 0}
-              >
-                <group.icon className="h-3.5 w-3.5" />
-                <Badge variant="secondary" className="ml-1 text-[10px] py-0">
-                  {groupCounts[groupId]}
-                </Badge>
-              </TabsTrigger>
-            ))}
+
+            {/* Dynamic category buttons */}
+            {availableCategories.map(({ category, count }) => {
+              const CategoryIcon = getCategoryIcon(category);
+              const displayName = getMerchantCategory({ tags: { category } } as any);
+
+              return (
+                <TabsTrigger
+                  key={category}
+                  value={category}
+                  className="text-xs py-2"
+                >
+                  <CategoryIcon className="h-3.5 w-3.5 mr-1" />
+                  <span className="truncate max-w-[100px]">{displayName}</span>
+                  <Badge variant="secondary" className="ml-1 text-[10px] py-0">
+                    {count}
+                  </Badge>
+                </TabsTrigger>
+              );
+            })}
           </TabsList>
 
-          {/* Content for each tab */}
+          {/* Content for "All" tab */}
           <TabsContent value="all" className="mt-4">
             <div className="space-y-6">
-              {Object.entries(filteredMerchants).map(([groupId, items]) => {
-                const group = CATEGORY_GROUPS[groupId];
-                const GroupIcon = getGroupIcon(groupId);
+              {availableCategories.map(({ category }) => {
+                const items = filteredMerchants[category];
+                if (!items || items.length === 0) return null;
+
+                const displayName = getMerchantCategory({ tags: { category } } as any);
+                const CategoryIcon = getCategoryIcon(category);
 
                 return (
-                  <div key={groupId}>
+                  <div key={category}>
                     <div className="flex items-center gap-2 mb-3 px-1">
-                      <GroupIcon className="h-5 w-5 text-primary" />
-                      <h3 className="font-semibold text-sm">{group?.label || 'Other'}</h3>
+                      <CategoryIcon className="h-5 w-5 text-primary" />
+                      <h3 className="font-semibold text-sm">{displayName}</h3>
                       <Badge variant="secondary" className="text-xs">
                         {items.length}
                       </Badge>
@@ -410,11 +440,11 @@ export function MerchantGrid() {
           </TabsContent>
 
           {/* Individual category tabs */}
-          {Object.entries(CATEGORY_GROUPS).map(([groupId, group]) => (
-            <TabsContent key={groupId} value={groupId} className="mt-4">
-              {filteredMerchants[groupId]?.length ? (
+          {availableCategories.map(({ category }) => (
+            <TabsContent key={category} value={category} className="mt-4">
+              {filteredMerchants[category]?.length ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                  {filteredMerchants[groupId].map(merchant => (
+                  {filteredMerchants[category].map(merchant => (
                     <MerchantCard
                       key={merchant.id}
                       merchant={merchant}
@@ -424,7 +454,7 @@ export function MerchantGrid() {
                 </div>
               ) : (
                 <div className="text-center py-12">
-                  <p className="text-muted-foreground">No {group.label.toLowerCase()} merchants found in your area.</p>
+                  <p className="text-muted-foreground">No merchants found in this category.</p>
                 </div>
               )}
             </TabsContent>
