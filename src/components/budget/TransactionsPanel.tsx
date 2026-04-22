@@ -325,25 +325,25 @@ export function TransactionsPanel({
                             </span>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={cn(
-                              'text-sm font-medium tabular-nums',
-                              transaction.isIncome ? 'text-success' : ''
-                            )}
-                          >
-                            {transaction.isIncome ? '+' : '-'}
-                            {formatAmount(transaction.amount)}
-                          </span>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
-                            onClick={() => handleDeleteClick(transaction)}
-                          >
-                            <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
-                          </Button>
-                        </div>
+                         <div className="flex items-center gap-2">
+                           <span
+                             className={cn(
+                               'text-sm font-medium tabular-nums',
+                               transaction.isIncome ? 'text-success' : ''
+                             )}
+                           >
+                             {transaction.isIncome ? '+' : '-'}
+                             {formatAmount(transaction.amount, transaction)}
+                           </span>
+                           <Button
+                             size="icon"
+                             variant="ghost"
+                             className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                             onClick={() => handleDeleteClick(transaction)}
+                           >
+                             <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
+                           </Button>
+                         </div>
                       </div>
                     );
                   })}
@@ -555,10 +555,10 @@ export function TransactionsPanel({
               {/* Transaction summary */}
               <div className="p-3 rounded-lg bg-muted/50">
                 <p className="font-medium">{selectedTransaction.description}</p>
-                <p className="text-sm text-muted-foreground">
-                  {formatAmount(selectedTransaction.amount)} •{' '}
-                  {formatDate(selectedTransaction.date)}
-                </p>
+               <p className="text-sm text-muted-foreground">
+                   {formatAmount(selectedTransaction.amount, selectedTransaction)} •{' '}
+                   {formatDate(selectedTransaction.date)}
+                 </p>
               </div>
 
               {/* Category selection */}
