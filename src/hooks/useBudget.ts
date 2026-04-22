@@ -300,25 +300,35 @@ export function useBudget() {
      return state.budgets.some(b => b.month === prevMonth);
    }, [state.budgets, getPreviousMonth]);
 
-  // Add a partner to the budget
-  const addPartner = useCallback((pubkey: string, permission: 'view' | 'edit') => {
-    setState(prev => {
-      const partners = prev.partners || [];
-      // Avoid duplicates
-      if (partners.some(p => p.pubkey === pubkey)) {
-        console.log('[useBudget] Partner already exists:', pubkey);
-        return prev;
-      }
-      const newPartner: BudgetPartner = {
-        pubkey,
-        permission,
-        addedAt: Math.floor(Date.now() / 1000),
-        status: 'pending', // Start as pending until they accept
-      };
-      console.log('[useBudget] Adding new partner:', pubkey, 'with permission:', permission);
-      return { ...prev, partners: [...partners, newPartner] };
-    });
-  }, [setState]);
+   // Add a partner to the budget
+   const addPartner = useCallback((pubkey: string, permission: 'view' | 'edit') => {
+     setState(prev => {
+       const partners = prev.partners || [];
+       // Avoid duplicates
+       if (partners.some(p => p.pubkey === pubkey)) {
+         console.log('[useBudget] Partner already exists:', pubkey);
+         return prev;
+       }
+       const newPartner: BudgetPartner = {
+         pubkey,
+         permission,
+         addedAt: Math.floor(Date.now() / 1000),
+         status: 'pending', // Start as pending until they accept
+       };
+       console.log('[useBudget] Adding new partner:', pubkey, 'with permission:', permission);
+       return { ...prev, partners: [...partners, newPartner] };
+     });
+   }, [setState]);
+
+   // Hook version of addPartner that returns the partner and supports Nostr invites
+   const addPartnerWithNostr = useCallback((pubkey: string, permission: 'view' | 'edit') => {
+     // First add locally
+     addPartner(pubkey, permission);
+     
+     // Then trigger invite via Nostr (caller should handle this with usePartnerInvites)
+     // This function just returns true to indicate the partner was added
+     return true;
+   }, [addPartner]);
 
   // Remove a partner from the budget
   const removePartner = useCallback((pubkey: string) => {

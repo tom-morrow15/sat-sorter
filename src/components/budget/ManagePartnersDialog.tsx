@@ -1,11 +1,15 @@
 import { useState } from 'react';
 import { Plus, Trash2, Shield, Eye, QrCode, Loader2 } from 'lucide-react';
+import { useState } from 'react';
 import { nip19 } from 'nostr-tools';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/useToast';
 import { usePartners } from '@/hooks/usePartners';
+import { usePartnerInvites } from '@/hooks/usePartnerInvites';
+import { useBudget } from '@/hooks/useBudget';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { QRScanner } from './QRScanner';
 import {
   Dialog,
@@ -39,6 +43,9 @@ export function ManagePartnersDialog({
 }: ManagePartnersDialogProps) {
   // Use Nostr-native partners hook - this bypasses localStorage sync issues
   const { partners, isLoading, addPartner, removePartner, changePartnerPermission } = usePartners();
+  const { sendInvite } = usePartnerInvites();
+  const { currentMonth } = useBudget();
+  const { user } = useCurrentUser();
   
   const [newPartnerPubkey, setNewPartnerPubkey] = useState('');
   const [newPartnerPermission, setNewPartnerPermission] = useState<'view' | 'edit'>('edit');
@@ -95,28 +102,39 @@ export function ManagePartnersDialog({
        return;
      }
 
-     setIsSubmitting(true);
-     try {
-       console.log('[ManagePartnersDialog] Adding partner:', hexPubkey, 'with permission:', newPartnerPermission);
-       await addPartner(hexPubkey, newPartnerPermission);
-       toast({
-         title: 'Partner Added',
-         description: `${formatPubkey(hexPubkey)} has been added. They can now see this budget when they log in with their Nostr account.`,
-       });
-       setNewPartnerPubkey('');
-       setValidationError('');
-       setNewPartnerPermission('edit');
-       setIsAdding(false);
-     } catch (error) {
-       console.error('[ManagePartnersDialog] Failed to add partner:', error);
-       toast({
-         title: 'Failed to add partner',
-         description: error instanceof Error ? error.message : 'Please try again.',
-         variant: 'destructive',
-       });
-     } finally {
-       setIsSubmitting(false);
-     }
+      setIsSubmitting(true);
+      try {
+        console.log('[ManagePartnersDialog] Adding partner:', hexPubkey, 'with permission:', newPartnerPermission);
+        await addPartner(hexPubkey, newPartnerPermission);
+        
+        // Send Nostr invite to the partner
+        const inviteSent = await sendInvite(
+          hexPubkey,
+          currentMonth,
+          newPartnerPermission,
+          user?.metadata?.name
+        );
+
+        toast({
+          title: 'Partner Added',
+          description: inviteSent
+            ? `${formatPubkey(hexPubkey)} has been added and sent an invite notification via Nostr.`
+            : `${formatPubkey(hexPubkey)} has been added. They will see it when they log in.`,
+        });
+        setNewPartnerPubkey('');
+        setValidationError('');
+        setNewPartnerPermission('edit');
+        setIsAdding(false);
+      } catch (error) {
+        console.error('[ManagePartnersDialog] Failed to add partner:', error);
+        toast({
+          title: 'Failed to add partner',
+          description: error instanceof Error ? error.message : 'Please try again.',
+          variant: 'destructive',
+        });
+      } finally {
+        setIsSubmitting(false);
+      }
    };
 
   const formatPubkey = (pubkey: string) => {
