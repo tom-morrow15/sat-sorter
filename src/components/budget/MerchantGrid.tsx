@@ -470,71 +470,146 @@ export function MerchantGrid() {
 
   return (
     <>
-      <div className="space-y-4">
+      <div className="space-y-6">
         {/* Search Bar */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search merchants..."
+            placeholder="Search merchants by name or type..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
+            className="pl-10 h-11"
           />
         </div>
 
-        {/* Category Tabs - Dynamic based on available merchants */}
-        <Tabs value={selectedCategory} onValueChange={setSelectedCategory} className="w-full">
-          <TabsList className="w-full h-auto p-1 gap-1 flex-wrap justify-start">
-            {/* All button */}
-            <TabsTrigger value="all" className="text-xs py-2">
-              All
-              <Badge variant="secondary" className="ml-1 text-[10px] py-0">
-                {categoryCounts.all}
-              </Badge>
-            </TabsTrigger>
-
-            {/* Dynamic category buttons */}
-            {availableCategories.map(({ category, count }) => {
-              const CategoryIcon = getCategoryIcon(category);
-              const displayName = getCategoryDisplayName(category);
-
-              return (
-                <TabsTrigger
-                  key={category}
-                  value={category}
-                  className="text-xs py-2"
+        {merchants.length === 0 ? (
+          /* Empty state */
+          <Card className="border-dashed">
+            <CardContent className="py-12 text-center">
+              <Store className="h-12 w-12 text-muted-foreground/50 mx-auto mb-3" />
+              <p className="text-muted-foreground">No merchants found. Expand your search radius in settings.</p>
+            </CardContent>
+          </Card>
+        ) : (
+          <>
+            {/* Category Grid - Beautiful new layout */}
+            <div className="space-y-2 mb-6">
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold text-sm text-muted-foreground">Browse by Category</h3>
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="text-xs text-primary hover:underline"
+                  >
+                    Clear search
+                  </button>
+                )}
+              </div>
+              
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
+                {/* All button */}
+                <button
+                  onClick={() => setSelectedCategory('all')}
+                  className={cn(
+                    'flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border-2 transition-all',
+                    selectedCategory === 'all'
+                      ? 'border-primary bg-primary/5'
+                      : 'border-muted hover:border-primary/30 hover:bg-muted/50'
+                  )}
                 >
-                  <CategoryIcon className="h-3.5 w-3.5 mr-1" />
-                  <span className="truncate max-w-[100px]">{displayName}</span>
-                  <Badge variant="secondary" className="ml-1 text-[10px] py-0">
-                    {count}
+                  <Store className="h-5 w-5 text-primary" />
+                  <span className="text-xs font-medium">All</span>
+                  <Badge variant="secondary" className="text-[9px] py-0">
+                    {categoryCounts.all}
                   </Badge>
-                </TabsTrigger>
-              );
-            })}
-          </TabsList>
+                </button>
 
-          {/* Content for "All" tab */}
-          <TabsContent value="all" className="mt-4">
-            <div className="space-y-6">
-              {availableCategories.map(({ category }) => {
-                const items = filteredMerchants[category];
-                if (!items || items.length === 0) return null;
+                {/* Dynamic category buttons */}
+                {availableCategories.map(({ category, count }) => {
+                  const CategoryIcon = getCategoryIcon(category);
+                  const displayName = getCategoryDisplayName(category);
+                  const isSelected = selectedCategory === category;
 
-                const displayName = getCategoryDisplayName(category);
-                const CategoryIcon = getCategoryIcon(category);
-
-                return (
-                  <div key={category}>
-                    <div className="flex items-center gap-2 mb-3 px-1">
+                  return (
+                    <button
+                      key={category}
+                      onClick={() => setSelectedCategory(category)}
+                      className={cn(
+                        'flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border-2 transition-all',
+                        isSelected
+                          ? 'border-primary bg-primary/5'
+                          : 'border-muted hover:border-primary/30 hover:bg-muted/50'
+                      )}
+                      title={displayName}
+                    >
                       <CategoryIcon className="h-5 w-5 text-primary" />
-                      <h3 className="font-semibold text-sm">{displayName}</h3>
+                      <span className="text-xs font-medium line-clamp-2 text-center leading-tight">
+                        {displayName.split(' ')[0]}
+                      </span>
+                      <Badge variant="secondary" className="text-[9px] py-0">
+                        {count}
+                      </Badge>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Merchants Display */}
+            {selectedCategory === 'all' ? (
+              /* Show all grouped by category */
+              <div className="space-y-8">
+                {availableCategories.map(({ category }) => {
+                  const items = filteredMerchants[category];
+                  if (!items || items.length === 0) return null;
+
+                  const displayName = getCategoryDisplayName(category);
+                  const CategoryIcon = getCategoryIcon(category);
+
+                  return (
+                    <div key={category}>
+                      <div className="flex items-center gap-3 mb-4 pb-3 border-b">
+                        <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                          <CategoryIcon className="h-4 w-4 text-primary" />
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-base">{displayName}</h3>
+                        </div>
+                        <Badge variant="secondary" className="text-xs">
+                          {items.length}
+                        </Badge>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                        {items.map(merchant => (
+                          <MerchantCard
+                            key={merchant.id}
+                            merchant={merchant}
+                            onClick={() => handleMerchantClick(merchant)}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              /* Show selected category */
+              <div>
+                {filteredMerchants[selectedCategory]?.length ? (
+                  <>
+                    <div className="flex items-center gap-3 mb-4 pb-3 border-b">
+                      <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                        <Store className="h-4 w-4 text-primary" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-base">{getCategoryDisplayName(selectedCategory)}</h3>
+                      </div>
                       <Badge variant="secondary" className="text-xs">
-                        {items.length}
+                        {filteredMerchants[selectedCategory].length}
                       </Badge>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                      {items.map(merchant => (
+                      {filteredMerchants[selectedCategory].map(merchant => (
                         <MerchantCard
                           key={merchant.id}
                           merchant={merchant}
@@ -542,42 +617,16 @@ export function MerchantGrid() {
                         />
                       ))}
                     </div>
+                  </>
+                ) : (
+                  <div className="text-center py-12">
+                    <Store className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
+                    <p className="text-muted-foreground">No merchants found matching your search.</p>
                   </div>
-                );
-              })}
-            </div>
-          </TabsContent>
-
-          {/* Individual category tabs */}
-          {availableCategories.map(({ category }) => (
-            <TabsContent key={category} value={category} className="mt-4">
-              {filteredMerchants[category]?.length ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                  {filteredMerchants[category].map(merchant => (
-                    <MerchantCard
-                      key={merchant.id}
-                      merchant={merchant}
-                      onClick={() => handleMerchantClick(merchant)}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-12">
-                  <p className="text-muted-foreground">No merchants found in this category.</p>
-                </div>
-              )}
-            </TabsContent>
-          ))}
-        </Tabs>
-
-        {/* Empty state */}
-        {merchants.length === 0 && (
-          <Card className="border-dashed">
-            <CardContent className="py-12 text-center">
-              <Store className="h-12 w-12 text-muted-foreground/50 mx-auto mb-3" />
-              <p className="text-muted-foreground">No merchants found. Expand your search radius in settings.</p>
-            </CardContent>
-          </Card>
+                )}
+              </div>
+            )}
+          </>
         )}
       </div>
 
