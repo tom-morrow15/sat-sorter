@@ -15,7 +15,6 @@ import { TransactionsPanel } from '@/components/budget/TransactionsPanel';
 import { BTCMapBanner } from '@/components/budget/BTCMapBanner';
 import { WalletModalControlled } from '@/components/budget/WalletModalControlled';
 import { QuickAddFAB } from '@/components/budget/QuickAddFAB';
-import { PartnerInvitesNotification } from '@/components/budget/PartnerInvitesNotification';
 import { LoginArea } from '@/components/auth/LoginArea';
 import { useBudget } from '@/hooks/useBudget';
 import { useWallet } from '@/hooks/useWallet';
@@ -168,9 +167,6 @@ export default function Budget() {
        <main className="container mx-auto px-3 sm:px-4 py-4 lg:py-6">
          {/* Alerts Section - Full width */}
           <div className="space-y-3 mb-4">
-            {/* Partner invites notification */}
-            <PartnerInvitesNotification />
-
             {/* Role indicator for partners */}
             {userRole !== 'owner' && (
              <Alert className="border-amber-300 bg-amber-50 dark:bg-amber-950/30">

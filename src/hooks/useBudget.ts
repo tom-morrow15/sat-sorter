@@ -508,6 +508,46 @@ export function useBudget() {
      });
    }, [state.currentMonth, setState]);
 
+   /**
+    * Import a budget state (e.g. from an accepted partner invite).
+    * This merges the imported budgets with any existing ones.
+    * - Budgets that exist in both: imported version takes precedence
+    * - Budgets only in imported: added
+    * - Budgets only local: preserved
+    * - Partner/role info from imported: set user as partner/editor/viewer
+    */
+   const importBudgetState = useCallback((
+     importedState: BudgetState,
+     options: { asRole?: 'editor' | 'viewer'; ownerPubkey?: string } = {}
+   ) => {
+     setState(prev => {
+       // Merge budgets: imported budgets replace existing ones by month
+       const importedMonths = new Set(importedState.budgets.map(b => b.month));
+       const existingBudgets = (prev.budgets || []).filter(b => !importedMonths.has(b.month));
+       const mergedBudgets = [...existingBudgets, ...importedState.budgets];
+
+       // Set current month to the imported state's current month if available
+       const newCurrentMonth = importedState.currentMonth || prev.currentMonth;
+
+       // Preserve the role if provided (partner role)
+       const newUserRole = options.asRole || prev.userRole || 'owner';
+
+       console.log('[useBudget] Imported budget state:', {
+         importedBudgets: importedState.budgets.length,
+         mergedBudgets: mergedBudgets.length,
+         newCurrentMonth,
+         asRole: newUserRole,
+       });
+
+       return {
+         ...prev,
+         budgets: mergedBudgets,
+         currentMonth: newCurrentMonth,
+         userRole: newUserRole,
+       };
+     });
+   }, [setState]);
+
   return {
     // State
     currentBudget,
@@ -550,6 +590,9 @@ export function useBudget() {
     declinePartnerInvite,
     sendPartnerInvite,
     receivePartnerInvite,
+
+    // Import/export actions
+    importBudgetState,
 
     // Template actions
     saveAsTemplate,

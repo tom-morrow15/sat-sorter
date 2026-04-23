@@ -36,6 +36,7 @@ import { cn } from '@/lib/utils';
 import { useTheme } from '@/hooks/useTheme';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { usePartners } from '@/hooks/usePartners';
+import { usePartnerInvites } from '@/hooks/usePartnerInvites';
 import { AccountSwitcher } from '@/components/auth/AccountSwitcher';
 import LoginDialog from '@/components/auth/LoginDialog';
 import { useAppContext } from '@/hooks/useAppContext';
@@ -90,6 +91,8 @@ export function BudgetHeader({
   const { isDark, toggle: toggleTheme } = useTheme();
   // Use Nostr-native partners hook for the count badge
   const { partners: nostrPartners } = usePartners();
+  // Get pending invites count for the notification badge
+  const { pendingInvitesCount } = usePartnerInvites();
   const [showMonthPicker, setShowMonthPicker] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
   const [showDonate, setShowDonate] = useState(false);
@@ -299,6 +302,7 @@ export function BudgetHeader({
                   onAddAccountClick={() => setShowLogin(true)}
                   onBudgetPartnersClick={() => setShowPartners(true)}
                   partnersCount={nostrPartners.length}
+                  pendingInvitesCount={pendingInvitesCount}
                 />
               </div>
             )}

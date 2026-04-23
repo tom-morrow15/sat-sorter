@@ -1,7 +1,10 @@
 import { useState } from 'react';
-import { Plus, Trash2, Shield, Eye, QrCode, Loader2 } from 'lucide-react';
+import { Plus, Trash2, Shield, Eye, QrCode, Loader2, Bell, CheckCircle, XCircle, UserPlus } from 'lucide-react';
 import { useState } from 'react';
 import { nip19 } from 'nostr-tools';
+import { useAuthor } from '@/hooks/useAuthor';
+import { genUserName } from '@/lib/genUserName';
+import type { BudgetPartnerInvite, BudgetState } from '@/lib/budgetTypes';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -43,8 +46,8 @@ export function ManagePartnersDialog({
 }: ManagePartnersDialogProps) {
   // Use Nostr-native partners hook - this bypasses localStorage sync issues
   const { partners, isLoading, addPartner, removePartner, changePartnerPermission } = usePartners();
-  const { sendInvite } = usePartnerInvites();
-  const { currentMonth } = useBudget();
+  const { sendInvite, pendingInvites, acceptInvite, declineInvite } = usePartnerInvites();
+  const { currentMonth, fullState, importBudgetState } = useBudget();
   const { user } = useCurrentUser();
   
   const [newPartnerPubkey, setNewPartnerPubkey] = useState('');
@@ -53,12 +56,71 @@ export function ManagePartnersDialog({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [validationError, setValidationError] = useState('');
   const [showQRScanner, setShowQRScanner] = useState(false);
+  const [processingInviteId, setProcessingInviteId] = useState<string | null>(null);
   const { toast } = useToast();
 
   // Debug: log whenever partners changes
-  console.log('[ManagePartnersDialog] Rendered with partners:', partners.length, 'userRole:', userRole);
+  console.log('[ManagePartnersDialog] Rendered with partners:', partners.length, 'userRole:', userRole, 'pending invites:', pendingInvites.length);
 
   const isOwner = userRole === 'owner';
+
+  // Handle accepting a partner invite - downloads the owner's budget
+  const handleAcceptInvite = async (invite: BudgetPartnerInvite & { budgetSnapshot?: BudgetState }) => {
+    setProcessingInviteId(invite.id);
+    try {
+      const result = await acceptInvite(invite);
+      if (result.success && result.budgetSnapshot) {
+        // Import the owner's budget into our local state
+        importBudgetState(result.budgetSnapshot, {
+          asRole: invite.permission === 'edit' ? 'editor' : 'viewer',
+          ownerPubkey: invite.fromPubkey,
+        });
+
+        toast({
+          title: 'Budget Partner Invite Accepted!',
+          description: `You now have ${invite.permission === 'edit' ? 'edit' : 'view-only'} access to the shared budget.`,
+        });
+      } else if (result.success) {
+        toast({
+          title: 'Invite Accepted',
+          description: 'The invite was accepted but no budget data was included.',
+        });
+      } else {
+        toast({
+          title: 'Failed to accept invite',
+          description: 'Please try again.',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      console.error('[ManagePartnersDialog] Failed to accept invite:', error);
+      toast({
+        title: 'Error accepting invite',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setProcessingInviteId(null);
+    }
+  };
+
+  // Handle declining a partner invite
+  const handleDeclineInvite = async (invite: BudgetPartnerInvite) => {
+    setProcessingInviteId(invite.id);
+    try {
+      const success = await declineInvite(invite);
+      if (success) {
+        toast({
+          title: 'Invite Declined',
+          description: 'The partner has been notified.',
+        });
+      }
+    } catch (error) {
+      console.error('[ManagePartnersDialog] Failed to decline invite:', error);
+    } finally {
+      setProcessingInviteId(null);
+    }
+  };
 
    const handleAddPartner = async () => {
      const pubkey = newPartnerPubkey.trim();
@@ -107,18 +169,20 @@ export function ManagePartnersDialog({
         console.log('[ManagePartnersDialog] Adding partner:', hexPubkey, 'with permission:', newPartnerPermission);
         await addPartner(hexPubkey, newPartnerPermission);
         
-        // Send Nostr invite to the partner
+        // Send Nostr invite to the partner with the current budget snapshot
+        // so they can access the shared budget once they accept
         const inviteSent = await sendInvite(
           hexPubkey,
           currentMonth,
           newPartnerPermission,
+          fullState, // Include current budget state
           user?.metadata?.name
         );
 
         toast({
           title: 'Partner Added',
           description: inviteSent
-            ? `${formatPubkey(hexPubkey)} has been added and sent an invite notification via Nostr.`
+            ? `Invite sent to ${formatPubkey(hexPubkey)}. They'll see a notification in their Sat Sorter app.`
             : `${formatPubkey(hexPubkey)} has been added. They will see it when they log in.`,
         });
         setNewPartnerPubkey('');
@@ -242,6 +306,29 @@ export function ManagePartnersDialog({
               </p>
             )}
           </div>
+
+          {/* Pending Invites Section - show when user has received invites */}
+          {pendingInvites.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Bell className="h-4 w-4 text-primary" />
+                <Label className="font-semibold">
+                  Pending Invites ({pendingInvites.length})
+                </Label>
+              </div>
+              <div className="space-y-2">
+                {pendingInvites.map((invite) => (
+                  <PendingInviteCard
+                    key={invite.id}
+                    invite={invite}
+                    isProcessing={processingInviteId === invite.id}
+                    onAccept={() => handleAcceptInvite(invite)}
+                    onDecline={() => handleDeclineInvite(invite)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Add partner section (owner only) */}
           {isOwner && (
@@ -504,3 +591,121 @@ export function ManagePartnersDialog({
     </>
    );
  }
+
+/**
+ * Pending Invite Card - shows a received invite with accept/decline actions
+ */
+interface PendingInviteCardProps {
+  invite: BudgetPartnerInvite & { budgetSnapshot?: BudgetState };
+  isProcessing: boolean;
+  onAccept: () => void;
+  onDecline: () => void;
+}
+
+function PendingInviteCard({
+  invite,
+  isProcessing,
+  onAccept,
+  onDecline,
+}: PendingInviteCardProps) {
+  const inviterProfile = useAuthor(invite.fromPubkey);
+  const inviterName =
+    inviterProfile.data?.metadata?.name || genUserName(invite.fromPubkey);
+  const hasBudgetData = !!invite.budgetSnapshot;
+
+  return (
+    <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-blue-500/5">
+      <CardContent className="pt-4 pb-4 space-y-3">
+        {/* Inviter info */}
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+            <UserPlus className="h-5 w-5 text-primary" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-medium text-sm truncate">{inviterName}</p>
+            <p className="text-xs text-muted-foreground">
+              invited you to collaborate on a budget
+            </p>
+          </div>
+        </div>
+
+        {/* Invite details */}
+        <div className="grid grid-cols-2 gap-2 text-xs">
+          <div className="flex flex-col gap-0.5">
+            <span className="text-muted-foreground">Budget Month</span>
+            <span className="font-medium">
+              {new Date(`${invite.budgetMonth}-01`).toLocaleDateString('en-US', {
+                month: 'long',
+                year: 'numeric',
+              })}
+            </span>
+          </div>
+          <div className="flex flex-col gap-0.5">
+            <span className="text-muted-foreground">Permission</span>
+            <Badge
+              variant={invite.permission === 'edit' ? 'default' : 'secondary'}
+              className="w-fit text-[10px]"
+            >
+              {invite.permission === 'edit' ? (
+                <>
+                  <Shield className="h-2.5 w-2.5 mr-1" />
+                  Can Edit
+                </>
+              ) : (
+                <>
+                  <Eye className="h-2.5 w-2.5 mr-1" />
+                  View Only
+                </>
+              )}
+            </Badge>
+          </div>
+        </div>
+
+        {/* Info message about what happens on accept */}
+        {hasBudgetData && (
+          <div className="p-2 rounded bg-muted/50 border border-muted">
+            <p className="text-[11px] text-muted-foreground">
+              💡 Accepting will download the shared budget to your device. You'll be
+              able to {invite.permission === 'edit' ? 'add transactions and edit categories' : 'view transactions'}.
+            </p>
+          </div>
+        )}
+
+        {/* Action buttons */}
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex-1"
+            onClick={onDecline}
+            disabled={isProcessing}
+          >
+            {isProcessing ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <>
+                <XCircle className="h-3.5 w-3.5 mr-1" />
+                Decline
+              </>
+            )}
+          </Button>
+          <Button
+            size="sm"
+            className="flex-1"
+            onClick={onAccept}
+            disabled={isProcessing}
+          >
+            {isProcessing ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <>
+                <CheckCircle className="h-3.5 w-3.5 mr-1" />
+                Accept
+              </>
+            )}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}

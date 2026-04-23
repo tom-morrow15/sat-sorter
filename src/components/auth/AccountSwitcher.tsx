@@ -27,9 +27,10 @@ interface AccountSwitcherProps {
   onAddAccountClick: () => void;
   onBudgetPartnersClick?: () => void;
   partnersCount?: number;
+  pendingInvitesCount?: number;
 }
 
-export function AccountSwitcher({ onAddAccountClick, onBudgetPartnersClick, partnersCount = 0 }: AccountSwitcherProps) {
+export function AccountSwitcher({ onAddAccountClick, onBudgetPartnersClick, partnersCount = 0, pendingInvitesCount = 0 }: AccountSwitcherProps) {
   const { currentUser, otherUsers, setLogin, removeLogin } = useLoggedInAccounts();
   const [showAbout, setShowAbout] = useState(false);
   const [showDonate, setShowDonate] = useState(false);
@@ -40,15 +41,27 @@ export function AccountSwitcher({ onAddAccountClick, onBudgetPartnersClick, part
     return account.metadata.name ?? genUserName(account.pubkey);
   }
 
+  const hasPendingInvites = pendingInvitesCount > 0;
+
   return (
     <>
     <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild>
         <button className='flex items-center gap-3 p-3 rounded-full hover:bg-accent transition-all w-full text-foreground'>
-          <Avatar className='w-10 h-10'>
-            <AvatarImage src={currentUser.metadata.picture} alt={getDisplayName(currentUser)} />
-            <AvatarFallback>{getDisplayName(currentUser).charAt(0)}</AvatarFallback>
-          </Avatar>
+          <div className='relative'>
+            <Avatar className='w-10 h-10'>
+              <AvatarImage src={currentUser.metadata.picture} alt={getDisplayName(currentUser)} />
+              <AvatarFallback>{getDisplayName(currentUser).charAt(0)}</AvatarFallback>
+            </Avatar>
+            {hasPendingInvites && (
+              <span
+                className='absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-background'
+                title={`${pendingInvitesCount} pending invite${pendingInvitesCount !== 1 ? 's' : ''}`}
+              >
+                {pendingInvitesCount > 9 ? '9+' : pendingInvitesCount}
+              </span>
+            )}
+          </div>
           <div className='flex-1 text-left hidden md:block truncate'>
             <p className='font-medium text-sm truncate'>{getDisplayName(currentUser)}</p>
           </div>
@@ -91,11 +104,17 @@ export function AccountSwitcher({ onAddAccountClick, onBudgetPartnersClick, part
              >
                <UserPlus className='w-4 h-4' />
                <span>Budget Partners</span>
-               {partnersCount > 0 && (
+               {hasPendingInvites ? (
+                 <span className='ml-auto flex items-center gap-1.5'>
+                   <span className='text-xs bg-red-500 text-white px-1.5 py-0.5 rounded font-medium animate-pulse'>
+                     {pendingInvitesCount} new
+                   </span>
+                 </span>
+               ) : partnersCount > 0 ? (
                  <span className='ml-auto text-xs bg-primary/20 text-primary px-2 py-0.5 rounded'>
                    {partnersCount}
                  </span>
-               )}
+               ) : null}
              </DropdownMenuItem>
              <DropdownMenuSeparator />
            </>
