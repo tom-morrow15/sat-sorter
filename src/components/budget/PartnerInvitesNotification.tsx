@@ -13,7 +13,6 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { usePartnerInvites } from '@/hooks/usePartnerInvites';
-import { useBudget } from '@/hooks/useBudget';
 import { useAuthor } from '@/hooks/useAuthor';
 import type { BudgetPartnerInvite } from '@/lib/budgetTypes';
 import { genUserName } from '@/lib/genUserName';
@@ -21,7 +20,6 @@ import { genUserName } from '@/lib/genUserName';
 export function PartnerInvitesNotification() {
   const { receivedInvites, isLoadingInvites, acceptInvite, declineInvite } =
     usePartnerInvites();
-  const { fullState } = useBudget();
   const [selectedInvite, setSelectedInvite] = useState<BudgetPartnerInvite | null>(null);
   const [showDialog, setShowDialog] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -40,7 +38,7 @@ export function PartnerInvitesNotification() {
     if (!selectedInvite) return;
     setIsProcessing(true);
     try {
-      const success = await acceptInvite(selectedInvite, fullState);
+      const success = await acceptInvite(selectedInvite);
       if (success) {
         setShowDialog(false);
         setSelectedInvite(null);

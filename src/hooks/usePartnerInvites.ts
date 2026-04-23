@@ -1,15 +1,14 @@
-import { useCallback, useState, useEffect } from 'react';
+import { useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
-import type { BudgetPartnerInvite, BudgetState } from '@/lib/budgetTypes';
+import type { BudgetPartnerInvite } from '@/lib/budgetTypes';
 import { generateId } from '@/lib/budgetTypes';
 
-// Use a custom NIP-04 DM-like approach for partner invites
-// Kind 1059 is NIP-sealed events, but we'll use kind 4 (encrypted DMs) for simplicity
-const INVITE_KIND = 4; // Encrypted DMs
-const INVITE_TAG = 'sat-sorter-invite';
+// Custom application event kind for Sat Sorter partner invites
+// Using a regular event kind so it's stored permanently by relays
+const INVITE_KIND = 4001;
 
 interface PartnerInvitePayload {
   type: 'invite' | 'accept' | 'decline' | 'revoke';
@@ -18,16 +17,22 @@ interface PartnerInvitePayload {
   permission: 'view' | 'edit';
   fromPubkey: string;
   fromName?: string;
-  budgetData?: BudgetState; // For accepted invites
 }
 
+/**
+ * Partner Invites System
+ * 
+ * Uses a custom event kind (4001) with NIP-04 encryption to send
+ * partner invites via Nostr. The 'p' tag is indexable so recipients
+ * can easily query for invites addressed to them.
+ */
 export function usePartnerInvites() {
   const { nostr } = useNostr();
   const { user } = useCurrentUser();
   const { mutateAsync: publish } = useNostrPublish();
 
   /**
-   * Send a partner invite via encrypted DM
+   * Send a partner invite via encrypted Nostr event
    */
   const sendInvite = useCallback(
     async (
@@ -36,8 +41,14 @@ export function usePartnerInvites() {
       permission: 'view' | 'edit',
       fromName?: string
     ): Promise<boolean> => {
-      if (!user?.pubkey || !user?.signer?.nip44) {
-        console.error('[usePartnerInvites] User not logged in or NIP-44 not available');
+      if (!user?.pubkey) {
+        console.error('[usePartnerInvites] User not logged in');
+        return false;
+      }
+
+      // Prefer NIP-04 for backward compatibility; fall back to NIP-44
+      if (!user.signer.nip04 && !user.signer.nip44) {
+        console.error('[usePartnerInvites] No encryption methods available');
         return false;
       }
 
@@ -52,25 +63,38 @@ export function usePartnerInvites() {
           fromName,
         };
 
-        // Encrypt the invite message
-        const encryptedContent = await user.signer.nip44.encrypt(
-          toPubkey,
-          JSON.stringify(payload)
-        );
+        // Use NIP-04 for broader client compatibility
+        let encryptedContent: string;
+        if (user.signer.nip04) {
+          encryptedContent = await user.signer.nip04.encrypt(
+            toPubkey,
+            JSON.stringify(payload)
+          );
+        } else if (user.signer.nip44) {
+          encryptedContent = await user.signer.nip44.encrypt(
+            toPubkey,
+            JSON.stringify(payload)
+          );
+        } else {
+          throw new Error('No encryption available');
+        }
 
-        // Publish as a DM
+        // Publish with single-letter 'p' tag (indexable by relays)
+        // and 't' tag for categorization
         await publish({
-          kind: 4, // DM kind
+          kind: INVITE_KIND,
           content: encryptedContent,
           tags: [
-            ['p', toPubkey],
-            ['invite-id', inviteId],
-            ['budget-month', budgetMonth],
-            ['sat-sorter', 'budget-invite'],
+            ['p', toPubkey], // Recipient pubkey (indexable)
+            ['t', 'sat-sorter-invite'], // Category tag (indexable)
+            ['d', inviteId], // Unique invite identifier
+            ['month', budgetMonth], // Budget month reference
+            ['perm', permission], // Permission level
+            ['alt', `Budget partner invite from ${fromName || 'a Sat Sorter user'}`],
           ],
         });
 
-        console.log('[usePartnerInvites] Invite sent to', toPubkey);
+        console.log('[usePartnerInvites] Invite sent to', toPubkey, 'for month', budgetMonth);
         return true;
       } catch (error) {
         console.error('[usePartnerInvites] Failed to send invite:', error);
@@ -84,12 +108,14 @@ export function usePartnerInvites() {
    * Accept a partner invite
    */
   const acceptInvite = useCallback(
-    async (
-      invite: BudgetPartnerInvite,
-      budgetData: BudgetState
-    ): Promise<boolean> => {
-      if (!user?.pubkey || !user?.signer?.nip44) {
-        console.error('[usePartnerInvites] User not logged in or NIP-44 not available');
+    async (invite: BudgetPartnerInvite): Promise<boolean> => {
+      if (!user?.pubkey) {
+        console.error('[usePartnerInvites] User not logged in');
+        return false;
+      }
+
+      if (!user.signer.nip04 && !user.signer.nip44) {
+        console.error('[usePartnerInvites] No encryption methods available');
         return false;
       }
 
@@ -100,24 +126,33 @@ export function usePartnerInvites() {
           budgetMonth: invite.budgetMonth,
           permission: invite.permission,
           fromPubkey: user.pubkey,
-          budgetData, // Include budget data so owner can verify
         };
 
-        // Encrypt the acceptance message
-        const encryptedContent = await user.signer.nip44.encrypt(
-          invite.fromPubkey,
-          JSON.stringify(payload)
-        );
+        let encryptedContent: string;
+        if (user.signer.nip04) {
+          encryptedContent = await user.signer.nip04.encrypt(
+            invite.fromPubkey,
+            JSON.stringify(payload)
+          );
+        } else if (user.signer.nip44) {
+          encryptedContent = await user.signer.nip44.encrypt(
+            invite.fromPubkey,
+            JSON.stringify(payload)
+          );
+        } else {
+          throw new Error('No encryption available');
+        }
 
-        // Publish as a DM back to the inviter
         await publish({
-          kind: 4,
+          kind: INVITE_KIND,
           content: encryptedContent,
           tags: [
             ['p', invite.fromPubkey],
-            ['invite-id', invite.id],
-            ['budget-month', invite.budgetMonth],
-            ['sat-sorter', 'budget-invite-accept'],
+            ['t', 'sat-sorter-invite-response'],
+            ['d', invite.id],
+            ['month', invite.budgetMonth],
+            ['status', 'accepted'],
+            ['alt', 'Budget partner invite response'],
           ],
         });
 
@@ -136,8 +171,13 @@ export function usePartnerInvites() {
    */
   const declineInvite = useCallback(
     async (invite: BudgetPartnerInvite): Promise<boolean> => {
-      if (!user?.pubkey || !user?.signer?.nip44) {
-        console.error('[usePartnerInvites] User not logged in or NIP-44 not available');
+      if (!user?.pubkey) {
+        console.error('[usePartnerInvites] User not logged in');
+        return false;
+      }
+
+      if (!user.signer.nip04 && !user.signer.nip44) {
+        console.error('[usePartnerInvites] No encryption methods available');
         return false;
       }
 
@@ -150,19 +190,31 @@ export function usePartnerInvites() {
           fromPubkey: user.pubkey,
         };
 
-        const encryptedContent = await user.signer.nip44.encrypt(
-          invite.fromPubkey,
-          JSON.stringify(payload)
-        );
+        let encryptedContent: string;
+        if (user.signer.nip04) {
+          encryptedContent = await user.signer.nip04.encrypt(
+            invite.fromPubkey,
+            JSON.stringify(payload)
+          );
+        } else if (user.signer.nip44) {
+          encryptedContent = await user.signer.nip44.encrypt(
+            invite.fromPubkey,
+            JSON.stringify(payload)
+          );
+        } else {
+          throw new Error('No encryption available');
+        }
 
         await publish({
-          kind: 4,
+          kind: INVITE_KIND,
           content: encryptedContent,
           tags: [
             ['p', invite.fromPubkey],
-            ['invite-id', invite.id],
-            ['budget-month', invite.budgetMonth],
-            ['sat-sorter', 'budget-invite-decline'],
+            ['t', 'sat-sorter-invite-response'],
+            ['d', invite.id],
+            ['month', invite.budgetMonth],
+            ['status', 'declined'],
+            ['alt', 'Budget partner invite response'],
           ],
         });
 
@@ -179,10 +231,18 @@ export function usePartnerInvites() {
   /**
    * Fetch received partner invites from Nostr
    */
-  const { data: receivedInvites = [], isLoading: isLoadingInvites } = useQuery({
+  const { data: receivedInvites = [], isLoading: isLoadingInvites, refetch } = useQuery({
     queryKey: ['partner-invites', user?.pubkey],
     queryFn: async ({ signal }) => {
-      if (!user?.pubkey || !user?.signer?.nip44) return [];
+      if (!user?.pubkey) {
+        console.log('[usePartnerInvites] No user - skipping query');
+        return [];
+      }
+
+      if (!user.signer.nip04 && !user.signer.nip44) {
+        console.warn('[usePartnerInvites] No decryption methods available');
+        return [];
+      }
 
       try {
         const combinedSignal = AbortSignal.any([
@@ -190,31 +250,58 @@ export function usePartnerInvites() {
           AbortSignal.timeout(10000),
         ]);
 
-        // Query for DMs with sat-sorter invite tags
+        console.log('[usePartnerInvites] Querying for invites addressed to', user.pubkey);
+
+        // Query for invite events addressed to this user
+        // Use both filters to catch invites (kind 4001 with p tag)
         const events = await nostr.query(
           [
             {
-              kinds: [4],
+              kinds: [INVITE_KIND],
               '#p': [user.pubkey],
-              '#sat-sorter': ['budget-invite'],
-              limit: 50,
+              '#t': ['sat-sorter-invite'],
+              limit: 100,
             },
           ],
           { signal: combinedSignal }
         );
 
+        console.log('[usePartnerInvites] Found', events.length, 'invite events');
+
         const invites: BudgetPartnerInvite[] = [];
+        const seenInviteIds = new Set<string>();
 
         for (const event of events) {
           try {
-            // Decrypt the message
-            const decrypted = await user.signer.nip44.decrypt(
-              event.pubkey,
-              event.content
-            );
+            // Try NIP-04 first, then NIP-44
+            let decrypted: string | null = null;
+            
+            if (user.signer.nip04) {
+              try {
+                decrypted = await user.signer.nip04.decrypt(event.pubkey, event.content);
+              } catch (e) {
+                console.log('[usePartnerInvites] NIP-04 decrypt failed, trying NIP-44');
+              }
+            }
+
+            if (!decrypted && user.signer.nip44) {
+              try {
+                decrypted = await user.signer.nip44.decrypt(event.pubkey, event.content);
+              } catch (e) {
+                console.warn('[usePartnerInvites] NIP-44 decrypt also failed');
+              }
+            }
+
+            if (!decrypted) {
+              console.warn('[usePartnerInvites] Could not decrypt event from', event.pubkey);
+              continue;
+            }
+
             const payload: PartnerInvitePayload = JSON.parse(decrypted);
 
-            if (payload.type === 'invite') {
+            if (payload.type === 'invite' && !seenInviteIds.has(payload.inviteId)) {
+              seenInviteIds.add(payload.inviteId);
+              
               const invite: BudgetPartnerInvite = {
                 id: payload.inviteId,
                 fromPubkey: payload.fromPubkey,
@@ -224,33 +311,27 @@ export function usePartnerInvites() {
                 status: 'pending',
               };
 
-              // Check if we already have this invite
-              if (
-                !invites.find(
-                  (i) =>
-                    i.id === invite.id ||
-                    (i.fromPubkey === invite.fromPubkey &&
-                      i.budgetMonth === invite.budgetMonth)
-                )
-              ) {
-                invites.push(invite);
-              }
+              invites.push(invite);
             }
           } catch (error) {
-            console.warn('[usePartnerInvites] Failed to decrypt invite:', error);
+            console.warn('[usePartnerInvites] Failed to process invite event:', error);
           }
         }
 
-        console.log('[usePartnerInvites] Fetched', invites.length, 'invites');
+        // Sort by newest first
+        invites.sort((a, b) => b.createdAt - a.createdAt);
+
+        console.log('[usePartnerInvites] Successfully parsed', invites.length, 'invites');
         return invites;
       } catch (error) {
         console.error('[usePartnerInvites] Failed to fetch invites:', error);
         return [];
       }
     },
-    enabled: !!user?.pubkey && !!user?.signer?.nip44,
-    staleTime: 30000, // 30 seconds
-    refetchInterval: 60000, // Refetch every minute
+    enabled: !!user?.pubkey && (!!user?.signer?.nip04 || !!user?.signer?.nip44),
+    staleTime: 15000, // 15 seconds
+    refetchInterval: 30000, // Refetch every 30 seconds
+    refetchOnWindowFocus: true,
   });
 
   return {
@@ -259,5 +340,6 @@ export function usePartnerInvites() {
     declineInvite,
     receivedInvites,
     isLoadingInvites,
+    refetch,
   };
 }
