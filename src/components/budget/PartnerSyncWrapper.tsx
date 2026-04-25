@@ -1,148 +1,203 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef } from 'react';
 import { useBudget } from '@/hooks/useBudget';
+import { usePartners } from '@/hooks/usePartners';
 import { usePartnerTransactionSync } from '@/hooks/usePartnerTransactionSync';
+import { usePartnerInviteResponses } from '@/hooks/usePartnerInviteResponses';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import type { Transaction } from '@/lib/budgetTypes';
 
 /**
- * PartnerSyncWrapper - Intercepts budget transactions and publishes them to partners
- * 
- * This component hooks into the budget context and automatically publishes transaction
- * changes to all partners when:
- * - A transaction is added
- * - A transaction is updated
- * - A transaction is deleted
- * 
- * The component should be placed high in the component tree, wrapping the Budget page.
+ * PartnerSyncWrapper - Detects local transaction changes and publishes them to partners.
+ *
+ * Works alongside usePartnerTransactionSync which handles receiving events and
+ * updating local state. This wrapper only publishes LOCAL changes.
+ *
+ * Echo-loop prevention: When a transaction arrives from a partner, the sync hook
+ * marks it in the `remoteTracker`. When this wrapper detects that transaction
+ * in local state, it checks the tracker and skips publishing it (since it already
+ * came from a partner).
  */
 export function PartnerSyncWrapper({ children }: { children: React.ReactNode }) {
   const { user } = useCurrentUser();
-  const { fullState, currentMonth, partners } = useBudget();
-  const { 
+  const { fullState } = useBudget();
+  const { partners: nostrPartners } = usePartners();
+  const localPartners = fullState.partners || [];
+
+  // Combine partner sources (same logic as the sync hook)
+  const combinedPartners = [
+    ...nostrPartners,
+    ...localPartners.filter(
+      (lp) => !nostrPartners.some((np) => np.pubkey === lp.pubkey)
+    ),
+  ];
+
+  const {
     publishTransactionAdd,
     publishTransactionUpdate,
     publishTransactionDelete,
+    remoteTracker,
   } = usePartnerTransactionSync();
 
-  // Track the previous state to detect changes
+  // Listen for invite accept/decline responses to keep partner status in sync
+  usePartnerInviteResponses();
+
+  // Track previous state for change detection
   const prevStateRef = useRef<{
-    transactionIds: Set<string>;
-    transactions: Map<string, Transaction>;
-    month: string;
+    // Map of month -> transaction ID -> serialized transaction
+    byMonth: Map<string, Map<string, string>>;
+    initialized: boolean;
   }>({
-    transactionIds: new Set(),
-    transactions: new Map(),
-    month: currentMonth,
+    byMonth: new Map(),
+    initialized: false,
   });
 
-  // Track ongoing publishes to avoid duplicate publishes
-  const publishingRef = useRef<Set<string>>(new Set());
+  // Include pending partners — optimistic sync even before accept response received
+  const acceptedPartnerCount = combinedPartners.filter(
+    (p) => p.status === 'accepted' || p.status === 'pending'
+  ).length;
 
-  const detectAndPublishChanges = useCallback(() => {
-    // Skip if not logged in, no partners, or no user
-    if (!user?.pubkey || !partners || partners.length === 0) {
+  // Publish local transaction changes
+  useEffect(() => {
+    // Skip if no user or no accepted partners
+    if (!user?.pubkey || acceptedPartnerCount === 0) {
       return;
     }
 
-    // Get current month's budget
-    const currentBudget = fullState.budgets.find((b) => b.month === currentMonth);
-    if (!currentBudget) {
-      return;
+    const prev = prevStateRef.current;
+
+    // Build current state: Map<month, Map<txId, serialized>>
+    const currentByMonth = new Map<string, Map<string, string>>();
+    for (const budget of fullState.budgets) {
+      const monthMap = new Map<string, string>();
+      for (const tx of budget.transactions) {
+        monthMap.set(tx.id, JSON.stringify(tx));
+      }
+      currentByMonth.set(budget.month, monthMap);
     }
 
-    const currentTransactions = currentBudget.transactions;
-    const prevState = prevStateRef.current;
-
-    // Reset if month changed
-    if (prevState.month !== currentMonth) {
+    // On first run, just initialize — don't publish anything yet.
+    // Existing transactions are considered "already synced" (they may have
+    // come from the initial invite snapshot or an earlier session).
+    if (!prev.initialized) {
       prevStateRef.current = {
-        transactionIds: new Set(),
-        transactions: new Map(),
-        month: currentMonth,
+        byMonth: currentByMonth,
+        initialized: true,
       };
-      publishingRef.current.clear();
+      console.log('[PartnerSyncWrapper] Initialized with', fullState.budgets.length, 'budget(s)');
       return;
     }
 
-    // Build current state
-    const currentIds = new Set(currentTransactions.map((t) => t.id));
-    const currentMap = new Map(currentTransactions.map((t) => [t.id, t]));
+    // Walk each month and detect changes
+    for (const [month, currentTxs] of currentByMonth) {
+      const prevTxs = prev.byMonth.get(month) || new Map<string, string>();
 
-    // Detect added transactions
-    for (const transaction of currentTransactions) {
-      if (!prevState.transactionIds.has(transaction.id)) {
-        const publishKey = `add-${transaction.id}`;
-        if (!publishingRef.current.has(publishKey)) {
-          publishingRef.current.add(publishKey);
-          console.log('[PartnerSyncWrapper] New transaction detected, publishing:', transaction.id);
-          publishTransactionAdd(transaction)
-            .catch((e) => {
-              console.error('[PartnerSyncWrapper] Failed to publish transaction add:', e);
-            })
-            .finally(() => {
-              publishingRef.current.delete(publishKey);
+      // Detect added or updated transactions
+      for (const [txId, currentSerialized] of currentTxs) {
+        const prevSerialized = prevTxs.get(txId);
+
+        if (prevSerialized === undefined) {
+          // New transaction
+          // Check if this was added by a REMOTE partner event (echo prevention)
+          if (remoteTracker.remoteAdded.has(txId)) {
+            remoteTracker.remoteAdded.delete(txId); // Consume the marker
+            console.log('[PartnerSyncWrapper] Skipping publish for remote-added tx:', txId);
+            continue;
+          }
+
+          // Locally added — publish to partners
+          try {
+            const tx: Transaction = JSON.parse(currentSerialized);
+            console.log('[PartnerSyncWrapper] Publishing new local tx:', txId, 'for month', month);
+            publishTransactionAdd(tx, month).catch((e) => {
+              console.error('[PartnerSyncWrapper] Publish add failed:', e);
             });
+          } catch (e) {
+            console.error('[PartnerSyncWrapper] Could not parse tx:', e);
+          }
+        } else if (prevSerialized !== currentSerialized) {
+          // Updated transaction
+          // Check if this update came from a REMOTE event (echo prevention)
+          const remoteSerialized = remoteTracker.remoteUpdated.get(txId);
+          if (remoteSerialized === currentSerialized) {
+            remoteTracker.remoteUpdated.delete(txId);
+            console.log('[PartnerSyncWrapper] Skipping publish for remote-updated tx:', txId);
+            continue;
+          }
+
+          try {
+            const tx: Transaction = JSON.parse(currentSerialized);
+            console.log('[PartnerSyncWrapper] Publishing updated local tx:', txId, 'for month', month);
+            publishTransactionUpdate(tx, month).catch((e) => {
+              console.error('[PartnerSyncWrapper] Publish update failed:', e);
+            });
+          } catch (e) {
+            console.error('[PartnerSyncWrapper] Could not parse tx:', e);
+          }
+        }
+      }
+
+      // Detect deleted transactions
+      for (const prevTxId of prevTxs.keys()) {
+        if (!currentTxs.has(prevTxId)) {
+          // Transaction was deleted
+          // Check if this was a remote deletion (echo prevention)
+          if (remoteTracker.remoteDeleted.has(prevTxId)) {
+            remoteTracker.remoteDeleted.delete(prevTxId);
+            console.log('[PartnerSyncWrapper] Skipping publish for remote-deleted tx:', prevTxId);
+            continue;
+          }
+
+          console.log('[PartnerSyncWrapper] Publishing deletion of local tx:', prevTxId, 'for month', month);
+          publishTransactionDelete(prevTxId, month).catch((e) => {
+            console.error('[PartnerSyncWrapper] Publish delete failed:', e);
+          });
         }
       }
     }
 
-    // Detect updated transactions
-    for (const [id, transaction] of currentMap) {
-      const prevTransaction = prevState.transactions.get(id);
-      if (prevTransaction && JSON.stringify(prevTransaction) !== JSON.stringify(transaction)) {
-        const publishKey = `update-${id}`;
-        if (!publishingRef.current.has(publishKey)) {
-          publishingRef.current.add(publishKey);
-          console.log('[PartnerSyncWrapper] Transaction updated, publishing:', id);
-          publishTransactionUpdate(transaction)
-            .catch((e) => {
-              console.error('[PartnerSyncWrapper] Failed to publish transaction update:', e);
-            })
-            .finally(() => {
-              publishingRef.current.delete(publishKey);
-            });
+    // Also check for fully removed months (all transactions gone)
+    for (const [month, prevTxs] of prev.byMonth) {
+      if (!currentByMonth.has(month)) {
+        // Entire month was removed; publish deletions for all its transactions
+        for (const txId of prevTxs.keys()) {
+          if (remoteTracker.remoteDeleted.has(txId)) {
+            remoteTracker.remoteDeleted.delete(txId);
+            continue;
+          }
+          console.log('[PartnerSyncWrapper] Month removed, publishing deletion of tx:', txId);
+          publishTransactionDelete(txId, month).catch((e) => {
+            console.error('[PartnerSyncWrapper] Publish delete failed:', e);
+          });
         }
       }
     }
 
-    // Detect deleted transactions
-    for (const prevId of prevState.transactionIds) {
-      if (!currentIds.has(prevId)) {
-        const publishKey = `delete-${prevId}`;
-        if (!publishingRef.current.has(publishKey)) {
-          publishingRef.current.add(publishKey);
-          console.log('[PartnerSyncWrapper] Transaction deleted, publishing:', prevId);
-          publishTransactionDelete(prevId)
-            .catch((e) => {
-              console.error('[PartnerSyncWrapper] Failed to publish transaction delete:', e);
-            })
-            .finally(() => {
-              publishingRef.current.delete(publishKey);
-            });
-        }
-      }
-    }
-
-    // Update ref for next comparison
+    // Update snapshot
     prevStateRef.current = {
-      transactionIds: currentIds,
-      transactions: currentMap,
-      month: currentMonth,
+      byMonth: currentByMonth,
+      initialized: true,
     };
   }, [
-    user,
-    partners,
-    fullState,
-    currentMonth,
+    user?.pubkey,
+    acceptedPartnerCount,
+    fullState.budgets,
     publishTransactionAdd,
     publishTransactionUpdate,
     publishTransactionDelete,
+    remoteTracker,
   ]);
 
-  // Auto-publish transaction changes to partners
+  // When partners list changes (e.g. first partner added), reset the initialization
+  // so we re-snapshot the current state without re-publishing existing transactions.
   useEffect(() => {
-    detectAndPublishChanges();
-  }, [detectAndPublishChanges]);
+    if (acceptedPartnerCount > 0) {
+      // Keep initialized = true if we already had partners
+      // Only reset on transition from 0 -> 1+
+      if (!prevStateRef.current.initialized) {
+        prevStateRef.current.initialized = false;
+      }
+    }
+  }, [acceptedPartnerCount]);
 
   return <>{children}</>;
 }

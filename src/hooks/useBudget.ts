@@ -526,24 +526,44 @@ export function useBudget() {
        const existingBudgets = (prev.budgets || []).filter(b => !importedMonths.has(b.month));
        const mergedBudgets = [...existingBudgets, ...importedState.budgets];
 
-       // Set current month to the imported state's current month if available
-       const newCurrentMonth = importedState.currentMonth || prev.currentMonth;
+       // Always use the REAL current month (today's actual month), not the invite's
+       // month or the previous state. The invite may have been sent months ago, and
+       // users expect the app to open to the current month.
+       const realCurrentMonth = getCurrentMonth();
 
        // Preserve the role if provided (partner role)
        const newUserRole = options.asRole || prev.userRole || 'owner';
 
+       // If an owner pubkey is provided, add them as a partner on the invitee's side
+       // so the invitee's device subscribes to the owner's sync events.
+       let newPartners = prev.partners || [];
+       if (options.ownerPubkey && !newPartners.some(p => p.pubkey === options.ownerPubkey)) {
+         newPartners = [
+           ...newPartners,
+           {
+             pubkey: options.ownerPubkey,
+             permission: 'edit',
+             addedAt: Math.floor(Date.now() / 1000),
+             status: 'accepted', // Owner is implicitly accepted
+             acceptedAt: Math.floor(Date.now() / 1000),
+           },
+         ];
+         console.log('[useBudget] Added owner as partner on invitee side:', options.ownerPubkey);
+       }
+
        console.log('[useBudget] Imported budget state:', {
          importedBudgets: importedState.budgets.length,
          mergedBudgets: mergedBudgets.length,
-         newCurrentMonth,
+         currentMonth: realCurrentMonth,
          asRole: newUserRole,
        });
 
        return {
          ...prev,
          budgets: mergedBudgets,
-         currentMonth: newCurrentMonth,
+         currentMonth: realCurrentMonth,
          userRole: newUserRole,
+         partners: newPartners,
        };
      });
    }, [setState]);

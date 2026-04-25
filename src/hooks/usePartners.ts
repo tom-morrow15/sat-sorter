@@ -170,12 +170,40 @@ export function usePartners() {
     [partners, savePartnersList]
   );
 
+  // Update a partner's status (e.g. when they accept the invite)
+  const updatePartnerStatus = useCallback(
+    async (pubkey: string, status: 'pending' | 'accepted' | 'declined') => {
+      console.log('[usePartners] Updating status for:', pubkey, 'to:', status);
+      const existing = partners.find((p) => p.pubkey === pubkey);
+      if (!existing) {
+        console.log('[usePartners] Partner not found for status update');
+        return;
+      }
+      if (existing.status === status) {
+        // No change needed
+        return;
+      }
+      const updatedPartners = partners.map((p) =>
+        p.pubkey === pubkey
+          ? {
+              ...p,
+              status,
+              acceptedAt: status === 'accepted' ? Math.floor(Date.now() / 1000) : p.acceptedAt,
+            }
+          : p
+      );
+      await savePartnersList(updatedPartners);
+    },
+    [partners, savePartnersList]
+  );
+
   return {
     partners,
     isLoading,
     addPartner,
     removePartner,
     changePartnerPermission,
+    updatePartnerStatus,
     refetch,
   };
 }

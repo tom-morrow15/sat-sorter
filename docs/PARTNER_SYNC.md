@@ -1,94 +1,104 @@
-# Budget Partner Real-Time Sync
+# Budget Partner Real-Time Sync (v2)
 
 ## Overview
 
-The budget partner sync system enables real-time synchronization of transactions between budget partners. When one partner adds, updates, or deletes a transaction, all other partners see the changes immediately in their budget view.
+Real-time synchronization of budget transactions between partners. When one partner adds, updates, or deletes a transaction, all other partners see the change within seconds.
 
-## How It Works
+## Architecture
 
-### Architecture
+### Data Flow
 
 ```
-Partner A's Device          Nostr Network         Partner B's Device
-================           ============           ================
-Add Transaction
-     |
-     v
-Save locally ✓
-     |
-     v
-Publish to Nostr (encrypted)
-                           ---event kind 4002---->
-                                                  Receive in real-time
-                                                        |
-                                                        v
-                                                  Decrypt and apply
-                                                        |
-                                                        v
-                                                  Update local state
-                                                        |
-                                                        v
-                                                  User sees transaction ✓
+Partner A adds a transaction
+   │
+   ▼
+Local state updates (localStorage)
+   │
+   ▼
+PartnerSyncWrapper detects the change
+   │
+   ▼
+For EACH partner (accepted + pending):
+   Encrypt transaction with NIP-44 (to partner's pubkey)
+   Publish kind 4002 event with ["p", partner-pubkey]
+   │
+   ▼
+Nostr relays propagate the event
+   │
+   ▼
+Partner B's subscription receives events where #p = their pubkey
+   │
+   ▼
+Decrypt using sender's pubkey (NIP-44 shared secret)
+   │
+   ▼
+Mark transaction ID in globalRemoteTracker (echo prevention)
+   │
+   ▼
+Update Partner B's local state
+   │
+   ▼
+PartnerSyncWrapper sees the new transaction BUT finds it in
+the remote tracker → skips re-publishing (prevents echo loop)
+   │
+   ▼
+Partner B's UI renders the transaction ✓
 ```
 
-### Event Flow
+### Why NIP-44 to partner's pubkey (not self)?
 
-1. **User Action**: Partner adds a transaction in their budget
-2. **Local Save**: Transaction is saved to local browser storage immediately
-3. **Nostr Publish**: PartnerSyncWrapper detects the change and publishes it
-4. **Encryption**: Transaction is encrypted with NIP-44 before publishing
-5. **Distribution**: Nostr relays broadcast the event to all subscribers
-6. **Partner Receives**: Other partners' real-time subscription receives the event
-7. **Decryption**: Partner decrypts with their own key to self
-8. **Apply**: Transaction is added to their local budget automatically
-9. **UI Update**: Partner's device shows the new transaction in real-time
+NIP-44 uses a **shared secret** derived from `(senderPrivKey, recipientPubKey)`. This same secret can be derived from the other side as `(recipientPrivKey, senderPubKey)`. So:
 
-## Implementation Details
+- Partner A encrypts to Partner B's pubkey → Partner B can decrypt using their own key + A's pubkey
+- This is symmetric: works in both directions
 
-### Components
+If we encrypted to our own pubkey (self), only we could decrypt — defeating the purpose of sharing.
 
-#### `usePartnerTransactionSync` Hook
+### Why one event per partner?
 
-Located in `/src/hooks/usePartnerTransactionSync.ts`
+Each event is encrypted to a specific partner. If you have N partners, you publish N events (each encrypted differently). This is simple and scales fine for typical couple/family use.
 
-**Purpose**: Manages real-time transaction sync between partners
+## Components
 
-**Key Methods**:
-- `publishTransactionAdd(transaction)` - Publish a new transaction
-- `publishTransactionUpdate(transaction)` - Publish a transaction update
-- `publishTransactionDelete(transactionId)` - Publish a transaction deletion
-- Automatically subscribes to partner events on mount
-- Real-time listener receives updates from all partners
+### `usePartnerTransactionSync` hook (`/src/hooks/usePartnerTransactionSync.ts`)
 
-**State Management**:
-- Tracks received updates by partner pubkey
-- Marks processed events to prevent duplicates
-- Maintains sync timestamps
+- **Partners source**: Combines `usePartners` (Nostr kind 30078, owner-stored) with `state.partners` (localStorage, invitee-stored). This handles both sides of the sync.
+- **Subscription**: Listens for kind 4002 events authored by any partner and tagged `#p = my-pubkey`.
+- **Echo prevention**: Uses a global `remoteTracker` singleton. Before applying an incoming change to local state, it marks the transaction ID in the tracker so the wrapper knows not to re-publish it.
+- **Publishing**: For each partner, encrypts the payload with NIP-44 to their pubkey and publishes a kind 4002 event.
 
-#### `PartnerSyncWrapper` Component
+### `PartnerSyncWrapper` component (`/src/components/budget/PartnerSyncWrapper.tsx`)
 
-Located in `/src/components/budget/PartnerSyncWrapper.tsx`
+- **Change detection**: Each render, compares `fullState.budgets` against a snapshot in a ref. Detects added/updated/deleted transactions across all months.
+- **Echo prevention**: Before publishing, checks the `remoteTracker`. If the change was caused by a received event, skips publishing and clears the marker.
+- **Initialization**: On first run, just snapshots current state without publishing anything. This prevents the invitee's initial snapshot from being republished.
 
-**Purpose**: Intercepts budget transactions and publishes changes automatically
+### `usePartnerInviteResponses` hook (`/src/hooks/usePartnerInviteResponses.ts`)
 
-**How it works**:
-1. Compares current transactions with previous render
-2. Detects additions, updates, and deletions
-3. Publishes each change via `usePartnerTransactionSync`
-4. Tracks publishing to prevent duplicate publishes
+- **Purpose**: Watches for invite accept/decline responses (kind 4001 with `#t = sat-sorter-invite-response`) from pending partners.
+- **Action**: When a response is received, updates the partner's status in the owner's `usePartners` list to match.
 
-**Placement**: Wraps the Budget page at `/src/pages/Budget.tsx`
+### `importBudgetState` updates (`/src/hooks/useBudget.ts`)
 
-### Nostr Event Structure (Kind 4002)
+When the invitee accepts an invite:
+1. The owner's budget snapshot is merged into local state
+2. The `currentMonth` is set to **today's real current month** (not the imported month)
+3. The owner is automatically added to the invitee's `state.partners` as `accepted` (so the invitee's sync subscription activates)
+
+### `BudgetProvider` updates (`/src/contexts/BudgetContext.tsx`)
+
+On initial app load, if `state.currentMonth` is stale (from a previous session or accepted invite), it's automatically reset to today's real current month. Users can still navigate to past/future months manually.
+
+## Nostr Event (Kind 4002)
 
 ```json
 {
   "kind": 4002,
-  "content": "nip44-encrypted-json",
+  "content": "<NIP-44 encrypted JSON>",
   "tags": [
-    ["p", "user-pubkey"],
+    ["p", "<recipient-pubkey>"],
     ["budget", "sat-sorter"],
-    ["month", "2024-01"],
+    ["month", "2026-04"],
     ["type", "transaction-added"],
     ["version", "1"],
     ["alt", "Sat Sorter budget sync: transaction-added"]
@@ -96,244 +106,56 @@ Located in `/src/components/budget/PartnerSyncWrapper.tsx`
 }
 ```
 
-**Encrypted Content**:
+### Decrypted content
+
 ```json
 {
   "type": "transaction-added",
-  "budgetMonth": "2024-01",
+  "budgetMonth": "2026-04",
   "data": {
     "transaction": {
       "id": "...",
-      "amount": 1000,
+      "amount": 50000,
       "description": "Coffee",
-      "date": "2024-01-15T10:30:00Z",
-      "lineItemId": "...",
-      "bucketId": "...",
-      "isIncome": false
+      ...
     }
   },
-  "timestamp": 1705315800,
+  "timestamp": 1714050000,
   "version": 1
 }
 ```
 
-## User Experience
+## Known Behaviors
 
-### Real-Time Sync Workflow
+### Pending partners
 
-**Scenario**: You and your partner both have the app open, working on January 2024 budget
+Before the owner sees the wife's accept response, her status is "pending". The sync system still works because:
+- The owner publishes to both accepted AND pending partners
+- The subscription filter includes both statuses
+- Once `usePartnerInviteResponses` catches the accept event, her status auto-updates to "accepted"
 
-**Your Partner's View**:
-```
-1. Partner adds: $10 coffee expense
-2. Clicks to categorize: "Food & Dining"
-3. Saves transaction locally (instant)
-4. Your screen automatically updates (within seconds)
-5. You see: "$10 - Coffee" in the Food & Dining category
-```
+### Month navigation
 
-**Your View**:
-```
-1. You add: $150 monthly income
-2. Categorizes to: "Salary"
-3. Saves locally (instant)
-4. Partner's screen automatically updates (within seconds)
-5. Partner sees: "$150 - Salary" in the Income category
-```
+The app always opens to today's real current month. This prevents confusion when:
+- The invitee accepts an invite sent months ago
+- A device has stale localStorage state
+- The user returns after not using the app for a while
 
-### Conflict Resolution
+### Initial snapshot vs. real-time sync
 
-**Design**: Local changes always take precedence until synced
+When the invitee accepts an invite, they receive a budget snapshot containing all existing transactions. Real-time sync only handles **new** changes from that point forward. If the owner made transactions before the invitee accepted, they come via the snapshot (not real-time events).
 
-If both partners edit the same transaction simultaneously:
-1. Each gets their own version locally
-2. Next sync publishes their version
-3. Later timestamp wins (last write wins)
-4. Users can resolve conflicts manually if needed
+### Month not already existing
 
-## Technical Design Decisions
+If a partner publishes a transaction for a month that the receiving side doesn't have a budget for yet, the receiver creates a new empty budget entry for that month and adds the transaction. This can happen if one partner navigates to a new month and adds a transaction before the other.
 
-### Why Publish Every Transaction?
+## Debugging
 
-- **Pros**: Immediate synchronization, no conflicts, simple logic
-- **Cons**: More Nostr events published
-- **Decision**: Prioritize user experience (real-time) over bandwidth
+All sync-related logs are prefixed:
+- `[PartnerSync]` — from the sync hook
+- `[PartnerSyncWrapper]` — from the wrapper component
+- `[PartnerInviteResponses]` — from the response listener
+- `[BudgetProvider]` — from the context (month auto-correction)
+- `[useBudget]` — from the budget hook (invite import)
 
-### Why NIP-44?
-
-- Provides per-message encryption
-- Each user encrypts to themselves (privacy)
-- More secure than NIP-04
-- Event is readable but not decryptable by others
-
-### Why Kind 4002?
-
-- Regular kind in custom range (4000-4999)
-- Each event is independent (no replaceable complexity)
-- Simple subscription model
-- Easy to query by author/month
-
-### Processed Events Tracking
-
-Prevents duplicate imports when:
-- Subscription gets same event multiple times
-- User reloads page
-- Multiple relays return same event
-
-Uses Set of event IDs for O(1) lookups.
-
-## Error Handling
-
-### Network Issues
-
-If publishing fails:
-- Transaction still saves locally (user sees it)
-- Error logged to console
-- Retry happens on next change
-- User continues working normally
-
-### Decryption Failures
-
-If partner cannot decrypt:
-- Event is logged but ignored
-- User's local state unchanged
-- Can be manually synced later via "Save to Nostr" button
-
-### Missing Partner Data
-
-If partner pubkey not available:
-- Subscription simply won't see their events
-- No errors raised
-- User can re-add them as partner
-
-## Future Enhancements
-
-### Planned Features
-
-1. **Conflict UI**: Show conflicts when same transaction edited simultaneously
-2. **Sync Status Indicator**: Show "synced" vs "pending" in UI
-3. **Batch Operations**: For bulk uploads from other sources
-4. **Selective Sync**: Choose which transactions to sync
-5. **Sync History**: See who changed what and when
-6. **Undo/Redo**: With multi-user awareness
-
-### Performance Optimizations
-
-1. **Debounce Publishing**: Wait X ms before publishing changes
-2. **Delta Sync**: Only send changed fields, not full transactions
-3. **Compression**: Compress encrypted payloads for bandwidth
-4. **Selective Subscription**: Only subscribe to current month
-
-## Testing the Feature
-
-### Manual Test Scenario
-
-1. **Setup**:
-   - Two users (Alice and Bob)
-   - Add each other as budget partners (edit permission)
-   - Both open budget for same month in separate browsers/devices
-
-2. **Alice's Actions**:
-   - Add transaction: "$50 groceries"
-   - Categorize to "Food"
-
-3. **Expected Result**:
-   - Bob sees transaction appear in real-time
-   - Bob's budget totals update
-   - No refresh needed
-
-4. **Bob's Actions**:
-   - Update Alice's transaction: "$55 (receipt fixed)"
-
-5. **Expected Result**:
-   - Alice sees amount updated
-   - Both users' local state matches
-
-### Debugging
-
-**Enable verbose logging**:
-```javascript
-// In browser console
-localStorage.setItem('debug:partner-sync', 'true');
-// Look for [usePartnerTransactionSync] and [PartnerSyncWrapper] logs
-```
-
-**Monitor Nostr events**:
-```javascript
-// Find events in relay responses
-// Kind 4002 = partner sync events
-// Look for kind in relay messages
-```
-
-## Troubleshooting
-
-### Transactions Not Appearing
-
-**Checklist**:
-1. Both users logged in with Nostr? ✓
-2. Same budget month? ✓
-3. Partner status "accepted"? ✓
-4. Internet connection stable? ✓
-5. Check console for errors
-6. Wait a few seconds (network latency)
-7. Try manual refresh
-
-### Duplicates or Out of Order
-
-**Known Issues**:
-- Multiple relay subscriptions might show same transaction twice
-  - Fix: Processed events tracking handles this
-- Clock skew between devices affects ordering
-  - Limitation: Timestamps are server-based on events
-
-### One Partner Isn't Receiving
-
-**Debugging**:
-1. Check subscription was established (console log)
-2. Verify partner pubkey is correct
-3. Try manually triggering another transaction
-4. Check partner's device is still connected
-5. Look for Nostr relay connection errors
-
-## Security Considerations
-
-### Privacy
-
-- Only budget partners can see transactions
-- Encrypted with NIP-44 (unreadable to observers)
-- Relays see only metadata (timing, participant info)
-
-### Data Integrity
-
-- Event signatures prove authenticity
-- Version numbers help detect tampering
-- Checksums could be added in future
-
-### Permissions
-
-- Only partners with "edit" permission can trigger changes
-- Viewers should not be able to add transactions (UI hides button)
-- Ownership is immutable (owner is always budget creator)
-
-## Performance Metrics
-
-### Expected Latency
-
-- Local save: < 100ms
-- Publish to Nostr: 1-3 seconds
-- Relay propagation: 1-5 seconds
-- Partner receives: 1-10 seconds total
-- **User perception**: "Instant" (< 2 seconds on good connection)
-
-### Network Usage
-
-- Average transaction: ~500 bytes encrypted
-- Per transaction: 1 Nostr event
-- Monthly: ~50-100 events (depends on usage)
-
-## Documentation Files
-
-For more information:
-- `NIP.md` - Formal event definition for kind 4002
-- `/src/hooks/usePartnerTransactionSync.ts` - Hook implementation
-- `/src/components/budget/PartnerSyncWrapper.tsx` - Component implementation
+To see all sync activity, filter browser console by `[Partner` or `[Budget`.

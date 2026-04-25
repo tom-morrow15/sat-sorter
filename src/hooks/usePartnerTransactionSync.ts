@@ -1,10 +1,12 @@
-import { useEffect, useCallback, useRef, useState } from 'react';
+import { useEffect, useCallback, useMemo, useRef, useState } from 'react';
 import { useNostr } from '@nostrify/react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
-import { useBudget } from '@/hooks/useBudget';
+import { useBudgetContext } from '@/contexts/BudgetContext';
+import { usePartners } from '@/hooks/usePartners';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useToast } from '@/hooks/useToast';
-import type { Transaction } from '@/lib/budgetTypes';
+import type { Transaction, MonthlyBudget, BudgetPartner } from '@/lib/budgetTypes';
+import { generateId } from '@/lib/budgetTypes';
 
 const PARTNER_SYNC_KIND = 4002; // Budget Partner Transaction Sync
 const BUDGET_CATEGORY = 'sat-sorter';
@@ -21,321 +23,466 @@ interface PartnerSyncEvent {
   version: number;
 }
 
-interface SyncState {
+interface SyncStatus {
   isSyncing: boolean;
   lastSync: number | null;
-  pendingUpdates: PartnerSyncEvent[];
-  receivedUpdates: Map<string, PartnerSyncEvent[]>;
+  error: string | null;
+}
+
+/**
+ * A ref-based tracker shared between the sync hook and the wrapper component.
+ * Transactions added/updated/deleted from REMOTE partner events are marked
+ * here so the wrapper doesn't publish them back out (echo loop prevention).
+ */
+export interface RemoteOriginTracker {
+  // Transaction IDs that were added remotely (wrapper should skip publishing)
+  remoteAdded: Set<string>;
+  // Transaction IDs that were updated remotely with the stringified data
+  remoteUpdated: Map<string, string>;
+  // Transaction IDs that were deleted remotely
+  remoteDeleted: Set<string>;
+}
+
+// Shared singleton tracker (lives for the lifetime of the page)
+const globalRemoteTracker: RemoteOriginTracker = {
+  remoteAdded: new Set(),
+  remoteUpdated: new Map(),
+  remoteDeleted: new Set(),
+};
+
+export function getRemoteOriginTracker(): RemoteOriginTracker {
+  return globalRemoteTracker;
 }
 
 /**
  * usePartnerTransactionSync - Real-time transaction sync between budget partners
- * 
- * This hook enables automatic real-time synchronization of transactions between partners.
- * When a partner adds, updates, or deletes a transaction:
- * 1. The change is published to Nostr (encrypted)
- * 2. All other partners receive it via real-time subscription
- * 3. Local state is updated automatically
- * 4. Users see changes in real-time on all devices
- * 
- * Key design decisions:
- * - Each user publishes their own changes to their pubkey
- * - All partners subscribe to each other's pubkeys
- * - Events are encrypted with NIP-44 for privacy
- * - Version numbers help with conflict detection
- * - Timestamps ensure proper event ordering
+ *
+ * How it works:
+ * 1. Each user subscribes to sync events from all their partners' pubkeys
+ * 2. When publishing, we encrypt to EACH partner's pubkey (one event per partner)
+ *    so they can decrypt using NIP-44's shared secret (derived from both keys)
+ * 3. On receipt, we decrypt using the sender's pubkey + our own signer
+ * 4. Incoming transactions are marked in the "remote origin tracker" so the
+ *    wrapper component doesn't publish them back out
+ * 5. Only accepted partners are involved in sync
  */
 export function usePartnerTransactionSync() {
   const { nostr } = useNostr();
   const { user } = useCurrentUser();
-  const { 
-    partners, 
-    currentMonth, 
-    fullState, 
-    addTransaction: addTransactionLocal,
-    updateTransaction: updateTransactionLocal,
-    deleteTransaction: deleteTransactionLocal,
-  } = useBudget();
+  const { state, setState } = useBudgetContext();
+  const { partners: nostrPartners } = usePartners();
   const { mutateAsync: publish } = useNostrPublish();
   const { toast } = useToast();
 
-  const [syncState, setSyncState] = useState<SyncState>({
+  // Combine both partner sources:
+  // - usePartners (Nostr kind 30078) — used by the OWNER to track their partners
+  // - state.partners (localStorage) — used by INVITEES to track the owner they accepted
+  // Deduplicate by pubkey, prefer accepted status from either source.
+  const partners = useMemo<BudgetPartner[]>(() => {
+    const localPartners = state.partners || [];
+    const combined = new Map<string, BudgetPartner>();
+
+    for (const p of nostrPartners || []) {
+      combined.set(p.pubkey, p);
+    }
+    for (const p of localPartners) {
+      const existing = combined.get(p.pubkey);
+      if (existing) {
+        // Prefer "accepted" status from either source
+        if (existing.status !== 'accepted' && p.status === 'accepted') {
+          combined.set(p.pubkey, { ...existing, status: 'accepted', acceptedAt: p.acceptedAt });
+        }
+      } else {
+        combined.set(p.pubkey, p);
+      }
+    }
+
+    return Array.from(combined.values());
+  }, [nostrPartners, state.partners]);
+
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>({
     isSyncing: false,
     lastSync: null,
-    pendingUpdates: [],
-    receivedUpdates: new Map(),
+    error: null,
   });
 
   const subscriptionRef = useRef<{ close: () => void } | null>(null);
-  const processedEventsRef = useRef<Set<string>>(new Set()); // Track processed event IDs
+  const processedEventsRef = useRef<Set<string>>(new Set());
+
+  // Keep latest values in a ref so handleIncomingSyncEvent has stable closure
+  const stateRef = useRef({ state, user, setState });
+  stateRef.current = { state, user, setState };
+
+  // Keep latest partners list for publishSyncEvent
+  const latestPartnersRef = useRef(partners);
+  latestPartnersRef.current = partners;
 
   /**
-   * Publish a transaction sync event to Nostr
+   * Publish a sync event to all accepted partners.
+   * Each partner gets their own event (encrypted to them specifically).
    */
   const publishSyncEvent = useCallback(
     async (syncEvent: PartnerSyncEvent): Promise<boolean> => {
-      if (!user?.pubkey || !user?.signer?.nip44) {
-        console.warn('[usePartnerTransactionSync] User not logged in or NIP-44 unavailable');
+      const currentUser = stateRef.current.user;
+      if (!currentUser?.pubkey || !currentUser?.signer?.nip44) {
+        console.warn('[PartnerSync] User not logged in or NIP-44 unavailable');
         return false;
       }
 
-      try {
-        // Encrypt the sync event
-        const encrypted = await user.signer.nip44.encrypt(
-          user.pubkey,
-          JSON.stringify(syncEvent)
-        );
+      // Publish to partners that are accepted OR pending (optimistic).
+      // We use the latest combined list from the hook's state via closure.
+      const allPartners = latestPartnersRef.current.filter(
+        (p) => p.status === 'accepted' || p.status === 'pending'
+      );
 
-        // Publish to Nostr
-        await publish({
-          kind: PARTNER_SYNC_KIND,
-          content: encrypted,
-          tags: [
-            ['p', user.pubkey],
-            ['budget', BUDGET_CATEGORY],
-            ['month', syncEvent.budgetMonth],
-            ['type', syncEvent.type],
-            ['version', syncEvent.version.toString()],
-            ['alt', `Sat Sorter budget sync: ${syncEvent.type}`],
-          ],
-        });
-
-        console.log(
-          `[usePartnerTransactionSync] Published ${syncEvent.type} event for ${syncEvent.budgetMonth}`
-        );
+      if (allPartners.length === 0) {
+        console.log('[PartnerSync] No partners to sync with');
         return true;
-      } catch (e) {
-        console.error('[usePartnerTransactionSync] Failed to publish sync event:', e);
-        return false;
       }
+      const acceptedPartners = allPartners;
+
+      const payload = JSON.stringify(syncEvent);
+      let successCount = 0;
+
+      // Publish one event per partner, encrypted to each partner's pubkey
+      for (const partner of acceptedPartners) {
+        try {
+          const encrypted = await currentUser.signer.nip44.encrypt(
+            partner.pubkey,
+            payload
+          );
+
+          await publish({
+            kind: PARTNER_SYNC_KIND,
+            content: encrypted,
+            tags: [
+              ['p', partner.pubkey], // Recipient pubkey (for filtering)
+              ['budget', BUDGET_CATEGORY],
+              ['month', syncEvent.budgetMonth],
+              ['type', syncEvent.type],
+              ['version', syncEvent.version.toString()],
+              ['alt', `Sat Sorter budget sync: ${syncEvent.type}`],
+            ],
+          });
+
+          successCount++;
+          console.log(
+            `[PartnerSync] Published ${syncEvent.type} to partner ${partner.pubkey.slice(0, 8)}`
+          );
+        } catch (e) {
+          console.error(
+            `[PartnerSync] Failed to publish to ${partner.pubkey.slice(0, 8)}:`,
+            e
+          );
+        }
+      }
+
+      setSyncStatus((prev) => ({
+        ...prev,
+        lastSync: Math.floor(Date.now() / 1000),
+      }));
+
+      return successCount > 0;
     },
-    [user, publish]
+    [publish]
   );
 
   /**
-   * Handle incoming sync event from a partner
+   * Handle incoming sync event from a partner.
+   * This updates local state AND marks the change in the remote tracker
+   * so the wrapper doesn't republish it.
    */
   const handleIncomingSyncEvent = useCallback(
-    async (event: any) => {
-      const eventId = event.id;
-
+    async (event: { id: string; pubkey: string; content: string; tags: string[][] }) => {
       // Skip if already processed
-      if (processedEventsRef.current.has(eventId)) {
+      if (processedEventsRef.current.has(event.id)) {
         return;
       }
-      processedEventsRef.current.add(eventId);
+      processedEventsRef.current.add(event.id);
+
+      const currentUser = stateRef.current.user;
+      if (!currentUser?.signer?.nip44 || !currentUser.pubkey) {
+        console.warn('[PartnerSync] Cannot decrypt - NIP-44 unavailable');
+        return;
+      }
+
+      // Ignore our own events
+      if (event.pubkey === currentUser.pubkey) {
+        return;
+      }
+
+      // Only process events addressed to us
+      const recipientTag = event.tags.find((t) => t[0] === 'p')?.[1];
+      if (recipientTag !== currentUser.pubkey) {
+        return;
+      }
 
       try {
-        if (!user?.signer?.nip44) {
-          console.warn('[usePartnerTransactionSync] Cannot decrypt - NIP-44 unavailable');
-          return;
-        }
-
-        // Decrypt the content
-        const decrypted = await user.signer.nip44.decrypt(event.pubkey, event.content);
+        // Decrypt using sender's pubkey (NIP-44 shared secret)
+        const decrypted = await currentUser.signer.nip44.decrypt(
+          event.pubkey,
+          event.content
+        );
         const syncEvent: PartnerSyncEvent = JSON.parse(decrypted);
 
-        // Only process events for current month
-        if (syncEvent.budgetMonth !== currentMonth) {
-          console.log(
-            `[usePartnerTransactionSync] Ignoring event for different month: ${syncEvent.budgetMonth} vs ${currentMonth}`
-          );
-          return;
-        }
+        console.log(
+          `[PartnerSync] Received ${syncEvent.type} from ${event.pubkey.slice(0, 8)} for month ${syncEvent.budgetMonth}`
+        );
 
-        // Track received update
-        setSyncState((prev) => {
-          const updated = new Map(prev.receivedUpdates);
-          const eventList = updated.get(event.pubkey) || [];
-          updated.set(event.pubkey, [...eventList, syncEvent]);
-          return {
-            ...prev,
-            receivedUpdates: updated,
-          };
-        });
+        // Apply the update to local state.
+        // IMPORTANT: We update directly via setState to ensure we don't
+        // re-trigger the publish loop (wrapper uses remote tracker).
+        const setStateFn = stateRef.current.setState;
 
-        // Apply the update to local state
         switch (syncEvent.type) {
           case 'transaction-added': {
             if (!syncEvent.data.transaction) break;
-            console.log(
-              `[usePartnerTransactionSync] Applying transaction add from ${event.pubkey.slice(0, 8)}`
-            );
-            // Check if transaction already exists to avoid duplicates
-            const existing = fullState.budgets
-              .find((b) => b.month === syncEvent.budgetMonth)
-              ?.transactions.find((t) => t.id === syncEvent.data.transaction!.id);
+            const incoming = syncEvent.data.transaction;
 
-            if (!existing) {
-              addTransactionLocal(syncEvent.data.transaction);
-              toast({
-                title: 'Transaction synced',
-                description: `${syncEvent.data.transaction.description} (${syncEvent.data.transaction.amount} sats)`,
-              });
-            }
+            // Mark in remote tracker BEFORE state update so wrapper skips it
+            globalRemoteTracker.remoteAdded.add(incoming.id);
+
+            setStateFn((prev) => {
+              // Find or create the budget for this month
+              const existingBudgetIdx = prev.budgets.findIndex(
+                (b) => b.month === syncEvent.budgetMonth
+              );
+
+              if (existingBudgetIdx >= 0) {
+                const existingBudget = prev.budgets[existingBudgetIdx];
+                // Check if transaction already exists (avoid duplicates)
+                if (existingBudget.transactions.some((t) => t.id === incoming.id)) {
+                  console.log('[PartnerSync] Transaction already exists, skipping');
+                  return prev;
+                }
+                const updatedBudget: MonthlyBudget = {
+                  ...existingBudget,
+                  transactions: [...existingBudget.transactions, incoming],
+                };
+                const newBudgets = [...prev.budgets];
+                newBudgets[existingBudgetIdx] = updatedBudget;
+                return { ...prev, budgets: newBudgets };
+              } else {
+                // Create new budget for this month with just this transaction
+                const newBudget: MonthlyBudget = {
+                  id: generateId(),
+                  month: syncEvent.budgetMonth,
+                  buckets: [],
+                  transactions: [incoming],
+                };
+                return { ...prev, budgets: [...prev.budgets, newBudget] };
+              }
+            });
+
+            toast({
+              title: 'Transaction synced',
+              description: `${incoming.description} (${incoming.amount.toLocaleString()} sats)`,
+            });
             break;
           }
 
           case 'transaction-updated': {
             if (!syncEvent.data.transaction) break;
-            console.log(
-              `[usePartnerTransactionSync] Applying transaction update from ${event.pubkey.slice(0, 8)}`
-            );
-            updateTransactionLocal(
-              syncEvent.data.transaction.id,
-              syncEvent.data.transaction
-            );
+            const incoming = syncEvent.data.transaction;
+
+            // Mark in remote tracker with serialized data
+            globalRemoteTracker.remoteUpdated.set(incoming.id, JSON.stringify(incoming));
+
+            setStateFn((prev) => {
+              const budgetIdx = prev.budgets.findIndex(
+                (b) => b.month === syncEvent.budgetMonth
+              );
+              if (budgetIdx < 0) return prev;
+
+              const budget = prev.budgets[budgetIdx];
+              const txIdx = budget.transactions.findIndex((t) => t.id === incoming.id);
+              if (txIdx < 0) {
+                // Transaction doesn't exist locally; treat as add
+                const updatedBudget: MonthlyBudget = {
+                  ...budget,
+                  transactions: [...budget.transactions, incoming],
+                };
+                const newBudgets = [...prev.budgets];
+                newBudgets[budgetIdx] = updatedBudget;
+                return { ...prev, budgets: newBudgets };
+              }
+
+              const newTransactions = [...budget.transactions];
+              newTransactions[txIdx] = incoming;
+              const updatedBudget: MonthlyBudget = {
+                ...budget,
+                transactions: newTransactions,
+              };
+              const newBudgets = [...prev.budgets];
+              newBudgets[budgetIdx] = updatedBudget;
+              return { ...prev, budgets: newBudgets };
+            });
             break;
           }
 
           case 'transaction-deleted': {
             if (!syncEvent.data.transactionId) break;
-            console.log(
-              `[usePartnerTransactionSync] Applying transaction delete from ${event.pubkey.slice(0, 8)}`
-            );
-            deleteTransactionLocal(syncEvent.data.transactionId);
-            break;
-          }
+            const txId = syncEvent.data.transactionId;
 
-          case 'budget-updated': {
-            console.log(
-              `[usePartnerTransactionSync] Budget update from ${event.pubkey.slice(0, 8)}`
-            );
-            // Could implement full budget merge here if needed
+            // Mark in remote tracker
+            globalRemoteTracker.remoteDeleted.add(txId);
+
+            setStateFn((prev) => {
+              const budgetIdx = prev.budgets.findIndex(
+                (b) => b.month === syncEvent.budgetMonth
+              );
+              if (budgetIdx < 0) return prev;
+
+              const budget = prev.budgets[budgetIdx];
+              const updatedBudget: MonthlyBudget = {
+                ...budget,
+                transactions: budget.transactions.filter((t) => t.id !== txId),
+              };
+              const newBudgets = [...prev.budgets];
+              newBudgets[budgetIdx] = updatedBudget;
+              return { ...prev, budgets: newBudgets };
+            });
             break;
           }
         }
 
-        setSyncState((prev) => ({
+        setSyncStatus((prev) => ({
           ...prev,
           lastSync: Math.floor(Date.now() / 1000),
+          error: null,
         }));
       } catch (e) {
-        console.error('[usePartnerTransactionSync] Error processing sync event:', e);
+        console.error('[PartnerSync] Error processing event:', e);
       }
     },
-    [user, currentMonth, fullState, addTransactionLocal, updateTransactionLocal, deleteTransactionLocal, toast]
+    [toast]
   );
 
   /**
-   * Subscribe to partner transaction updates
+   * Subscribe to partner events addressed to us.
+   * Re-subscribes whenever partner list changes.
    */
   useEffect(() => {
-    if (!partners || partners.length === 0 || !user?.pubkey) {
+    if (!user?.pubkey || !user?.signer?.nip44) {
       return;
     }
 
-    // Get all relevant pubkeys (owner + accepted partners)
-    const allRelevantPubkeys = [user.pubkey];
-    const acceptedPartners = partners.filter((p) => p.status === 'accepted');
-    allRelevantPubkeys.push(...acceptedPartners.map((p) => p.pubkey));
+    // Subscribe to all partners (accepted + pending). If a partner is pending
+    // because we haven't seen their accept response yet, we still want to
+    // receive their sync events.
+    const relevantPartnerPubkeys = partners
+      .filter((p) => p.status === 'accepted' || p.status === 'pending')
+      .map((p) => p.pubkey);
 
-    if (allRelevantPubkeys.length === 1) {
-      // Only me, no partners yet
+    if (relevantPartnerPubkeys.length === 0) {
+      console.log('[PartnerSync] No partners, skipping subscription');
       return;
     }
 
     console.log(
-      `[usePartnerTransactionSync] Subscribing to ${allRelevantPubkeys.length - 1} partners`
+      `[PartnerSync] Subscribing to events from ${relevantPartnerPubkeys.length} partner(s) addressed to us`
     );
 
-    // Subscribe to partner sync events
+    setSyncStatus((prev) => ({ ...prev, isSyncing: true }));
+
+    // Subscribe to events:
+    // - authored by any accepted partner
+    // - addressed to us (#p tag)
+    // - in the sat-sorter budget category
     subscriptionRef.current = nostr.req(
       [
         {
           kinds: [PARTNER_SYNC_KIND],
-          authors: allRelevantPubkeys,
+          authors: relevantPartnerPubkeys,
+          '#p': [user.pubkey],
           '#budget': [BUDGET_CATEGORY],
-          limit: 100, // Get recent events
+          limit: 200,
         },
       ],
       {
         onevent: handleIncomingSyncEvent,
         oneose: () => {
-          console.log('[usePartnerTransactionSync] Subscription established');
-          setSyncState((prev) => ({
-            ...prev,
-            isSyncing: false,
-          }));
+          console.log('[PartnerSync] Subscription EOSE (initial events loaded)');
+          setSyncStatus((prev) => ({ ...prev, isSyncing: false }));
         },
       }
     );
 
-    // Clean up on unmount
     return () => {
       if (subscriptionRef.current) {
         subscriptionRef.current.close();
         subscriptionRef.current = null;
       }
     };
-  }, [partners, user, nostr, handleIncomingSyncEvent]);
+    // Only re-subscribe when the set of partner pubkeys changes, not on every
+    // partners array mutation (which happens frequently during sync).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    user?.pubkey,
+    user?.signer?.nip44,
+    nostr,
+    partners
+      .filter((p) => p.status === 'accepted' || p.status === 'pending')
+      .map((p) => p.pubkey)
+      .sort()
+      .join(','),
+  ]);
 
   /**
    * Public API: Publish a transaction add event
    */
   const publishTransactionAdd = useCallback(
-    async (transaction: Transaction): Promise<boolean> => {
+    async (transaction: Transaction, month: string): Promise<boolean> => {
       const syncEvent: PartnerSyncEvent = {
         type: 'transaction-added',
-        budgetMonth: currentMonth,
+        budgetMonth: month,
         data: { transaction },
         timestamp: Math.floor(Date.now() / 1000),
         version: 1,
       };
-
       return publishSyncEvent(syncEvent);
     },
-    [currentMonth, publishSyncEvent]
+    [publishSyncEvent]
   );
 
-  /**
-   * Public API: Publish a transaction update event
-   */
   const publishTransactionUpdate = useCallback(
-    async (transaction: Transaction): Promise<boolean> => {
+    async (transaction: Transaction, month: string): Promise<boolean> => {
       const syncEvent: PartnerSyncEvent = {
         type: 'transaction-updated',
-        budgetMonth: currentMonth,
+        budgetMonth: month,
         data: { transaction },
         timestamp: Math.floor(Date.now() / 1000),
         version: 1,
       };
-
       return publishSyncEvent(syncEvent);
     },
-    [currentMonth, publishSyncEvent]
+    [publishSyncEvent]
   );
 
-  /**
-   * Public API: Publish a transaction delete event
-   */
   const publishTransactionDelete = useCallback(
-    async (transactionId: string): Promise<boolean> => {
+    async (transactionId: string, month: string): Promise<boolean> => {
       const syncEvent: PartnerSyncEvent = {
         type: 'transaction-deleted',
-        budgetMonth: currentMonth,
+        budgetMonth: month,
         data: { transactionId },
         timestamp: Math.floor(Date.now() / 1000),
         version: 1,
       };
-
       return publishSyncEvent(syncEvent);
     },
-    [currentMonth, publishSyncEvent]
+    [publishSyncEvent]
   );
 
   return {
-    // State
-    isSyncing: syncState.isSyncing,
-    lastSync: syncState.lastSync,
-    receivedUpdates: syncState.receivedUpdates,
-
-    // Public API
+    syncStatus,
     publishTransactionAdd,
     publishTransactionUpdate,
     publishTransactionDelete,
-
-    // Diagnostics
+    // Expose tracker for wrapper to check origin of changes
+    remoteTracker: globalRemoteTracker,
+    // For diagnostics
     processedEventsCount: processedEventsRef.current.size,
+    acceptedPartnerCount: partners.filter((p) => p.status === 'accepted').length,
+    activePartnerCount: partners.filter((p) => p.status === 'accepted' || p.status === 'pending').length,
   };
 }
