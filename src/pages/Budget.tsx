@@ -15,6 +15,7 @@ import { TransactionsPanel } from '@/components/budget/TransactionsPanel';
 import { BTCMapBanner } from '@/components/budget/BTCMapBanner';
 import { WalletModalControlled } from '@/components/budget/WalletModalControlled';
 import { QuickAddFAB } from '@/components/budget/QuickAddFAB';
+import { PartnerSyncWrapper } from '@/components/budget/PartnerSyncWrapper';
 import { LoginArea } from '@/components/auth/LoginArea';
 import { useBudget } from '@/hooks/useBudget';
 import { useWallet } from '@/hooks/useWallet';
@@ -121,9 +122,10 @@ export default function Budget() {
     [currentBudget.transactions]
   );
 
-  return (
-    <div className="min-h-screen bg-background">
-      <BudgetHeader
+   return (
+     <PartnerSyncWrapper>
+       <div className="min-h-screen bg-background">
+         <BudgetHeader
         buckets={currentBudget.buckets}
         currentMonth={currentMonth}
         currency={currency}
@@ -407,12 +409,13 @@ export default function Budget() {
         />
       )}
 
-      {/* Quick Add FAB - Bottom right */}
-      <QuickAddFAB
-        onAddTransaction={addTransaction}
-        currency={currency}
-      />
+       {/* Quick Add FAB - Bottom right */}
+       <QuickAddFAB
+         onAddTransaction={addTransaction}
+         currency={currency}
+       />
 
-    </div>
-  );
-}
+       </div>
+     </PartnerSyncWrapper>
+   );
+ }
