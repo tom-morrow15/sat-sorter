@@ -6,6 +6,8 @@ import {
   FileText,
   Eye,
   EyeOff,
+  AlertCircle,
+  ExternalLink,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,6 +15,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useMapleSettings } from '@/hooks/useMapleSettings';
 import { useToast } from '@/hooks/useToast';
 import { testKey } from '@/services/mapleAi';
@@ -63,6 +66,24 @@ export function MapleSettings() {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
+        {/* Setup Instructions */}
+        <Alert className="border-blue-200 bg-blue-50">
+          <AlertCircle className="h-4 w-4 text-blue-600" />
+          <AlertDescription className="text-sm">
+            <strong>Setup Required:</strong> Download the Maple desktop app from{' '}
+            <a 
+              href="https://trymaple.ai/downloads" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:underline font-semibold inline-flex items-center gap-1"
+            >
+              trymaple.ai
+              <ExternalLink className="h-3 w-3" />
+            </a>
+            , start the Local Proxy, then come back and test your key.
+          </AlertDescription>
+        </Alert>
+
         {/* API Key */}
         <div className="space-y-2">
           <Label htmlFor="maple-api-key">API Key</Label>
@@ -94,9 +115,10 @@ export function MapleSettings() {
               {isTesting ? 'Testing...' : 'Test'}
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground">
-            Your key is stored locally. Sat Sorter never shares it.
-          </p>
+           <p className="text-xs text-muted-foreground">
+             API key stored locally. Connects to Maple Proxy at{' '}
+             <code className="bg-muted px-1 py-0.5 rounded text-xs">http://localhost:8080/v1</code>
+           </p>
         </div>
 
         {/* Enable toggle - only shown when key exists */}

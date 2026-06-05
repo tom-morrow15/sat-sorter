@@ -163,15 +163,21 @@ const INSIGHTS_SYSTEM_PROMPT = `You are Maple, a privacy-first Bitcoin budgeting
 
 const CHAT_SYSTEM_PROMPT = `You are Maple, the Budget Buddy inside Sat Sorter. You have access to the user's current monthly budget summary, recent transactions, and their evergreen context. Tailor all advice through the evergreen context when relevant. Answer helpfully, concisely, and in a friendly tone. Default to USD but feel free to mention sats using the provided btc_price_usd. If a purchase would overspend a category, warn them and suggest moving funds from another category with surplus. Only use data provided in context.`;
 
-const MAPLE_API_URL = 'https://api.tryimaple.ai/v1/chat/completions';
+/**
+ * Maple Proxy is OpenAI-compatible and runs locally at http://localhost:8080/v1
+ * Supports streaming, multiple models: gpt-oss-120b, llama3-3-70b, qwen3-vl-30b, etc.
+ * See: blog.trymaple.ai for full documentation
+ */
+const MAPLE_PROXY_URL = 'http://localhost:8080/v1/chat/completions';
 
-// List of model names to try in order of preference
+// Available models from Maple Proxy
 const MODEL_NAMES = [
-  'claude-sonnet-4-20250514',
-  'claude-sonnet',
-  'claude-opus',
-  'claude-3-sonnet',
-  'gpt-4',
+  'gpt-oss-120b',      // ChatGPT creativity & structured data
+  'llama3-3-70b',      // Therapy notes, daily tasks, general reasoning
+  'qwen3-vl-30b',      // Image and video analysis, OCR
+  'kimi-k2-5',         // Complex agentic workflows, multi-step coding
+  'glm-5-1',           // Research, advanced math, coding
+  'gemma4-31b',        // Image analysis, thinking, multiple languages
 ];
 
 async function callMaple(
@@ -181,14 +187,14 @@ async function callMaple(
   history: ChatMessage[],
   maxTokens = 512
 ): Promise<string> {
-  const response = await fetch(MAPLE_API_URL, {
+  const response = await fetch(MAPLE_PROXY_URL, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${apiKey}`,
+      'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: MODEL_NAMES[0], // Use the first model name
+      model: MODEL_NAMES[0], // Use llama3-3-70b by default (good for reasoning)
       messages: [
         {
           role: 'system',
@@ -198,12 +204,21 @@ async function callMaple(
       ],
       temperature: 0.7,
       max_tokens: maxTokens,
+      stream: false,
     }),
   });
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error(`[Maple API Error] Status ${response.status}:`, errorText);
+    console.error(`[Maple Proxy Error] Status ${response.status}:`, errorText);
+    
+    if (response.status === 401 || response.status === 403) {
+      throw new Error('Invalid Maple API key');
+    }
+    if (response.status === 0 || response.statusText === 'error') {
+      throw new Error('Cannot reach Maple Proxy at http://localhost:8080. Is it running?');
+    }
+    
     throw new Error(`Maple API error ${response.status}: ${errorText}`);
   }
 
@@ -228,10 +243,10 @@ export async function chatWithMaple(
 
 export async function testKey(apiKey: string): Promise<{ ok: boolean; error?: string }> {
   try {
-    const response = await fetch(MAPLE_API_URL, {
+    const response = await fetch(MAPLE_PROXY_URL, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${apiKey}`,
+        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -239,29 +254,30 @@ export async function testKey(apiKey: string): Promise<{ ok: boolean; error?: st
         messages: [{ role: 'user', content: 'Hello' }],
         temperature: 0.7,
         max_tokens: 5,
+        stream: false,
       }),
     });
 
     if (!response.ok) {
       if (response.status === 401 || response.status === 403) {
-        return { ok: false, error: 'Invalid API key. Check your Maple credentials.' };
+        return { ok: false, error: 'Invalid Maple API key. Check your credentials at trymaple.ai' };
       }
       if (response.status === 429) {
         return { ok: false, error: 'Rate limited. Please try again in a moment.' };
       }
       if (response.status >= 500) {
-        return { ok: false, error: 'Maple API is temporarily unavailable.' };
+        return { ok: false, error: 'Maple Proxy is unavailable. Try again later.' };
       }
       const text = await response.text();
-      return { ok: false, error: `API error: ${response.status} ${text}` };
+      return { ok: false, error: `Error: ${response.status} ${text}` };
     }
 
     return { ok: true };
   } catch (error) {
     let message = 'Unknown error';
     if (error instanceof TypeError) {
-      if (error.message.includes('fetch')) {
-        message = 'Network error or CORS blocked. Check your connection.';
+      if (error.message.includes('fetch') || error.message.includes('Failed')) {
+        message = 'Cannot connect to Maple Proxy at http://localhost:8080. Make sure it is running and your API key is valid.';
       } else {
         message = error.message;
       }
