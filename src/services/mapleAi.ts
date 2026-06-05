@@ -223,8 +223,6 @@ async function callMaple(
   };
 
   const url = getChatCompletionsUrl(proxyUrl);
-  console.log('[callMaple] Streaming request to:', url);
-  console.log('[callMaple] Model:', MODEL_NAMES[0]);
 
   const response = await fetch(url, {
     method: 'POST',
@@ -237,8 +235,7 @@ async function callMaple(
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error(`[Maple Error ${response.status}]:`, errorText);
-    
+
     if (response.status === 401 || response.status === 403) {
       throw new Error('Invalid Maple API key. Check your key in Settings.');
     }
@@ -287,7 +284,6 @@ async function callMaple(
     reader.releaseLock();
   }
 
-  console.log('[callMaple] Streaming complete, response length:', fullContent.length);
   return fullContent;
 }
 

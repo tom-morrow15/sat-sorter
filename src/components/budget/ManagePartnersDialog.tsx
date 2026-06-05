@@ -59,9 +59,6 @@ export function ManagePartnersDialog({
   const [processingInviteId, setProcessingInviteId] = useState<string | null>(null);
   const { toast } = useToast();
 
-  // Debug: log whenever partners changes
-  console.log('[ManagePartnersDialog] Rendered with partners:', partners.length, 'userRole:', userRole, 'pending invites:', pendingInvites.length);
-
   const isOwner = userRole === 'owner';
 
   // Handle accepting a partner invite - downloads the owner's budget
