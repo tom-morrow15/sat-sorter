@@ -17,7 +17,7 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { useMapleSettings } from '@/hooks/useMapleSettings';
+import { useMapleSettings, DEFAULT_PROXY_URL } from '@/hooks/useMapleSettings';
 import { useToast } from '@/hooks/useToast';
 import { testKey } from '@/services/mapleAi';
 
@@ -76,34 +76,31 @@ export function MapleSettings() {
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Setup Instructions */}
-        <Alert className="border-amber-200 bg-amber-50">
-          <AlertCircle className="h-4 w-4 text-amber-600" />
+        <Alert className="border-primary/30 bg-primary/5">
+          <AlertCircle className="h-4 w-4 text-primary" />
           <AlertDescription className="text-xs space-y-2">
-            <p className="font-semibold text-sm">Setup Required</p>
-            <p>
-              Budget Buddy connects to Maple's privacy-first AI through the
-              Maple Proxy. To use it:
-            </p>
+            <p className="font-semibold text-sm">How to connect</p>
             <ol className="list-decimal list-inside space-y-1 ml-1">
               <li>
-                Download the Maple app from{' '}
+                Get a Maple account &amp; API key at{' '}
                 <a
-                  href="https://trymaple.ai/downloads"
+                  href="https://trymaple.ai"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-amber-700 font-semibold underline inline-flex items-center gap-0.5"
+                  className="text-primary font-semibold underline inline-flex items-center gap-0.5"
                 >
                   trymaple.ai
                   <ExternalLink className="h-3 w-3" />
-                </a>
+                </a>{' '}
+                (requires a paid plan)
               </li>
-              <li>Open it and start the Local Proxy (under API settings)</li>
-              <li>Paste your Maple API key below and tap Test</li>
+              <li>Paste your API key below and tap Test</li>
+              <li>Enable Budget Buddy and start chatting</li>
             </ol>
             <p className="text-muted-foreground pt-1">
-              <strong>On your phone?</strong> Keep the Maple app running on your
-              Mac, connect both devices to the same WiFi, and set the Proxy URL
-              below to your Mac's IP (e.g. <code className="bg-amber-100 px-1 rounded">http://192.168.1.50:8080/v1</code>).
+              Works on any device — your private budget data is encrypted and
+              processed inside Maple's secure enclave. Your API key stays on
+              your device.
             </p>
           </AlertDescription>
         </Alert>
@@ -144,25 +141,27 @@ export function MapleSettings() {
            </p>
         </div>
 
-        {/* Proxy URL */}
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <Server className="h-4 w-4" />
-            <Label htmlFor="maple-proxy-url">Proxy URL</Label>
+        {/* Advanced: Proxy URL */}
+        <details className="group">
+          <summary className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer select-none hover:text-foreground">
+            <Server className="h-3.5 w-3.5" />
+            Advanced: Proxy URL
+          </summary>
+          <div className="space-y-2 mt-3 pl-1">
+            <Input
+              id="maple-proxy-url"
+              type="text"
+              value={proxyUrl}
+              onChange={(e) => setProxyUrl(e.target.value)}
+              placeholder={DEFAULT_PROXY_URL}
+            />
+            <p className="text-xs text-muted-foreground">
+              Sat Sorter routes requests through a hosted Maple Proxy by
+              default, so you don't need to run anything yourself. Only change
+              this if you're running your own proxy.
+            </p>
           </div>
-          <Input
-            id="maple-proxy-url"
-            type="text"
-            value={proxyUrl}
-            onChange={(e) => setProxyUrl(e.target.value)}
-            placeholder="http://localhost:8080/v1"
-          />
-          <p className="text-xs text-muted-foreground">
-            Where the Maple Proxy is running. Use{' '}
-            <code className="bg-muted px-1 py-0.5 rounded">http://localhost:8080/v1</code>{' '}
-            on the same machine, or your Mac's IP for phone access.
-          </p>
-        </div>
+        </details>
 
         {/* Enable toggle - only shown when key exists */}
         {hasKey && (
