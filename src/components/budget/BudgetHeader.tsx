@@ -45,6 +45,7 @@ import { genUserName } from '@/lib/genUserName';
 import { BackupRestoreDialog } from './BackupRestoreDialog';
 import { ManagePartnersDialog } from './ManagePartnersDialog';
 import { CopyBudgetDialog } from './CopyBudgetDialog';
+import { DonateDialog } from './DonateDialog';
 import { MapleSettings } from '@/components/maple/MapleSettings';
 
 interface BudgetHeaderProps {
@@ -97,6 +98,7 @@ export function BudgetHeader({
   const [showMonthPicker, setShowMonthPicker] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
   const [showDonate, setShowDonate] = useState(false);
+  const [showDonateSorter, setShowDonateSorter] = useState(false);
   const [showBitcoinEdu, setShowBitcoinEdu] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
   const [showBackup, setShowBackup] = useState(false);
@@ -340,6 +342,10 @@ export function BudgetHeader({
                 <DropdownMenuItem onClick={() => setShowBitcoinEdu(true)}>
                   <GraduationCap className="h-4 w-4 mr-2" />
                   Learn About Bitcoin
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setShowDonateSorter(true)}>
+                  <Heart className="h-4 w-4 mr-2 text-pink-500" />
+                  Support Sat Sorter
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setShowDonate(true)}>
                   <Heart className="h-4 w-4 mr-2" />
@@ -674,6 +680,9 @@ export function BudgetHeader({
           </ScrollArea>
         </DialogContent>
       </Dialog>
+
+      {/* Donate to Sat Sorter Dialog */}
+      <DonateDialog open={showDonateSorter} onOpenChange={setShowDonateSorter} />
 
       {/* Donate Dialog (for guests) */}
       <Dialog open={showDonate} onOpenChange={setShowDonate}>
