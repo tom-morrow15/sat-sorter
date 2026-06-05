@@ -7,6 +7,7 @@ import SpendingBreakdownPage from "./pages/SpendingBreakdownPage";
 import LocalSpendPage from "./pages/LocalSpendPage";
 import TransactionsPage from "./pages/TransactionsPage";
 import WealthTrackerPage from "./pages/WealthTrackerPage";
+import BuddyPage from "./pages/BuddyPage";
 import { NIP19Page } from "./pages/NIP19Page";
 import NotFound from "./pages/NotFound";
 
@@ -52,13 +53,21 @@ export function AppRouter() {
            }
          />
          <Route
-           path="/wealth"
-           element={
-             <MainLayout>
-               <WealthTrackerPage />
-             </MainLayout>
-           }
-         />
+            path="/wealth"
+            element={
+              <MainLayout>
+                <WealthTrackerPage />
+              </MainLayout>
+            }
+          />
+         <Route
+            path="/buddy"
+            element={
+              <MainLayout>
+                <BuddyPage />
+              </MainLayout>
+            }
+          />
 
          {/* NIP-19 route for npub1, note1, naddr1, nevent1, nprofile1 */}
         <Route path="/:nip19" element={<NIP19Page />} />

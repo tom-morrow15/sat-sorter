@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { BudgetHeader } from '@/components/budget/BudgetHeader';
 import { SpendingGauge } from '@/components/budget/SpendingGauge';
+import { MapleInsightsCard } from '@/components/maple/MapleInsightsCard';
 import { useBudget } from '@/hooks/useBudget';
 import { calculateSpentForBucket } from '@/lib/budgetTypes';
 import { formatSats, satsToUsd } from '@/hooks/useBitcoinPrice';
@@ -185,6 +186,9 @@ export default function SpendingBreakdownPage() {
                 </SpendingGauge>
               </div>
             </section>
+
+            {/* Maple Insights — only visible when API key is configured */}
+            <MapleInsightsCard />
 
             {/* Categories list */}
             <section>

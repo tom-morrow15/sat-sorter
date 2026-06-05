@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Home, PieChart, MapPin, Receipt, Save, Wallet } from 'lucide-react';
+import { Home, PieChart, MapPin, Receipt, Save, Wallet, MessageSquare } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useBudgetSync } from '@/hooks/useBudgetSync';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useToast } from '@/hooks/useToast';
 import { useBudget } from '@/hooks/useBudget';
+import { useMapleSettings } from '@/hooks/useMapleSettings';
 import { cn } from '@/lib/utils';
 
 type SaveState = 'ready' | 'saving' | 'success' | 'error' | 'unsaved';
@@ -19,6 +20,7 @@ export function BottomNavigation() {
   const { user } = useCurrentUser();
   const { toast } = useToast();
   const { currentMonth, currency, fullState } = useBudget();
+  const { isMapleEnabled } = useMapleSettings();
   const [saveState, setSaveState] = useState<SaveState>('ready');
   const [savedBudgetStr, setSavedBudgetStr] = useLocalStorage<string>(SAVED_BUDGET_KEY, '');
   const hasInitialized = useRef(false);
@@ -230,19 +232,32 @@ export function BottomNavigation() {
            <span className="text-[10px]">Receipts</span>
          </button>
 
-         <button
-           onClick={() => navigate('/wealth')}
-           className={cn(
-             'flex flex-col items-center justify-center flex-1 h-full gap-0.5',
-             isActive('/wealth') ? 'text-primary' : 'text-muted-foreground'
-           )}
-         >
-           <Wallet className="h-5 w-5" />
-           <span className="text-[10px]">Wealth</span>
-         </button>
-
           <button
-            onClick={handleSave}
+            onClick={() => navigate('/wealth')}
+            className={cn(
+              'flex flex-col items-center justify-center flex-1 h-full gap-0.5',
+              isActive('/wealth') ? 'text-primary' : 'text-muted-foreground'
+            )}
+          >
+            <Wallet className="h-5 w-5" />
+            <span className="text-[10px]">Wealth</span>
+          </button>
+
+          {isMapleEnabled && (
+            <button
+              onClick={() => navigate('/buddy')}
+              className={cn(
+                'flex flex-col items-center justify-center flex-1 h-full gap-0.5',
+                isActive('/buddy') ? 'text-primary' : 'text-muted-foreground'
+              )}
+            >
+              <MessageSquare className="h-5 w-5" />
+              <span className="text-[10px]">Buddy</span>
+            </button>
+          )}
+
+           <button
+             onClick={handleSave}
            disabled={saveState === 'saving'}
            className={cn(
              'flex flex-col items-center justify-center flex-1 h-full gap-0.5 transition-all',

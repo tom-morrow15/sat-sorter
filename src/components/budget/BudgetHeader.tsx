@@ -45,6 +45,7 @@ import { genUserName } from '@/lib/genUserName';
 import { BackupRestoreDialog } from './BackupRestoreDialog';
 import { ManagePartnersDialog } from './ManagePartnersDialog';
 import { CopyBudgetDialog } from './CopyBudgetDialog';
+import { MapleSettings } from '@/components/maple/MapleSettings';
 
 interface BudgetHeaderProps {
   buckets: Bucket[];
@@ -102,6 +103,7 @@ export function BudgetHeader({
   const [showPartners, setShowPartners] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showCopyBudget, setShowCopyBudget] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
 
   // Generate list of months for picker (current month + 11 months back + 6 months forward)
   const getAvailableMonths = () => {
@@ -343,11 +345,15 @@ export function BudgetHeader({
                   <Heart className="h-4 w-4 mr-2" />
                   Support Bitcoin Projects
                 </DropdownMenuItem>
-                 <DropdownMenuSeparator />
-                   <DropdownMenuItem onClick={toggleTheme}>
-                     {isDark ? <Sun className="h-4 w-4 mr-2" /> : <Moon className="h-4 w-4 mr-2" />}
-                     {isDark ? 'Light Mode' : 'Dark Mode'}
-                   </DropdownMenuItem>
+                   <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={toggleTheme}>
+                      {isDark ? <Sun className="h-4 w-4 mr-2" /> : <Moon className="h-4 w-4 mr-2" />}
+                      {isDark ? 'Light Mode' : 'Dark Mode'}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setShowSettings(true)}>
+                      <span className="h-4 w-4 mr-2 text-center text-sm">⚙️</span>
+                      Settings
+                    </DropdownMenuItem>
                   <DropdownMenuSeparator />
                  
                  <DropdownMenuItem 
@@ -770,6 +776,21 @@ export function BudgetHeader({
         onClose={() => setShowLogin(false)}
         onLogin={() => setShowLogin(false)}
       />
+
+        {/* Settings Dialog */}
+        <Dialog open={showSettings} onOpenChange={setShowSettings}>
+          <DialogContent className="sm:max-w-[480px] max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Settings</DialogTitle>
+              <DialogDescription>
+                Configure your app preferences.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="py-4 space-y-4">
+              <MapleSettings />
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* Budget Partners Dialog */}
         <ManagePartnersDialog
