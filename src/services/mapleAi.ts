@@ -178,13 +178,12 @@ const CHAT_SYSTEM_PROMPT = `You are Maple, the Budget Buddy inside Sat Sorter. Y
  */
 
 // Available models from Maple
-// Must use hyphenated names, not underscores
+// Maple's own examples use "auto:quick" which auto-selects a fast model.
+// This is the safest default since it always maps to an available model.
 const MODEL_NAMES = [
+  'auto:quick',        // Auto-select fast model (Maple's recommended default)
   'llama3-3-70b',      // General reasoning, daily tasks
   'gpt-oss-120b',      // Creative chat, structured data
-  'deepseek-r1-0528',  // Advanced math, research, coding
-  'kimi-k2.5',         // Complex agentic workflows
-  'qwen3-vl-30b',      // Image and video analysis
 ];
 
 /** Build the full chat completions URL from a base proxy URL */
