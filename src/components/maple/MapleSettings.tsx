@@ -66,24 +66,6 @@ export function MapleSettings() {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Setup Instructions */}
-        <Alert className="border-blue-200 bg-blue-50">
-          <AlertCircle className="h-4 w-4 text-blue-600" />
-          <AlertDescription className="text-sm">
-            <strong>Setup Required:</strong> Download the Maple desktop app from{' '}
-            <a 
-              href="https://trymaple.ai/downloads" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-blue-600 hover:underline font-semibold inline-flex items-center gap-1"
-            >
-              trymaple.ai
-              <ExternalLink className="h-3 w-3" />
-            </a>
-            , start the Local Proxy, then come back and test your key.
-          </AlertDescription>
-        </Alert>
-
         {/* API Key */}
         <div className="space-y-2">
           <Label htmlFor="maple-api-key">API Key</Label>
@@ -116,8 +98,7 @@ export function MapleSettings() {
             </Button>
           </div>
            <p className="text-xs text-muted-foreground">
-             API key stored locally. Connects to Maple Proxy at{' '}
-             <code className="bg-muted px-1 py-0.5 rounded text-xs">http://localhost:8080/v1</code>
+             Your API key is stored locally. Works from any device on any network.
            </p>
         </div>
 

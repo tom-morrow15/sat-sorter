@@ -164,13 +164,14 @@ const INSIGHTS_SYSTEM_PROMPT = `You are Maple, a privacy-first Bitcoin budgeting
 const CHAT_SYSTEM_PROMPT = `You are Maple, the Budget Buddy inside Sat Sorter. You have access to the user's current monthly budget summary, recent transactions, and their evergreen context. Tailor all advice through the evergreen context when relevant. Answer helpfully, concisely, and in a friendly tone. Default to USD but feel free to mention sats using the provided btc_price_usd. If a purchase would overspend a category, warn them and suggest moving funds from another category with surplus. Only use data provided in context.`;
 
 /**
- * Maple Proxy is OpenAI-compatible and runs locally at http://localhost:8080/v1
- * Supports streaming, multiple models: gpt-oss-120b, llama3-3-70b, qwen3-vl-30b, etc.
- * See: blog.trymaple.ai for full documentation
+ * Maple Enclave is a cloud API (OpenAI-compatible) at https://enclave.trymaple.ai/v1
+ * Works from any device without needing local proxy running
+ * Same as Shakespeare's Maple AI integration
+ * Supports multiple models: gpt-oss-120b, llama3-3-70b, qwen3-vl-30b, etc.
  */
-const MAPLE_PROXY_URL = 'http://localhost:8080/v1/chat/completions';
+const MAPLE_ENCLAVE_URL = 'https://enclave.trymaple.ai/v1/chat/completions';
 
-// Available models from Maple Proxy
+// Available models from Maple Enclave
 const MODEL_NAMES = [
   'gpt-oss-120b',      // ChatGPT creativity & structured data
   'llama3-3-70b',      // Therapy notes, daily tasks, general reasoning
@@ -187,14 +188,14 @@ async function callMaple(
   history: ChatMessage[],
   maxTokens = 512
 ): Promise<string> {
-  const response = await fetch(MAPLE_PROXY_URL, {
+  const response = await fetch(MAPLE_ENCLAVE_URL, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: MODEL_NAMES[0], // Use llama3-3-70b by default (good for reasoning)
+      model: MODEL_NAMES[0], // Use gpt-oss-120b by default
       messages: [
         {
           role: 'system',
@@ -210,13 +211,13 @@ async function callMaple(
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error(`[Maple Proxy Error] Status ${response.status}:`, errorText);
+    console.error(`[Maple Enclave Error] Status ${response.status}:`, errorText);
     
     if (response.status === 401 || response.status === 403) {
-      throw new Error('Invalid Maple API key');
+      throw new Error('Invalid Maple API key. Check your key in Settings.');
     }
-    if (response.status === 0 || response.statusText === 'error') {
-      throw new Error('Cannot reach Maple Proxy at http://localhost:8080. Is it running?');
+    if (response.status === 429) {
+      throw new Error('Rate limited by Maple. Please try again in a moment.');
     }
     
     throw new Error(`Maple API error ${response.status}: ${errorText}`);
@@ -243,7 +244,7 @@ export async function chatWithMaple(
 
 export async function testKey(apiKey: string): Promise<{ ok: boolean; error?: string }> {
   try {
-    const response = await fetch(MAPLE_PROXY_URL, {
+    const response = await fetch(MAPLE_ENCLAVE_URL, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
@@ -260,16 +261,16 @@ export async function testKey(apiKey: string): Promise<{ ok: boolean; error?: st
 
     if (!response.ok) {
       if (response.status === 401 || response.status === 403) {
-        return { ok: false, error: 'Invalid Maple API key. Check your credentials at trymaple.ai' };
+        return { ok: false, error: 'Invalid Maple API key. Check your credentials.' };
       }
       if (response.status === 429) {
         return { ok: false, error: 'Rate limited. Please try again in a moment.' };
       }
       if (response.status >= 500) {
-        return { ok: false, error: 'Maple Proxy is unavailable. Try again later.' };
+        return { ok: false, error: 'Maple Enclave is temporarily unavailable.' };
       }
       const text = await response.text();
-      return { ok: false, error: `Error: ${response.status} ${text}` };
+      return { ok: false, error: `Error: ${response.status}` };
     }
 
     return { ok: true };
@@ -277,7 +278,7 @@ export async function testKey(apiKey: string): Promise<{ ok: boolean; error?: st
     let message = 'Unknown error';
     if (error instanceof TypeError) {
       if (error.message.includes('fetch') || error.message.includes('Failed')) {
-        message = 'Cannot connect to Maple Proxy at http://localhost:8080. Make sure it is running and your API key is valid.';
+        message = 'Network error. Check your connection and API key.';
       } else {
         message = error.message;
       }
