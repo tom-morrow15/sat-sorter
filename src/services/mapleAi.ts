@@ -172,13 +172,13 @@ const CHAT_SYSTEM_PROMPT = `You are Maple, the Budget Buddy inside Sat Sorter. Y
 const MAPLE_ENCLAVE_URL = 'https://enclave.trymaple.ai/v1/chat/completions';
 
 // Available models from Maple Enclave
+// Must use hyphenated names, not underscores
 const MODEL_NAMES = [
-  'gpt-oss-120b',      // ChatGPT creativity & structured data
-  'llama3-3-70b',      // Therapy notes, daily tasks, general reasoning
-  'qwen3-vl-30b',      // Image and video analysis, OCR
-  'kimi-k2-5',         // Complex agentic workflows, multi-step coding
-  'glm-5-1',           // Research, advanced math, coding
-  'gemma4-31b',        // Image analysis, thinking, multiple languages
+  'llama3-3-70b',      // General reasoning, daily tasks
+  'gpt-oss-120b',      // Creative chat, structured data
+  'deepseek-r1-0528',  // Advanced math, research, coding
+  'kimi-k2.5',         // Complex agentic workflows
+  'qwen3-vl-30b',      // Image and video analysis
 ];
 
 async function callMaple(
@@ -188,30 +188,40 @@ async function callMaple(
   history: ChatMessage[],
   maxTokens = 512
 ): Promise<string> {
+  // Combine system prompt and context into a single system message
+  const systemMessage = `${systemPrompt}\n\nContext:\n${JSON.stringify(context)}`;
+  
+  const messages = [
+    {
+      role: 'system',
+      content: systemMessage,
+    },
+    ...history,
+  ];
+
+  const requestBody = {
+    model: MODEL_NAMES[0], // llama3-3-70b
+    messages: messages,
+    temperature: 0.7,
+    max_tokens: maxTokens,
+    stream: true, // CRITICAL: Maple Enclave REQUIRES streaming
+  };
+
+  console.log('[callMaple] Streaming request to:', MAPLE_ENCLAVE_URL);
+  console.log('[callMaple] Model:', MODEL_NAMES[0]);
+
   const response = await fetch(MAPLE_ENCLAVE_URL, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      model: MODEL_NAMES[0], // Use gpt-oss-120b by default
-      messages: [
-        {
-          role: 'system',
-          content: `${systemPrompt}\n\nContext:\n${JSON.stringify(context, null, 2)}`,
-        },
-        ...history,
-      ],
-      temperature: 0.7,
-      max_tokens: maxTokens,
-      stream: false,
-    }),
+    body: JSON.stringify(requestBody),
   });
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error(`[Maple Enclave Error] Status ${response.status}:`, errorText);
+    console.error(`[Maple Error ${response.status}]:`, errorText);
     
     if (response.status === 401 || response.status === 403) {
       throw new Error('Invalid Maple API key. Check your key in Settings.');
@@ -223,8 +233,46 @@ async function callMaple(
     throw new Error(`Maple API error ${response.status}: ${errorText}`);
   }
 
-  const data = await response.json();
-  return data.choices?.[0]?.message?.content ?? '';
+  // Handle streaming response
+  const reader = response.body?.getReader();
+  if (!reader) {
+    throw new Error('Failed to read Maple response stream');
+  }
+
+  const decoder = new TextDecoder();
+  let fullContent = '';
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      const chunk = decoder.decode(value);
+      const lines = chunk.split('\n');
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const data = line.slice(6).trim();
+          if (data === '[DONE]') continue;
+          
+          try {
+            const parsed = JSON.parse(data);
+            const content = parsed.choices?.[0]?.delta?.content;
+            if (content) {
+              fullContent += content;
+            }
+          } catch (e) {
+            // Ignore parse errors for SSE chunks
+          }
+        }
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  console.log('[callMaple] Streaming complete, response length:', fullContent.length);
+  return fullContent;
 }
 
 export async function analyzeMonth(
@@ -254,8 +302,8 @@ export async function testKey(apiKey: string): Promise<{ ok: boolean; error?: st
         model: MODEL_NAMES[0],
         messages: [{ role: 'user', content: 'Hello' }],
         temperature: 0.7,
-        max_tokens: 5,
-        stream: false,
+        max_tokens: 10,
+        stream: true, // CRITICAL: Maple requires streaming
       }),
     });
 
@@ -270,7 +318,22 @@ export async function testKey(apiKey: string): Promise<{ ok: boolean; error?: st
         return { ok: false, error: 'Maple Enclave is temporarily unavailable.' };
       }
       const text = await response.text();
-      return { ok: false, error: `Error: ${response.status}` };
+      return { ok: false, error: `Maple error ${response.status}: ${text}` };
+    }
+
+    // For test, just consume the stream to verify it works
+    const reader = response.body?.getReader();
+    if (!reader) {
+      return { ok: false, error: 'Failed to read response stream' };
+    }
+
+    try {
+      while (true) {
+        const { done } = await reader.read();
+        if (done) break;
+      }
+    } finally {
+      reader.releaseLock();
     }
 
     return { ok: true };
