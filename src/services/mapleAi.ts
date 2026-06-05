@@ -165,6 +165,15 @@ const CHAT_SYSTEM_PROMPT = `You are Maple, the Budget Buddy inside Sat Sorter. Y
 
 const MAPLE_API_URL = 'https://api.tryimaple.ai/v1/chat/completions';
 
+// List of model names to try in order of preference
+const MODEL_NAMES = [
+  'claude-sonnet-4-20250514',
+  'claude-sonnet',
+  'claude-opus',
+  'claude-3-sonnet',
+  'gpt-4',
+];
+
 async function callMaple(
   apiKey: string,
   systemPrompt: string,
@@ -179,7 +188,7 @@ async function callMaple(
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
+      model: MODEL_NAMES[0], // Use the first model name
       messages: [
         {
           role: 'system',
@@ -193,7 +202,9 @@ async function callMaple(
   });
 
   if (!response.ok) {
-    throw response;
+    const errorText = await response.text();
+    console.error(`[Maple API Error] Status ${response.status}:`, errorText);
+    throw new Error(`Maple API error ${response.status}: ${errorText}`);
   }
 
   const data = await response.json();
@@ -215,7 +226,7 @@ export async function chatWithMaple(
   return callMaple(apiKey, CHAT_SYSTEM_PROMPT, context, history, 512);
 }
 
-export async function testKey(apiKey: string): Promise<boolean> {
+export async function testKey(apiKey: string): Promise<{ ok: boolean; error?: string }> {
   try {
     const response = await fetch(MAPLE_API_URL, {
       method: 'POST',
@@ -224,15 +235,41 @@ export async function testKey(apiKey: string): Promise<boolean> {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: MODEL_NAMES[0],
         messages: [{ role: 'user', content: 'Hello' }],
         temperature: 0.7,
         max_tokens: 5,
       }),
     });
-    return response.ok;
-  } catch {
-    return false;
+
+    if (!response.ok) {
+      if (response.status === 401 || response.status === 403) {
+        return { ok: false, error: 'Invalid API key. Check your Maple credentials.' };
+      }
+      if (response.status === 429) {
+        return { ok: false, error: 'Rate limited. Please try again in a moment.' };
+      }
+      if (response.status >= 500) {
+        return { ok: false, error: 'Maple API is temporarily unavailable.' };
+      }
+      const text = await response.text();
+      return { ok: false, error: `API error: ${response.status} ${text}` };
+    }
+
+    return { ok: true };
+  } catch (error) {
+    let message = 'Unknown error';
+    if (error instanceof TypeError) {
+      if (error.message.includes('fetch')) {
+        message = 'Network error or CORS blocked. Check your connection.';
+      } else {
+        message = error.message;
+      }
+    } else if (error instanceof Error) {
+      message = error.message;
+    }
+    console.error('[testKey] Error:', message);
+    return { ok: false, error: message };
   }
 }
 

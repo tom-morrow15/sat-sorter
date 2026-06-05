@@ -229,21 +229,23 @@ describe('getMapleErrorMessage', () => {
 });
 
 describe('testKey', () => {
-  it('returns false on network failure', async () => {
+  it('returns error on network failure', async () => {
     globalThis.fetch = vi.fn().mockRejectedValue(new Error('fail'));
-    const ok = await testKey('sk-bad');
-    expect(ok).toBe(false);
+    const result = await testKey('sk-bad');
+    expect(result.ok).toBe(false);
+    expect(result.error).toBeDefined();
   });
 
-  it('returns true on 200', async () => {
+  it('returns ok on 200', async () => {
     globalThis.fetch = vi.fn().mockResolvedValue(new Response('ok', { status: 200, headers: { 'Content-Type': 'application/json' } }));
-    const ok = await testKey('sk-good');
-    expect(ok).toBe(true);
+    const result = await testKey('sk-good');
+    expect(result.ok).toBe(true);
   });
 
-  it('returns false on 401', async () => {
+  it('returns 401 error', async () => {
     globalThis.fetch = vi.fn().mockResolvedValue(new Response('Unauthorized', { status: 401 }));
-    const ok = await testKey('sk-bad');
-    expect(ok).toBe(false);
+    const result = await testKey('sk-bad');
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain('Invalid API key');
   });
 });

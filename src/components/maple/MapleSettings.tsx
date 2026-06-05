@@ -26,33 +26,33 @@ export function MapleSettings() {
 
   const hasKey = apiKey.length > 0;
 
-  const handleTest = async () => {
-    if (!apiKey.trim()) {
-      toast({ title: 'Please enter an API key', variant: 'destructive' });
-      return;
-    }
-    setIsTesting(true);
-    try {
-      const ok = await testKey(apiKey.trim());
-      if (ok) {
-        toast({ title: 'Maple API key is valid!' });
-      } else {
-        toast({
-          title: 'Invalid Maple API key',
-          description: 'Check your key and try again.',
-          variant: 'destructive',
-        });
-      }
-    } catch {
-      toast({
-        title: "Can't reach Maple",
-        description: 'Check your connection and try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsTesting(false);
-    }
-  };
+   const handleTest = async () => {
+     if (!apiKey.trim()) {
+       toast({ title: 'Please enter an API key', variant: 'destructive' });
+       return;
+     }
+     setIsTesting(true);
+     try {
+       const result = await testKey(apiKey.trim());
+       if (result.ok) {
+         toast({ title: '✅ Maple API key is valid!' });
+       } else {
+         toast({
+           title: 'Invalid Maple API key',
+           description: result.error || 'Check your key and try again.',
+           variant: 'destructive',
+         });
+       }
+     } catch (error) {
+       toast({
+         title: "Can't reach Maple",
+         description: error instanceof Error ? error.message : 'Check your connection and try again.',
+         variant: 'destructive',
+       });
+     } finally {
+       setIsTesting(false);
+     }
+   };
 
   return (
     <Card>
