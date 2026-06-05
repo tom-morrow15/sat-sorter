@@ -164,14 +164,20 @@ const INSIGHTS_SYSTEM_PROMPT = `You are Maple, a privacy-first Bitcoin budgeting
 const CHAT_SYSTEM_PROMPT = `You are Maple, the Budget Buddy inside Sat Sorter. You have access to the user's current monthly budget summary, recent transactions, and their evergreen context. Tailor all advice through the evergreen context when relevant. Answer helpfully, concisely, and in a friendly tone. Default to USD but feel free to mention sats using the provided btc_price_usd. If a purchase would overspend a category, warn them and suggest moving funds from another category with surplus. Only use data provided in context.`;
 
 /**
- * Maple Enclave is a cloud API (OpenAI-compatible) at https://enclave.trymaple.ai/v1
- * Works from any device without needing local proxy running
- * Same as Shakespeare's Maple AI integration
- * Supports multiple models: gpt-oss-120b, llama3-3-70b, qwen3-vl-30b, etc.
+ * Maple Proxy provides OpenAI-compatible API access to Maple's encrypted models.
+ * Requires the Maple Proxy to be running (desktop app or Docker).
+ *
+ * Direct browser access to https://enclave.trymaple.ai does NOT work because
+ * the Enclave backend requires a cryptographic TEE handshake/attestation that
+ * only the Maple Proxy can perform.
+ *
+ * The proxy URL is configurable in Settings:
+ * - Default: http://localhost:8080/v1 (Maple desktop app on same machine)
+ * - Network: http://<mac-ip>:8080/v1 (proxy on Mac, accessed from phone on home WiFi)
+ * - Hosted: https://your-proxy.com/v1 (public proxy deployment)
  */
-const MAPLE_ENCLAVE_URL = 'https://enclave.trymaple.ai/v1/chat/completions';
 
-// Available models from Maple Enclave
+// Available models from Maple
 // Must use hyphenated names, not underscores
 const MODEL_NAMES = [
   'llama3-3-70b',      // General reasoning, daily tasks
@@ -181,8 +187,18 @@ const MODEL_NAMES = [
   'qwen3-vl-30b',      // Image and video analysis
 ];
 
+/** Build the full chat completions URL from a base proxy URL */
+function getChatCompletionsUrl(proxyUrl: string): string {
+  // Normalize: strip trailing slashes
+  const base = proxyUrl.replace(/\/+$/, '');
+  // If they already included /chat/completions, use as-is
+  if (base.endsWith('/chat/completions')) return base;
+  return `${base}/chat/completions`;
+}
+
 async function callMaple(
   apiKey: string,
+  proxyUrl: string,
   systemPrompt: string,
   context: BudgetContext,
   history: ChatMessage[],
@@ -204,13 +220,14 @@ async function callMaple(
     messages: messages,
     temperature: 0.7,
     max_tokens: maxTokens,
-    stream: true, // CRITICAL: Maple Enclave REQUIRES streaming
+    stream: true, // CRITICAL: Maple REQUIRES streaming
   };
 
-  console.log('[callMaple] Streaming request to:', MAPLE_ENCLAVE_URL);
+  const url = getChatCompletionsUrl(proxyUrl);
+  console.log('[callMaple] Streaming request to:', url);
   console.log('[callMaple] Model:', MODEL_NAMES[0]);
 
-  const response = await fetch(MAPLE_ENCLAVE_URL, {
+  const response = await fetch(url, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apiKey}`,
@@ -277,22 +294,28 @@ async function callMaple(
 
 export async function analyzeMonth(
   apiKey: string,
+  proxyUrl: string,
   context: BudgetContext
 ): Promise<string> {
-  return callMaple(apiKey, INSIGHTS_SYSTEM_PROMPT, context, [], 300);
+  return callMaple(apiKey, proxyUrl, INSIGHTS_SYSTEM_PROMPT, context, [], 300);
 }
 
 export async function chatWithMaple(
   apiKey: string,
+  proxyUrl: string,
   context: BudgetContext,
   history: ChatMessage[]
 ): Promise<string> {
-  return callMaple(apiKey, CHAT_SYSTEM_PROMPT, context, history, 512);
+  return callMaple(apiKey, proxyUrl, CHAT_SYSTEM_PROMPT, context, history, 512);
 }
 
-export async function testKey(apiKey: string): Promise<{ ok: boolean; error?: string }> {
+export async function testKey(
+  apiKey: string,
+  proxyUrl: string
+): Promise<{ ok: boolean; error?: string }> {
   try {
-    const response = await fetch(MAPLE_ENCLAVE_URL, {
+    const url = getChatCompletionsUrl(proxyUrl);
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
@@ -315,7 +338,7 @@ export async function testKey(apiKey: string): Promise<{ ok: boolean; error?: st
         return { ok: false, error: 'Rate limited. Please try again in a moment.' };
       }
       if (response.status >= 500) {
-        return { ok: false, error: 'Maple Enclave is temporarily unavailable.' };
+        return { ok: false, error: 'Maple Proxy backend is temporarily unavailable.' };
       }
       const text = await response.text();
       return { ok: false, error: `Maple error ${response.status}: ${text}` };
@@ -341,7 +364,7 @@ export async function testKey(apiKey: string): Promise<{ ok: boolean; error?: st
     let message = 'Unknown error';
     if (error instanceof TypeError) {
       if (error.message.includes('fetch') || error.message.includes('Failed')) {
-        message = 'Network error. Check your connection and API key.';
+        message = `Cannot reach Maple Proxy at ${proxyUrl}. Make sure the Maple app's Local Proxy is running.`;
       } else {
         message = error.message;
       }

@@ -13,7 +13,7 @@ import { analyzeMonth, buildBudgetContext, getMapleErrorMessage } from '@/servic
 export function MapleInsightsCard() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { apiKey, evergreenContext } = useMapleSettings();
+  const { apiKey, evergreenContext, proxyUrl } = useMapleSettings();
   const { currentBudget, currentMonth } = useBudget();
   const { data: priceData } = useBitcoinPrice();
 
@@ -33,7 +33,7 @@ export function MapleInsightsCard() {
     setIsLoading(true);
     try {
       const context = buildBudgetContext(currentMonth, currentBudget, btcPrice, evergreenContext);
-      const text = await analyzeMonth(apiKey, context);
+      const text = await analyzeMonth(apiKey, proxyUrl, context);
       setInsights(text);
     } catch (err) {
       const msg = getMapleErrorMessage(err);

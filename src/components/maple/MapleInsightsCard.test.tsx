@@ -66,6 +66,7 @@ describe('MapleInsightsCard', () => {
     (useMapleSettings as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
       apiKey: 'sk-test',
       evergreenContext: '',
+      proxyUrl: 'http://localhost:8080/v1',
     });
     (useBudget as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
       currentBudget: { buckets: [], transactions: [] },
@@ -88,6 +89,7 @@ describe('MapleInsightsCard', () => {
     (useMapleSettings as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
       apiKey: 'sk-test',
       evergreenContext: '',
+      proxyUrl: 'http://localhost:8080/v1',
     });
     (useBudget as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
       currentBudget: { buckets: [], transactions: [] },

@@ -229,35 +229,41 @@ describe('getMapleErrorMessage', () => {
 });
 
 describe('testKey', () => {
+  const PROXY = 'http://localhost:8080/v1';
+
   it('returns error on network failure', async () => {
     globalThis.fetch = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'));
-    const result = await testKey('sk-bad');
+    const result = await testKey('sk-bad', PROXY);
     expect(result.ok).toBe(false);
-    expect(result.error).toContain('Cannot connect');
+    expect(result.error).toContain('Cannot reach Maple Proxy');
   });
 
-  it('returns ok on 200', async () => {
+  it('returns ok on 200 with streaming body', async () => {
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode('data: {"choices":[{"delta":{"content":"ok"}}]}\n'));
+        controller.enqueue(new TextEncoder().encode('data: [DONE]\n'));
+        controller.close();
+      },
+    });
     globalThis.fetch = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ choices: [{ message: { content: 'ok' } }] }), { 
-        status: 200, 
-        headers: { 'Content-Type': 'application/json' } 
-      })
+      new Response(stream, { status: 200 })
     );
-    const result = await testKey('sk-good');
+    const result = await testKey('sk-good', PROXY);
     expect(result.ok).toBe(true);
   });
 
   it('returns 401 error for invalid key', async () => {
     globalThis.fetch = vi.fn().mockResolvedValue(new Response('Unauthorized', { status: 401 }));
-    const result = await testKey('sk-bad');
+    const result = await testKey('sk-bad', PROXY);
     expect(result.ok).toBe(false);
     expect(result.error).toContain('Invalid Maple API key');
   });
 
   it('returns helpful error when proxy is down', async () => {
     globalThis.fetch = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'));
-    const result = await testKey('sk-test');
+    const result = await testKey('sk-test', PROXY);
     expect(result.ok).toBe(false);
-    expect(result.error).toContain('http://localhost:8080');
+    expect(result.error).toContain('localhost:8080');
   });
 });

@@ -43,7 +43,7 @@ export interface UseMapleChatReturn {
 export function useMapleChat(): UseMapleChatReturn {
   const { currentBudget, currentMonth } = useBudget();
   const { data: priceData } = useBitcoinPrice();
-  const { apiKey, evergreenContext } = useMapleSettings();
+  const { apiKey, evergreenContext, proxyUrl } = useMapleSettings();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -98,7 +98,7 @@ export function useMapleChat(): UseMapleChatReturn {
           { role: 'user', content: text },
         ];
 
-        const responseText = await chatWithMaple(apiKey, context, history);
+        const responseText = await chatWithMaple(apiKey, proxyUrl, context, history);
 
         const assistantEntry: ChatEntry = {
           id: `${Date.now()}-assistant`,
@@ -114,7 +114,7 @@ export function useMapleChat(): UseMapleChatReturn {
         setIsLoading(false);
       }
     },
-    [apiKey, messages, getContext, setMessages, toast]
+    [apiKey, proxyUrl, messages, getContext, setMessages, toast]
   );
 
   const analyze = useCallback(async () => {
@@ -132,7 +132,7 @@ export function useMapleChat(): UseMapleChatReturn {
 
     try {
       const context = getContext();
-      const text = await analyzeMonth(apiKey, context);
+      const text = await analyzeMonth(apiKey, proxyUrl, context);
       return text;
     } catch (err) {
       const msg = getMapleErrorMessage(err);
@@ -142,7 +142,7 @@ export function useMapleChat(): UseMapleChatReturn {
     } finally {
       setIsLoading(false);
     }
-  }, [apiKey, getContext, toast]);
+  }, [apiKey, proxyUrl, getContext, toast]);
 
   const clearHistory = useCallback(() => {
     setMessages([]);
