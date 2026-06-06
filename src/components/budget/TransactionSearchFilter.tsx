@@ -17,6 +17,7 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import type { Transaction, Bucket } from '@/lib/budgetTypes';
+import { getTransactionAssignments } from '@/lib/splitUtils';
 
 interface TransactionSearchFilterProps {
   transactions: Transaction[];
@@ -59,9 +60,12 @@ export function TransactionSearchFilter({
       );
     }
 
-    // Filter by bucket
+    // Filter by bucket (handles both legacy single-assignment and splits)
     if (selectedBucketId && selectedBucketId !== 'all') {
-      filtered = filtered.filter((t) => t.bucketId === selectedBucketId);
+      filtered = filtered.filter((t) => {
+        const assignments = getTransactionAssignments(t);
+        return assignments.some((a) => a.bucketId === selectedBucketId);
+      });
     }
 
     // Filter by type

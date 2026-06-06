@@ -9,10 +9,12 @@ import {
   CheckCircle2,
   Zap,
   Link2,
+  Scissors,
 } from 'lucide-react';
 import { TransactionSearchFilter } from './TransactionSearchFilter';
 import { DataSourcesDialog } from './DataSourcesDialog';
 import { DeletionConfirmDialog } from './DeletionConfirmDialog';
+import { SplitEditor } from './SplitEditor';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -36,8 +38,9 @@ import {
 import { Label } from '@/components/ui/label';
 import { useBitcoinPrice, formatSats, satsToUsd, usdToSats, formatUsd } from '@/hooks/useBitcoinPrice';
 import { getUnassignedTransactions, getTransactionUsdAmount, getTransactionSatAmount } from '@/lib/budgetTypes';
-import type { Transaction, Bucket } from '@/lib/budgetTypes';
+import type { Transaction, Bucket, TransactionSplit } from '@/lib/budgetTypes';
 import { cn } from '@/lib/utils';
+import { hasSplits, getSplitCount } from '@/lib/splitUtils';
 
 interface TransactionsPanelProps {
   transactions: Transaction[];
@@ -46,6 +49,7 @@ interface TransactionsPanelProps {
   onAddTransaction: (transaction: Omit<Transaction, 'id'>) => void;
   onAssignTransaction: (transactionId: string, bucketId: string, lineItemId: string) => void;
   onDeleteTransaction: (transactionId: string) => void;
+  onSplitTransaction: (transactionId: string, splits: TransactionSplit[]) => void;
   lineItemIdFilter?: string;
 }
 
@@ -56,6 +60,7 @@ export function TransactionsPanel({
   onAddTransaction,
   onAssignTransaction,
   onDeleteTransaction,
+  onSplitTransaction,
   lineItemIdFilter,
 }: TransactionsPanelProps) {
   const { data: priceData } = useBitcoinPrice();
@@ -63,6 +68,7 @@ export function TransactionsPanel({
   const [showAssignDialog, setShowAssignDialog] = useState(false);
   const [showDataSources, setShowDataSources] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showSplitEditor, setShowSplitEditor] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [transactionToDelete, setTransactionToDelete] = useState<Transaction | null>(null);
   const [filteredTransactions, setFilteredTransactions] = useState<Transaction[]>([]);
@@ -158,6 +164,19 @@ export function TransactionsPanel({
     if (selectedTransaction && selectedBucketId && selectedLineItemId) {
       onAssignTransaction(selectedTransaction.id, selectedBucketId, selectedLineItemId);
       setShowAssignDialog(false);
+      setSelectedTransaction(null);
+    }
+  };
+
+  const handleOpenSplit = (transaction: Transaction) => {
+    setSelectedTransaction(transaction);
+    setShowSplitEditor(true);
+  };
+
+  const handleSaveSplit = (splits: TransactionSplit[]) => {
+    if (selectedTransaction) {
+      onSplitTransaction(selectedTransaction.id, splits);
+      setShowSplitEditor(false);
       setSelectedTransaction(null);
     }
   };
@@ -394,21 +413,28 @@ export function TransactionsPanel({
                               {transaction.description}
                             </p>
                             <div className="flex items-center gap-1.5">
-                              {bucket && (
-                                <Badge
-                                  variant="secondary"
-                                  className="text-xs px-1.5 py-0"
-                                  style={{
-                                    backgroundColor: `${bucket.color}20`,
-                                    color: bucket.color,
-                                  }}
-                                >
-                                  {lineItem?.name || 'Unknown'}
-                                </Badge>
-                              )}
-                              <span className="text-xs text-muted-foreground">
-                                {formatDate(transaction.date)}
-                              </span>
+                               {hasSplits(transaction) ? (
+                                 <Badge
+                                   variant="secondary"
+                                   className="text-xs px-1.5 py-0 bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200"
+                                 >
+                                   Split ({getSplitCount(transaction)})
+                                 </Badge>
+                               ) : bucket ? (
+                                 <Badge
+                                   variant="secondary"
+                                   className="text-xs px-1.5 py-0"
+                                   style={{
+                                     backgroundColor: `${bucket.color}20`,
+                                     color: bucket.color,
+                                   }}
+                                 >
+                                   {lineItem?.name || 'Unknown'}
+                                 </Badge>
+                               ) : null}
+                               <span className="text-xs text-muted-foreground">
+                                 {formatDate(transaction.date)}
+                               </span>
                             </div>
                           </div>
                         </div>
@@ -611,19 +637,32 @@ export function TransactionsPanel({
             </div>
           )}
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAssignDialog(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleAssign}
-              disabled={!selectedBucketId || !selectedLineItemId}
-            >
-              Assign
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+           <DialogFooter>
+             <Button variant="outline" onClick={() => setShowAssignDialog(false)}>
+               Cancel
+             </Button>
+             <Button
+               variant="ghost"
+               onClick={() => {
+                 if (selectedTransaction) {
+                   setShowAssignDialog(false);
+                   handleOpenSplit(selectedTransaction);
+                 }
+               }}
+               className="gap-2"
+             >
+               <Scissors className="h-4 w-4" />
+               Split
+             </Button>
+             <Button
+               onClick={handleAssign}
+               disabled={!selectedBucketId || !selectedLineItemId}
+             >
+               Assign
+             </Button>
+           </DialogFooter>
+         </DialogContent>
+       </Dialog>
 
        {/* Data Sources Dialog */}
        <DataSourcesDialog
@@ -631,14 +670,25 @@ export function TransactionsPanel({
          onOpenChange={setShowDataSources}
        />
 
-       {/* Deletion confirmation dialog */}
-       <DeletionConfirmDialog
-         open={showDeleteConfirm}
-         onOpenChange={setShowDeleteConfirm}
-         itemType="transaction"
-         itemName={transactionToDelete?.description || ''}
-         onConfirm={handleDeleteConfirmed}
-       />
-     </>
-   );
- }
+        {/* Deletion confirmation dialog */}
+        <DeletionConfirmDialog
+          open={showDeleteConfirm}
+          onOpenChange={setShowDeleteConfirm}
+          itemType="transaction"
+          itemName={transactionToDelete?.description || ''}
+          onConfirm={handleDeleteConfirmed}
+        />
+
+        {/* Split Editor Dialog */}
+        {selectedTransaction && (
+          <SplitEditor
+            open={showSplitEditor}
+            onOpenChange={setShowSplitEditor}
+            transaction={selectedTransaction}
+            buckets={expenseBuckets}
+            onSave={handleSaveSplit}
+          />
+        )}
+      </>
+    );
+  }

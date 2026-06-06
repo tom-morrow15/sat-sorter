@@ -21,6 +21,7 @@ export default function TransactionsPage() {
     addTransaction,
     assignTransaction,
     deleteTransaction,
+    splitTransaction,
     duplicateFromMonth,
     resetCurrentMonth,
     availableMonths,
@@ -131,16 +132,17 @@ export default function TransactionsPage() {
              );
            })()}
 
-           {/* Transactions Panel */}
-           <TransactionsPanel
-             transactions={currentBudget.transactions}
-             buckets={currentBudget.buckets}
-             currency={currency}
-             onAddTransaction={addTransaction}
-             onAssignTransaction={assignTransaction}
-             onDeleteTransaction={deleteTransaction}
-             lineItemIdFilter={lineItemIdFilter || undefined}
-           />
+            {/* Transactions Panel */}
+            <TransactionsPanel
+              transactions={currentBudget.transactions}
+              buckets={currentBudget.buckets}
+              currency={currency}
+              onAddTransaction={addTransaction}
+              onAssignTransaction={assignTransaction}
+              onDeleteTransaction={deleteTransaction}
+              onSplitTransaction={splitTransaction}
+              lineItemIdFilter={lineItemIdFilter || undefined}
+            />
         </div>
       </main>
     </div>

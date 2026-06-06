@@ -230,6 +230,19 @@ export function useBudget() {
     updateTransaction(transactionId, { bucketId, lineItemId });
   }, [updateTransaction]);
 
+  // Split a transaction across multiple line items
+  const splitTransaction = useCallback((
+    transactionId: string,
+    splits: import('../lib/budgetTypes').TransactionSplit[]
+  ) => {
+    updateTransaction(transactionId, { 
+      splits, 
+      isSplit: true,
+      lineItemId: null,
+      bucketId: null,
+    });
+  }, [updateTransaction]);
+
   // Get available months
   const availableMonths = useMemo(() => {
     const months = new Set(state.budgets.map(b => b.month));
@@ -600,6 +613,7 @@ export function useBudget() {
     updateTransaction,
     deleteTransaction,
     assignTransaction,
+    splitTransaction,
 
     // Partner actions
     addPartner,

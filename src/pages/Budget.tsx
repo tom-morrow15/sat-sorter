@@ -51,6 +51,7 @@ export default function Budget() {
     addTransaction,
     assignTransaction,
     deleteTransaction,
+    splitTransaction,
     duplicateFromMonth,
     getPreviousMonth,
     hasPreviousMonthBudget,
@@ -341,6 +342,7 @@ export default function Budget() {
                 onAddTransaction={addTransaction}
                 onAssignTransaction={assignTransaction}
                 onDeleteTransaction={deleteTransaction}
+                onSplitTransaction={splitTransaction}
               />
             </div>
           </div>
