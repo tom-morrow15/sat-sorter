@@ -9,11 +9,12 @@ import { useMapleSettings } from '@/hooks/useMapleSettings';
 import { useBudget } from '@/hooks/useBudget';
 import { useBitcoinPrice } from '@/hooks/useBitcoinPrice';
 import { analyzeMonth, buildBudgetContext, getMapleErrorMessage } from '@/services/mapleAi';
+import { cleanMarkdown } from '@/lib/cleanMarkdown';
 
 export function MapleInsightsCard() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { apiKey, evergreenContext, proxyUrl } = useMapleSettings();
+  const { apiKey, evergreenContext, proxyUrl, model } = useMapleSettings();
   const { currentBudget, currentMonth } = useBudget();
   const { data: priceData } = useBitcoinPrice();
 
@@ -33,8 +34,16 @@ export function MapleInsightsCard() {
     setIsLoading(true);
     try {
       const context = buildBudgetContext(currentMonth, currentBudget, btcPrice, evergreenContext);
-      const text = await analyzeMonth(apiKey, proxyUrl, context);
-      setInsights(text);
+      const text = await analyzeMonth(apiKey, proxyUrl, context, model);
+      if (!text || !text.trim()) {
+        toast({
+          title: 'No insights returned',
+          description: 'Maple sent back an empty response. Please try again.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      setInsights(cleanMarkdown(text));
     } catch (err) {
       const msg = getMapleErrorMessage(err);
       toast({ title: msg, variant: 'destructive' });

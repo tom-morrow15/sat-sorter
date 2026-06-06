@@ -17,9 +17,16 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useMapleSettings, DEFAULT_PROXY_URL } from '@/hooks/useMapleSettings';
 import { useToast } from '@/hooks/useToast';
-import { testKey } from '@/services/mapleAi';
+import { testKey, MAPLE_MODELS } from '@/services/mapleAi';
 
 export function MapleSettings() {
   const {
@@ -31,6 +38,8 @@ export function MapleSettings() {
     setEvergreenContext,
     proxyUrl,
     setProxyUrl,
+    model,
+    setModel,
   } = useMapleSettings();
   const { toast } = useToast();
   const [showKey, setShowKey] = useState(false);
@@ -182,6 +191,32 @@ export function MapleSettings() {
               checked={enabled}
               onCheckedChange={setEnabled}
             />
+          </div>
+        )}
+
+        {/* Model selection - only shown when key exists */}
+        {hasKey && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <KeyRound className="h-4 w-4" />
+              <Label htmlFor="maple-model">Model</Label>
+            </div>
+            <Select value={model} onValueChange={setModel}>
+              <SelectTrigger id="maple-model">
+                <SelectValue placeholder="Choose a model" />
+              </SelectTrigger>
+              <SelectContent>
+                {MAPLE_MODELS.map((m) => (
+                  <SelectItem key={m.id} value={m.id}>
+                    {m.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              {MAPLE_MODELS.find((m) => m.id === model)?.description ??
+                'Choose which Maple model Budget Buddy talks to. You can also switch it on the fly from the chat header.'}
+            </p>
           </div>
         )}
 

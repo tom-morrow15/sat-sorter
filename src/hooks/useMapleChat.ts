@@ -1,5 +1,4 @@
 import { useCallback, useState, useRef } from 'react';
-import { useLocalStorage } from './useLocalStorage';
 import { useMapleSettings } from './useMapleSettings';
 import { useBudget } from './useBudget';
 import { useBitcoinPrice } from './useBitcoinPrice';
@@ -22,10 +21,6 @@ export interface ChatEntry {
   content: string;
 }
 
-function getMonthStorageKey(month: string): string {
-  return `sat-sorter:maple-chat:${month}`;
-}
-
 export interface UseMapleChatReturn {
   messages: ChatEntry[];
   isLoading: boolean;
@@ -43,14 +38,13 @@ export interface UseMapleChatReturn {
 export function useMapleChat(): UseMapleChatReturn {
   const { currentBudget, currentMonth } = useBudget();
   const { data: priceData } = useBitcoinPrice();
-  const { apiKey, evergreenContext, proxyUrl } = useMapleSettings();
+  const { apiKey, evergreenContext, proxyUrl, model } = useMapleSettings();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [messages, setMessages] = useLocalStorage<ChatEntry[]>(
-    getMonthStorageKey(currentMonth),
-    []
-  );
+  // Chats are intentionally ephemeral: a fresh, in-memory conversation each
+  // time Budget Buddy is opened. Closing/reopening the app starts over.
+  const [messages, setMessages] = useState<ChatEntry[]>([]);
 
   const abortRef = useRef<AbortController | null>(null);
 
@@ -98,7 +92,7 @@ export function useMapleChat(): UseMapleChatReturn {
           { role: 'user', content: text },
         ];
 
-        const responseText = await chatWithMaple(apiKey, proxyUrl, context, history);
+        const responseText = await chatWithMaple(apiKey, proxyUrl, context, history, model);
 
         const assistantEntry: ChatEntry = {
           id: `${Date.now()}-assistant`,
@@ -114,7 +108,7 @@ export function useMapleChat(): UseMapleChatReturn {
         setIsLoading(false);
       }
     },
-    [apiKey, proxyUrl, messages, getContext, setMessages, toast]
+    [apiKey, proxyUrl, model, messages, getContext, setMessages, toast]
   );
 
   const analyze = useCallback(async () => {
@@ -132,7 +126,7 @@ export function useMapleChat(): UseMapleChatReturn {
 
     try {
       const context = getContext();
-      const text = await analyzeMonth(apiKey, proxyUrl, context);
+      const text = await analyzeMonth(apiKey, proxyUrl, context, model);
       return text;
     } catch (err) {
       const msg = getMapleErrorMessage(err);
@@ -142,7 +136,7 @@ export function useMapleChat(): UseMapleChatReturn {
     } finally {
       setIsLoading(false);
     }
-  }, [apiKey, proxyUrl, getContext, toast]);
+  }, [apiKey, proxyUrl, model, getContext, toast]);
 
   const clearHistory = useCallback(() => {
     setMessages([]);

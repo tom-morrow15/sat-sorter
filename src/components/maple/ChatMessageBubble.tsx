@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils';
+import { cleanMarkdown } from '@/lib/cleanMarkdown';
 
 export interface ChatMessageBubbleProps {
   role: 'user' | 'assistant';
@@ -7,6 +8,7 @@ export interface ChatMessageBubbleProps {
 
 export function ChatMessageBubble({ role, content }: ChatMessageBubbleProps) {
   const isUser = role === 'user';
+  const display = isUser ? content : cleanMarkdown(content);
 
   return (
     <div
@@ -17,17 +19,13 @@ export function ChatMessageBubble({ role, content }: ChatMessageBubbleProps) {
     >
       <div
         className={cn(
-          'max-w-[80%] sm:max-w-[75%] px-4 py-3 rounded-2xl text-sm leading-relaxed',
+          'max-w-[85%] sm:max-w-[75%] px-4 py-3 rounded-2xl text-sm leading-relaxed break-words whitespace-pre-wrap',
           isUser
             ? 'bg-primary text-primary-foreground rounded-br-md'
             : 'bg-muted text-foreground rounded-bl-md border border-border/60'
         )}
       >
-        {content.split('\n').map((line, i) => (
-          <span key={i} className="block">
-            {line}
-          </span>
-        ))}
+        {display}
       </div>
     </div>
   );

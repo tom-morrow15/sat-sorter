@@ -1,16 +1,19 @@
 import { useLocalStorage } from './useLocalStorage';
+import { DEFAULT_MAPLE_MODEL } from '@/services/mapleAi';
 
 export interface MapleSettings {
   apiKey: string;
   enabled: boolean;
   evergreenContext: string;
   proxyUrl: string;
+  model: string;
 }
 
 export const MAPLE_KEY_STORAGE = 'sat-sorter:maple-api-key';
 export const MAPLE_ENABLED_STORAGE = 'sat-sorter:maple-enabled';
 export const MAPLE_CONTEXT_STORAGE = 'sat-sorter:maple-evergreen-context';
 export const MAPLE_PROXY_URL_STORAGE = 'sat-sorter:maple-proxy-url';
+export const MAPLE_MODEL_STORAGE = 'sat-sorter:maple-model';
 
 // Default to Sat Sorter's hosted Maple Proxy (Railway).
 // This handles the TEE handshake + CORS so users don't need to run anything locally.
@@ -34,6 +37,10 @@ export function useMapleSettings() {
     MAPLE_PROXY_URL_STORAGE,
     DEFAULT_PROXY_URL
   );
+  const [model, setModel] = useLocalStorage<string>(
+    MAPLE_MODEL_STORAGE,
+    DEFAULT_MAPLE_MODEL
+  );
 
   // Auto-migrate anyone still pointing at a local proxy to the hosted one.
   const proxyUrl = LEGACY_PROXY_URLS.includes(storedProxyUrl.trim())
@@ -51,6 +58,8 @@ export function useMapleSettings() {
     setEvergreenContext,
     proxyUrl,
     setProxyUrl,
+    model,
+    setModel,
     hasKey,
     isMapleEnabled: hasKey && enabled,
   };

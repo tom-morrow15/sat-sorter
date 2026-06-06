@@ -1,9 +1,17 @@
 import { useState, useRef, useEffect } from 'react';
 import { useSeoMeta } from '@unhead/react';
-import { MessageSquare, Info, Send, Trash2, TrendingUp, X } from 'lucide-react';
+import { MessageSquare, Send, Trash2, TrendingUp, Cpu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { useMapleSettings } from '@/hooks/useMapleSettings';
 import { useMapleChat } from '@/hooks/useMapleChat';
@@ -12,13 +20,15 @@ import { QuickActionChips } from './QuickActionChips';
 import { TypingIndicator } from './TypingIndicator';
 import { ContextBottomSheet } from './ContextBottomSheet';
 import { OverspendDialog } from './OverspendDialog';
-import type { BudgetContext } from '@/services/mapleAi';
+import { MAPLE_MODELS } from '@/services/mapleAi';
 import type { Bucket } from '@/lib/budgetTypes';
 
 export function BudgetBuddyScreen() {
-  const { isMapleEnabled, evergreenContext } = useMapleSettings();
+  const { isMapleEnabled, evergreenContext, model, setModel } = useMapleSettings();
   const { messages, isLoading, sendMessage, clearHistory, preflightCheck } =
     useMapleChat();
+
+  const activeModel = MAPLE_MODELS.find((m) => m.id === model) ?? MAPLE_MODELS[0];
 
   const [input, setInput] = useState('');
   const [showContext, setShowContext] = useState(false);
@@ -110,20 +120,55 @@ export function BudgetBuddyScreen() {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100dvh-4rem)]">
+    <div
+      className="flex flex-col"
+      style={{ height: 'calc(100dvh - 4rem - env(safe-area-inset-bottom))' }}
+    >
       {/* Chat header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b bg-background shrink-0">
-        <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+      <div
+        className="flex items-center justify-between px-4 py-3 border-b bg-background shrink-0"
+        style={{ paddingTop: 'calc(0.75rem + env(safe-area-inset-top))' }}
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
             <TrendingUp className="h-4 w-4 text-primary" />
           </div>
-          <div>
-            <h2 className="text-sm font-semibold">Maple</h2>
-            <p className="text-[10px] text-muted-foreground">Budget Buddy</p>
+          <div className="min-w-0">
+            <h2 className="text-sm font-semibold leading-tight">Maple</h2>
+            {/* Model picker */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors">
+                  <Cpu className="h-2.5 w-2.5" />
+                  <span className="truncate max-w-[140px]">{activeModel.label}</span>
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-64">
+                <DropdownMenuLabel>Choose a model</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {MAPLE_MODELS.map((m) => (
+                  <DropdownMenuItem
+                    key={m.id}
+                    onClick={() => setModel(m.id)}
+                    className="flex flex-col items-start gap-0.5 py-2"
+                  >
+                    <span className="flex items-center gap-2 text-sm font-medium">
+                      {m.label}
+                      {m.id === model && (
+                        <span className="text-[10px] text-primary">● active</span>
+                      )}
+                    </span>
+                    <span className="text-[11px] text-muted-foreground">
+                      {m.description}
+                    </span>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={() => setShowContext(true)}
             className={cn(
@@ -139,7 +184,7 @@ export function BudgetBuddyScreen() {
               size="icon"
               className="h-8 w-8"
               onClick={clearHistory}
-              title="Clear chat"
+              title="New chat"
             >
               <Trash2 className="h-4 w-4 text-muted-foreground" />
             </Button>

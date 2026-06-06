@@ -4,12 +4,17 @@
 import type { Bucket, Transaction, MonthlyBudget } from '@/lib/budgetTypes';
 import {
   calculateBucketTotalUsd,
-  calculateTotalIncomeUsd,
-  calculateTotalExpensesUsd,
   getTransactionUsdAmount,
   getLineItemUsdAmount,
-  calculateSpentForLineItem,
 } from '@/lib/budgetTypes';
+import { getTransactionAssignments } from '@/lib/splitUtils';
+
+export interface BudgetLineItemContext {
+  name: string;
+  budgeted_usd: number;
+  spent_usd: number;
+  remaining_usd: number;
+}
 
 export interface BudgetCategoryContext {
   name: string;
@@ -17,6 +22,7 @@ export interface BudgetCategoryContext {
   spent_usd: number;
   remaining_usd: number;
   percent_used: number;
+  line_items: BudgetLineItemContext[];
 }
 
 export interface BudgetTransactionContext {
@@ -60,6 +66,32 @@ export function isEnabled(
  * All financial figures are USD-anchored — they come directly from stored
  * usd fields or from helper functions that derive them from USD values.
  */
+/**
+ * Compute USD spent against a specific line item, accounting for both legacy
+ * single-assignment transactions and split transactions.
+ */
+function spentForLineItemUsd(
+  lineItemId: string,
+  transactions: Transaction[],
+  btcPrice: number
+): number {
+  let total = 0;
+  for (const t of transactions) {
+    if (t.isIncome) continue;
+    const assignments = getTransactionAssignments(t);
+    for (const a of assignments) {
+      if (a.lineItemId !== lineItemId) continue;
+      // Prefer the split's own USD amount; fall back to converting sats.
+      if (a.amountUsd && a.amountUsd > 0) {
+        total += a.amountUsd;
+      } else if (btcPrice > 0) {
+        total += (a.amountSats / 100_000_000) * btcPrice;
+      }
+    }
+  }
+  return total;
+}
+
 export function buildBudgetContext(
   month: string,
   budget: MonthlyBudget,
@@ -86,27 +118,22 @@ export function buildBudgetContext(
 
   const total_remaining_usd = planned_budget_usd - total_spent_usd;
 
-  // ── Per-category data ──
+  // ── Per-category data, INCLUDING per-line-item breakdown ──
   const categories: BudgetCategoryContext[] = expenseBuckets
     .map((bucket) => {
-      const budgeted_usd = bucket.lineItems
-        .filter((li) => {
-          return !li.name.toLowerCase().includes('income');
-        })
-        .reduce((sum, li) => {
-          return sum + getLineItemUsdAmount(li, btcPrice);
-        }, 0);
+      const line_items: BudgetLineItemContext[] = bucket.lineItems.map((li) => {
+        const liBudgeted = getLineItemUsdAmount(li, btcPrice);
+        const liSpent = spentForLineItemUsd(li.id, budget.transactions, btcPrice);
+        return {
+          name: li.name,
+          budgeted_usd: Math.round(liBudgeted * 100) / 100,
+          spent_usd: Math.round(liSpent * 100) / 100,
+          remaining_usd: Math.round((liBudgeted - liSpent) * 100) / 100,
+        };
+      });
 
-      const spent_usd = bucket.lineItems.reduce((sum, li) => {
-        // Only count transactions assigned to this line item
-        const spent = budget.transactions
-          .filter((t) => t.lineItemId === li.id && !t.isIncome)
-          .reduce((txSum, t) => {
-            return txSum + getTransactionUsdAmount(t, btcPrice);
-          }, 0);
-        return sum + spent;
-      }, 0);
-
+      const budgeted_usd = line_items.reduce((sum, li) => sum + li.budgeted_usd, 0);
+      const spent_usd = line_items.reduce((sum, li) => sum + li.spent_usd, 0);
       const remaining_usd = budgeted_usd - spent_usd;
       const percent_used =
         budgeted_usd > 0
@@ -119,20 +146,40 @@ export function buildBudgetContext(
         spent_usd: Math.round(spent_usd * 100) / 100,
         remaining_usd: Math.round(remaining_usd * 100) / 100,
         percent_used,
+        line_items,
       };
     })
     .filter((c) => c.budgeted_usd > 0 || c.spent_usd > 0)
     .sort((a, b) => b.budgeted_usd - a.budgeted_usd);
 
-  // ── Recent transactions (last 15 non-income) ──
+  // ── Recent transactions (last 20 non-income, split-aware) ──
   const recent_transactions: BudgetTransactionContext[] = budget.transactions
     .filter((t) => !t.isIncome)
-    .slice(-15)
+    .slice(-20)
     .reverse()
     .map((t) => {
-      const bucket = budget.buckets.find((b) => b.id === t.bucketId);
+      const assignments = getTransactionAssignments(t);
+      let category: string;
+      if (assignments.length === 0) {
+        category = 'Unassigned';
+      } else if (assignments.length === 1) {
+        const bucket = budget.buckets.find((b) => b.id === assignments[0].bucketId);
+        const li = bucket?.lineItems.find((l) => l.id === assignments[0].lineItemId);
+        category = li
+          ? `${bucket?.name ?? 'Unknown'} › ${li.name}`
+          : bucket?.name ?? 'Unassigned';
+      } else {
+        // Split transaction — list each portion's line item
+        category = assignments
+          .map((a) => {
+            const bucket = budget.buckets.find((b) => b.id === a.bucketId);
+            const li = bucket?.lineItems.find((l) => l.id === a.lineItemId);
+            return li ? li.name : bucket?.name ?? 'Unknown';
+          })
+          .join(' + ') + ' (split)';
+      }
       return {
-        category: bucket?.name || 'Unassigned',
+        category,
         amount_usd: Math.round(getTransactionUsdAmount(t, btcPrice) * 100) / 100,
         note: t.description || 'No description',
         date: t.date ? t.date.split('T')[0] : '',
@@ -159,9 +206,11 @@ export function buildBudgetContext(
   };
 }
 
-const INSIGHTS_SYSTEM_PROMPT = `You are Maple, a privacy-first Bitcoin budgeting assistant inside Sat Sorter. The user budgets in USD but thinks in sats. Analyze their monthly category summary and recent transactions. Provide 2–3 concise, actionable observations: spending pace, any categories at risk of overspending, and one Bitcoin-themed tip (e.g., 'If you finish under budget in Food, you could stack an extra X sats'). Keep under 120 words.`;
+const FORMATTING_RULES = `FORMATTING RULES (critical): You are rendered in a narrow mobile chat bubble that does NOT support markdown. Write in plain, conversational sentences. Do NOT use markdown tables, pipes (|), dashes for table rows, asterisks for bold (**), or headers (#). If you need a list, use short lines with a simple dash and a space. Keep numbers inline (e.g., "Food: $120 spent of $200, $80 left").`;
 
-const CHAT_SYSTEM_PROMPT = `You are Maple, the Budget Buddy inside Sat Sorter. You have access to the user's current monthly budget summary, recent transactions, and their evergreen context. Tailor all advice through the evergreen context when relevant. Answer helpfully, concisely, and in a friendly tone. Default to USD but feel free to mention sats using the provided btc_price_usd. If a purchase would overspend a category, warn them and suggest moving funds from another category with surplus. Only use data provided in context.`;
+const INSIGHTS_SYSTEM_PROMPT = `You are Maple, a privacy-first Bitcoin budgeting assistant inside Sat Sorter. The user budgets in USD but thinks in sats. You are given a full breakdown of every category AND its line items (each with budgeted_usd, spent_usd, remaining_usd), plus recent transactions. Use the line-item detail — don't just look at category totals. Provide 2–3 concise, actionable observations: spending pace, any line items or categories at risk of overspending, and one Bitcoin-themed tip (e.g., "If you finish under budget in Food, you could stack an extra X sats"). Keep it under 120 words. ${FORMATTING_RULES}`;
+
+const CHAT_SYSTEM_PROMPT = `You are Maple, the Budget Buddy inside Sat Sorter. You have access to the user's current monthly budget summary, every category broken down into its individual line items (budgeted/spent/remaining), recent transactions, and their evergreen context. Always reason using the line-item level detail, not just category totals — for example, if asked about "coffee", look for a matching line item. Tailor all advice through the evergreen context when relevant. Answer helpfully, concisely, and in a friendly tone. Default to USD but feel free to mention sats using the provided btc_price_usd. If a purchase would overspend a category or line item, warn them and suggest moving funds from another one with surplus. Only use data provided in context. ${FORMATTING_RULES}`;
 
 /**
  * Maple Proxy provides OpenAI-compatible API access to Maple's encrypted models.
@@ -177,14 +226,35 @@ const CHAT_SYSTEM_PROMPT = `You are Maple, the Budget Buddy inside Sat Sorter. Y
  * - Hosted: https://your-proxy.com/v1 (public proxy deployment)
  */
 
-// Available models from Maple
-// Maple's own examples use "auto:quick" which auto-selects a fast model.
-// This is the safest default since it always maps to an available model.
-const MODEL_NAMES = [
-  'auto:quick',        // Auto-select fast model (Maple's recommended default)
-  'llama3-3-70b',      // General reasoning, daily tasks
-  'gpt-oss-120b',      // Creative chat, structured data
+// Available models from Maple, surfaced to the user as a picker in Budget Buddy.
+export interface MapleModelOption {
+  id: string;
+  label: string;
+  description: string;
+}
+
+export const MAPLE_MODELS: MapleModelOption[] = [
+  {
+    id: 'auto:quick',
+    label: 'Auto (Quick)',
+    description: 'Maple picks a fast model. Best default.',
+  },
+  {
+    id: 'llama3-3-70b',
+    label: 'Llama 3.3 70B',
+    description: 'Strong general reasoning for everyday questions.',
+  },
+  {
+    id: 'gpt-oss-120b',
+    label: 'GPT-OSS 120B',
+    description: 'Largest model — deeper analysis, a bit slower.',
+  },
 ];
+
+export const DEFAULT_MAPLE_MODEL = MAPLE_MODELS[0].id;
+
+// Back-compat: index 0 used as a fallback model id.
+const MODEL_NAMES = MAPLE_MODELS.map((m) => m.id);
 
 /** Build the full chat completions URL from a base proxy URL */
 function getChatCompletionsUrl(proxyUrl: string): string {
@@ -201,7 +271,8 @@ async function callMaple(
   systemPrompt: string,
   context: BudgetContext,
   history: ChatMessage[],
-  maxTokens = 512
+  maxTokens = 512,
+  model: string = DEFAULT_MAPLE_MODEL
 ): Promise<string> {
   // Combine system prompt and context into a single system message
   const systemMessage = `${systemPrompt}\n\nContext:\n${JSON.stringify(context)}`;
@@ -215,7 +286,7 @@ async function callMaple(
   ];
 
   const requestBody = {
-    model: MODEL_NAMES[0], // llama3-3-70b
+    model: model || DEFAULT_MAPLE_MODEL,
     messages: messages,
     temperature: 0.7,
     max_tokens: maxTokens,
@@ -290,18 +361,20 @@ async function callMaple(
 export async function analyzeMonth(
   apiKey: string,
   proxyUrl: string,
-  context: BudgetContext
+  context: BudgetContext,
+  model: string = DEFAULT_MAPLE_MODEL
 ): Promise<string> {
-  return callMaple(apiKey, proxyUrl, INSIGHTS_SYSTEM_PROMPT, context, [], 300);
+  return callMaple(apiKey, proxyUrl, INSIGHTS_SYSTEM_PROMPT, context, [], 400, model);
 }
 
 export async function chatWithMaple(
   apiKey: string,
   proxyUrl: string,
   context: BudgetContext,
-  history: ChatMessage[]
+  history: ChatMessage[],
+  model: string = DEFAULT_MAPLE_MODEL
 ): Promise<string> {
-  return callMaple(apiKey, proxyUrl, CHAT_SYSTEM_PROMPT, context, history, 512);
+  return callMaple(apiKey, proxyUrl, CHAT_SYSTEM_PROMPT, context, history, 600, model);
 }
 
 export async function testKey(
@@ -476,13 +549,9 @@ export function getBucketRemainingUsd(
   }, 0);
 
   const spent = bucket.lineItems.reduce((sum, li) => {
-    // line-item spending includes transactions assigned to this line item
-    const lineSpent = transactions
-      .filter((t) => t.lineItemId === li.id && !t.isIncome)
-      .reduce((txSum, t) => {
-        return txSum + getTransactionUsdAmount(t, btcPrice);
-      }, 0);
-    return sum + lineSpent;
+    // line-item spending includes transactions assigned to this line item,
+    // accounting for both legacy and split transactions
+    return sum + spentForLineItemUsd(li.id, transactions, btcPrice);
   }, 0);
 
   return budgeted - spent;

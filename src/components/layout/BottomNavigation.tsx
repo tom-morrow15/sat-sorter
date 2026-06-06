@@ -179,7 +179,10 @@ export function BottomNavigation() {
   };
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 border-t bg-background">
+    <nav
+      className="fixed bottom-0 left-0 right-0 z-40 border-t bg-background"
+      style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+    >
       <div className="flex items-center justify-around h-16">
         <button
           onClick={() => navigate('/home')}
