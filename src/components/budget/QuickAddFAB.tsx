@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, X } from 'lucide-react';
+import { Plus, X, Scissors } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -21,15 +21,21 @@ import {
 import { useBitcoinPrice, formatSats, satsToUsd, usdToSats, formatUsd } from '@/hooks/useBitcoinPrice';
 import { useBudget } from '@/hooks/useBudget';
 import { cn } from '@/lib/utils';
+import { SplitEditor } from './SplitEditor';
+import type { Transaction, TransactionSplit } from '@/lib/budgetTypes';
 
 interface QuickAddFABProps {
   onAddTransaction: (transaction: {
     date: string;
     description: string;
     amount: number;
+    amountUsd?: number;
+    btcPriceAtEntry?: number;
     isIncome: boolean;
     bucketId: string | null;
     lineItemId: string | null;
+    splits?: TransactionSplit[];
+    isSplit?: boolean;
   }) => void;
   currency: 'sats' | 'usd';
 }
@@ -38,11 +44,13 @@ export function QuickAddFAB({ onAddTransaction, currency }: QuickAddFABProps) {
   const { data: priceData } = useBitcoinPrice();
   const { currentBudget } = useBudget();
   const [open, setOpen] = useState(false);
+  const [showSplitEditor, setShowSplitEditor] = useState(false);
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
   const [isIncome, setIsIncome] = useState(false);
   const [selectedLineItemId, setSelectedLineItemId] = useState<string | null>(null);
   const [selectedBucketId, setSelectedBucketId] = useState<string | null>(null);
+  const [tempTransactionId, setTempTransactionId] = useState<string | null>(null);
 
   const handleAddTransaction = () => {
     if (!description.trim() || !amount.trim()) {
@@ -75,6 +83,79 @@ export function QuickAddFAB({ onAddTransaction, currency }: QuickAddFABProps) {
     setSelectedLineItemId(null);
     setSelectedBucketId(null);
     setOpen(false);
+  };
+
+  const handleOpenSplit = () => {
+    if (!description.trim() || !amount.trim()) {
+      return;
+    }
+
+    const numAmount = parseFloat(amount) || 0;
+    const satsAmount =
+      currency === 'usd' && priceData
+        ? usdToSats(numAmount, priceData.usdPerBtc)
+        : numAmount;
+
+    if (satsAmount <= 0) {
+      return;
+    }
+
+    // Create a temporary transaction object for the split editor
+    const tempTx: Transaction = {
+      id: `temp-${Date.now()}`,
+      description: description.trim(),
+      amount: Math.round(satsAmount),
+      amountUsd: currency === 'usd' ? numAmount : undefined,
+      btcPriceAtEntry: priceData?.usdPerBtc,
+      date: new Date().toISOString().split('T')[0],
+      isIncome,
+      lineItemId: selectedLineItemId,
+      bucketId: selectedBucketId,
+    };
+
+    setTempTransactionId(tempTx.id);
+    setOpen(false);
+    setShowSplitEditor(true);
+  };
+
+  const handleSaveSplit = (splits: TransactionSplit[]) => {
+    if (!description.trim() || !amount.trim()) {
+      return;
+    }
+
+    const numAmount = parseFloat(amount) || 0;
+    const satsAmount =
+      currency === 'usd' && priceData
+        ? usdToSats(numAmount, priceData.usdPerBtc)
+        : numAmount;
+
+    if (satsAmount <= 0) {
+      return;
+    }
+
+    // Add the transaction WITH splits in a single atomic call.
+    // The bucketId/lineItemId are left null since the splits define the assignments.
+    onAddTransaction({
+      date: new Date().toISOString().split('T')[0],
+      description: description.trim(),
+      amount: Math.round(satsAmount),
+      amountUsd: currency === 'usd' ? numAmount : undefined,
+      btcPriceAtEntry: priceData?.usdPerBtc,
+      isIncome,
+      bucketId: null,
+      lineItemId: null,
+      splits,
+      isSplit: true,
+    });
+
+    // Reset form
+    setDescription('');
+    setAmount('');
+    setIsIncome(false);
+    setSelectedLineItemId(null);
+    setSelectedBucketId(null);
+    setShowSplitEditor(false);
+    setTempTransactionId(null);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -256,13 +337,24 @@ export function QuickAddFAB({ onAddTransaction, currency }: QuickAddFABProps) {
             )}
 
             {/* Add button */}
-            <Button
-              onClick={handleAddTransaction}
-              disabled={!description.trim() || !amount.trim()}
-              className="w-full"
-            >
-              Add Transaction
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="ghost"
+                onClick={handleOpenSplit}
+                disabled={!description.trim() || !amount.trim()}
+                className="gap-2"
+              >
+                <Scissors className="h-4 w-4" />
+                Split
+              </Button>
+              <Button
+                onClick={handleAddTransaction}
+                disabled={!description.trim() || !amount.trim()}
+                className="flex-1"
+              >
+                Add Transaction
+              </Button>
+            </div>
 
             <p className="text-xs text-muted-foreground text-center">
               💡 Tip: Press Ctrl+Enter to add quickly
@@ -270,6 +362,26 @@ export function QuickAddFAB({ onAddTransaction, currency }: QuickAddFABProps) {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Split Editor */}
+      {tempTransactionId && (
+        <SplitEditor
+          open={showSplitEditor}
+          onOpenChange={setShowSplitEditor}
+          transaction={{
+            id: tempTransactionId,
+            description,
+            amount: currency === 'usd' && priceData ? usdToSats(parseFloat(amount) || 0, priceData.usdPerBtc) : Math.round(parseFloat(amount) || 0),
+            amountUsd: currency === 'usd' ? parseFloat(amount) || 0 : undefined,
+            date: new Date().toISOString().split('T')[0],
+            isIncome,
+            lineItemId: selectedLineItemId,
+            bucketId: selectedBucketId,
+          }}
+          buckets={currentBudget.buckets.filter(b => b.isIncome === isIncome)}
+          onSave={handleSaveSplit}
+        />
+      )}
     </>
   );
 }

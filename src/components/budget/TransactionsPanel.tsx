@@ -69,6 +69,7 @@ export function TransactionsPanel({
   const [showDataSources, setShowDataSources] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showSplitEditor, setShowSplitEditor] = useState(false);
+  const [isAddingSplit, setIsAddingSplit] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [transactionToDelete, setTransactionToDelete] = useState<Transaction | null>(null);
   const [filteredTransactions, setFilteredTransactions] = useState<Transaction[]>([]);
@@ -151,6 +152,60 @@ export function TransactionsPanel({
       setNewIsIncome(false);
       setShowAddDialog(false);
     }
+  };
+
+  // Open the split editor for a brand-new transaction being added
+  const handleAddWithSplit = () => {
+    const amount = parseAmountToSats(newAmount);
+    if (amount <= 0 || !newDescription.trim()) return;
+
+    const usdAmount = currency === 'usd' ? parseFloat(newAmount) || 0 : undefined;
+
+    // Build a temporary transaction object to feed the split editor
+    const tempTx: Transaction = {
+      id: `temp-${Date.now()}`,
+      amount,
+      amountUsd: usdAmount,
+      btcPriceAtEntry: currency === 'usd' && priceData ? priceData.usdPerBtc : undefined,
+      description: newDescription.trim(),
+      date: new Date().toISOString(),
+      lineItemId: null,
+      bucketId: null,
+      isIncome: newIsIncome,
+    };
+
+    setSelectedTransaction(tempTx);
+    setIsAddingSplit(true);
+    setShowAddDialog(false);
+    setShowSplitEditor(true);
+  };
+
+  // Save splits for a brand-new transaction (adds it with splits in one atomic call)
+  const handleSaveNewSplit = (splits: TransactionSplit[]) => {
+    if (!selectedTransaction) return;
+
+    const transaction: Omit<Transaction, 'id'> = {
+      amount: selectedTransaction.amount,
+      amountUsd: selectedTransaction.amountUsd,
+      btcPriceAtEntry: selectedTransaction.btcPriceAtEntry,
+      description: selectedTransaction.description,
+      date: selectedTransaction.date,
+      lineItemId: null,
+      bucketId: null,
+      isIncome: selectedTransaction.isIncome,
+      splits,
+      isSplit: true,
+    };
+
+    onAddTransaction(transaction);
+
+    // Reset form & state
+    setNewAmount('');
+    setNewDescription('');
+    setNewIsIncome(false);
+    setShowSplitEditor(false);
+    setSelectedTransaction(null);
+    setIsAddingSplit(false);
   };
 
   const handleOpenAssign = (transaction: Transaction) => {
@@ -557,6 +612,15 @@ export function TransactionsPanel({
               Cancel
             </Button>
             <Button
+              variant="ghost"
+              onClick={handleAddWithSplit}
+              disabled={!newAmount || !newDescription.trim()}
+              className="gap-2"
+            >
+              <Scissors className="h-4 w-4" />
+              Split
+            </Button>
+            <Button
               onClick={handleAddTransaction}
               disabled={!newAmount || !newDescription.trim()}
             >
@@ -683,10 +747,16 @@ export function TransactionsPanel({
         {selectedTransaction && (
           <SplitEditor
             open={showSplitEditor}
-            onOpenChange={setShowSplitEditor}
+            onOpenChange={(open) => {
+              setShowSplitEditor(open);
+              if (!open) {
+                setIsAddingSplit(false);
+                setSelectedTransaction(null);
+              }
+            }}
             transaction={selectedTransaction}
-            buckets={expenseBuckets}
-            onSave={handleSaveSplit}
+            buckets={buckets.filter(b => b.isIncome === selectedTransaction.isIncome)}
+            onSave={isAddingSplit ? handleSaveNewSplit : handleSaveSplit}
           />
         )}
       </>
