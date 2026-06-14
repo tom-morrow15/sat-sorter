@@ -323,26 +323,54 @@ export function BudgetHeader({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
-                {/* Login/Signup for guests */}
+                {/* Account */}
                 {!user && (
-                  <>
-                    <DropdownMenuItem onClick={() => setShowLogin(true)}>
-                      <LogIn className="h-4 w-4 mr-2" />
-                      Log In with Nostr
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                  </>
+                  <DropdownMenuItem onClick={() => setShowLogin(true)}>
+                    <LogIn className="h-4 w-4 mr-2" />
+                    Log In with Nostr
+                  </DropdownMenuItem>
+                )}
+                {user && (
+                  <DropdownMenuItem onClick={() => setShowPartners(true)}>
+                    <User className="h-4 w-4 mr-2" />
+                    Budget Partners
+                  </DropdownMenuItem>
                 )}
 
-                {/* Info section */}
-                <DropdownMenuItem onClick={() => setShowAbout(true)}>
-                  <Info className="h-4 w-4 mr-2" />
-                  About Sat Sorter
+                <DropdownMenuSeparator />
+
+                {/* Budget Tools */}
+                <DropdownMenuItem onClick={() => setShowCopyBudget(true)}>
+                  <Copy className="h-4 w-4 mr-2" />
+                  Copy Previous Month
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setShowBitcoinEdu(true)}>
-                  <GraduationCap className="h-4 w-4 mr-2" />
-                  Learn About Bitcoin
+                <DropdownMenuItem 
+                  onClick={() => setShowResetConfirm(true)}
+                  className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                >
+                  <AlertTriangle className="h-4 w-4 mr-2" />
+                  Reset This Month
                 </DropdownMenuItem>
+
+                <DropdownMenuSeparator />
+
+                {/* AI Assistant - Maple (prominent and separate) */}
+                <DropdownMenuItem onClick={() => setShowSettings(true)}>
+                  <span className="h-4 w-4 mr-2 text-center text-sm">🤖</span>
+                  Maple AI
+                </DropdownMenuItem>
+
+                <DropdownMenuSeparator />
+
+                {/* Preferences */}
+                <DropdownMenuItem onClick={toggleTheme}>
+                  {isDark ? <Sun className="h-4 w-4 mr-2" /> : <Moon className="h-4 w-4 mr-2" />}
+                  {isDark ? 'Light Mode' : 'Dark Mode'}
+                </DropdownMenuItem>
+
+                <DropdownMenuSeparator />
+
+                {/* Support */}
                 <DropdownMenuItem onClick={() => setShowDonateSorter(true)}>
                   <Heart className="h-4 w-4 mr-2 text-pink-500" />
                   Support Sat Sorter
@@ -351,45 +379,31 @@ export function BudgetHeader({
                   <Heart className="h-4 w-4 mr-2" />
                   Support Bitcoin Projects
                 </DropdownMenuItem>
-                   <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={toggleTheme}>
-                      {isDark ? <Sun className="h-4 w-4 mr-2" /> : <Moon className="h-4 w-4 mr-2" />}
-                      {isDark ? 'Light Mode' : 'Dark Mode'}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setShowSettings(true)}>
-                      <span className="h-4 w-4 mr-2 text-center text-sm">⚙️</span>
-                      Settings
-                    </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                 
-                 <DropdownMenuItem 
-                   onClick={() => {
-                     setShowCopyBudget(true);
-                   }}
-                 >
-                   <Copy className="h-4 w-4 mr-2" />
-                   Copy Previous Month
-                 </DropdownMenuItem>
-                 
-                 <DropdownMenuItem 
-                   onClick={() => setShowResetConfirm(true)}
-                   className="text-destructive focus:text-destructive focus:bg-destructive/10"
-                 >
-                   <AlertTriangle className="h-4 w-4 mr-2" />
-                   Reset This Month
-                 </DropdownMenuItem>
-                 
-                 <DropdownMenuSeparator />
-                   <DropdownMenuItem onClick={handleRefresh}>
-                    <RotateCw className="h-4 w-4 mr-2" />
-                    Refresh App
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => setShowBackup(true)}>
-                    <Cloud className="h-4 w-4 mr-2" />
-                    Backup & Sync
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
+
+                <DropdownMenuSeparator />
+
+                {/* About */}
+                <DropdownMenuItem onClick={() => setShowAbout(true)}>
+                  <Info className="h-4 w-4 mr-2" />
+                  About Sat Sorter
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setShowBitcoinEdu(true)}>
+                  <GraduationCap className="h-4 w-4 mr-2" />
+                  Learn About Bitcoin
+                </DropdownMenuItem>
+
+                <DropdownMenuSeparator />
+
+                {/* Advanced */}
+                <DropdownMenuItem onClick={handleRefresh}>
+                  <RotateCw className="h-4 w-4 mr-2" />
+                  Refresh App
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setShowBackup(true)}>
+                  <Cloud className="h-4 w-4 mr-2" />
+                  Backup & Sync
+                </DropdownMenuItem>
+              </DropdownMenuContent>
             </DropdownMenu>
           </div>
         </div>
@@ -786,13 +800,13 @@ export function BudgetHeader({
         onLogin={() => setShowLogin(false)}
       />
 
-        {/* Settings Dialog */}
+        {/* Maple AI Dialog */}
         <Dialog open={showSettings} onOpenChange={setShowSettings}>
           <DialogContent className="sm:max-w-[480px] max-h-[85vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Settings</DialogTitle>
+              <DialogTitle>Maple AI</DialogTitle>
               <DialogDescription>
-                Configure your app preferences.
+                Connect your Maple API key and configure Budget Buddy.
               </DialogDescription>
             </DialogHeader>
             <div className="py-4 space-y-4">
