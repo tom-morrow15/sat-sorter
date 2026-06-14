@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { Scissors } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -19,7 +20,8 @@ import {
 } from '@/components/ui/select';
 import { useBitcoinPrice, satsToUsd, usdToSats, formatSats, formatUsd } from '@/hooks/useBitcoinPrice';
 import { useToast } from '@/hooks/useToast';
-import type { Bucket } from '@/lib/budgetTypes';
+import { SplitEditor } from './SplitEditor';
+import type { Bucket, Transaction, TransactionSplit } from '@/lib/budgetTypes';
 
 interface AddTransactionDialogProps {
   open: boolean;
@@ -55,6 +57,8 @@ export function AddTransactionDialog({
   const [amountInput, setAmountInput] = useState('');
   const [selectedBucketId, setSelectedBucketId] = useState(defaultBucketId || '');
   const [selectedLineItemId, setSelectedLineItemId] = useState('');
+  const [showSplitEditor, setShowSplitEditor] = useState(false);
+  const [tempTxForSplit, setTempTxForSplit] = useState<Transaction | null>(null);
 
   const filteredBuckets = buckets.filter(b => b.isIncome === isIncome);
 
@@ -104,6 +108,64 @@ export function AddTransactionDialog({
     setAmountInput('');
     setSelectedBucketId(defaultBucketId || '');
     setSelectedLineItemId('');
+    onOpenChange(false);
+  };
+
+  // Build a temp transaction and open the split editor instead of saving immediately
+  const handleOpenSplit = () => {
+    if (!description.trim() || totalSats <= 0) return;
+
+    const tx: Transaction = {
+      id: `temp-${Date.now()}`,
+      amount: totalSats,
+      amountUsd: currency === 'usd' && priceData ? parseFloat(amountInput) || 0 : undefined,
+      btcPriceAtEntry: currency === 'usd' && priceData ? priceData.usdPerBtc : undefined,
+      description: description.trim(),
+      date: new Date().toISOString(),
+      lineItemId: null,
+      bucketId: null,
+      isIncome,
+    };
+
+    setTempTxForSplit(tx);
+    setShowSplitEditor(true);
+  };
+
+  const handleSaveSplit = (splits: TransactionSplit[]) => {
+    const tx = tempTxForSplit;
+    if (!tx) return;
+
+    const finalTx: any = {
+      date: tx.date,
+      description: tx.description,
+      amount: tx.amount,
+      isIncome: tx.isIncome,
+      bucketId: null,
+      lineItemId: null,
+      source: 'manual',
+      splits,
+      isSplit: true,
+    };
+
+    if (tx.amountUsd && tx.btcPriceAtEntry) {
+      finalTx.amountUsd = tx.amountUsd;
+      finalTx.btcPriceAtEntry = tx.btcPriceAtEntry;
+    }
+
+    onSave(finalTx);
+
+    toast({
+      title: 'Transaction added',
+      description: `${isIncome ? 'Income' : 'Expense'} recorded (split)`,
+    });
+
+    // Reset
+    setDescription('');
+    setAmountInput('');
+    setSelectedBucketId(defaultBucketId || '');
+    setSelectedLineItemId('');
+    setTempTxForSplit(null);
+    setShowSplitEditor(false);
     onOpenChange(false);
   };
 
@@ -191,24 +253,47 @@ export function AddTransactionDialog({
                </Select>
              </div>
            )}
-        </div>
-
-         <div className="space-y-2">
-           {!canSave && (
-             <p className="text-xs text-destructive">
-               Please fill in all required fields: description, amount, category, and line item.
-             </p>
-           )}
-           <div className="flex justify-end gap-2">
-             <Button variant="outline" onClick={() => onOpenChange(false)}>
-               Cancel
-             </Button>
-             <Button onClick={handleSave} disabled={!canSave}>
-               Save Transaction
-             </Button>
-           </div>
          </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
+ 
+          <div className="space-y-2">
+            {!canSave && (
+              <p className="text-xs text-destructive">
+                Please fill in all required fields: description, amount, category, and line item.
+              </p>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => onOpenChange(false)}>
+                Cancel
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={handleOpenSplit}
+                disabled={!description.trim() || totalSats <= 0}
+                className="gap-2"
+              >
+                <Scissors className="h-4 w-4" />
+                Split
+              </Button>
+              <Button onClick={handleSave} disabled={!canSave}>
+                Save Transaction
+              </Button>
+            </div>
+          </div>
+       </DialogContent>
+
+       {/* Split Editor for new transaction */}
+       {tempTxForSplit && (
+         <SplitEditor
+           open={showSplitEditor}
+           onOpenChange={(open) => {
+             setShowSplitEditor(open);
+             if (!open) setTempTxForSplit(null);
+           }}
+           transaction={tempTxForSplit}
+           buckets={buckets.filter((b) => b.isIncome === isIncome)}
+           onSave={handleSaveSplit}
+         />
+       )}
+     </Dialog>
+   );
+ }
