@@ -44,7 +44,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { genUserName } from '@/lib/genUserName';
 import { BackupRestoreDialog } from './BackupRestoreDialog';
 import { ManagePartnersDialog } from './ManagePartnersDialog';
-import { CopyBudgetDialog } from './CopyBudgetDialog';
+import { CopyMonthPrompt } from './CopyMonthPrompt';
 import { DonateDialog } from './DonateDialog';
 import { MapleSettings } from '@/components/maple/MapleSettings';
 
@@ -104,7 +104,7 @@ export function BudgetHeader({
   const [showBackup, setShowBackup] = useState(false);
   const [showPartners, setShowPartners] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
-  const [showCopyBudget, setShowCopyBudget] = useState(false);
+  const [showCopyPrompt, setShowCopyPrompt] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
 
   // Generate list of months for picker (current month + 11 months back + 6 months forward)
@@ -340,10 +340,10 @@ export function BudgetHeader({
                 <DropdownMenuSeparator />
 
                 {/* Budget Tools */}
-                <DropdownMenuItem onClick={() => setShowCopyBudget(true)}>
-                  <Copy className="h-4 w-4 mr-2" />
-                  Copy Previous Month
-                </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setShowCopyPrompt(true)}>
+                    <Copy className="h-4 w-4 mr-2" />
+                    Copy Previous Month
+                  </DropdownMenuItem>
                 <DropdownMenuItem 
                   onClick={() => setShowResetConfirm(true)}
                   className="text-destructive focus:text-destructive focus:bg-destructive/10"
@@ -823,17 +823,37 @@ export function BudgetHeader({
         />
 
          {/* Copy Budget Dialog */}
-         <CopyBudgetDialog
-           open={showCopyBudget}
-           onOpenChange={setShowCopyBudget}
-           currentMonth={currentMonth}
-           availableMonths={availableMonths}
-           budgets={allBudgets}
-           onCopy={(sourceMonth) => {
-             onCopyPreviousMonth?.(sourceMonth);
-             setShowCopyBudget(false);
-           }}
-         />
+          <CopyMonthPrompt
+            open={showCopyPrompt}
+            onOpenChange={setShowCopyPrompt}
+            currentMonth={currentMonth}
+            previousMonth={hasPreviousMonthBudget ? getPreviousMonth() : null}
+            previousBudget={hasPreviousMonthBudget 
+              ? allBudgets.find(b => b.month === getPreviousMonth()) || null 
+              : null}
+            onStartFresh={() => {
+              toast({
+                title: 'Starting fresh',
+                description: 'Your new month is ready.',
+              });
+            }}
+            onCopyPrevious={() => {
+              const prevMonth = getPreviousMonth();
+              const result = onCopyPreviousMonth?.(prevMonth);
+              if (result?.success) {
+                toast({
+                  title: 'Budget copied',
+                  description: `Copied from ${formatMonth(prevMonth)}`,
+                });
+              } else {
+                toast({
+                  title: 'Could not copy',
+                  description: result?.message || 'Please try again.',
+                  variant: 'destructive',
+                });
+              }
+            }}
+          />
 
          {/* Reset Budget Month Confirmation Dialog */}
         <Dialog open={showResetConfirm} onOpenChange={setShowResetConfirm}>

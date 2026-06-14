@@ -251,30 +251,19 @@ export function useBudget() {
   }, [state.budgets, state.currentMonth]);
 
   // Duplicate budget from a previous month (copies buckets and line items with amounts, not transactions)
+  // This now allows replacement of an existing budget (with confirmation from the caller).
   const duplicateFromMonth = useCallback((sourceMonth: string): { success: boolean; message?: string } => {
-    // Check if a budget already exists for the current month
-    const existingBudget = state.budgets.find(b => b.month === state.currentMonth);
-    if (existingBudget && existingBudget.buckets.length > 0) {
-      // Budget already exists - ask user to confirm overwrite or return early
-      console.warn(`[useBudget] Budget already exists for ${state.currentMonth}. Aborting duplicate.`);
-      return { 
-        success: false, 
-        message: `You already have a budget set up for ${formatMonth(state.currentMonth)}. Delete it first if you want to replace it.` 
+    let sourceBudget = state.budgets.find(b => b.month === sourceMonth);
+    
+    // If no previous month budget exists, use a default template
+    if (!sourceBudget) {
+      sourceBudget = {
+        id: generateId(),
+        month: sourceMonth,
+        buckets: createDefaultBuckets(),
+        transactions: [],
       };
     }
-
-     let sourceBudget = state.budgets.find(b => b.month === sourceMonth);
-     
-     // If no previous month budget exists, use a default template
-     if (!sourceBudget) {
-       // Create a default budget with just an income bucket
-       sourceBudget = {
-         id: generateId(),
-         month: sourceMonth,
-         buckets: createDefaultBuckets(),
-         transactions: [],
-       };
-     }
 
     // Create new buckets with new IDs but same structure and amounts
     const newBuckets = sourceBudget.buckets.map(bucket => ({

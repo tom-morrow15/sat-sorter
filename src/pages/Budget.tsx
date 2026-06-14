@@ -10,7 +10,7 @@ import { BudgetHeader } from '@/components/budget/BudgetHeader';
 import { BudgetDashboard } from '@/components/budget/BudgetDashboard';
 import { BucketCard } from '@/components/budget/BucketCard';
 import { AddBucketDialog } from '@/components/budget/AddBucketDialog';
-import { CopyBudgetDialog } from '@/components/budget/CopyBudgetDialog';
+import { CopyMonthPrompt } from '@/components/budget/CopyMonthPrompt';
 import { TransactionsPanel } from '@/components/budget/TransactionsPanel';
 import { BTCMapBanner } from '@/components/budget/BTCMapBanner';
 import { WalletModalControlled } from '@/components/budget/WalletModalControlled';
@@ -26,7 +26,7 @@ import { canAddBucket } from '@/lib/budgetPermissions';
 export default function Budget() {
   const [showAddBucket, setShowAddBucket] = useState(false);
   const [showWalletModal, setShowWalletModal] = useState(false);
-  const [showCopyBudget, setShowCopyBudget] = useState(false);
+  const [showCopyPrompt, setShowCopyPrompt] = useState(false);
   const [previousMonth, setPreviousMonth] = useState<string | null>(null);
   const { toast } = useToast();
 
@@ -80,13 +80,12 @@ export default function Budget() {
     
     // Check if this is a new month (no budget) and there's a previous month available
     if (!hasBudget && hasPreviousMonthBudget) {
-      // Only show if we haven't already shown it for this month
       const prevMonth = getPreviousMonth();
       if (previousMonth !== currentMonth) {
         setPreviousMonth(currentMonth);
         setTimeout(() => {
-          setShowCopyBudget(true);
-        }, 500); // Small delay to ensure month is displayed
+          setShowCopyPrompt(true);
+        }, 600);
       }
     }
   }, [currentMonth, currentBudget.buckets.length, hasPreviousMonthBudget, getPreviousMonth, previousMonth]);
@@ -380,22 +379,32 @@ export default function Budget() {
       />
 
       {/* Copy Budget Dialog - Suggested when navigating to new month */}
-      <CopyBudgetDialog
-        open={showCopyBudget}
-        onOpenChange={setShowCopyBudget}
+      <CopyMonthPrompt
+        open={showCopyPrompt}
+        onOpenChange={setShowCopyPrompt}
         currentMonth={currentMonth}
-        availableMonths={availableMonths}
-        budgets={fullState.budgets}
-        onCopy={(sourceMonth) => {
-          const result = duplicateFromMonth(sourceMonth);
+        previousMonth={hasPreviousMonthBudget ? getPreviousMonth() : null}
+        previousBudget={hasPreviousMonthBudget 
+          ? fullState.budgets.find(b => b.month === getPreviousMonth()) || null 
+          : null}
+        onStartFresh={() => {
+          // User chose to start fresh - nothing to do, budget is already empty
+          toast({
+            title: 'Starting fresh',
+            description: 'Your new month is ready.',
+          });
+        }}
+        onCopyPrevious={() => {
+          const prevMonth = getPreviousMonth();
+          const result = duplicateFromMonth(prevMonth);
           if (result.success) {
             toast({
-              title: 'Budget Copied!',
-              description: result.message,
+              title: 'Budget copied',
+              description: `Copied from ${formatMonth(prevMonth)}`,
             });
-          } else if (result.message) {
+          } else {
             toast({
-              title: 'Cannot Copy Budget',
+              title: 'Could not copy',
               description: result.message,
               variant: 'destructive',
             });
