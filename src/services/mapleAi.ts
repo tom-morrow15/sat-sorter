@@ -152,14 +152,13 @@ export function buildBudgetContext(
     .filter((c) => c.budgeted_usd > 0 || c.spent_usd > 0)
     .sort((a, b) => b.budgeted_usd - a.budgeted_usd);
 
-  // ── Recent transactions (last 20 non-income, split-aware) ──
+  // ── All transactions this month (split-aware) ──
   const recent_transactions: BudgetTransactionContext[] = budget.transactions
     .filter((t) => !t.isIncome)
-    .slice(-20)
-    .reverse()
     .map((t) => {
       const assignments = getTransactionAssignments(t);
       let category: string;
+
       if (assignments.length === 0) {
         category = 'Unassigned';
       } else if (assignments.length === 1) {
@@ -169,22 +168,26 @@ export function buildBudgetContext(
           ? `${bucket?.name ?? 'Unknown'} › ${li.name}`
           : bucket?.name ?? 'Unassigned';
       } else {
-        // Split transaction — list each portion's line item
-        category = assignments
+        // Split transaction — clearly show it was split and how
+        const parts = assignments
           .map((a) => {
             const bucket = budget.buckets.find((b) => b.id === a.bucketId);
             const li = bucket?.lineItems.find((l) => l.id === a.lineItemId);
             return li ? li.name : bucket?.name ?? 'Unknown';
           })
-          .join(' + ') + ' (split)';
+          .join(' + ');
+        category = `${parts} (split)`;
       }
+
       return {
         category,
         amount_usd: Math.round(getTransactionUsdAmount(t, btcPrice) * 100) / 100,
         note: t.description || 'No description',
         date: t.date ? t.date.split('T')[0] : '',
       };
-    });
+    })
+    // Sort newest first so the most recent activity is at the top of the context
+    .sort((a, b) => (b.date > a.date ? 1 : -1));
 
   // Month label
   const [yearStr, monthStr] = month.split('-');
@@ -210,7 +213,11 @@ const FORMATTING_RULES = `FORMATTING RULES (critical): You are rendered in a nar
 
 const INSIGHTS_SYSTEM_PROMPT = `You are Maple, a privacy-first Bitcoin budgeting assistant inside Sat Sorter. The user budgets in USD but thinks in sats. You are given a full breakdown of every category AND its line items (each with budgeted_usd, spent_usd, remaining_usd), plus recent transactions. Use the line-item detail — don't just look at category totals. Provide 2–3 concise, actionable observations: spending pace, any line items or categories at risk of overspending, and one Bitcoin-themed tip (e.g., "If you finish under budget in Food, you could stack an extra X sats"). Keep it under 120 words. ${FORMATTING_RULES}`;
 
-const CHAT_SYSTEM_PROMPT = `You are Maple, the Budget Buddy inside Sat Sorter. You have access to the user's current monthly budget summary, every category broken down into its individual line items (budgeted/spent/remaining), recent transactions, and their evergreen context. Always reason using the line-item level detail, not just category totals — for example, if asked about "coffee", look for a matching line item. Tailor all advice through the evergreen context when relevant. Answer helpfully, concisely, and in a friendly tone. Default to USD but feel free to mention sats using the provided btc_price_usd. If a purchase would overspend a category or line item, warn them and suggest moving funds from another one with surplus. Only use data provided in context. ${FORMATTING_RULES}`;
+const CHAT_SYSTEM_PROMPT = `You are Maple, the Budget Buddy inside Sat Sorter. You have access to the user's current monthly budget summary, every category broken down into its individual line items (budgeted/spent/remaining), ALL transactions this month, and their evergreen context. 
+
+Important: Transactions may be split across multiple line items. When a transaction has "(split)" in its category, it means the amount was divided across the listed line items. Use this information when reasoning about spending.
+
+Always reason using the line-item level detail, not just category totals — for example, if asked about "coffee", look for a matching line item. Tailor all advice through the evergreen context when relevant. Answer helpfully, concisely, and in a friendly tone. Default to USD but feel free to mention sats using the provided btc_price_usd. If a purchase would overspend a category or line item, warn them and suggest moving funds from another one with surplus. Only use data provided in context. ${FORMATTING_RULES}`;
 
 /**
  * Maple Proxy provides OpenAI-compatible API access to Maple's encrypted models.

@@ -135,12 +135,12 @@ export function BudgetBuddyScreen() {
           </div>
           <div className="min-w-0">
             <h2 className="text-sm font-semibold leading-tight">Maple</h2>
-            {/* Model picker */}
+            {/* Always-visible model indicator (tap to change) */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors">
-                  <Cpu className="h-2.5 w-2.5" />
-                  <span className="truncate max-w-[140px]">{activeModel.label}</span>
+                <button className="flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+                  <Cpu className="h-3 w-3" />
+                  <span>{activeModel.label}</span>
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-64">
