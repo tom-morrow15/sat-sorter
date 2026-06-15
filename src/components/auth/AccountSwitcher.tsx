@@ -30,6 +30,14 @@ interface AccountSwitcherProps {
   onBudgetPartnersClick?: () => void;
   partnersCount?: number;
   pendingInvitesCount?: number;
+  // Handlers for the merged hamburger-menu content
+  onOpenWallet?: () => void;
+  onOpenMapleSettings?: () => void;
+  onOpenPaymentMethods?: () => void;
+  onCopyPreviousMonth?: () => void;
+  onResetBudgetMonth?: () => void;
+  onRefreshApp?: () => void;
+  onOpenBackup?: () => void;
 }
 
 export function AccountSwitcher({ onAddAccountClick, onBudgetPartnersClick, partnersCount = 0, pendingInvitesCount = 0 }: AccountSwitcherProps) {
@@ -102,11 +110,11 @@ export function AccountSwitcher({ onAddAccountClick, onBudgetPartnersClick, part
           <DropdownMenuSeparator />
 
           {/* Budget Tools (merged from hamburger menu) */}
-          <DropdownMenuItem onClick={() => { /* trigger from parent if needed */ }}>
+          <DropdownMenuItem onClick={onCopyPreviousMonth}>
             <Copy className="h-4 w-4 mr-2" />
             Copy Previous Month
           </DropdownMenuItem>
-          <DropdownMenuItem className="text-destructive focus:text-destructive">
+          <DropdownMenuItem onClick={onResetBudgetMonth} className="text-destructive focus:text-destructive">
             <AlertTriangle className="h-4 w-4 mr-2" />
             Reset This Month
           </DropdownMenuItem>
@@ -114,15 +122,15 @@ export function AccountSwitcher({ onAddAccountClick, onBudgetPartnersClick, part
           <DropdownMenuSeparator />
 
           {/* AI & Wallet */}
-          <DropdownMenuItem>
+          <DropdownMenuItem onClick={onOpenMapleSettings}>
             <span className="h-4 w-4 mr-2 text-center text-sm">🤖</span>
             Maple AI
           </DropdownMenuItem>
-          <DropdownMenuItem>
+          <DropdownMenuItem onClick={onOpenPaymentMethods}>
             <span className="h-4 w-4 mr-2 text-center text-sm">💳</span>
             Payment Methods
           </DropdownMenuItem>
-          <DropdownMenuItem>
+          <DropdownMenuItem onClick={onOpenWallet}>
             <Wallet className="h-4 w-4 mr-2" />
             Lightning Wallet
           </DropdownMenuItem>
@@ -130,7 +138,7 @@ export function AccountSwitcher({ onAddAccountClick, onBudgetPartnersClick, part
           <DropdownMenuSeparator />
 
           {/* Preferences */}
-          <DropdownMenuItem onClick={() => { /* theme handled by parent or hook */ }}>
+          <DropdownMenuItem onClick={toggleTheme}>
             {isDark ? <Sun className="h-4 w-4 mr-2" /> : <Moon className="h-4 w-4 mr-2" />}
             {isDark ? 'Light Mode' : 'Dark Mode'}
           </DropdownMenuItem>
@@ -162,11 +170,11 @@ export function AccountSwitcher({ onAddAccountClick, onBudgetPartnersClick, part
           <DropdownMenuSeparator />
 
           {/* Advanced */}
-          <DropdownMenuItem>
+          <DropdownMenuItem onClick={onRefreshApp}>
             <RotateCw className="h-4 w-4 mr-2" />
             Refresh App
           </DropdownMenuItem>
-          <DropdownMenuItem>
+          <DropdownMenuItem onClick={onOpenBackup}>
             <Cloud className="h-4 w-4 mr-2" />
             Backup & Sync
           </DropdownMenuItem>

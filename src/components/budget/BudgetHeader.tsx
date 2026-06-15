@@ -310,6 +310,13 @@ export function BudgetHeader({
                   onBudgetPartnersClick={() => setShowPartners(true)}
                   partnersCount={nostrPartners.length}
                   pendingInvitesCount={pendingInvitesCount}
+                  onOpenWallet={() => onOpenWallet && onOpenWallet()}
+                  onOpenMapleSettings={() => setShowSettings(true)}
+                  onOpenPaymentMethods={() => setShowPaymentMethods(true)}
+                  onCopyPreviousMonth={() => setShowCopyPrompt(true)}
+                  onResetBudgetMonth={() => setShowResetConfirm(true)}
+                  onRefreshApp={handleRefresh}
+                  onOpenBackup={() => setShowBackup(true)}
                 />
               </div>
             )}
