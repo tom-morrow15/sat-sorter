@@ -92,9 +92,6 @@ export function SplitEditor({
             <p className="text-4xl font-bold tabular-nums tracking-tight">
               {formatUsd(totalUsd)}
             </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              {formatSats(transaction.amount)}
-            </p>
           </div>
 
           {/* Splits Section */}

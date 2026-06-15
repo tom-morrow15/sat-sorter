@@ -33,8 +33,10 @@ export function SplitRow({
   // Use the global currency setting (assume 'usd' for simplicity in this component, 
   // or pass the global currency as a prop if needed)
   const unit = 'usd'; 
+  // Show empty string when the split amount is 0 so the user sees a placeholder
+  // instead of a literal leading "0" that must be deleted.
   const [amountInput, setAmountInput] = useState(
-    (split.amountUsd ?? 0).toString()
+    (split.amountUsd ?? 0) > 0 ? (split.amountUsd ?? 0).toString() : ''
   );
 
   const selectedBucket = buckets.find((b) => b.id === selectedBucketId);
@@ -65,11 +67,9 @@ export function SplitRow({
     }
   };
 
-  // Auto-clear leading zero when user focuses an amount that starts at 0
+  // Select the current value on focus so the user can easily overwrite it
   const handleAmountFocus = (e: React.FocusEvent<HTMLInputElement>) => {
-    if (amountInput === '0' || amountInput === '0.00') {
-      e.target.select();
-    }
+    e.target.select();
   };
 
   return (
@@ -117,6 +117,7 @@ export function SplitRow({
         onChange={(e) => handleAmountChange(e.target.value)}
         onFocus={handleAmountFocus}
         placeholder="0.00"
+        className="placeholder:text-muted-foreground/50"
       />
     </div>
   );
