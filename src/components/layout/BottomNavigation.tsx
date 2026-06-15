@@ -95,7 +95,7 @@ export function BottomNavigation() {
           setSaveState('unsaved');
         }
       }
-   }, [currentBudgetStr, savedBudgetStr, saveState, fullState.budgets, setSavedBudgetStr]);
+    }, [currentBudgetStr, savedBudgetStr, saveState, setSavedBudgetStr]);
 
   const handleSave = async () => {
     if (!user?.pubkey) {
@@ -119,7 +119,8 @@ export function BottomNavigation() {
     setSaveState('saving');
 
     try {
-      const success = await uploadBudget(fullState);
+      // Use skipRemoteCheck: true to bypass the safety guard for explicit user saves.
+      const success = await uploadBudget(fullState, { skipRemoteCheck: true });
       
       if (success) {
         setSavedBudgetStr(currentString);

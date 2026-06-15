@@ -1,14 +1,5 @@
 // Budget Types for Sat Sorter
 
-export interface TransactionSplit {
-  id: string; // unique split ID
-  lineItemId: string; // which line item this portion goes to
-  bucketId: string; // which bucket this portion goes to
-  amount: number; // portion in sats
-  amountUsd?: number; // portion in USD
-  description?: string; // optional note for this split
-}
-
 export interface Transaction {
   id: string;
   amount: number; // in sats - calculated from amountUsd
@@ -16,16 +7,15 @@ export interface Transaction {
   btcPriceAtEntry?: number; // USD price of BTC when transaction was created
   description: string;
   date: string; // ISO date string
-  lineItemId: string | null; // null means unassigned (DEPRECATED - use splits instead)
-  bucketId: string | null; // DEPRECATED - use splits instead
+  lineItemId: string | null; // null means unassigned
+  bucketId: string | null;
   paymentHash?: string; // from NWC
   preimage?: string;
   isIncome: boolean;
   source?: 'manual' | 'strike' | 'nwc' | 'zap'; // Track transaction source
   merchantName?: string; // Merchant name from Strike or payment processor
   categoryHint?: string; // Auto-detected category hint from merchant data
-  splits?: TransactionSplit[]; // array of split portions (if empty/null → use legacy lineItemId/bucketId)
-  isSplit?: boolean; // quick flag: true if splits.length > 0
+  paymentMethod?: string; // User-defined payment method (e.g., "Citi Credit Card", "Bitcoin")
 }
 
 export interface LineItem {
@@ -289,22 +279,11 @@ export function getTransactionUsdAmount(transaction: Transaction, currentBtcPric
   return transaction.amount / 100_000_000 * currentBtcPrice;
 }
 
-// Calculate spent amount for a line item (handles both legacy and split transactions)
+// Calculate spent amount for a line item
 export function calculateSpentForLineItem(lineItemId: string, transactions: Transaction[]): number {
-  // Import the helper here to avoid circular dependency
-  const { getTransactionAssignments } = require('./splitUtils');
-  
-  let total = 0;
-  for (const tx of transactions) {
-    if (tx.isIncome) continue;
-    const assignments = getTransactionAssignments(tx);
-    for (const assign of assignments) {
-      if (assign.lineItemId === lineItemId) {
-        total += assign.amountSats;
-      }
-    }
-  }
-  return total;
+  return transactions
+    .filter(t => t.lineItemId === lineItemId && !t.isIncome)
+    .reduce((sum, t) => sum + t.amount, 0);
 }
 
 // Calculate spent amount for a bucket

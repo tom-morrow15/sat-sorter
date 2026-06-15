@@ -47,6 +47,8 @@ import { ManagePartnersDialog } from './ManagePartnersDialog';
 import { CopyMonthPrompt } from './CopyMonthPrompt';
 import { DonateDialog } from './DonateDialog';
 import { MapleSettings } from '@/components/maple/MapleSettings';
+import { PaymentMethodsManager } from './PaymentMethodsManager';
+import { useRegisterSW } from '@/hooks/useRegisterSW';
 
 interface BudgetHeaderProps {
   buckets: Bucket[];
@@ -67,6 +69,8 @@ interface BudgetHeaderProps {
   allBudgets?: any[];
   onCopyPreviousMonth?: (sourceMonth: string) => void;
   onResetBudgetMonth?: () => void;
+  hasPreviousMonthBudget?: boolean;
+  getPreviousMonth?: () => string;
 }
 
 export function BudgetHeader({
@@ -88,8 +92,11 @@ export function BudgetHeader({
   allBudgets = [],
   onCopyPreviousMonth,
   onResetBudgetMonth,
+  hasPreviousMonthBudget = false,
+  getPreviousMonth = () => '',
 }: BudgetHeaderProps) {
   const { data: priceData, isLoading: priceLoading } = useBitcoinPrice();
+  const { needRefresh } = useRegisterSW();
   const { isDark, toggle: toggleTheme } = useTheme();
   // Use Nostr-native partners hook for the count badge
   const { partners: nostrPartners } = usePartners();
@@ -106,6 +113,7 @@ export function BudgetHeader({
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showCopyPrompt, setShowCopyPrompt] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showPaymentMethods, setShowPaymentMethods] = useState(false);
 
   // Generate list of months for picker (current month + 11 months back + 6 months forward)
   const getAvailableMonths = () => {
@@ -199,17 +207,28 @@ export function BudgetHeader({
          console.warn('Failed to clear caches:', e);
        }
      }
-     // Unregister any service workers so they don't serve stale content
-     if ('serviceWorker' in navigator) {
-       try {
-         const registrations = await navigator.serviceWorker.getRegistrations();
-         await Promise.all(registrations.map(reg => reg.unregister()));
-       } catch (e) {
-         console.warn('Failed to unregister service workers:', e);
-       }
-     }
-     // Hard reload - bypass cache
-     window.location.reload();
+      // 1. Unregister any service workers
+      if ('serviceWorker' in navigator) {
+        try {
+          const registrations = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(registrations.map(reg => reg.unregister()));
+        } catch (e) {
+          console.warn('Failed to unregister service workers:', e);
+        }
+      }
+      
+      // 2. Clear Cache Storage (the app assets cache)
+      if ('caches' in window) {
+        try {
+          const cacheNames = await caches.keys();
+          await Promise.all(cacheNames.map(name => caches.delete(name)));
+        } catch (e) {
+          console.warn('Failed to clear caches:', e);
+        }
+      }
+      
+      // 3. Hard reload - bypass browser cache
+      window.location.reload();
    };
 
   return (
@@ -317,9 +336,15 @@ export function BudgetHeader({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8 sm:h-9 sm:w-9"
+                  className="h-8 w-8 sm:h-9 sm:w-9 relative"
                 >
                   <Menu className="h-4 w-4" />
+                  {needRefresh && (
+                    <span className="absolute top-1 right-1 flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                    </span>
+                  )}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
@@ -358,6 +383,12 @@ export function BudgetHeader({
                 <DropdownMenuItem onClick={() => setShowSettings(true)}>
                   <span className="h-4 w-4 mr-2 text-center text-sm">🤖</span>
                   Maple AI
+                </DropdownMenuItem>
+
+                {/* Payment Methods */}
+                <DropdownMenuItem onClick={() => setShowPaymentMethods(true)}>
+                  <span className="h-4 w-4 mr-2 text-center text-sm">💳</span>
+                  Payment Methods
                 </DropdownMenuItem>
 
                 <DropdownMenuSeparator />
@@ -811,6 +842,21 @@ export function BudgetHeader({
             </DialogHeader>
             <div className="py-4 space-y-4">
               <MapleSettings />
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Payment Methods Dialog */}
+        <Dialog open={showPaymentMethods} onOpenChange={setShowPaymentMethods}>
+          <DialogContent className="sm:max-w-[480px] max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Payment Methods</DialogTitle>
+              <DialogDescription>
+                Manage the payment methods you use for transactions.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="py-4">
+              <PaymentMethodsManager />
             </div>
           </DialogContent>
         </Dialog>

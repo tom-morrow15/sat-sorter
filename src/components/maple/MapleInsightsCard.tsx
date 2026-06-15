@@ -38,7 +38,7 @@ export function MapleInsightsCard() {
       if (!text || !text.trim()) {
         toast({
           title: 'No insights returned',
-          description: 'Maple sent back an empty response. Please try again.',
+          description: 'Maple sent back an empty response. Tap "Try Again".',
           variant: 'destructive',
         });
         return;
@@ -107,15 +107,25 @@ export function MapleInsightsCard() {
               <p className="text-sm leading-relaxed whitespace-pre-wrap">
                 {insights}
               </p>
-              <Button
-                variant="link"
-                size="sm"
-                className="px-0 h-auto text-xs"
-                onClick={() => navigate('/buddy')}
-              >
-                <MessageSquare className="h-3 w-3 mr-1" />
-                Ask Maple more...
-              </Button>
+              <div className="flex gap-4">
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="px-0 h-auto text-xs"
+                  onClick={() => navigate('/buddy')}
+                >
+                  <MessageSquare className="h-3 w-3 mr-1" />
+                  Ask Maple more...
+                </Button>
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="px-0 h-auto text-xs"
+                  onClick={handleAnalyze}
+                >
+                  Try Again
+                </Button>
+              </div>
             </div>
           )}
         </CardContent>

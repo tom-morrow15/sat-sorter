@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/select';
 import { useBitcoinPrice, satsToUsd, usdToSats, formatSats, formatUsd } from '@/hooks/useBitcoinPrice';
 import { useToast } from '@/hooks/useToast';
+import { usePaymentMethods } from '@/hooks/usePaymentMethods';
 import { SplitEditor } from './SplitEditor';
 import type { Bucket, Transaction, TransactionSplit } from '@/lib/budgetTypes';
 
@@ -57,8 +58,11 @@ export function AddTransactionDialog({
   const [amountInput, setAmountInput] = useState('');
   const [selectedBucketId, setSelectedBucketId] = useState(defaultBucketId || '');
   const [selectedLineItemId, setSelectedLineItemId] = useState('');
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('');
   const [showSplitEditor, setShowSplitEditor] = useState(false);
   const [tempTxForSplit, setTempTxForSplit] = useState<Transaction | null>(null);
+
+  const { paymentMethods } = usePaymentMethods();
 
   const filteredBuckets = buckets.filter(b => b.isIncome === isIncome);
 
@@ -86,6 +90,7 @@ export function AddTransactionDialog({
       bucketId: selectedBucketId,
       lineItemId: selectedLineItemId,
       source: 'manual',
+      paymentMethod: selectedPaymentMethod || undefined,
     };
 
     // When in USD mode, store the USD amount as source of truth
@@ -108,6 +113,7 @@ export function AddTransactionDialog({
     setAmountInput('');
     setSelectedBucketId(defaultBucketId || '');
     setSelectedLineItemId('');
+    setSelectedPaymentMethod('');
     onOpenChange(false);
   };
 
@@ -164,6 +170,7 @@ export function AddTransactionDialog({
     setAmountInput('');
     setSelectedBucketId(defaultBucketId || '');
     setSelectedLineItemId('');
+    setSelectedPaymentMethod('');
     setTempTxForSplit(null);
     setShowSplitEditor(false);
     onOpenChange(false);
@@ -198,18 +205,37 @@ export function AddTransactionDialog({
              </p>
            </div>
 
-           <div className="space-y-2">
-             <Label htmlFor="amount">Amount ({currency === 'usd' ? 'USD' : 'sats'})</Label>
-             <Input
-               id="amount"
-               type="number"
-               value={amountInput}
-               onChange={(e) => setAmountInput(e.target.value)}
-               step={currency === 'usd' ? '0.01' : '1'}
-               min="0"
-               placeholder={currency === 'usd' ? '0.00' : '0'}
-             />
-           </div>
+            <div className="space-y-2">
+              <Label htmlFor="amount">Amount ({currency === 'usd' ? 'USD' : 'sats'})</Label>
+              <Input
+                id="amount"
+                type="number"
+                value={amountInput}
+                onChange={(e) => setAmountInput(e.target.value)}
+                step={currency === 'usd' ? '0.01' : '1'}
+                min="0"
+                placeholder={currency === 'usd' ? '0.00' : '0'}
+              />
+            </div>
+
+            {/* Payment Method Selection */}
+            {paymentMethods.length > 0 && (
+              <div className="space-y-2">
+                <Label>Payment Method (optional)</Label>
+                <Select value={selectedPaymentMethod} onValueChange={setSelectedPaymentMethod}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select payment method..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {paymentMethods.map((method) => (
+                      <SelectItem key={method} value={method}>
+                        {method}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
            <div className="space-y-2">
              <div className="flex items-center gap-2">

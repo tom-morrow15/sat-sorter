@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/collapsible';
 import type { Transaction, Bucket } from '@/lib/budgetTypes';
 import { getTransactionAssignments } from '@/lib/splitUtils';
+import { usePaymentMethods } from '@/hooks/usePaymentMethods';
 
 interface TransactionSearchFilterProps {
   transactions: Transaction[];
@@ -31,6 +32,7 @@ export function TransactionSearchFilter({
   onFilter,
 }: TransactionSearchFilterProps) {
   const [searchParams, setSearchParams] = useSearchParams();
+  const { paymentMethods } = usePaymentMethods();
   
   // Initialize from URL params or defaults
   const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '');
@@ -45,6 +47,7 @@ export function TransactionSearchFilter({
   const [endDate, setEndDate] = useState(searchParams.get('endDate') || '');
   const [minAmount, setMinAmount] = useState(searchParams.get('minAmount') || '');
   const [maxAmount, setMaxAmount] = useState(searchParams.get('maxAmount') || '');
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(searchParams.get('paymentMethod') || 'all');
   const [showFilters, setShowFilters] = useState(false);
 
   // Apply filters and update URL
@@ -93,6 +96,11 @@ export function TransactionSearchFilter({
     if (maxAmount) {
       const max = parseFloat(maxAmount);
       filtered = filtered.filter((t) => t.amount <= max);
+    }
+
+    // Filter by payment method
+    if (selectedPaymentMethod && selectedPaymentMethod !== 'all') {
+      filtered = filtered.filter((t) => t.paymentMethod === selectedPaymentMethod);
     }
 
     // Sort

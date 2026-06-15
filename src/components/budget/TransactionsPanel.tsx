@@ -49,7 +49,6 @@ interface TransactionsPanelProps {
   onAddTransaction: (transaction: Omit<Transaction, 'id'>) => void;
   onAssignTransaction: (transactionId: string, bucketId: string, lineItemId: string) => void;
   onDeleteTransaction: (transactionId: string) => void;
-  onSplitTransaction: (transactionId: string, splits: TransactionSplit[]) => void;
   lineItemIdFilter?: string;
 }
 
@@ -60,7 +59,6 @@ export function TransactionsPanel({
   onAddTransaction,
   onAssignTransaction,
   onDeleteTransaction,
-  onSplitTransaction,
   lineItemIdFilter,
 }: TransactionsPanelProps) {
   const { data: priceData } = useBitcoinPrice();
@@ -78,6 +76,15 @@ export function TransactionsPanel({
   const [newAmount, setNewAmount] = useState('');
   const [newDescription, setNewDescription] = useState('');
   const [newIsIncome, setNewIsIncome] = useState(false);
+  const [newPaymentMethod, setNewPaymentMethod] = useState('');
+
+  let paymentMethods: string[] = [];
+  try {
+    const hookResult = usePaymentMethods();
+    paymentMethods = hookResult.paymentMethods || [];
+  } catch {
+    paymentMethods = [];
+  }
 
   // Assign form state
   const [selectedBucketId, setSelectedBucketId] = useState<string>('');
@@ -137,6 +144,7 @@ export function TransactionsPanel({
         lineItemId: null,
         bucketId: null,
         isIncome: newIsIncome,
+        paymentMethod: newPaymentMethod || undefined,
       };
 
       // When in USD mode, store the USD amount as source of truth
@@ -150,6 +158,7 @@ export function TransactionsPanel({
       setNewAmount('');
       setNewDescription('');
       setNewIsIncome(false);
+      setNewPaymentMethod('');
       setShowAddDialog(false);
     }
   };
@@ -180,24 +189,29 @@ export function TransactionsPanel({
     setShowSplitEditor(true);
   };
 
-  // Save splits for a brand-new transaction (adds it with splits in one atomic call)
+  // Save splits for a brand-new transaction (EveryDollar-style: delete original, create new ones)
   const handleSaveNewSplit = (splits: TransactionSplit[]) => {
     if (!selectedTransaction) return;
 
-    const transaction: Omit<Transaction, 'id'> = {
-      amount: selectedTransaction.amount,
-      amountUsd: selectedTransaction.amountUsd,
-      btcPriceAtEntry: selectedTransaction.btcPriceAtEntry,
-      description: selectedTransaction.description,
-      date: selectedTransaction.date,
-      lineItemId: null,
-      bucketId: null,
-      isIncome: selectedTransaction.isIncome,
-      splits,
-      isSplit: true,
-    };
-
-    onAddTransaction(transaction);
+    // 1. Delete the original (temp) transaction logic doesn't apply here, 
+    //    but we just don't call onAddTransaction for the original.
+    //    We simply create the new split transactions.
+    
+    // 2. Create new transactions for each split
+    splits.forEach(split => {
+      const newTx: Omit<Transaction, 'id'> = {
+        amount: split.amount,
+        amountUsd: split.amountUsd,
+        btcPriceAtEntry: selectedTransaction.btcPriceAtEntry,
+        description: selectedTransaction.description,
+        date: selectedTransaction.date,
+        lineItemId: split.lineItemId,
+        bucketId: split.bucketId,
+        isIncome: selectedTransaction.isIncome,
+        paymentMethod: (selectedTransaction as any).paymentMethod || undefined,
+      };
+      onAddTransaction(newTx);
+    });
 
     // Reset form & state
     setNewAmount('');
@@ -230,7 +244,24 @@ export function TransactionsPanel({
 
   const handleSaveSplit = (splits: TransactionSplit[]) => {
     if (selectedTransaction) {
-      onSplitTransaction(selectedTransaction.id, splits);
+      // EveryDollar-style split: Delete original, create new ones
+      onDeleteTransaction(selectedTransaction.id);
+      
+      splits.forEach(split => {
+        const newTx: Omit<Transaction, 'id'> = {
+          amount: split.amount,
+          amountUsd: split.amountUsd,
+          btcPriceAtEntry: selectedTransaction.btcPriceAtEntry,
+          description: selectedTransaction.description,
+          date: selectedTransaction.date,
+          lineItemId: split.lineItemId,
+          bucketId: split.bucketId,
+          isIncome: selectedTransaction.isIncome,
+          paymentMethod: (selectedTransaction as any).paymentMethod || undefined,
+        };
+        onAddTransaction(newTx);
+      });
+      
       setShowSplitEditor(false);
       setSelectedTransaction(null);
     }
@@ -606,6 +637,25 @@ export function TransactionsPanel({
                 step={currency === 'usd' ? '0.01' : '1'}
               />
             </div>
+
+            {/* Payment Method Selection */}
+            {paymentMethods.length > 0 && (
+              <div className="space-y-2">
+                <Label>Payment Method (optional)</Label>
+                <Select value={newPaymentMethod} onValueChange={setNewPaymentMethod}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select payment method..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {paymentMethods.map((method) => (
+                      <SelectItem key={method} value={method}>
+                        {method}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowAddDialog(false)}>

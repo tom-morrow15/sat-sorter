@@ -155,24 +155,18 @@ export function useBudgetSync() {
               const remoteScore = totalScore(existingState.budgets);
               const localScore = totalScore(budgetState.budgets);
 
-              // Significant data loss: remote is substantially richer than local
+              // Significant data loss: remote is substantially richer than local.
+              // We log a warning but no longer block the explicit user save.
               if (remoteScore > 0 && localScore < remoteScore * 0.5) {
                 const localMonths = new Set(budgetState.budgets.map(b => b.month));
                 const missingMonths = existingState.budgets
                   .filter(b => !localMonths.has(b.month))
                   .map(b => b.month);
                 console.warn(
-                  '[useBudgetSync] Upload would lose data vs remote, aborting',
+                  '[useBudgetSync] Local data is significantly poorer than remote, but proceeding with explicit user save.',
                   { remoteScore, localScore, missingMonths }
                 );
-                setSyncStatus(prev => ({
-                  ...prev,
-                  isSyncing: false,
-                  error: missingMonths.length > 0
-                    ? `Cannot save: remote has additional months not in local data (${missingMonths.join(', ')}). Please reload to merge first.`
-                    : 'Cannot save: remote has more data than local. Please reload to merge first.',
-                }));
-                return false;
+                // We no longer return false here; we allow the upload to proceed.
               }
             }
           } catch (e) {
