@@ -111,6 +111,7 @@ export function BudgetHeader({
   const [showBackup, setShowBackup] = useState(false);
   const [showPartners, setShowPartners] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [showResetFinalConfirm, setShowResetFinalConfirm] = useState(false);
   const [showCopyPrompt, setShowCopyPrompt] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showPaymentMethods, setShowPaymentMethods] = useState(false);
@@ -542,398 +543,56 @@ export function BudgetHeader({
               Choose a different month to view or edit
             </DialogDescription>
           </DialogHeader>
-          <ScrollArea className="max-h-[400px]">
-            <div className="grid grid-cols-2 gap-2 p-1">
-              {getAvailableMonths().map((month) => (
-                <Button
-                  key={month}
-                  variant={month === currentMonth ? 'default' : 'outline'}
-                  size="sm"
-                  className="justify-start"
-                  onClick={() => {
-                    onSelectMonth?.(month);
-                    setShowMonthPicker(false);
-                  }}
-                >
-                  {formatMonth(month)}
-                </Button>
-              ))}
-            </div>
-          </ScrollArea>
-        </DialogContent>
-      </Dialog>
+           <ScrollArea className="max-h-[400px]">
+             <div className="grid grid-cols-2 gap-2 p-1">
+               {getAvailableMonths().map((month) => (
+                 <Button
+                   key={month}
+                   variant={month === currentMonth ? 'default' : 'outline'}
+                   size="sm"
+                   className="justify-start"
+                   onClick={() => {
+                     onSelectMonth?.(month);
+                     setShowMonthPicker(false);
+                   }}
+                 >
+                   {formatMonth(month)}
+                 </Button>
+               ))}
+             </div>
+           </ScrollArea>
+         </DialogContent>
+       </Dialog>
 
-      {/* About Dialog */}
-      <Dialog open={showAbout} onOpenChange={setShowAbout}>
-        <DialogContent className="sm:max-w-[500px] max-h-[85vh]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Zap className="h-5 w-5 text-primary" />
-              About Sat Sorter
-            </DialogTitle>
-            <DialogDescription>
-              Zero-based budgeting on a Bitcoin standard
-            </DialogDescription>
-          </DialogHeader>
-          <ScrollArea className="max-h-[60vh] pr-4">
-            <div className="space-y-6 py-4">
-              <div className="space-y-2">
-                <h3 className="font-semibold flex items-center gap-2">
-                  <Bitcoin className="h-4 w-4 text-primary" />
-                  What is Sat Sorter?
-                </h3>
-                <p className="text-sm text-muted-foreground">
-                  Sat Sorter is a privacy-first budgeting app built for Bitcoiners.
-                  It uses the zero-based budgeting method — where every satoshi gets assigned a job
-                  before you spend it. No wasted sats, no wasted money.
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <h3 className="font-semibold flex items-center gap-2">
-                  <Zap className="h-4 w-4 text-primary" />
-                  How It Works
-                </h3>
-                <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-                  <li>Add your monthly income in sats</li>
-                  <li>Create categories for your expenses</li>
-                  <li>Assign every sat to a category until you hit zero</li>
-                  <li>Track your spending and stay on budget</li>
-                  <li>Connect your Lightning wallet for automatic tracking</li>
-                </ul>
-              </div>
-
-              <div className="space-y-2">
-                <h3 className="font-semibold flex items-center gap-2">
-                  <Shield className="h-4 w-4 text-primary" />
-                  100% Private
-                </h3>
-                <p className="text-sm text-muted-foreground">
-                  Your data stays on your device. We don't have servers that store your financial information.
-                  When you log in with Nostr, your budget syncs securely using your own keys.
-                </p>
-              </div>
-            </div>
-          </ScrollArea>
-        </DialogContent>
-      </Dialog>
-
-      {/* Bitcoin Education Dialog */}
-      <Dialog open={showBitcoinEdu} onOpenChange={setShowBitcoinEdu}>
-        <DialogContent className="sm:max-w-[500px] max-h-[85vh]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <GraduationCap className="h-5 w-5 text-primary" />
-              Learn About Bitcoin
-            </DialogTitle>
-            <DialogDescription>
-              Understanding sound money
-            </DialogDescription>
-          </DialogHeader>
-          <ScrollArea className="max-h-[60vh] pr-4">
-            <div className="space-y-6 py-4">
-              <div className="space-y-2">
-                <h3 className="font-semibold flex items-center gap-2">
-                  <Bitcoin className="h-4 w-4 text-primary" />
-                  What is Bitcoin?
-                </h3>
-                <p className="text-sm text-muted-foreground">
-                  Bitcoin is a decentralized digital currency that operates without a central bank or single administrator.
-                  It was created in 2009 by an anonymous person (or group) using the pseudonym Satoshi Nakamoto.
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <h3 className="font-semibold flex items-center gap-2">
-                  <Shield className="h-4 w-4 text-primary" />
-                  Why is Bitcoin Sound Money?
-                </h3>
-                <p className="text-sm text-muted-foreground">
-                  Unlike fiat currencies that governments can print at will, Bitcoin has a fixed supply of 21 million coins.
-                  This scarcity makes it resistant to inflation. When you save in Bitcoin, your purchasing power is protected
-                  from the devaluation that affects traditional currencies.
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <h3 className="font-semibold flex items-center gap-2">
-                  <Zap className="h-4 w-4 text-primary" />
-                  What are Satoshis (Sats)?
-                </h3>
-                <p className="text-sm text-muted-foreground">
-                  A satoshi (or "sat") is the smallest unit of Bitcoin. Just like a dollar has 100 cents,
-                  1 Bitcoin has 100,000,000 satoshis. This makes Bitcoin highly divisible and practical for
-                  everyday transactions of any size.
-                </p>
-                <div className="bg-muted p-3 rounded-lg mt-2">
-                  <p className="text-sm font-mono text-center">
-                    1 BTC = 100,000,000 sats
-                  </p>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <h3 className="font-semibold flex items-center gap-2">
-                  <Globe className="h-4 w-4 text-primary" />
-                  The Lightning Network
-                </h3>
-                <p className="text-sm text-muted-foreground">
-                  The Lightning Network is a "layer 2" payment protocol built on top of Bitcoin.
-                  It enables instant, low-cost transactions — perfect for everyday purchases.
-                  Sat Sorter can connect to your Lightning wallet to automatically track your spending.
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <h3 className="font-semibold">The Dollar's Decline</h3>
-                <p className="text-sm text-muted-foreground">
-                  Since the Federal Reserve was created in 1913, the US dollar has lost over 96% of its purchasing power.
-                  What cost $1 in 1913 would cost over $30 today. Bitcoin offers an alternative — money that can't be
-                  inflated away by central banks.
-                </p>
-              </div>
-
-              <div className="border-t pt-4 mt-4">
-                <p className="text-sm font-medium mb-2">Learn More</p>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => window.open('https://bitcoin.org', '_blank')}
-                  >
-                    <ExternalLink className="h-3 w-3 mr-1" />
-                    Bitcoin.org
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => window.open('https://hope.com', '_blank')}
-                  >
-                    <ExternalLink className="h-3 w-3 mr-1" />
-                    Hope.com
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => window.open('https://21lessons.com', '_blank')}
-                  >
-                    <ExternalLink className="h-3 w-3 mr-1" />
-                    21 Lessons
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </ScrollArea>
-        </DialogContent>
-      </Dialog>
-
-      {/* Donate to Sat Sorter Dialog */}
-      <DonateDialog open={showDonateSorter} onOpenChange={setShowDonateSorter} />
-
-      {/* Donate Dialog (for guests) */}
-      <Dialog open={showDonate} onOpenChange={setShowDonate}>
-        <DialogContent className="sm:max-w-[500px] max-h-[85vh]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Heart className="h-5 w-5 text-pink-500" />
-              Support Bitcoin Projects
-            </DialogTitle>
-            <DialogDescription>
-              Help build the future of freedom technology
-            </DialogDescription>
-          </DialogHeader>
-          <ScrollArea className="max-h-[60vh] pr-4">
-            <div className="space-y-6 py-4">
-              <p className="text-sm text-muted-foreground">
-                Bitcoin and the tools around it are built by passionate developers working on open-source projects.
-                Your donations help keep these projects alive and growing.
-              </p>
-
-              <div className="p-4 border rounded-lg space-y-2">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-semibold">OpenSats</h3>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => window.open('https://opensats.org', '_blank')}
-                  >
-                    <ExternalLink className="h-3 w-3 mr-1" />
-                    Visit
-                  </Button>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Funds open-source Bitcoin and Nostr developers. 100% of donations go to grants.
-                </p>
-              </div>
-
-              <div className="p-4 border rounded-lg space-y-2">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-semibold">Human Rights Foundation</h3>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => window.open('https://hrf.org/devfund', '_blank')}
-                  >
-                    <ExternalLink className="h-3 w-3 mr-1" />
-                    Visit
-                  </Button>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  The Bitcoin Development Fund supports developers building privacy and freedom tools.
-                </p>
-              </div>
-
-              <div className="p-4 border rounded-lg space-y-2">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-semibold">Brink</h3>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => window.open('https://brink.dev', '_blank')}
-                  >
-                    <ExternalLink className="h-3 w-3 mr-1" />
-                    Visit
-                  </Button>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Supports Bitcoin Core developers working on the protocol itself.
-                </p>
-              </div>
-
-              <div className="p-4 border rounded-lg space-y-2">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-semibold">Geyser Fund</h3>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => window.open('https://geyser.fund', '_blank')}
-                  >
-                    <ExternalLink className="h-3 w-3 mr-1" />
-                    Visit
-                  </Button>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Crowdfunding platform for Bitcoin projects. Find and support grassroots initiatives.
-                </p>
-              </div>
-
-              <p className="text-xs text-muted-foreground text-center pt-2">
-                "We shape our tools, and thereafter our tools shape us." — Marshall McLuhan
-              </p>
-            </div>
-          </ScrollArea>
-        </DialogContent>
-      </Dialog>
-
-      {/* Login Dialog */}
-      <LoginDialog
-        isOpen={showLogin}
-        onClose={() => setShowLogin(false)}
-        onLogin={() => setShowLogin(false)}
-      />
-
-        {/* Maple AI Dialog */}
-        <Dialog open={showSettings} onOpenChange={setShowSettings}>
-          <DialogContent className="sm:max-w-[480px] max-h-[85vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Maple AI</DialogTitle>
-              <DialogDescription>
-                Connect your Maple API key and configure Budget Buddy.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="py-4 space-y-4">
-              <MapleSettings />
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        {/* Payment Methods Dialog */}
-        <Dialog open={showPaymentMethods} onOpenChange={setShowPaymentMethods}>
-          <DialogContent className="sm:max-w-[480px] max-h-[85vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Payment Methods</DialogTitle>
-              <DialogDescription>
-                Manage the payment methods you use for transactions.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="py-4">
-              <PaymentMethodsManager />
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        {/* Budget Partners Dialog */}
-        <ManagePartnersDialog
-          open={showPartners}
-          onOpenChange={setShowPartners}
-          userRole={userRole}
-        />
-
-         {/* Copy Budget Dialog */}
-          <CopyMonthPrompt
-            open={showCopyPrompt}
-            onOpenChange={setShowCopyPrompt}
-            currentMonth={currentMonth}
-            previousMonth={hasPreviousMonthBudget ? getPreviousMonth() : null}
-            previousBudget={hasPreviousMonthBudget 
-              ? allBudgets.find(b => b.month === getPreviousMonth()) || null 
-              : null}
-            onStartFresh={() => {
-              toast({
-                title: 'Starting fresh',
-                description: 'Your new month is ready.',
-              });
-            }}
-            onCopyPrevious={() => {
-              const prevMonth = getPreviousMonth();
-              const result = onCopyPreviousMonth?.(prevMonth);
-              if (result?.success) {
-                toast({
-                  title: 'Budget copied',
-                  description: `Copied from ${formatMonth(prevMonth)}`,
-                });
-              } else {
-                toast({
-                  title: 'Could not copy',
-                  description: result?.message || 'Please try again.',
-                  variant: 'destructive',
-                });
-              }
-            }}
-          />
-
-         {/* Reset Budget Month Confirmation Dialog */}
-        <Dialog open={showResetConfirm} onOpenChange={setShowResetConfirm}>
+        {/* Final Reset Confirmation — extra security layer */}
+        <Dialog open={showResetFinalConfirm} onOpenChange={setShowResetFinalConfirm}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 text-destructive">
                 <AlertTriangle className="h-5 w-5" />
-                Reset This Month's Budget?
+                Final Confirmation — Reset This Month?
               </DialogTitle>
               <DialogDescription>
-                This will permanently delete all categories, line items, and transactions for {formatMonth(currentMonth)}.
+                This action is irreversible. All categories, line items, and transactions for {formatMonth(currentMonth)} will be permanently deleted.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                This action cannot be undone. Are you sure you want to reset this month's budget?
+                Please confirm one more time that you want to completely reset this month’s budget.
               </p>
             </div>
             <div className="flex gap-3 justify-end">
-              <Button
-                variant="outline"
-                onClick={() => setShowResetConfirm(false)}
-              >
+              <Button variant="outline" onClick={() => setShowResetFinalConfirm(false)}>
                 Cancel
               </Button>
               <Button
                 variant="destructive"
                 onClick={() => {
                   onResetBudgetMonth?.();
-                  setShowResetConfirm(false);
+                  setShowResetFinalConfirm(false);
                 }}
               >
-                Reset Budget
+                Yes, permanently reset
               </Button>
             </div>
           </DialogContent>
