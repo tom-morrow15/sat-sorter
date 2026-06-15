@@ -180,74 +180,85 @@ export function BucketCard({
     setShowDeleteConfirm(false);
   };
 
-  return (
-    <Card
-      className={cn(
-        'overflow-hidden card-interactive',
-        bucket.isIncome && 'ring-2 ring-success/30'
-      )}
-    >
-      <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-        <CardHeader className="pb-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 sm:gap-3">
-              {/* Icon with color - smaller on mobile */}
-              <div
-                className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg flex items-center justify-center flex-shrink-0"
-                style={{ backgroundColor: `${bucket.color}20` }}
-              >
-                <Icon className="h-4 w-4 sm:h-5 sm:w-5" style={{ color: bucket.color }} />
-              </div>
+   return (
+     <Card
+       className={cn(
+         'overflow-hidden card-interactive border-0 shadow-sm hover:shadow-md transition-all duration-300',
+         'bg-gradient-to-br from-white to-neutral-50',
+         'dark:from-neutral-900/50 dark:to-neutral-950/50',
+         'dark:border-neutral-800/50',
+         bucket.isIncome && 'ring-1 ring-success/20'
+       )}
+     >
+       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+         <CardHeader className="pb-3 pt-6 px-6">
+           <div className="flex items-center justify-between gap-4">
+             <div className="flex items-center gap-4 flex-1 min-w-0">
+               {/* Icon with refined styling */}
+               <div
+                 className="h-12 w-12 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm transition-transform hover:scale-105"
+                 style={{ 
+                   backgroundColor: `${bucket.color}15`,
+                   border: `2px solid ${bucket.color}30`
+                 }}
+               >
+                 <Icon className="h-6 w-6" style={{ color: bucket.color }} />
+               </div>
 
-              {/* Bucket name */}
-              {isEditingName ? (
-                <Input
-                  value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
-                  onBlur={handleSaveName}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleSaveName();
-                    if (e.key === 'Escape') {
-                      setEditName(bucket.name);
-                      setIsEditingName(false);
-                    }
-                  }}
-                  className="h-8 w-40 font-semibold"
-                  autoFocus
-                />
-              ) : (
-                <div className="min-w-0">
-                  <h3 className="font-semibold text-sm sm:text-base truncate">{bucket.name}</h3>
-                  <p className="text-[10px] sm:text-xs text-muted-foreground">
-                    {bucket.lineItems.length} item{bucket.lineItems.length !== 1 ? 's' : ''}
+               {/* Bucket name and info */}
+               {isEditingName ? (
+                 <Input
+                   value={editName}
+                   onChange={(e) => setEditName(e.target.value)}
+                   onBlur={handleSaveName}
+                   onKeyDown={(e) => {
+                     if (e.key === 'Enter') handleSaveName();
+                     if (e.key === 'Escape') {
+                       setEditName(bucket.name);
+                       setIsEditingName(false);
+                     }
+                   }}
+                   className="h-9 px-3 font-semibold"
+                   autoFocus
+                 />
+               ) : (
+                 <div className="min-w-0 flex-1">
+                   <h3 className="font-semibold text-base sm:text-lg text-foreground truncate">{bucket.name}</h3>
+                   <p className="text-xs sm:text-sm text-muted-foreground">
+                     {bucket.lineItems.length} item{bucket.lineItems.length !== 1 ? 's' : ''} • ${(total || 0).toFixed(2)}
+                   </p>
+                 </div>
+               )}
+             </div>
+
+             <div className="flex items-center gap-2 flex-shrink-0">
+               {/* Total - right aligned, prominent */}
+               <div className="text-right">
+                 <p
+                   className={cn(
+                     'font-bold tabular-nums text-xl sm:text-2xl leading-tight',
+                     bucket.isIncome ? 'text-success' : 'text-foreground'
+                   )}
+                 >
+                   <span className="sm:hidden">{formatAmount(total, true)}</span>
+                   <span className="hidden sm:inline">{formatAmount(total)}</span>
+                 </p>
+                  <p className={cn(
+                    'text-xs font-medium',
+                    spent > total * 0.8 ? 'text-orange-600 dark:text-orange-400' : 'text-muted-foreground'
+                  )}>
+                    {spent > total ? '⚠ Over' : `${Math.round((spent / total) * 100)}% used`}
                   </p>
-                </div>
-              )}
-            </div>
+               </div>
 
-            <div className="flex items-center gap-1 sm:gap-2">
-              {/* Total - compact on mobile */}
-              <div className="text-right">
-                <p
-                  className={cn(
-                    'font-bold tabular-nums text-sm sm:text-base',
-                    bucket.isIncome && 'text-success'
-                  )}
-                >
-                  <span className="sm:hidden">{formatAmount(total, true)}</span>
-                  <span className="hidden sm:inline">{formatAmount(total)}</span>
-                </p>
-
-              </div>
-
-              {/* Actions menu */}
-              {!bucket.isIncome && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
+               {/* Actions menu */}
+               {!bucket.isIncome && (
+                 <DropdownMenu>
+                   <DropdownMenuTrigger asChild>
+                     <Button variant="ghost" size="icon" className="h-9 w-9">
+                       <MoreHorizontal className="h-4 w-4" />
+                     </Button>
+                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem onClick={() => setIsEditingName(true)}>
                       <Edit2 className="h-4 w-4 mr-2" />

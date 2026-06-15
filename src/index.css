@@ -4,39 +4,39 @@
 
 @layer base {
   :root {
-    /* Bitcoin Orange Theme */
-    --background: 0 0% 99%;
-    --foreground: 220 20% 10%;
+    /* Refined Professional Theme */
+    --background: 220 8% 97%;
+    --foreground: 220 15% 15%;
 
     --card: 0 0% 100%;
-    --card-foreground: 220 20% 10%;
+    --card-foreground: 220 15% 15%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 220 20% 10%;
+    --popover-foreground: 220 15% 15%;
 
-    /* Bitcoin Orange as primary */
-    --primary: 28 100% 50%;
+    /* Refined Bitcoin Orange - more muted */
+    --primary: 28 85% 48%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 14% 96%;
-    --secondary-foreground: 220 20% 20%;
+    --secondary: 220 12% 94%;
+    --secondary-foreground: 220 15% 20%;
 
-    --muted: 220 14% 96%;
-    --muted-foreground: 220 10% 46%;
+    --muted: 220 12% 93%;
+    --muted-foreground: 220 10% 50%;
 
-    --accent: 28 100% 96%;
-    --accent-foreground: 28 100% 35%;
+    --accent: 28 85% 94%;
+    --accent-foreground: 28 85% 38%;
 
-    /* Success green for income */
-    --success: 142 72% 45%;
+    /* Professional green for income */
+    --success: 142 60% 48%;
     --success-foreground: 0 0% 100%;
 
-    --destructive: 0 84% 60%;
+    --destructive: 0 72% 56%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 13% 91%;
-    --input: 220 13% 91%;
-    --ring: 28 100% 50%;
+    --border: 220 12% 90%;
+    --input: 220 12% 90%;
+    --ring: 28 85% 48%;
 
     --radius: 0.75rem;
 
@@ -51,36 +51,36 @@
   }
 
   .dark {
-    --background: 220 20% 7%;
-    --foreground: 0 0% 95%;
+    --background: 220 13% 9%;
+    --foreground: 0 0% 93%;
 
-    --card: 220 20% 10%;
-    --card-foreground: 0 0% 95%;
+    --card: 220 13% 13%;
+    --card-foreground: 0 0% 93%;
 
-    --popover: 220 20% 10%;
-    --popover-foreground: 0 0% 95%;
+    --popover: 220 13% 13%;
+    --popover-foreground: 0 0% 93%;
 
-    --primary: 28 100% 55%;
-    --primary-foreground: 220 20% 7%;
+    --primary: 28 85% 52%;
+    --primary-foreground: 220 13% 9%;
 
-    --secondary: 220 15% 16%;
-    --secondary-foreground: 0 0% 95%;
+    --secondary: 220 12% 20%;
+    --secondary-foreground: 0 0% 93%;
 
-    --muted: 220 15% 16%;
-    --muted-foreground: 220 10% 60%;
+    --muted: 220 12% 20%;
+    --muted-foreground: 220 10% 65%;
 
-    --accent: 28 50% 15%;
-    --accent-foreground: 28 100% 65%;
+    --accent: 28 60% 32%;
+    --accent-foreground: 28 85% 60%;
 
-    --success: 142 72% 40%;
+    --success: 142 60% 50%;
     --success-foreground: 0 0% 100%;
 
-    --destructive: 0 62% 45%;
+    --destructive: 0 72% 52%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 15% 18%;
-    --input: 220 15% 18%;
-    --ring: 28 100% 55%;
+    --border: 220 12% 22%;
+    --input: 220 12% 22%;
+    --ring: 28 85% 52%;
 
     --sidebar-background: 220 20% 8%;
     --sidebar-foreground: 220 10% 75%;

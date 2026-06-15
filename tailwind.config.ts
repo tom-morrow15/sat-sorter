@@ -23,10 +23,10 @@ export default {
 				sans: ['Inter Variable', 'Inter', 'system-ui', 'sans-serif'],
 			},
 			backgroundImage: {
-				'gradient-primary': 'linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(28 100% 40%) 100%)',
-				'gradient-primary-subtle': 'linear-gradient(135deg, hsl(var(--primary) / 0.05) 0%, hsl(28 100% 40% / 0.05) 100%)',
-				'header-gradient': 'linear-gradient(to right, hsl(var(--primary)), hsl(var(--primary) / 0.95), hsl(28 100% 50%))',
-				'mesh-gradient': 'radial-gradient(at 20% 50%, hsl(var(--primary) / 0.15), transparent), radial-gradient(at 80% 80%, hsl(28 100% 50% / 0.1), transparent)',
+				'gradient-primary': 'linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(28 70% 45%) 100%)',
+				'gradient-primary-subtle': 'linear-gradient(135deg, hsl(var(--primary) / 0.08) 0%, hsl(28 70% 45% / 0.08) 100%)',
+				'header-gradient': 'linear-gradient(135deg, hsl(220 12% 20%), hsl(28 80% 48%) 50%, hsl(220 12% 20%))',
+				'mesh-gradient': 'radial-gradient(at 20% 50%, hsl(var(--primary) / 0.12), transparent), radial-gradient(at 80% 80%, hsl(28 80% 48% / 0.08), transparent)',
 			},
 			colors: {
 				border: 'hsl(var(--border))',
