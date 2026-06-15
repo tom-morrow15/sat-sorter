@@ -7,6 +7,7 @@ import type { BudgetState, MonthlyBudget } from '@/lib/budgetTypes';
 import type { WealthTrackerState } from '@/lib/wealthTypes';
 import { mergeWealthStates } from '@/lib/wealthTypes';
 import { useToast } from '@/hooks/useToast';
+import { fetchFullBudgetFromNostr } from '@/hooks/useBudgetSync';
 
 const APP_IDENTIFIER = 'sat-sorter/budget-data';
 const BUDGET_KIND = 30078;
@@ -225,6 +226,9 @@ export function NostrSync() {
 
   // Download budget from Nostr on login (one-time per user session)
   // Merges remote with local so we NEVER accidentally drop data.
+  //
+  // Supports the new split storage format (manifest + per-month events) and
+  // falls back to the legacy single-blob format for existing users.
   useEffect(() => {
     if (!user?.pubkey || !user?.signer?.nip44) return;
 
@@ -239,58 +243,23 @@ export function NostrSync() {
       try {
         console.log('[NostrSync] Checking for saved budget on Nostr...');
 
-        const events = await nostr.query(
-          [{
-            kinds: [BUDGET_KIND],
-            authors: [pubkey],
-            '#d': [APP_IDENTIFIER],
-            limit: 1,
-          }],
-          { signal: AbortSignal.timeout(10000) }
-        );
+        // Use the shared helper that understands both the new split format
+        // (one manifest + one tiny event per month) and the old full-blob format.
+        const result = await fetchFullBudgetFromNostr(nostr, user);
 
         if (!isMounted) return;
 
-        if (events.length === 0) {
+        if (!result || !result.data) {
           console.log('[NostrSync] No saved budget found on Nostr');
           return;
         }
 
-        const latestEvent = events.sort((a, b) => b.created_at - a.created_at)[0];
-
-        let decrypted: string;
-        try {
-          decrypted = await user.signer.nip44!.decrypt(pubkey, latestEvent.content);
-        } catch (decryptError) {
-          console.error('[NostrSync] Failed to decrypt budget:', decryptError);
-          return;
-        }
-
-        // Try parsing. Support both the plain BudgetState and the snapshot
-        // wrapper used by useManualSync.
-        let remoteBudget: BudgetState;
-        try {
-          const parsed = JSON.parse(decrypted);
-          // A snapshot has a `data` property containing the BudgetState
-          if (parsed && typeof parsed === 'object' && 'data' in parsed && parsed.data && 'budgets' in parsed.data) {
-            remoteBudget = parsed.data as BudgetState;
-          } else if (parsed && typeof parsed === 'object' && 'budgets' in parsed) {
-            remoteBudget = parsed as BudgetState;
-          } else {
-            console.warn('[NostrSync] Unknown remote budget shape, skipping');
-            return;
-          }
-        } catch (parseError) {
-          console.error('[NostrSync] Failed to parse budget data:', parseError);
-          return;
-        }
+        const remoteBudget: BudgetState = result.data;
 
         if (!remoteBudget.budgets || !Array.isArray(remoteBudget.budgets)) {
           console.warn('[NostrSync] Remote budget missing budgets array, skipping');
           return;
         }
-
-        if (!isMounted) return;
 
         // Safety guard: if remote has no data, don't do anything
         if (remoteBudget.budgets.length === 0) {

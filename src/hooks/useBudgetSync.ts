@@ -3,15 +3,142 @@ import { useNostr } from '@nostrify/react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { BudgetState } from '@/lib/budgetTypes';
+import type { BudgetState, MonthlyBudget } from '@/lib/budgetTypes';
 
 const APP_IDENTIFIER = 'sat-sorter/budget-data';
-const BUDGET_KIND = 30078; // NIP-78 Application-specific data
+const BUDGET_KIND = 30078; // NIP-78 Application-specific data (addressable / parameterized replaceable)
+
+// New split format uses one small manifest + one tiny event per month.
+// Per-month d-tags are derived as: sat-sorter/budget-data/2026-06
+const MONTH_DTAG_PREFIX = 'sat-sorter/budget-data/';
+
+// Shape stored (encrypted) in the main manifest event.
+interface BudgetManifestV2 {
+  version: 2;
+  currentMonth: string;
+  currency: 'sats' | 'usd';
+  months: string[];           // list of YYYY-MM that have per-month events
+  partners?: any[];
+  templates?: any[];
+  paymentMethods?: string[];
+  userRole?: string;
+  defaultTemplateId?: string;
+  receivedInvites?: any[];
+}
 
 interface SyncStatus {
   lastSynced: number | null;
   isSyncing: boolean;
   error: string | null;
+}
+
+// Helper: fetch + decrypt a single event by exact filter (for manifest or a specific month)
+async function fetchAndDecryptEvent(
+  nostr: any,
+  user: any,
+  filter: any,
+  timeoutMs = 8000
+): Promise<any | null> {
+  try {
+    const events = await nostr.query([filter], { signal: AbortSignal.timeout(timeoutMs) });
+    if (!events.length) return null;
+    const ev = events.sort((a: any, b: any) => b.created_at - a.created_at)[0];
+    if (!user?.signer?.nip44) return null;
+    const decrypted = await user.signer.nip44.decrypt(user.pubkey, ev.content);
+    return { event: ev, data: JSON.parse(decrypted) };
+  } catch (e) {
+    console.warn('[budgetNostr] fetchAndDecryptEvent failed for filter', filter, e);
+    return null;
+  }
+}
+
+// Reconstruct a full BudgetState from the new split storage format (manifest + per-month events).
+// Also handles legacy single-blob events gracefully.
+export async function fetchFullBudgetFromNostr(
+  nostr: any,
+  user: any
+): Promise<{ data: BudgetState; timestamp: number } | null> {
+  if (!user?.pubkey || !user?.signer?.nip44) return null;
+
+  // 1. Try the manifest (new format)
+  const manifestResult = await fetchAndDecryptEvent(nostr, user, {
+    kinds: [BUDGET_KIND],
+    authors: [user.pubkey],
+    '#d': [APP_IDENTIFIER],
+    limit: 1,
+  });
+
+  if (manifestResult?.data && typeof manifestResult.data === 'object' && manifestResult.data.version === 2) {
+    const manifest = manifestResult.data as BudgetManifestV2;
+    console.log('[budgetNostr] Found manifest v2 with months:', manifest.months?.length || 0);
+
+    const budgets: MonthlyBudget[] = [];
+
+    // Fetch each month's data (in parallel but with reasonable concurrency)
+    const monthPromises = (manifest.months || []).map(async (month: string) => {
+      const dtag = `${MONTH_DTAG_PREFIX}${month}`;
+      const monthRes = await fetchAndDecryptEvent(nostr, user, {
+        kinds: [BUDGET_KIND],
+        authors: [user.pubkey],
+        '#d': [dtag],
+        limit: 1,
+      });
+      if (monthRes?.data && typeof monthRes.data === 'object' && monthRes.data.month === month) {
+        return monthRes.data as MonthlyBudget;
+      }
+      return null;
+    });
+
+    const monthResults = await Promise.all(monthPromises);
+    for (const m of monthResults) {
+      if (m) budgets.push(m);
+    }
+
+    const assembled: BudgetState = {
+      currentMonth: manifest.currentMonth || (budgets[0]?.month ?? ''),
+      currency: manifest.currency || 'sats',
+      budgets: budgets.sort((a, b) => a.month.localeCompare(b.month)),
+      partners: manifest.partners || [],
+      templates: manifest.templates || [],
+      paymentMethods: manifest.paymentMethods || [],
+      userRole: (manifest.userRole as any) || 'owner',
+      defaultTemplateId: manifest.defaultTemplateId,
+      receivedInvites: manifest.receivedInvites || [],
+      lastSynced: Math.floor(Date.now() / 1000),
+    };
+
+    return {
+      data: assembled,
+      timestamp: manifestResult.event.created_at,
+    };
+  }
+
+  // 2. Legacy single-blob fallback (the old full-state-in-one-event format)
+  if (manifestResult?.data && typeof manifestResult.data === 'object') {
+    const parsed = manifestResult.data;
+
+    let budgetData: BudgetState | null = null;
+
+    if (parsed && typeof parsed === 'object' && 'data' in parsed && parsed.data && 'budgets' in parsed.data) {
+      budgetData = parsed.data as BudgetState;
+    } else if (parsed && typeof parsed === 'object' && 'budgets' in parsed) {
+      budgetData = parsed as BudgetState;
+    }
+
+    if (budgetData && Array.isArray(budgetData.budgets)) {
+      console.log('[budgetNostr] Using legacy single-blob budget (pre-split format)');
+      return {
+        data: {
+          ...budgetData,
+          lastSynced: Math.floor(Date.now() / 1000),
+        },
+        timestamp: manifestResult.event.created_at,
+      };
+    }
+  }
+
+  // Nothing found
+  return null;
 }
 
 export function useBudgetSync() {
@@ -25,69 +152,81 @@ export function useBudgetSync() {
     error: null,
   });
 
-  // Fetch existing budget data from Nostr
+  // Remote budget (used by Backup dialog for "last synced" status, etc.)
+  // This query now supports both the new split format and the legacy single-blob.
   const { data: remoteBudget, isLoading: isLoadingRemote, refetch } = useQuery({
     queryKey: ['budget-sync', user?.pubkey],
     queryFn: async ({ signal }) => {
       if (!user?.pubkey) return null;
 
+      // We still do a quick manifest probe here for the status UI.
+      // The heavy lifting for a full download is in downloadBudget() and fetchFullBudgetFromNostr.
       const combinedSignal = AbortSignal.any([signal, AbortSignal.timeout(10000)]);
-      
-      const events = await nostr.query([
-        {
-          kinds: [BUDGET_KIND],
-          authors: [user.pubkey],
-          '#d': [APP_IDENTIFIER],
-          limit: 1,
-        },
-      ], { signal: combinedSignal });
+
+      const events = await nostr.query(
+        [
+          {
+            kinds: [BUDGET_KIND],
+            authors: [user.pubkey],
+            '#d': [APP_IDENTIFIER],
+            limit: 1,
+          },
+        ],
+        { signal: combinedSignal }
+      );
 
       if (events.length === 0) return null;
 
-      // Get the most recent event
       const latestEvent = events.sort((a, b) => b.created_at - a.created_at)[0];
-      
+
+      // For the "remoteBudget" status we try to return a lightweight view.
+      // If it's the new manifest we still want to report "has data".
       try {
-        // Content is encrypted with NIP-44
-        if (!user.signer.nip44) {
-          console.warn('Signer does not support NIP-44 encryption');
-          return null;
-        }
+        if (!user.signer.nip44) return null;
 
         const decrypted = await user.signer.nip44.decrypt(user.pubkey, latestEvent.content);
         const parsed = JSON.parse(decrypted);
-        // Handle both plain BudgetState and snapshot-wrapped payloads
-        // (useManualSync wraps data in { data, version, checksum, ... })
-        let budgetData: BudgetState;
-        if (parsed && typeof parsed === 'object' && 'data' in parsed && parsed.data && 'budgets' in parsed.data) {
-          budgetData = parsed.data as BudgetState;
-        } else if (parsed && typeof parsed === 'object' && 'budgets' in parsed) {
-          budgetData = parsed as BudgetState;
-        } else {
-          console.warn('[useBudgetSync] Unknown remote budget shape');
-          return null;
+
+        // New split manifest
+        if (parsed && typeof parsed === 'object' && parsed.version === 2 && Array.isArray(parsed.months)) {
+          // We don't assemble the full state here (to keep the status query cheap).
+          // The Backup dialog only needs to know "something exists" + timestamp.
+          // We return a minimal shape that the dialog tolerates.
+          return {
+            data: {
+              currentMonth: parsed.currentMonth,
+              budgets: parsed.months.map((m: string) => ({ month: m, buckets: [], transactions: [] })), // stub for count
+              currency: parsed.currency || 'sats',
+            } as BudgetState,
+            timestamp: latestEvent.created_at,
+          };
         }
 
-        return {
-          data: budgetData,
-          timestamp: latestEvent.created_at,
-        };
+        // Legacy full blob
+        if (parsed && typeof parsed === 'object' && 'budgets' in parsed) {
+          return {
+            data: parsed as BudgetState,
+            timestamp: latestEvent.created_at,
+          };
+        }
+        if (parsed && typeof parsed === 'object' && parsed.data && 'budgets' in parsed.data) {
+          return {
+            data: parsed.data as BudgetState,
+            timestamp: latestEvent.created_at,
+          };
+        }
       } catch (e) {
-        console.error('Failed to decrypt budget data:', e);
-        return null;
+        console.warn('[useBudgetSync] Could not parse remote manifest for status:', e);
       }
+
+      return null;
     },
     enabled: !!user?.pubkey && !!user?.signer?.nip44,
-    staleTime: 60000, // 1 minute
+    staleTime: 60000,
     refetchOnWindowFocus: false,
   });
 
-  // Upload budget data to Nostr.
-  // Options:
-  //   allowEmpty   – allow uploading a budget with zero months (normally rejected
-  //                  as a safety measure). Use only for legitimate "wipe all" flows.
-  //   skipRemoteCheck – skip the pre-upload remote sanity check (used when the
-  //                     caller has already confirmed the operation with the user).
+  // Upload (now uses the split format: one manifest + one small event per month)
   const uploadBudget = useCallback(async (
     budgetState: BudgetState,
     options: { allowEmpty?: boolean; skipRemoteCheck?: boolean } = {}
@@ -97,120 +236,82 @@ export function useBudgetSync() {
       return false;
     }
 
-    // SAFETY GUARD: refuse to upload an empty budget unless explicitly allowed.
-    // This prevents a bad state (e.g. freshly-initialized browser that hasn't
-    // finished downloading the user's remote budget) from wiping out saved data.
-    if (!options.allowEmpty && (!budgetState.budgets || budgetState.budgets.length === 0)) {
-      console.warn('[useBudgetSync] Refusing to upload empty budget state to protect remote data');
+    const months = (budgetState.budgets || []).map(b => b);
+    if (!options.allowEmpty && months.length === 0) {
+      console.warn('[useBudgetSync] Refusing to upload empty budget state');
       setSyncStatus(prev => ({
         ...prev,
-        error: 'Refusing to upload an empty budget — this would wipe your saved data on other devices. If this is intentional, use the Backup dialog to force-sync.',
+        error: 'Refusing to upload an empty budget — this would wipe your saved data on other devices. Use Backup dialog to force-sync if intentional.',
       }));
       return false;
-    }
-
-    // SAFETY GUARD: if the remote has MORE data than we're about to upload
-    // (extra months, or richer content in overlapping months), warn and refuse.
-    // This catches the case where another device has more data than this one
-    // — usually because the login-time sync hasn't completed yet. Legitimate
-    // destructive flows (reset, delete month) can opt out via skipRemoteCheck.
-    if (!options.skipRemoteCheck) {
-      try {
-        const existingEvents = await nostr.query(
-          [{
-            kinds: [BUDGET_KIND],
-            authors: [user.pubkey],
-            '#d': [APP_IDENTIFIER],
-            limit: 1,
-          }],
-          { signal: AbortSignal.timeout(5000) }
-        );
-
-        if (existingEvents.length > 0 && user.signer.nip44) {
-          try {
-            const existingContent = await user.signer.nip44.decrypt(
-              user.pubkey,
-              existingEvents[0].content
-            );
-            const parsed = JSON.parse(existingContent);
-            // Handle both plain BudgetState and snapshot-wrapped payloads
-            const existingState: BudgetState = parsed?.data?.budgets ? parsed.data : parsed;
-
-            if (existingState?.budgets?.length) {
-              // Score each month by richness (transactions + line items +
-              // non-zero amounts). Refuse if the remote's total score is
-              // strictly greater than ours — that would indicate data loss.
-              const scoreBudget = (b: typeof existingState.budgets[number]): number => {
-                const liCount = b.buckets.reduce((s, bk) => s + bk.lineItems.length, 0);
-                const plannedSum = b.buckets.reduce(
-                  (s, bk) => s + bk.lineItems.reduce(
-                    (x, li) => x + (li.plannedAmount || 0) + (li.plannedAmountUsd || 0), 0
-                  ), 0
-                );
-                return b.transactions.length * 1000 + liCount * 10 + (plannedSum > 0 ? 5 : 0);
-              };
-              const totalScore = (bs: typeof existingState.budgets) =>
-                bs.reduce((s, b) => s + scoreBudget(b), 0);
-
-              const remoteScore = totalScore(existingState.budgets);
-              const localScore = totalScore(budgetState.budgets);
-
-              // Significant data loss: remote is substantially richer than local.
-              // We log a warning but no longer block the explicit user save.
-              if (remoteScore > 0 && localScore < remoteScore * 0.5) {
-                const localMonths = new Set(budgetState.budgets.map(b => b.month));
-                const missingMonths = existingState.budgets
-                  .filter(b => !localMonths.has(b.month))
-                  .map(b => b.month);
-                console.warn(
-                  '[useBudgetSync] Local data is significantly poorer than remote, but proceeding with explicit user save.',
-                  { remoteScore, localScore, missingMonths }
-                );
-                // We no longer return false here; we allow the upload to proceed.
-              }
-            }
-          } catch (e) {
-            // If we can't decrypt/parse remote, proceed with upload
-            console.log('[useBudgetSync] Could not verify remote state before upload:', e);
-          }
-        }
-      } catch (e) {
-        // If the pre-check fails entirely (network), proceed with upload
-        console.log('[useBudgetSync] Pre-upload check failed, proceeding:', e);
-      }
     }
 
     setSyncStatus(prev => ({ ...prev, isSyncing: true, error: null }));
 
     try {
-      // Encrypt the budget data with NIP-44 (to self)
-      const encrypted = await user.signer.nip44.encrypt(
+      // 1. Publish one small encrypted event per month
+      for (const monthBudget of months) {
+        const dtag = `${MONTH_DTAG_PREFIX}${monthBudget.month}`;
+        const encryptedMonth = await user.signer.nip44.encrypt(
+          user.pubkey,
+          JSON.stringify(monthBudget)
+        );
+
+        await publish({
+          kind: BUDGET_KIND,
+          content: encryptedMonth,
+          tags: [
+            ['d', dtag],
+            ['alt', `Sat Sorter budget month ${monthBudget.month} (encrypted)`],
+          ],
+        });
+      }
+
+      // 2. Publish the small manifest (global metadata + list of months)
+      const manifest: BudgetManifestV2 = {
+        version: 2,
+        currentMonth: budgetState.currentMonth,
+        currency: budgetState.currency,
+        months: months.map(m => m.month),
+        partners: budgetState.partners || [],
+        templates: budgetState.templates || [],
+        paymentMethods: budgetState.paymentMethods || [],
+        userRole: budgetState.userRole,
+        defaultTemplateId: budgetState.defaultTemplateId,
+        receivedInvites: budgetState.receivedInvites || [],
+      };
+
+      const encryptedManifest = await user.signer.nip44.encrypt(
         user.pubkey,
-        JSON.stringify(budgetState)
+        JSON.stringify(manifest)
       );
 
-      // Publish as NIP-78 event
       await publish({
         kind: BUDGET_KIND,
-        content: encrypted,
+        content: encryptedManifest,
         tags: [
           ['d', APP_IDENTIFIER],
-          ['alt', 'Sat Sorter budget data (encrypted)'],
+          ['alt', 'Sat Sorter budget data manifest (encrypted)'],
         ],
       });
 
+      const now = Math.floor(Date.now() / 1000);
       setSyncStatus({
-        lastSynced: Math.floor(Date.now() / 1000),
+        lastSynced: now,
         isSyncing: false,
         error: null,
       });
 
-      // Invalidate the query to refresh
       queryClient.invalidateQueries({ queryKey: ['budget-sync', user.pubkey] });
-      
+
+      console.log('[useBudgetSync] Uploaded split budget:', {
+        months: manifest.months.length,
+        currentMonth: manifest.currentMonth,
+      });
+
       return true;
     } catch (e) {
-      console.error('Failed to upload budget:', e);
+      console.error('Failed to upload budget (split format):', e);
       setSyncStatus(prev => ({
         ...prev,
         isSyncing: false,
@@ -220,22 +321,22 @@ export function useBudgetSync() {
     }
   }, [user, publish, queryClient, nostr]);
 
-  // Download budget data from Nostr
+  // Full download that returns a complete BudgetState (used by Save button flows and NostrSync)
   const downloadBudget = useCallback(async (): Promise<BudgetState | null> => {
     if (!user?.pubkey) return null;
 
     setSyncStatus(prev => ({ ...prev, isSyncing: true, error: null }));
 
     try {
-      const result = await refetch();
-      
+      const result = await fetchFullBudgetFromNostr(nostr, user);
+
       setSyncStatus(prev => ({
         ...prev,
         isSyncing: false,
-        lastSynced: result.data?.timestamp || prev.lastSynced,
+        lastSynced: result?.timestamp || prev.lastSynced,
       }));
 
-      return result.data?.data || null;
+      return result?.data || null;
     } catch (e) {
       console.error('Failed to download budget:', e);
       setSyncStatus(prev => ({
@@ -245,21 +346,16 @@ export function useBudgetSync() {
       }));
       return null;
     }
-  }, [user, refetch]);
-
-
+  }, [user, nostr]);
 
   return {
-    // Remote data
     remoteBudget: remoteBudget?.data || null,
     remoteTimestamp: remoteBudget?.timestamp || null,
     isLoadingRemote,
 
-    // Sync actions
     uploadBudget,
     downloadBudget,
 
-    // Status
     syncStatus,
     canSync: !!user?.pubkey && !!user?.signer?.nip44,
   };
