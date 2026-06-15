@@ -109,7 +109,6 @@ export function SplitRow({
         value={amountInput}
         onChange={(e) => handleAmountChange(e.target.value)}
         placeholder="0.00"
-        onBlur={handleSave}
       />
     </div>
   );

@@ -1,13 +1,9 @@
 import { TrendingDown, Wallet, PiggyBank, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { CircularProgress } from './CircularProgress';
-import { useBitcoinPrice, formatSats, satsToUsd, formatUsd } from '@/hooks/useBitcoinPrice';
-import {
-  calculateTotalExpensesSats,
-  calculateTotalExpensesUsd,
-  calculateSpentForBucket,
-} from '@/lib/budgetTypes';
-import type { Bucket, Transaction } from '@/lib/budgetTypes';
+import { useBitcoinPrice, formatSats, formatUsd, usdToSats } from '@/hooks/useBitcoinPrice';
+import { deriveBudgetTotals } from '@/lib/budgetSelectors';
+import type { Bucket, Transaction, MonthlyBudget } from '@/lib/budgetTypes';
 
 interface DashboardSummaryProps {
   buckets: Bucket[];
@@ -26,43 +22,27 @@ export function DashboardSummary({ buckets, transactions, currency }: DashboardS
   const { data: priceData } = useBitcoinPrice();
   const btcPrice = priceData?.usdPerBtc ?? 0;
 
-  const expenseBuckets = buckets.filter((b) => !b.isIncome);
+  // Use the SHARED selector so this card's numbers match the Breakdown page,
+  // LineItemRow, and Maple. All figures are USD-anchored; we convert to sats
+  // only for the sats-view label.
+  const totals = deriveBudgetTotals({ buckets, transactions } as MonthlyBudget, btcPrice);
+  const totalPlannedUsd = totals.plannedUsd;
+  const totalSpentUsd = totals.spentUsd;
+  const leftToSpendUsd = totals.remainingToSpendUsd;
 
-  const totalPlanned = currency === 'usd' && btcPrice
-    ? calculateTotalExpensesUsd(buckets, btcPrice)
-    : calculateTotalExpensesSats(buckets, btcPrice);
+  const totalPlanned = currency === 'usd' ? totalPlannedUsd : usdToSats(totalPlannedUsd, btcPrice);
+  const totalSpent = currency === 'usd' ? totalSpentUsd : usdToSats(totalSpentUsd, btcPrice);
+  const leftToSpend = currency === 'usd' ? leftToSpendUsd : usdToSats(leftToSpendUsd, btcPrice);
 
-  // Calculate total spent (in sats, then convert)
-  const totalSpentSats = expenseBuckets.reduce(
-    (sum, bucket) => sum + calculateSpentForBucket(bucket, transactions),
-    0
-  );
-  const totalSpent = currency === 'usd' && btcPrice
-    ? satsToUsd(totalSpentSats, btcPrice)
-    : totalSpentSats;
-
-  // Amount still available to spend
-  const leftToSpend = totalPlanned - totalSpent;
-
-  // Percentage spent of planned budget
-  const spentPercentage = totalPlanned > 0
-    ? Math.round((totalSpent / totalPlanned) * 100)
+  const spentPercentage = totalPlannedUsd > 0
+    ? Math.round((totalSpentUsd / totalPlannedUsd) * 100)
     : 0;
 
-  const isOverspent = totalSpent > totalPlanned;
+  const isOverspent = totalSpentUsd > totalPlannedUsd;
   const isOnTrack = spentPercentage <= 75;
 
-  // Count categories over budget
-  const overBudgetCount = expenseBuckets.filter((bucket) => {
-    const bucketSpentSats = calculateSpentForBucket(bucket, transactions);
-    const bucketPlanned = currency === 'usd' && btcPrice
-      ? calculateTotalExpensesUsd([bucket], btcPrice)
-      : calculateTotalExpensesSats([bucket], btcPrice);
-    const bucketSpent = currency === 'usd' && btcPrice
-      ? satsToUsd(bucketSpentSats, btcPrice)
-      : bucketSpentSats;
-    return bucketSpent > bucketPlanned && bucketPlanned > 0;
-  }).length;
+  // Count categories over budget (using the already-derived bucket data)
+  const overBudgetCount = totals.expenseBuckets.filter((b) => b.isOverBudget).length;
 
   const formatAmount = (amount: number) => {
     if (currency === 'usd') return formatUsd(amount);
