@@ -3,6 +3,7 @@ import { Plus, CheckCircle2, AlertCircle, X } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -75,7 +76,12 @@ export function SplitEditor({
       <DialogContent className="sm:max-w-[480px] p-0">
         <DialogHeader className="px-6 pt-6 pb-4">
           <div className="flex items-center justify-between">
-            <DialogTitle>Split Transaction</DialogTitle>
+            <div>
+              <DialogTitle>Split Transaction</DialogTitle>
+              <DialogDescription>
+                Divide this transaction across multiple budget categories
+              </DialogDescription>
+            </div>
             <Button variant="ghost" size="icon" onClick={handleClose}>
               <X className="h-4 w-4" />
             </Button>
