@@ -1,16 +1,20 @@
+import { useState } from 'react';
 import { useSeoMeta } from '@unhead/react';
 import { useSearchParams } from 'react-router-dom';
 import { X, Filter } from 'lucide-react';
 import { BudgetHeader } from '@/components/budget/BudgetHeader';
 import { TransactionsPanel } from '@/components/budget/TransactionsPanel';
+import { WalletModalControlled } from '@/components/budget/WalletModalControlled';
 import { Button } from '@/components/ui/button';
 import { useBudget } from '@/hooks/useBudget';
 import { useToast } from '@/hooks/useToast';
+import { formatMonth } from '@/lib/budgetTypes';
 
 export default function TransactionsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const lineItemIdFilter = searchParams.get('lineItemId');
   const { toast } = useToast();
+  const [showWalletModal, setShowWalletModal] = useState(false);
 
   const {
     currentBudget,
@@ -58,7 +62,7 @@ export default function TransactionsPage() {
         onToggleCurrency={toggleCurrency}
         onPreviousMonth={handlePreviousMonth}
         onNextMonth={handleNextMonth}
-        onOpenWallet={() => {}}
+        onOpenWallet={() => setShowWalletModal(true)}
         onSelectMonth={setCurrentMonth}
         availableMonths={availableMonths}
         allBudgets={fullState.budgets}
@@ -92,7 +96,7 @@ export default function TransactionsPage() {
            <div>
              <h1 className="text-2xl sm:text-3xl font-bold">Transactions</h1>
              <p className="text-muted-foreground text-sm mt-1">
-               All transactions for {new Date(`${currentMonth}-01`).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+               All transactions for {formatMonth(currentMonth)}
              </p>
            </div>
 
@@ -144,6 +148,13 @@ export default function TransactionsPage() {
               />
         </div>
       </main>
+
+      {showWalletModal && (
+        <WalletModalControlled
+          open={showWalletModal}
+          onOpenChange={setShowWalletModal}
+        />
+      )}
     </div>
   );
 }

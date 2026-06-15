@@ -40,6 +40,7 @@ export function BudgetBuddyScreen() {
   } | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useSeoMeta({
@@ -47,11 +48,24 @@ export function BudgetBuddyScreen() {
     description: 'Chat with your AI budget assistant.',
   });
 
-  // Auto-scroll to bottom
+  // Auto-scroll to the newest message whenever the conversation changes or the
+  // typing indicator appears. The Radix ScrollArea renders its scrollable
+  // content inside a [data-radix-scroll-area-viewport] element, so setting
+  // scrollTop on the root ref does nothing — we must target the viewport (or
+  // scroll a bottom anchor into view).
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
+    // Defer to the next frame so freshly-rendered messages are measured first.
+    const id = requestAnimationFrame(() => {
+      const viewport = scrollRef.current?.querySelector<HTMLElement>(
+        '[data-radix-scroll-area-viewport]'
+      );
+      if (viewport) {
+        viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'smooth' });
+      } else {
+        bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      }
+    });
+    return () => cancelAnimationFrame(id);
   }, [messages, isLoading]);
 
   const handleSubmit = async (e?: React.FormEvent) => {
@@ -220,6 +234,8 @@ export function BudgetBuddyScreen() {
             ))
           )}
           {isLoading && <TypingIndicator />}
+          {/* Scroll anchor — keeps the newest message in view on send/response */}
+          <div ref={bottomRef} aria-hidden className="h-px" />
         </div>
       </ScrollArea>
 

@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { useBitcoinPrice, formatSats, satsToUsd, usdToSats, formatUsd } from '@/hooks/useBitcoinPrice';
 import { calculateSpentForLineItem, getLineItemUsdAmount } from '@/lib/budgetTypes';
+import { lineItemSpentUsd, percentUsed as percentUsedSafe } from '@/lib/budgetSelectors';
 import type { LineItem, Transaction } from '@/lib/budgetTypes';
 import type { BTCMapElement } from '@/hooks/useBTCMap';
 import { MerchantBadge } from './MerchantIndicator';
@@ -54,36 +55,25 @@ export function LineItemRow({
     let isOverBudget = false;
     
     if (currency === 'usd' && priceData) {
-      // USD MODE: Calculate everything in USD using source-of-truth amounts
-      
-      // Get planned amount in USD (stored value, not converted)
+      // USD MODE: Calculate everything in USD using the SHARED selector so this
+      // row's numbers match the Breakdown page, Home dashboard, and Maple.
       const plannedAmountUsd = getLineItemUsdAmount(lineItem, priceData.usdPerBtc);
-      
-      // Calculate total spent in USD from transactions
-      const spentUsd = transactions
-        .filter(t => t.lineItemId === lineItem.id && !t.isIncome)
-        .reduce((sum, t) => {
-          const txUsd = t.amountUsd && t.amountUsd > 0 
-            ? t.amountUsd 
-            : (t.amount / 100_000_000) * priceData.usdPerBtc;
-          return sum + txUsd;
-        }, 0);
-      
+      // Split-aware spent (legacy single-assignment + split transactions).
+      const spentUsd = lineItemSpentUsd(lineItem.id, transactions, priceData.usdPerBtc);
+
       // Set display values in USD
       spent = spentUsd;
       remaining = plannedAmountUsd - spentUsd;
-      
-      // Calculate percentage and over-budget status
-      percentSpent = plannedAmountUsd > 0
-        ? Math.min((spentUsd / plannedAmountUsd) * 100, 100)
-        : 0;
+
+      // Progress bar clamps to 100% visually, but never produces NaN.
+      percentSpent = Math.min(percentUsedSafe(spentUsd, plannedAmountUsd), 100);
       isOverBudget = remaining < 0;
     } else {
       // SATS MODE: Calculate everything in sats
       spent = spentSats;
       remaining = lineItem.plannedAmount - spentSats;
-      
-      // Calculate percentage and over-budget status
+
+      // Calculate percentage and over-budget status (guard divide-by-zero)
       percentSpent = lineItem.plannedAmount > 0
         ? Math.min((spentSats / lineItem.plannedAmount) * 100, 100)
         : 0;
@@ -411,10 +401,19 @@ export function LineItemRow({
               
               <span className={cn(
                 'whitespace-nowrap',
-                remaining < 0 ? 'text-destructive font-medium' : 'text-muted-foreground'
+                isOverBudget ? 'text-destructive font-medium' : 'text-muted-foreground'
               )}>
-                <span className="sm:hidden">{formatDisplayAmount(Math.max(0, remaining), true)}</span>
-                <span className="hidden sm:inline">{formatDisplayAmount(Math.max(0, remaining))} left</span>
+                {isOverBudget ? (
+                  <>
+                    <span className="sm:hidden">{formatDisplayAmount(Math.abs(remaining), true)} over</span>
+                    <span className="hidden sm:inline">{formatDisplayAmount(Math.abs(remaining))} over</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="sm:hidden">{formatDisplayAmount(remaining, true)}</span>
+                    <span className="hidden sm:inline">{formatDisplayAmount(remaining)} left</span>
+                  </>
+                )}
               </span>
            </div>
          </div>

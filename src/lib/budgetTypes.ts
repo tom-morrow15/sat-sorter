@@ -1,5 +1,18 @@
 // Budget Types for Sat Sorter
 
+/**
+ * A single portion of a split transaction. A transaction can be divided across
+ * multiple budget categories/line items, each with its own USD + sats amount.
+ */
+export interface TransactionSplit {
+  id: string;
+  bucketId: string;
+  lineItemId: string;
+  amount: number; // in sats
+  amountUsd?: number; // USD amount - source of truth when authored in USD
+  description?: string;
+}
+
 export interface Transaction {
   id: string;
   amount: number; // in sats - calculated from amountUsd
@@ -9,6 +22,8 @@ export interface Transaction {
   date: string; // ISO date string
   lineItemId: string | null; // null means unassigned
   bucketId: string | null;
+  splits?: TransactionSplit[]; // if present and non-empty, this is a split transaction
+  isSplit?: boolean; // convenience flag mirroring splits presence
   paymentHash?: string; // from NWC
   preimage?: string;
   isIncome: boolean;

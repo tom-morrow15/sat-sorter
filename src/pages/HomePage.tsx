@@ -9,6 +9,7 @@ import { BudgetHeader } from '@/components/budget/BudgetHeader';
 import { BucketCard } from '@/components/budget/BucketCard';
 import { DashboardSummary } from '@/components/budget/DashboardSummary';
 import { AddBucketDialog } from '@/components/budget/AddBucketDialog';
+import { WalletModalControlled } from '@/components/budget/WalletModalControlled';
 import { LoginArea } from '@/components/auth/LoginArea';
 import { useBudget } from '@/hooks/useBudget';
 import { useWallet } from '@/hooks/useWallet';
@@ -304,6 +305,14 @@ export default function HomePage() {
         onOpenChange={setShowAddBucket}
         onAdd={(name, color, icon) => addBucket(name, color, icon)}
       />
+
+      {/* Wallet / Data Sources modal (opened from the header wallet icon) */}
+      {showWalletModal && (
+        <WalletModalControlled
+          open={showWalletModal}
+          onOpenChange={setShowWalletModal}
+        />
+      )}
     </div>
   );
 }

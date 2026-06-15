@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useSeoMeta } from '@unhead/react';
 import {
   Home,
@@ -21,10 +21,11 @@ import {
 } from 'lucide-react';
 import { BudgetHeader } from '@/components/budget/BudgetHeader';
 import { SpendingGauge } from '@/components/budget/SpendingGauge';
+import { WalletModalControlled } from '@/components/budget/WalletModalControlled';
 import { MapleInsightsCard } from '@/components/maple/MapleInsightsCard';
 import { useBudget } from '@/hooks/useBudget';
-import { calculateSpentForBucket } from '@/lib/budgetTypes';
-import { formatSats, satsToUsd } from '@/hooks/useBitcoinPrice';
+import { deriveBudgetTotals, percentUsed } from '@/lib/budgetSelectors';
+import { formatSats, usdToSats } from '@/hooks/useBitcoinPrice';
 import { useBitcoinPrice } from '@/hooks/useBitcoinPrice';
 
 // Same icon map as BucketCard so the visuals stay consistent across the app.
@@ -50,6 +51,7 @@ const iconMap: Record<string, LucideIcon> = {
 export default function SpendingBreakdownPage() {
   const { currentBudget, currency, currentMonth, toggleCurrency, setCurrentMonth } = useBudget();
   const { data: priceData } = useBitcoinPrice();
+  const [showWalletModal, setShowWalletModal] = useState(false);
 
   useSeoMeta({
     title: 'Spending Breakdown - Sat Sorter',
@@ -72,41 +74,40 @@ export default function SpendingBreakdownPage() {
     );
   };
 
-  // Build per-category data using the bucket's own color + icon.
+  const btcPrice = priceData?.usdPerBtc ?? 0;
+
+  // Build per-category data from the SHARED selector so these numbers match the
+  // Home dashboard and Maple exactly. All amounts are USD-anchored (the stored
+  // source of truth); sats are derived from USD only for the sats-view label.
   const breakdownData = useMemo(() => {
-    const expenseBuckets = currentBudget.buckets.filter((b) => !b.isIncome);
+    const totals = deriveBudgetTotals(currentBudget, btcPrice);
+    return totals.expenseBuckets
+      .map((bucket) => ({
+        id: bucket.id,
+        name: bucket.name,
+        color: bucket.color,
+        icon: bucket.icon,
+        spentUsd: bucket.spentUsd,
+        plannedUsd: bucket.budgetedUsd,
+      }))
+      .filter((item) => item.spentUsd > 0 || item.plannedUsd > 0)
+      .sort((a, b) => b.spentUsd - a.spentUsd);
+  }, [currentBudget, btcPrice]);
 
-    return expenseBuckets
-      .map((bucket) => {
-        const spent = calculateSpentForBucket(bucket, currentBudget.transactions);
-        const planned = bucket.lineItems.reduce((sum, item) => sum + item.plannedAmount, 0);
-        return {
-          id: bucket.id,
-          name: bucket.name,
-          color: bucket.color,
-          icon: bucket.icon,
-          spent,
-          planned,
-        };
-      })
-      .filter((item) => item.spent > 0 || item.planned > 0)
-      .sort((a, b) => b.spent - a.spent);
-  }, [currentBudget]);
-
-  const totalSpent = useMemo(
-    () => breakdownData.reduce((sum, item) => sum + item.spent, 0),
+  const totalSpentUsd = useMemo(
+    () => breakdownData.reduce((sum, item) => sum + item.spentUsd, 0),
     [breakdownData]
   );
 
-  const totalBudget = useMemo(
-    () => breakdownData.reduce((sum, item) => sum + item.planned, 0),
+  const totalBudgetUsd = useMemo(
+    () => breakdownData.reduce((sum, item) => sum + item.plannedUsd, 0),
     [breakdownData]
   );
 
-  // Convert sats -> display currency.
-  const toDisplay = (sats: number): { value: number; label: string } => {
-    if (currency === 'usd' && priceData) {
-      const usd = satsToUsd(sats, priceData.usdPerBtc);
+  // Format a USD value for display in the active currency. In USD mode the
+  // exact stored dollars are shown; in sats mode the USD is converted to sats.
+  const toDisplay = (usd: number): { value: number; label: string } => {
+    if (currency === 'usd') {
       return {
         value: usd,
         label: usd.toLocaleString('en-US', {
@@ -117,17 +118,18 @@ export default function SpendingBreakdownPage() {
         }),
       };
     }
+    const sats = btcPrice ? usdToSats(usd, btcPrice) : 0;
     return { value: sats, label: `${formatSats(sats)} sats` };
   };
 
-  const totalSpentDisplay = toDisplay(totalSpent);
-  const totalBudgetDisplay = toDisplay(totalBudget);
+  const totalSpentDisplay = toDisplay(totalSpentUsd);
+  const totalBudgetDisplay = toDisplay(totalBudgetUsd);
 
   // Gauge segments — use display values so the arc matches what the user sees.
   const gaugeSegments = breakdownData.map((b) => ({
     id: b.id,
     color: b.color,
-    value: toDisplay(b.spent).value,
+    value: toDisplay(b.spentUsd).value,
   }));
 
   const monthLabel = useMemo(() => {
@@ -147,7 +149,7 @@ export default function SpendingBreakdownPage() {
         onToggleCurrency={toggleCurrency}
         onPreviousMonth={handlePreviousMonth}
         onNextMonth={handleNextMonth}
-        onOpenWallet={() => {}}
+        onOpenWallet={() => setShowWalletModal(true)}
         onSelectMonth={setCurrentMonth}
       />
 
@@ -178,7 +180,7 @@ export default function SpendingBreakdownPage() {
                   <p className="text-4xl sm:text-5xl font-bold tabular-nums mt-1 leading-none">
                     {totalSpentDisplay.label}
                   </p>
-                  {totalBudget > 0 && (
+                  {totalBudgetUsd > 0 && (
                     <p className="text-xs text-muted-foreground mt-2 tabular-nums">
                       of {totalBudgetDisplay.label} budget
                     </p>
@@ -204,9 +206,9 @@ export default function SpendingBreakdownPage() {
               <ul className="rounded-2xl bg-card border border-border/60 divide-y divide-border/60 overflow-hidden shadow-sm">
                 {breakdownData.map((item) => {
                   const Icon = iconMap[item.icon] || Wallet;
-                  const spentDisplay = toDisplay(item.spent);
-                  const plannedDisplay = item.planned > 0 ? toDisplay(item.planned) : null;
-                  const overBudget = item.planned > 0 && item.spent > item.planned;
+                  const spentDisplay = toDisplay(item.spentUsd);
+                  const plannedDisplay = item.plannedUsd > 0 ? toDisplay(item.plannedUsd) : null;
+                  const overBudget = item.plannedUsd > 0 && item.spentUsd > item.plannedUsd;
 
                   return (
                     <li
@@ -249,7 +251,7 @@ export default function SpendingBreakdownPage() {
                         </p>
                         {plannedDisplay && (
                           <p className="text-xs text-muted-foreground tabular-nums mt-0.5">
-                            {Math.round((item.spent / item.planned) * 100)}%
+                            {percentUsed(item.spentUsd, item.plannedUsd)}%
                           </p>
                         )}
                       </div>
@@ -261,6 +263,13 @@ export default function SpendingBreakdownPage() {
           </div>
         )}
       </main>
+
+      {showWalletModal && (
+        <WalletModalControlled
+          open={showWalletModal}
+          onOpenChange={setShowWalletModal}
+        />
+      )}
     </div>
   );
 }

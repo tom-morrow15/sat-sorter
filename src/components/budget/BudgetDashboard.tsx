@@ -1,12 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { useBitcoinPrice, formatSats, satsToUsd, formatUsd } from '@/hooks/useBitcoinPrice';
-import {
-  calculateTotalExpenses,
-  calculateSpentForBucket,
-  type Bucket,
-  type Transaction,
-} from '@/lib/budgetTypes';
+import { useBitcoinPrice, formatSats, usdToSats, formatUsd } from '@/hooks/useBitcoinPrice';
+import { deriveBudgetTotals, type BucketDerived } from '@/lib/budgetSelectors';
+import type { Bucket, Transaction, MonthlyBudget } from '@/lib/budgetTypes';
 import { cn } from '@/lib/utils';
 
 interface BudgetDashboardProps {
@@ -22,30 +17,32 @@ export function BudgetDashboard({
   currency,
 }: BudgetDashboardProps) {
   const { data: priceData } = useBitcoinPrice();
+  const btcPrice = priceData?.usdPerBtc ?? 0;
 
-  const totalBudgeted = calculateTotalExpenses(buckets);
+  // Use the SHARED selector so the dashboard agrees with the Breakdown page and
+  // Maple to the penny. All amounts are USD-anchored (source of truth).
+  const totals = deriveBudgetTotals(
+    { buckets, transactions } as MonthlyBudget,
+    btcPrice
+  );
+  const totalBudgetedUsd = totals.plannedUsd;
+  const totalSpentUsd = totals.spentUsd;
 
-  // Calculate actual spending per category
-  const expenseBuckets = buckets.filter((b) => !b.isIncome);
-  const spendingByBucket = expenseBuckets
-    .map((bucket) => ({
-      bucket,
-      spent: calculateSpentForBucket(bucket, transactions),
-    }))
-    .sort((a, b) => b.spent - a.spent);
+  const spendingByBucket = totals.expenseBuckets
+    .map((bucket) => ({ bucket, spentUsd: bucket.spentUsd }))
+    .sort((a, b) => b.spentUsd - a.spentUsd);
 
-  const totalSpent = spendingByBucket.reduce((sum, item) => sum + item.spent, 0);
-
-  // Format amount based on currency
-  const formatAmount = (sats: number) => {
-    if (currency === 'usd' && priceData) {
-      return formatUsd(satsToUsd(sats, priceData.usdPerBtc));
+  // Format a USD value in the active display currency.
+  const formatAmount = (usd: number) => {
+    if (currency === 'usd') {
+      return formatUsd(usd);
     }
+    const sats = btcPrice ? usdToSats(usd, btcPrice) : 0;
     return `${formatSats(sats)} sats`;
   };
 
   // Don't render anything if there's no spending data
-  if (totalSpent === 0 && spendingByBucket.length === 0) {
+  if (totalSpentUsd === 0 && spendingByBucket.length === 0) {
     return null;
   }
 
@@ -61,7 +58,7 @@ export function BudgetDashboard({
             <div className="relative w-40 h-40 sm:w-48 sm:h-48 flex-shrink-0">
               {/* SVG Ring Chart */}
               <svg className="w-full h-full -rotate-90" viewBox="0 0 200 200">
-                {generatePieSlices(spendingByBucket, totalSpent).map((slice, idx) => (
+                {generatePieSlices(spendingByBucket, totalSpentUsd).map((slice, idx) => (
                   <circle
                     key={idx}
                     cx="100"
@@ -80,7 +77,7 @@ export function BudgetDashboard({
               {/* Center Text */}
               <div className="absolute inset-0 flex flex-col items-center justify-center">
                 <div className="text-lg sm:text-2xl font-bold text-center px-2 line-clamp-2">
-                  {formatAmount(totalSpent)}
+                  {formatAmount(totalSpentUsd)}
                 </div>
                 <div className="text-xs sm:text-sm text-muted-foreground mt-1">
                   Spent
@@ -95,7 +92,7 @@ export function BudgetDashboard({
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {spendingByBucket.slice(0, 6).map((item, idx) => {
                 const percentage =
-                  totalSpent > 0 ? ((item.spent / totalSpent) * 100).toFixed(0) : '0';
+                  totalSpentUsd > 0 ? ((item.spentUsd / totalSpentUsd) * 100).toFixed(0) : '0';
                 return (
                   <div key={item.bucket.id} className="flex items-start gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors">
                     <div
@@ -107,7 +104,7 @@ export function BudgetDashboard({
                         {item.bucket.name}
                       </p>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        {formatAmount(item.spent)}
+                        {formatAmount(item.spentUsd)}
                       </p>
                       <p className="text-xs text-muted-foreground font-medium">
                         {percentage}%
@@ -125,19 +122,19 @@ export function BudgetDashboard({
           </div>
 
           {/* Summary bar */}
-          {totalBudgeted > 0 && (
+          {totalBudgetedUsd > 0 && (
             <div className="pt-3 border-t flex items-center justify-between text-sm">
               <span className="text-muted-foreground">Budget remaining</span>
               <span
                 className={cn(
                   'font-semibold',
-                  totalBudgeted - totalSpent < 0
+                  totalBudgetedUsd - totalSpentUsd < 0
                     ? 'text-destructive'
                     : 'text-green-600'
                 )}
               >
-                {totalBudgeted - totalSpent < 0 ? '-' : ''}
-                {formatAmount(Math.abs(totalBudgeted - totalSpent))}
+                {totalBudgetedUsd - totalSpentUsd < 0 ? '-' : ''}
+                {formatAmount(Math.abs(totalBudgetedUsd - totalSpentUsd))}
               </span>
             </div>
           )}
@@ -149,14 +146,14 @@ export function BudgetDashboard({
 
 // Helper function to generate pie slices
 function generatePieSlices(
-  spendingByBucket: Array<{ bucket: Bucket; spent: number }>,
+  spendingByBucket: Array<{ bucket: BucketDerived; spentUsd: number }>,
   totalSpent: number
 ) {
   const slices = [];
   let currentOffset = 0;
 
   for (const item of spendingByBucket) {
-    const percentage = totalSpent > 0 ? item.spent / totalSpent : 0;
+    const percentage = totalSpent > 0 ? item.spentUsd / totalSpent : 0;
     const circumference = 502.4; // 2 * π * 80
     const dashArray = circumference * percentage;
 

@@ -226,7 +226,7 @@ export function BottomNavigation() {
            )}
          >
            <Receipt className="h-5 w-5" />
-           <span className="text-[10px]">Receipts</span>
+           <span className="text-[10px]">Transactions</span>
          </button>
 
           <button

@@ -2,6 +2,7 @@ import { useSeoMeta } from '@unhead/react';
 import { MapPin, Settings2 } from 'lucide-react';
 import { BudgetHeader } from '@/components/budget/BudgetHeader';
 import { MerchantGrid } from '@/components/budget/MerchantGrid';
+import { WalletModalControlled } from '@/components/budget/WalletModalControlled';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useBudget } from '@/hooks/useBudget';
@@ -14,6 +15,7 @@ export default function LocalSpendPage() {
   const { hasLocation } = useBTCMap();
   const { settings } = useLocationSettings();
   const [showLocationSetup, setShowLocationSetup] = useState(false);
+  const [showWalletModal, setShowWalletModal] = useState(false);
 
   useSeoMeta({
     title: 'Spend Bitcoin Locally - Sat Sorter',
@@ -45,7 +47,7 @@ export default function LocalSpendPage() {
         onToggleCurrency={toggleCurrency}
         onPreviousMonth={handlePreviousMonth}
         onNextMonth={handleNextMonth}
-        onOpenWallet={() => {}}
+        onOpenWallet={() => setShowWalletModal(true)}
         onSelectMonth={setCurrentMonth}
       />
 
@@ -116,6 +118,14 @@ export default function LocalSpendPage() {
 
       {/* Location Setup Dialog */}
       <LocationSetup open={showLocationSetup} onOpenChange={setShowLocationSetup} />
+
+      {/* Wallet / Data Sources modal */}
+      {showWalletModal && (
+        <WalletModalControlled
+          open={showWalletModal}
+          onOpenChange={setShowWalletModal}
+        />
+      )}
     </div>
   );
 }

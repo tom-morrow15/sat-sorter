@@ -30,6 +30,20 @@ export function cleanMarkdown(raw: string): string {
       .replace(/(^|\s)\*(\S)/g, '$1$2')
       .replace(/^#{1,6}\s*/, '');
 
+    // Repair a couple of malformed-number artifacts seen from faster models.
+    // "$3,.66" -> "$3.66" (stray comma immediately before the decimal point)
+    line = line.replace(/(\$\d+),\.(\d)/g, '$1.$2');
+    // "has296.71 left" / "are1.31 under" -> "has 296.71 left": a common English
+    // word fused directly to a dollar/number. Only split when the digits look
+    // like money (followed by a decimal or attached to a $) to avoid touching
+    // legitimate tokens like "covid19" or "Llama3".
+    line = line.replace(
+      /\b(has|have|are|is|left|over|under|of|at|spent|by|need|about)(\$?\d)/gi,
+      '$1 $2'
+    );
+    // Collapse any doubled spaces created above.
+    line = line.replace(/ {2,}/g, ' ');
+
     cleaned.push(line);
   }
 

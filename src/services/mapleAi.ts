@@ -2,12 +2,13 @@
 // All data sent to Maple is anchored in exact USD values stored locally.
 
 import type { Bucket, Transaction, MonthlyBudget } from '@/lib/budgetTypes';
-import {
-  calculateBucketTotalUsd,
-  getTransactionUsdAmount,
-  getLineItemUsdAmount,
-} from '@/lib/budgetTypes';
+import { getLineItemUsdAmount } from '@/lib/budgetTypes';
 import { getTransactionAssignments } from '@/lib/splitUtils';
+import {
+  deriveBudgetTotals,
+  transactionUsd,
+  lineItemSpentUsd,
+} from '@/lib/budgetSelectors';
 
 export interface BudgetLineItemContext {
   name: string;
@@ -66,86 +67,33 @@ export function isEnabled(
  * All financial figures are USD-anchored — they come directly from stored
  * usd fields or from helper functions that derive them from USD values.
  */
-/**
- * Compute USD spent against a specific line item, accounting for both legacy
- * single-assignment transactions and split transactions.
- */
-function spentForLineItemUsd(
-  lineItemId: string,
-  transactions: Transaction[],
-  btcPrice: number
-): number {
-  let total = 0;
-  for (const t of transactions) {
-    if (t.isIncome) continue;
-    const assignments = getTransactionAssignments(t);
-    for (const a of assignments) {
-      if (a.lineItemId !== lineItemId) continue;
-      // Prefer the split's own USD amount; fall back to converting sats.
-      if (a.amountUsd && a.amountUsd > 0) {
-        total += a.amountUsd;
-      } else if (btcPrice > 0) {
-        total += (a.amountSats / 100_000_000) * btcPrice;
-      }
-    }
-  }
-  return total;
-}
-
 export function buildBudgetContext(
   month: string,
   budget: MonthlyBudget,
   btcPrice: number,
   evergreenContext: string
 ): BudgetContext {
-  // ── Income ──
-  const incomeBuckets = budget.buckets.filter((b) => b.isIncome);
-  const income_usd = incomeBuckets.reduce((sum, b) => {
-    return sum + calculateBucketTotalUsd(b, btcPrice);
-  }, 0);
-
-  // ── Expense aggregates ──
-  const expenseBuckets = budget.buckets.filter((b) => !b.isIncome);
-  const planned_budget_usd = expenseBuckets.reduce((sum, b) => {
-    return sum + calculateBucketTotalUsd(b, btcPrice);
-  }, 0);
-
-  const total_spent_usd = budget.transactions
-    .filter((t) => !t.isIncome)
-    .reduce((sum, t) => {
-      return sum + getTransactionUsdAmount(t, btcPrice);
-    }, 0);
-
-  const total_remaining_usd = planned_budget_usd - total_spent_usd;
+  // Derive ALL figures from the shared selector so Maple's numbers are
+  // guaranteed to match the Home dashboard and the Breakdown screen exactly.
+  const totals = deriveBudgetTotals(budget, btcPrice);
 
   // ── Per-category data, INCLUDING per-line-item breakdown ──
-  const categories: BudgetCategoryContext[] = expenseBuckets
+  const categories: BudgetCategoryContext[] = totals.expenseBuckets
     .map((bucket) => {
-      const line_items: BudgetLineItemContext[] = bucket.lineItems.map((li) => {
-        const liBudgeted = getLineItemUsdAmount(li, btcPrice);
-        const liSpent = spentForLineItemUsd(li.id, budget.transactions, btcPrice);
-        return {
-          name: li.name,
-          budgeted_usd: Math.round(liBudgeted * 100) / 100,
-          spent_usd: Math.round(liSpent * 100) / 100,
-          remaining_usd: Math.round((liBudgeted - liSpent) * 100) / 100,
-        };
-      });
-
-      const budgeted_usd = line_items.reduce((sum, li) => sum + li.budgeted_usd, 0);
-      const spent_usd = line_items.reduce((sum, li) => sum + li.spent_usd, 0);
-      const remaining_usd = budgeted_usd - spent_usd;
-      const percent_used =
-        budgeted_usd > 0
-          ? Math.min(100, Math.round((spent_usd / budgeted_usd) * 100))
-          : 0;
+      const line_items: BudgetLineItemContext[] = bucket.lineItems.map((li) => ({
+        name: li.name,
+        budgeted_usd: li.budgetedUsd,
+        spent_usd: li.spentUsd,
+        remaining_usd: li.remainingUsd,
+      }));
 
       return {
         name: bucket.name,
-        budgeted_usd: Math.round(budgeted_usd * 100) / 100,
-        spent_usd: Math.round(spent_usd * 100) / 100,
-        remaining_usd: Math.round(remaining_usd * 100) / 100,
-        percent_used,
+        budgeted_usd: bucket.budgetedUsd,
+        spent_usd: bucket.spentUsd,
+        remaining_usd: bucket.remainingUsd,
+        // Clamp to 100 for the "percent used" label, never NaN.
+        percent_used: Math.min(100, bucket.percentUsed),
         line_items,
       };
     })
@@ -181,7 +129,7 @@ export function buildBudgetContext(
 
       return {
         category,
-        amount_usd: Math.round(getTransactionUsdAmount(t, btcPrice) * 100) / 100,
+        amount_usd: transactionUsd(t, btcPrice),
         note: t.description || 'No description',
         date: t.date ? t.date.split('T')[0] : '',
       };
@@ -199,10 +147,10 @@ export function buildBudgetContext(
   return {
     month: monthLabel,
     btc_price_usd: Math.round(btcPrice * 100) / 100,
-    income_usd: Math.round(income_usd * 100) / 100,
-    planned_budget_usd: Math.round(planned_budget_usd * 100) / 100,
-    total_spent_usd: Math.round(total_spent_usd * 100) / 100,
-    total_remaining_usd: Math.round(total_remaining_usd * 100) / 100,
+    income_usd: totals.incomeUsd,
+    planned_budget_usd: totals.plannedUsd,
+    total_spent_usd: totals.spentUsd,
+    total_remaining_usd: totals.remainingToSpendUsd,
     categories,
     recent_transactions,
     user_evergreen_context: evergreenContext.trim(),
@@ -242,22 +190,25 @@ export interface MapleModelOption {
 
 export const MAPLE_MODELS: MapleModelOption[] = [
   {
-    id: 'auto:quick',
-    label: 'Auto (Quick)',
-    description: 'Maple picks a fast model. Best default.',
-  },
-  {
     id: 'llama3-3-70b',
     label: 'Llama 3.3 70B',
-    description: 'Strong general reasoning for everyday questions.',
+    description: 'Recommended. Clean, well-formatted answers.',
   },
   {
     id: 'gpt-oss-120b',
     label: 'GPT-OSS 120B',
     description: 'Largest model — deeper analysis, a bit slower.',
   },
+  {
+    id: 'auto:quick',
+    label: 'Auto (Quick)',
+    description: 'Fastest, but formatting can be rougher.',
+  },
 ];
 
+// Default to a model that formats reliably so a user's first impression of the
+// AI feature is the clean, correct version (the previous "Auto (Quick)" default
+// frequently produced garbled numbers and dropped words).
 export const DEFAULT_MAPLE_MODEL = MAPLE_MODELS[0].id;
 
 // Back-compat: index 0 used as a fallback model id.
@@ -558,7 +509,7 @@ export function getBucketRemainingUsd(
   const spent = bucket.lineItems.reduce((sum, li) => {
     // line-item spending includes transactions assigned to this line item,
     // accounting for both legacy and split transactions
-    return sum + spentForLineItemUsd(li.id, transactions, btcPrice);
+    return sum + lineItemSpentUsd(li.id, transactions, btcPrice);
   }, 0);
 
   return budgeted - spent;
