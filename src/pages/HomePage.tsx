@@ -85,7 +85,7 @@ export default function HomePage() {
   const expenseBuckets = sortedBuckets.filter(b => !b.isIncome);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-gradient-to-b from-background to-muted/30">
       <BudgetHeader
         buckets={currentBudget.buckets}
         currentMonth={currentMonth}
@@ -97,7 +97,7 @@ export default function HomePage() {
         onSelectMonth={setCurrentMonth}
       />
 
-      <main className="container mx-auto px-3 sm:px-4 py-4 lg:py-6">
+      <main className="container mx-auto px-3 sm:px-4 py-6 lg:py-8 max-w-4xl">
         {/* Alerts Section - Full width */}
         <div className="space-y-3 mb-4">
           {/* Login prompt for guests */}
@@ -146,9 +146,20 @@ export default function HomePage() {
 
         {/* Main Layout - Budget Categories */}
         <div className="space-y-4">
+          {/* Income section header */}
+          {incomeBucket && (
+            <div className="flex items-center gap-2.5 pb-1" style={{ animation: 'fadeIn 0.3s ease-out', animationDelay: '0.1s', animationFillMode: 'both' }}>
+              <div className="h-8 w-1 rounded-full bg-gradient-to-b from-success to-emerald-400" />
+              <div>
+                <h2 className="text-lg font-bold tracking-tight">Income</h2>
+                <p className="text-xs text-muted-foreground">Money coming in this month</p>
+              </div>
+            </div>
+          )}
+
           {/* Income bucket - always first */}
            {incomeBucket && (
-             <div className="animate-slide-in-up" style={{ animationDelay: '0.1s', animationFillMode: 'both' }}>
+             <div className="animate-slide-in-up" style={{ animationDelay: '0.15s', animationFillMode: 'both' }}>
                <BucketCard
                  bucket={incomeBucket}
                  buckets={currentBudget.buckets}
