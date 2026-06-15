@@ -72,28 +72,71 @@ export default {
 				md: 'calc(var(--radius) - 2px)',
 				sm: 'calc(var(--radius) - 4px)'
 			},
-			keyframes: {
-				'accordion-down': {
-					from: {
-						height: '0'
-					},
-					to: {
-						height: 'var(--radix-accordion-content-height)'
-					}
+		keyframes: {
+			'accordion-down': {
+				from: {
+					height: '0'
 				},
-				'accordion-up': {
-					from: {
-						height: 'var(--radix-accordion-content-height)'
-					},
-					to: {
-						height: '0'
-					}
+				to: {
+					height: 'var(--radix-accordion-content-height)'
 				}
 			},
-			animation: {
-				'accordion-down': 'accordion-down 0.2s ease-out',
-				'accordion-up': 'accordion-up 0.2s ease-out'
+			'accordion-up': {
+				from: {
+					height: 'var(--radix-accordion-content-height)'
+				},
+				to: {
+					height: '0'
+				}
+			},
+			'slide-in-up': {
+				from: {
+					opacity: '0',
+					transform: 'translateY(20px)'
+				},
+				to: {
+					opacity: '1',
+					transform: 'translateY(0)'
+				}
+			},
+			'slide-in-down': {
+				from: {
+					opacity: '0',
+					transform: 'translateY(-20px)'
+				},
+				to: {
+					opacity: '1',
+					transform: 'translateY(0)'
+				}
+			},
+			'scale-in': {
+				from: {
+					opacity: '0',
+					transform: 'scale(0.95)'
+				},
+				to: {
+					opacity: '1',
+					transform: 'scale(1)'
+				}
+			},
+			'pulse-soft': {
+				'0%, 100%': {
+					opacity: '1'
+				},
+				'50%': {
+					opacity: '0.5'
+				}
 			}
+		},
+		animation: {
+			'accordion-down': 'accordion-down 0.2s ease-out',
+			'accordion-up': 'accordion-up 0.2s ease-out',
+			'slide-in-up': 'slide-in-up 0.5s ease-out forwards',
+			'slide-in-down': 'slide-in-down 0.4s ease-out forwards',
+			'scale-in': 'scale-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
+			'pulse-soft': 'pulse-soft 2s ease-in-out infinite',
+			'fade-in': 'fadeIn 0.3s ease-out forwards'
+		}
 		}
 	},
 	plugins: [tailwindcssAnimate],

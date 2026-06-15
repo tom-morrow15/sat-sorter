@@ -138,7 +138,7 @@ export default function HomePage() {
         <div className="space-y-4">
           {/* Income bucket - always first */}
            {incomeBucket && (
-             <div className="animate-slide-in-up" style={{ animationDelay: '0s' }}>
+             <div className="animate-slide-in-up" style={{ animationDelay: '0s', animationFillMode: 'both' }}>
                <BucketCard
                  bucket={incomeBucket}
                  buckets={currentBudget.buckets}
@@ -157,7 +157,7 @@ export default function HomePage() {
            )}
 
            {/* Section header for expenses */}
-           <div className="flex items-center justify-between pt-2 animate-fade-in" style={{ animationDelay: '0.1s' }}>
+           <div className="flex items-center justify-between pt-2" style={{ animation: 'fadeIn 0.3s ease-out', animationDelay: '0.1s', animationFillMode: 'both' }}>
              <div className="flex items-center gap-2">
                <h2 className="text-base font-semibold">Expense Categories</h2>
                <span className="text-sm text-muted-foreground">
@@ -178,12 +178,12 @@ export default function HomePage() {
 
             {/* Expense buckets */}
             <div className="space-y-3">
-              {expenseBuckets.map((bucket, index) => (
-                <div
-                  key={bucket.id}
-                  className="animate-slide-in-up"
-                  style={{ animationDelay: `${0.2 + index * 0.1}s` }}
-                >
+               {expenseBuckets.map((bucket, index) => (
+                 <div
+                   key={bucket.id}
+                   className="animate-slide-in-up"
+                   style={{ animationDelay: `${0.2 + index * 0.1}s`, animationFillMode: 'both' }}
+                 >
                   <BucketCard
                     bucket={bucket}
                     buckets={currentBudget.buckets}
