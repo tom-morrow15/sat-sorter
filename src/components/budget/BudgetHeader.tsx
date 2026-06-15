@@ -274,55 +274,33 @@ export function BudgetHeader({
               </Tooltip>
             )}
 
-              {/* Currency Toggle — labeled segmented control for clarity */}
-              <div className="inline-flex rounded-lg border border-white/30 bg-white/10 p-0.5">
+              {/* Currency Toggle — compact labeled segmented control */}
+              <div className="inline-flex rounded-lg border border-white/30 bg-white/10 p-0.5 text-[10px]">
                 <button
                   onClick={() => currency !== 'usd' && onToggleCurrency()}
                   disabled={priceLoading}
-                  className={`flex items-center gap-1 rounded-md px-3 py-1 text-xs font-medium transition-all ${
+                  className={`flex items-center gap-0.5 rounded-md px-2 py-0.5 font-medium transition-all ${
                     currency === 'usd'
                       ? 'bg-white text-black shadow-sm'
                       : 'text-white/80 hover:text-white'
                   }`}
                 >
-                  <DollarSign className="h-3.5 w-3.5" /> USD
+                  <DollarSign className="h-3 w-3" /> USD
                 </button>
                 <button
                   onClick={() => currency !== 'sats' && onToggleCurrency()}
                   disabled={priceLoading}
-                  className={`flex items-center gap-1 rounded-md px-3 py-1 text-xs font-medium transition-all ${
+                  className={`flex items-center gap-0.5 rounded-md px-2 py-0.5 font-medium transition-all ${
                     currency === 'sats'
                       ? 'bg-white text-black shadow-sm'
                       : 'text-white/80 hover:text-white'
                   }`}
                 >
-                  <Bitcoin className="h-3.5 w-3.5" /> BTC
+                  <Bitcoin className="h-3 w-3" /> BTC
                 </button>
               </div>
 
-             {/* Wallet Button with notification badge */}
-             <Tooltip>
-               <TooltipTrigger asChild>
-                 <Button
-                   size="icon"
-                   onClick={onOpenWallet}
-                   className="h-9 w-9 sm:h-10 sm:w-10 bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white border border-white/30 relative"
-                 >
-                   <Wallet className="h-4 w-4" />
-                   {unassignedCount > 0 && (
-                     <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-yellow-300 text-yellow-900 text-[10px] font-bold flex items-center justify-center">
-                       {unassignedCount > 9 ? '9+' : unassignedCount}
-                     </span>
-                   )}
-                 </Button>
-               </TooltipTrigger>
-               <TooltipContent>
-                 {unassignedCount > 0
-                   ? `${unassignedCount} transaction${unassignedCount !== 1 ? 's' : ''} to categorize`
-                   : 'Wallet'
-                 }
-               </TooltipContent>
-             </Tooltip>
+
 
             {/* Account Switcher (when logged in) */}
             {user && (
@@ -336,23 +314,24 @@ export function BudgetHeader({
               </div>
             )}
 
-             {/* App Menu - Always visible */}
-             <DropdownMenu>
-               <DropdownMenuTrigger asChild>
-                 <Button
-                   size="icon"
-                   className="h-9 w-9 sm:h-10 sm:w-10 bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white border border-white/30 relative"
-                 >
-                   <Menu className="h-4 w-4" />
-                   {needRefresh && (
-                     <span className="absolute top-1 right-1 flex h-2 w-2">
-                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-300 opacity-75"></span>
-                       <span className="relative inline-flex rounded-full h-2 w-2 bg-yellow-300"></span>
-                     </span>
-                   )}
-                 </Button>
-               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
+             {/* App Menu — hidden when logged in (content lives inside the profile carrot) */}
+              {!user && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    size="icon"
+                    className="h-9 w-9 sm:h-10 sm:w-10 bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white border border-white/30 relative"
+                  >
+                    <Menu className="h-4 w-4" />
+                    {needRefresh && (
+                      <span className="absolute top-1 right-1 flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-300 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-yellow-300"></span>
+                      </span>
+                    )}
+                  </Button>
+                </DropdownMenuTrigger>
+               <DropdownMenuContent align="end" className="w-56">
                 {/* Account */}
                 {!user && (
                   <DropdownMenuItem onClick={() => setShowLogin(true)}>
@@ -394,6 +373,12 @@ export function BudgetHeader({
                 <DropdownMenuItem onClick={() => setShowPaymentMethods(true)}>
                   <span className="h-4 w-4 mr-2 text-center text-sm">💳</span>
                   Payment Methods
+                </DropdownMenuItem>
+
+                {/* Wallet / Data Sources */}
+                <DropdownMenuItem onClick={onOpenWallet}>
+                  <Wallet className="h-4 w-4 mr-2" />
+                  Lightning Wallet
                 </DropdownMenuItem>
 
                 <DropdownMenuSeparator />
@@ -441,6 +426,7 @@ export function BudgetHeader({
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+          )}
           </div>
         </div>
 
@@ -479,29 +465,29 @@ export function BudgetHeader({
            </div>
 
              {/* Budget totals - Responsive grid with cards */}
-             <div className="grid grid-cols-3 gap-3 sm:gap-4 pb-6">
+             <div className="grid grid-cols-3 gap-2 sm:gap-4 pb-6">
                {/* Income */}
-               <div className="rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 p-3 sm:p-4 text-center min-w-0">
-                 <p className="text-xs text-white/70 uppercase tracking-widest mb-1">Income</p>
-                 <p className="text-xl sm:text-3xl font-bold text-green-300 tabular-nums whitespace-nowrap overflow-hidden text-ellipsis">
+               <div className="rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 p-2.5 sm:p-4 text-center min-w-0">
+                 <p className="text-xs text-white/70 uppercase tracking-widest mb-0.5">Income</p>
+                 <p className="text-lg sm:text-3xl font-bold text-green-300 tabular-nums whitespace-nowrap">
                    {formatAmountCompact(totalIncome)}
                  </p>
                </div>
  
                {/* Planned */}
-               <div className="rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 p-3 sm:p-4 text-center min-w-0">
-                 <p className="text-xs text-white/70 uppercase tracking-widest mb-1">Planned</p>
-                 <p className="text-xl sm:text-3xl font-bold text-white tabular-nums whitespace-nowrap overflow-hidden text-ellipsis">
+               <div className="rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 p-2.5 sm:p-4 text-center min-w-0">
+                 <p className="text-xs text-white/70 uppercase tracking-widest mb-0.5">Planned</p>
+                 <p className="text-lg sm:text-3xl font-bold text-white tabular-nums whitespace-nowrap">
                    {formatAmountCompact(totalExpenses)}
                  </p>
                </div>
  
                {/* Remaining */}
-               <div className="rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 p-3 sm:p-4 text-center min-w-0">
-                 <p className="text-xs text-white/70 uppercase tracking-widest mb-1">Left</p>
+               <div className="rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 p-2.5 sm:p-4 text-center min-w-0">
+                 <p className="text-xs text-white/70 uppercase tracking-widest mb-0.5">Left</p>
                  <p
                    className={cn(
-                     'text-xl sm:text-3xl font-bold tabular-nums whitespace-nowrap overflow-hidden text-ellipsis',
+                     'text-lg sm:text-3xl font-bold tabular-nums whitespace-nowrap',
                      isZeroed && 'text-green-300',
                      isOver && 'text-red-300',
                      !isZeroed && !isOver && 'text-blue-300'

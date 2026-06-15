@@ -193,124 +193,118 @@ export function BucketCard({
        <Collapsible open={isOpen} onOpenChange={setIsOpen}>
          <CardHeader className="pb-3 pt-6 px-6">
            <div className="flex items-center justify-between gap-4">
-             <div className="flex items-center gap-4 flex-1 min-w-0">
-               {/* Icon with refined styling */}
-               <div
-                 className="h-12 w-12 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm transition-transform hover:scale-105"
-                 style={{ 
-                   backgroundColor: `${bucket.color}15`,
-                   border: `2px solid ${bucket.color}30`
-                 }}
-               >
-                 <Icon className="h-6 w-6" style={{ color: bucket.color }} />
-               </div>
-
-               {/* Bucket name and info */}
-               {isEditingName ? (
-                 <Input
-                   value={editName}
-                   onChange={(e) => setEditName(e.target.value)}
-                   onBlur={handleSaveName}
-                   onKeyDown={(e) => {
-                     if (e.key === 'Enter') handleSaveName();
-                     if (e.key === 'Escape') {
-                       setEditName(bucket.name);
-                       setIsEditingName(false);
-                     }
-                   }}
-                   className="h-9 px-3 font-semibold"
-                   autoFocus
-                 />
-                ) : (
-                  <div className="min-w-0 flex-1">
-                    <h3 className="font-semibold text-base sm:text-lg text-foreground break-words leading-tight">{bucket.name}</h3>
-                    <p className="text-xs sm:text-sm text-muted-foreground">
-                      {bucket.lineItems.length} item{bucket.lineItems.length !== 1 ? 's' : ''} • ${(total || 0).toFixed(2)}
-                    </p>
-                  </div>
-                )}
-             </div>
-
-             <div className="flex items-center gap-2 flex-shrink-0">
-               {/* Total - right aligned, prominent */}
-               <div className="text-right">
-                 <p
-                   className={cn(
-                     'font-bold tabular-nums text-xl sm:text-2xl leading-tight',
-                     bucket.isIncome ? 'text-success' : 'text-foreground'
-                   )}
-                 >
-                   <span className="sm:hidden">{formatAmount(total, true)}</span>
-                   <span className="hidden sm:inline">{formatAmount(total)}</span>
-                 </p>
-                  <p className={cn(
-                    'text-xs font-medium',
-                    spent > total * 0.8 ? 'text-orange-600 dark:text-orange-400' : 'text-muted-foreground'
-                  )}>
-                    {spent > total ? '⚠ Over' : `${Math.round((spent / total) * 100)}% used`}
-                  </p>
-               </div>
-
-               {/* Actions menu */}
-               {!bucket.isIncome && (
-                 <DropdownMenu>
-                   <DropdownMenuTrigger asChild>
-                     <Button variant="ghost" size="icon" className="h-9 w-9">
-                       <MoreHorizontal className="h-4 w-4" />
-                     </Button>
-                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => setIsEditingName(true)}>
-                      <Edit2 className="h-4 w-4 mr-2" />
-                      Rename
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <div className="flex flex-col gap-2 p-2">
-                        <span className="flex items-center text-sm">
-                          <Palette className="h-4 w-4 mr-2" />
-                          Color
-                        </span>
-                        <div className="flex flex-wrap gap-1.5">
-                          {BUCKET_COLORS.map((color) => (
-                            <button
-                              key={color}
-                              className={cn(
-                                'h-5 w-5 rounded-full transition-transform hover:scale-110',
-                                bucket.color === color && 'ring-2 ring-offset-2 ring-primary'
-                              )}
-                              style={{ backgroundColor: color }}
-                              onClick={(e) => {
-                                e.preventDefault();
-                                handleColorChange(color);
-                              }}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      className="text-destructive focus:text-destructive"
-                      onClick={() => setShowDeleteConfirm(true)}
+              <div className="flex items-center gap-4 flex-1 min-w-0">
+                {/* Icon with refined styling — clicking opens the menu */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <div
+                      className="h-12 w-12 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm transition-transform hover:scale-105 cursor-pointer"
+                      style={{ 
+                        backgroundColor: `${bucket.color}15`,
+                        border: `2px solid ${bucket.color}30`
+                      }}
                     >
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Delete Bucket
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-
-              {/* Collapse toggle */}
-              <CollapsibleTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
-                  {isOpen ? (
-                    <ChevronUp className="h-4 w-4" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4" />
+                      <Icon className="h-6 w-6" style={{ color: bucket.color }} />
+                    </div>
+                  </DropdownMenuTrigger>
+                  {!bucket.isIncome && (
+                    <DropdownMenuContent align="start">
+                      <DropdownMenuItem onClick={() => setIsEditingName(true)}>
+                        <Edit2 className="h-4 w-4 mr-2" />
+                        Rename
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <div className="flex flex-col gap-2 p-2">
+                          <span className="flex items-center text-sm">
+                            <Palette className="h-4 w-4 mr-2" />
+                            Color
+                          </span>
+                          <div className="flex flex-wrap gap-1.5">
+                            {BUCKET_COLORS.map((color) => (
+                              <button
+                                key={color}
+                                className={cn(
+                                  'h-5 w-5 rounded-full transition-transform hover:scale-110',
+                                  bucket.color === color && 'ring-2 ring-offset-2 ring-primary'
+                                )}
+                                style={{ backgroundColor: color }}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  handleColorChange(color);
+                                }}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onClick={() => setShowDeleteConfirm(true)}
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete Bucket
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
                   )}
-                </Button>
-              </CollapsibleTrigger>
-            </div>
+                </DropdownMenu>
+
+                {/* Bucket name and info */}
+                {isEditingName ? (
+                  <Input
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    onBlur={handleSaveName}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleSaveName();
+                      if (e.key === 'Escape') {
+                        setEditName(bucket.name);
+                        setIsEditingName(false);
+                      }
+                    }}
+                    className="h-9 px-3 font-semibold"
+                    autoFocus
+                  />
+                 ) : (
+                   <div className="min-w-0 flex-1">
+                     <h3 className="font-semibold text-base sm:text-lg text-foreground break-words leading-tight">{bucket.name}</h3>
+                     <p className="text-xs sm:text-sm text-muted-foreground">
+                       {bucket.lineItems.length} item{bucket.lineItems.length !== 1 ? 's' : ''} • ${(total || 0).toFixed(2)}
+                     </p>
+                   </div>
+                 )}
+              </div>
+
+               <div className="flex items-center gap-2 flex-shrink-0">
+                 {/* Total - right aligned, prominent, never truncated */}
+                 <div className="text-right min-w-0">
+                   <p
+                     className={cn(
+                       'font-bold tabular-nums text-lg sm:text-2xl leading-tight whitespace-nowrap',
+                       bucket.isIncome ? 'text-success' : 'text-foreground'
+                     )}
+                   >
+                     {formatAmount(total, true)}
+                   </p>
+                    <p className={cn(
+                      'text-xs font-medium whitespace-nowrap',
+                      spent > total * 0.8 ? 'text-orange-600 dark:text-orange-400' : 'text-muted-foreground'
+                    )}>
+                      {spent > total ? '⚠ Over' : `${Math.round((spent / total) * 100)}% used`}
+                    </p>
+                 </div>
+
+               {/* Collapse toggle — moved to the rightmost position */}
+               <CollapsibleTrigger asChild>
+                 <Button variant="ghost" size="icon" className="h-8 w-8">
+                   {isOpen ? (
+                     <ChevronUp className="h-4 w-4" />
+                   ) : (
+                     <ChevronDown className="h-4 w-4" />
+                   )}
+                 </Button>
+               </CollapsibleTrigger>
+             </div>
           </div>
         </CardHeader>
 

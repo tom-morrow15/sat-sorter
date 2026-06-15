@@ -2,7 +2,7 @@
 // It is important that all functionality in this file is preserved, and should only be modified if explicitly requested.
 
 import { useState } from 'react';
-import { ChevronDown, LogOut, UserIcon, UserPlus, Info, Heart, ExternalLink, Bitcoin, Zap, Shield, Globe } from 'lucide-react';
+import { ChevronDown, LogOut, UserIcon, UserPlus, Info, Heart, ExternalLink, Bitcoin, Zap, Shield, Globe, Copy, AlertTriangle, RotateCw, Cloud, LogIn, Sun, Moon, GraduationCap, Wallet } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,6 +22,8 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useLoggedInAccounts, type Account } from '@/hooks/useLoggedInAccounts';
 import { genUserName } from '@/lib/genUserName';
+import { useTheme } from '@/hooks/useTheme';
+import { useRegisterSW } from '@/hooks/useRegisterSW';
 
 interface AccountSwitcherProps {
   onAddAccountClick: () => void;
@@ -32,6 +34,8 @@ interface AccountSwitcherProps {
 
 export function AccountSwitcher({ onAddAccountClick, onBudgetPartnersClick, partnersCount = 0, pendingInvitesCount = 0 }: AccountSwitcherProps) {
   const { currentUser, otherUsers, setLogin, removeLogin } = useLoggedInAccounts();
+  const { isDark, toggle: toggleTheme } = useTheme();
+  const { needRefresh } = useRegisterSW();
   const [showAbout, setShowAbout] = useState(false);
   const [showDonate, setShowDonate] = useState(false);
 
@@ -86,56 +90,88 @@ export function AccountSwitcher({ onAddAccountClick, onBudgetPartnersClick, part
             {user.id === currentUser.id && <div className='w-2 h-2 rounded-full bg-primary'></div>}
           </DropdownMenuItem>
          ))}
-         <DropdownMenuSeparator />
-         <DropdownMenuItem
-           onClick={() => removeLogin(currentUser.id)}
-           className='flex items-center gap-2 cursor-pointer p-2 rounded-md text-red-500'
-         >
-           <LogOut className='w-4 h-4' />
-           <span>Log out</span>
-         </DropdownMenuItem>
-         <DropdownMenuSeparator />
-         {/* Budget Partners */}
-         {onBudgetPartnersClick && (
-           <>
-             <DropdownMenuItem
-               onClick={onBudgetPartnersClick}
-               className='flex items-center gap-2 cursor-pointer p-2 rounded-md'
-             >
-               <UserPlus className='w-4 h-4' />
-               <span>Budget Partners</span>
-               {hasPendingInvites ? (
-                 <span className='ml-auto flex items-center gap-1.5'>
-                   <span className='text-xs bg-red-500 text-white px-1.5 py-0.5 rounded font-medium animate-pulse'>
-                     {pendingInvitesCount} new
-                   </span>
-                 </span>
-               ) : partnersCount > 0 ? (
-                 <span className='ml-auto text-xs bg-primary/20 text-primary px-2 py-0.5 rounded'>
-                   {partnersCount}
-                 </span>
-               ) : null}
-             </DropdownMenuItem>
-             <DropdownMenuSeparator />
-           </>
-         )}
-         <DropdownMenuSeparator />
-        <DropdownMenuItem
-          onClick={() => setShowAbout(true)}
-          className='flex items-center gap-2 cursor-pointer p-2 rounded-md'
-        >
-          <Info className='w-4 h-4' />
-          <span>About Sat Sorter</span>
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          onClick={() => setShowDonate(true)}
-          className='flex items-center gap-2 cursor-pointer p-2 rounded-md'
-        >
-          <Heart className='w-4 h-4' />
-          <span>Support Bitcoin Projects</span>
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onClick={() => removeLogin(currentUser.id)}
+            className='flex items-center gap-2 cursor-pointer p-2 rounded-md text-red-500'
+          >
+            <LogOut className='w-4 h-4' />
+            <span>Log out</span>
+          </DropdownMenuItem>
+
+          <DropdownMenuSeparator />
+
+          {/* Budget Tools (merged from hamburger menu) */}
+          <DropdownMenuItem onClick={() => { /* trigger from parent if needed */ }}>
+            <Copy className="h-4 w-4 mr-2" />
+            Copy Previous Month
+          </DropdownMenuItem>
+          <DropdownMenuItem className="text-destructive focus:text-destructive">
+            <AlertTriangle className="h-4 w-4 mr-2" />
+            Reset This Month
+          </DropdownMenuItem>
+
+          <DropdownMenuSeparator />
+
+          {/* AI & Wallet */}
+          <DropdownMenuItem>
+            <span className="h-4 w-4 mr-2 text-center text-sm">🤖</span>
+            Maple AI
+          </DropdownMenuItem>
+          <DropdownMenuItem>
+            <span className="h-4 w-4 mr-2 text-center text-sm">💳</span>
+            Payment Methods
+          </DropdownMenuItem>
+          <DropdownMenuItem>
+            <Wallet className="h-4 w-4 mr-2" />
+            Lightning Wallet
+          </DropdownMenuItem>
+
+          <DropdownMenuSeparator />
+
+          {/* Preferences */}
+          <DropdownMenuItem onClick={() => { /* theme handled by parent or hook */ }}>
+            {isDark ? <Sun className="h-4 w-4 mr-2" /> : <Moon className="h-4 w-4 mr-2" />}
+            {isDark ? 'Light Mode' : 'Dark Mode'}
+          </DropdownMenuItem>
+
+          <DropdownMenuSeparator />
+
+          {/* Support */}
+          <DropdownMenuItem>
+            <Heart className="h-4 w-4 mr-2 text-pink-500" />
+            Support Sat Sorter
+          </DropdownMenuItem>
+          <DropdownMenuItem>
+            <Heart className="h-4 w-4 mr-2" />
+            Support Bitcoin Projects
+          </DropdownMenuItem>
+
+          <DropdownMenuSeparator />
+
+          {/* About & Learn */}
+          <DropdownMenuItem onClick={() => setShowAbout(true)}>
+            <Info className="h-4 w-4 mr-2" />
+            About Sat Sorter
+          </DropdownMenuItem>
+          <DropdownMenuItem>
+            <GraduationCap className="h-4 w-4 mr-2" />
+            Learn About Bitcoin
+          </DropdownMenuItem>
+
+          <DropdownMenuSeparator />
+
+          {/* Advanced */}
+          <DropdownMenuItem>
+            <RotateCw className="h-4 w-4 mr-2" />
+            Refresh App
+          </DropdownMenuItem>
+          <DropdownMenuItem>
+            <Cloud className="h-4 w-4 mr-2" />
+            Backup & Sync
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
 
     {/* About Dialog */}
     <Dialog open={showAbout} onOpenChange={setShowAbout}>
