@@ -620,6 +620,13 @@ export function BudgetHeader({
           open={showBackup}
           onOpenChange={setShowBackup}
         />
-     </header>
+
+        {/* Login Dialog */}
+        <LoginDialog
+          isOpen={showLogin}
+          onClose={() => setShowLogin(false)}
+          onLogin={() => setShowLogin(false)}
+        />
+      </header>
    );
  }
