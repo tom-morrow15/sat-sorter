@@ -167,20 +167,22 @@ export default function HomePage() {
            )}
 
            {/* Section header for expenses */}
-           <div className="flex items-center justify-between pt-2" style={{ animation: 'fadeIn 0.3s ease-out', animationDelay: '0.1s', animationFillMode: 'both' }}>
-             <div className="flex items-center gap-2">
-               <h2 className="text-base font-semibold">Expense Categories</h2>
-               <span className="text-sm text-muted-foreground">
-                 ({expenseBuckets.length})
-               </span>
+           <div className="flex items-center justify-between pt-4 pb-1" style={{ animation: 'fadeIn 0.3s ease-out', animationDelay: '0.2s', animationFillMode: 'both' }}>
+             <div className="flex items-center gap-2.5">
+               <div className="h-8 w-1 rounded-full bg-gradient-to-b from-primary to-orange-500" />
+               <div>
+                 <h2 className="text-lg font-bold tracking-tight">Expense Categories</h2>
+                 <p className="text-xs text-muted-foreground">
+                   {expenseBuckets.length} {expenseBuckets.length === 1 ? 'category' : 'categories'}
+                 </p>
+               </div>
              </div>
              <Button
-               variant="outline"
                size="sm"
                onClick={() => setShowAddBucket(true)}
-               className="btn-interactive"
+               className="btn-interactive shadow-sm"
              >
-               <Plus className="h-4 w-4 mr-1" />
+               <Plus className="h-4 w-4 mr-1.5" />
                <span className="hidden sm:inline">Add Category</span>
                <span className="sm:hidden">Add</span>
              </Button>
