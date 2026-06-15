@@ -339,7 +339,7 @@ export function BudgetHeader({
                   </Button>
                 </DropdownMenuTrigger>
                <DropdownMenuContent align="end" className="w-56">
-                 {/* Account — only show login when logged out */}
+                 {/* Account */}
                  {!user && (
                    <DropdownMenuItem onClick={() => setShowLogin(true)}>
                      <LogIn className="h-4 w-4 mr-2" />
@@ -355,93 +355,101 @@ export function BudgetHeader({
 
                  <DropdownMenuSeparator />
 
-                 {/* Budget Tools — only meaningful after login */}
-                 {user && (
-                   <>
-                     <DropdownMenuItem onClick={() => setShowCopyPrompt(true)}>
-                       <Copy className="h-4 w-4 mr-2" />
-                       Copy Previous Month
-                     </DropdownMenuItem>
-                     <DropdownMenuItem 
-                       onClick={() => setShowResetConfirm(true)}
-                       className="text-destructive focus:text-destructive focus:bg-destructive/10"
-                     >
-                       <AlertTriangle className="h-4 w-4 mr-2" />
-                       Reset This Month
-                     </DropdownMenuItem>
+                 {/* Budget Tools — always available */}
+                 <DropdownMenuItem onClick={() => setShowCopyPrompt(true)}>
+                   <Copy className="h-4 w-4 mr-2" />
+                   Copy Previous Month
+                 </DropdownMenuItem>
+                 <DropdownMenuItem 
+                   onClick={() => setShowResetConfirm(true)}
+                   className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                 >
+                   <AlertTriangle className="h-4 w-4 mr-2" />
+                   Reset This Month
+                 </DropdownMenuItem>
 
-                     <DropdownMenuSeparator />
+                 <DropdownMenuSeparator />
 
-                     {/* AI Assistant - Maple */}
-                     <DropdownMenuItem onClick={() => setShowSettings(true)}>
-                       <span className="h-4 w-4 mr-2 text-center text-sm">🤖</span>
-                       Maple AI
-                     </DropdownMenuItem>
+                 {/* Paywalled features — greyed out until logged in */}
+                 <DropdownMenuItem 
+                   disabled={!user}
+                   onClick={() => user && setShowSettings(true)}
+                   className={!user ? "text-muted-foreground" : ""}
+                 >
+                   <span className="h-4 w-4 mr-2 text-center text-sm">🤖</span>
+                   Maple AI {!user && "(log in to unlock)"}
+                 </DropdownMenuItem>
 
-                     {/* Payment Methods */}
-                     <DropdownMenuItem onClick={() => setShowPaymentMethods(true)}>
-                       <span className="h-4 w-4 mr-2 text-center text-sm">💳</span>
-                       Payment Methods
-                     </DropdownMenuItem>
+                 <DropdownMenuItem 
+                   disabled={!user}
+                   onClick={() => user && setShowPaymentMethods(true)}
+                   className={!user ? "text-muted-foreground" : ""}
+                 >
+                   <span className="h-4 w-4 mr-2 text-center text-sm">💳</span>
+                   Payment Methods {!user && "(log in to unlock)"}
+                 </DropdownMenuItem>
 
-                     {/* Wallet / Data Sources */}
-                     <DropdownMenuItem onClick={onOpenWallet}>
-                       <Wallet className="h-4 w-4 mr-2" />
-                       Lightning Wallet
-                     </DropdownMenuItem>
+                 <DropdownMenuItem 
+                   disabled={!user}
+                   onClick={() => user && onOpenWallet?.()}
+                   className={!user ? "text-muted-foreground" : ""}
+                 >
+                   <Wallet className="h-4 w-4 mr-2" />
+                   Lightning Wallet {!user && "(log in to unlock)"}
+                 </DropdownMenuItem>
 
-                     <DropdownMenuSeparator />
+                 <DropdownMenuItem 
+                   disabled={!user}
+                   onClick={() => user && setShowBackup(true)}
+                   className={!user ? "text-muted-foreground" : ""}
+                 >
+                   <Cloud className="h-4 w-4 mr-2" />
+                   Backup & Sync {!user && "(log in to unlock)"}
+                 </DropdownMenuItem>
 
-                     {/* Preferences */}
-                     <DropdownMenuItem onClick={toggleTheme}>
-                       {isDark ? <Sun className="h-4 w-4 mr-2" /> : <Moon className="h-4 w-4 mr-2" />}
-                       {isDark ? 'Light Mode' : 'Dark Mode'}
-                     </DropdownMenuItem>
+                 <DropdownMenuSeparator />
 
-                     <DropdownMenuSeparator />
+                 {/* Preferences — always available */}
+                 <DropdownMenuItem onClick={toggleTheme}>
+                   {isDark ? <Sun className="h-4 w-4 mr-2" /> : <Moon className="h-4 w-4 mr-2" />}
+                   {isDark ? 'Light Mode' : 'Dark Mode'}
+                 </DropdownMenuItem>
 
-                     {/* Support */}
-                     <DropdownMenuItem onClick={() => setShowDonateSorter(true)}>
-                       <Heart className="h-4 w-4 mr-2 text-pink-500" />
-                       Support Sat Sorter
-                     </DropdownMenuItem>
-                     <DropdownMenuItem onClick={() => setShowDonate(true)}>
-                       <Heart className="h-4 w-4 mr-2" />
-                       Support Bitcoin Projects
-                     </DropdownMenuItem>
+                 <DropdownMenuSeparator />
 
-                     <DropdownMenuSeparator />
+                 {/* Support — always available */}
+                 <DropdownMenuItem onClick={() => setShowDonateSorter(true)}>
+                   <Heart className="h-4 w-4 mr-2 text-pink-500" />
+                   Support Sat Sorter
+                 </DropdownMenuItem>
+                 <DropdownMenuItem onClick={() => setShowDonate(true)}>
+                   <Heart className="h-4 w-4 mr-2" />
+                   Support Bitcoin Projects
+                 </DropdownMenuItem>
 
-                     {/* About */}
-                     <DropdownMenuItem onClick={() => setShowAbout(true)}>
-                       <Info className="h-4 w-4 mr-2" />
-                       About Sat Sorter
-                     </DropdownMenuItem>
-                     <DropdownMenuItem onClick={() => setShowBitcoinEdu(true)}>
-                       <GraduationCap className="h-4 w-4 mr-2" />
-                       Learn About Bitcoin
-                     </DropdownMenuItem>
+                 <DropdownMenuSeparator />
 
-                     <DropdownMenuSeparator />
+                 {/* About & Education — always available */}
+                 <DropdownMenuItem onClick={() => setShowAbout(true)}>
+                   <Info className="h-4 w-4 mr-2" />
+                   About Sat Sorter
+                 </DropdownMenuItem>
+                 <DropdownMenuItem onClick={() => setShowBitcoinEdu(true)}>
+                   <GraduationCap className="h-4 w-4 mr-2" />
+                   Learn About Bitcoin
+                 </DropdownMenuItem>
+                 <DropdownMenuItem>
+                   <GraduationCap className="h-4 w-4 mr-2" />
+                   Learn About Nostr
+                 </DropdownMenuItem>
 
-                     {/* Advanced */}
-                     <DropdownMenuItem onClick={handleRefresh}>
-                       <RotateCw className="h-4 w-4 mr-2" />
-                       Refresh App
-                     </DropdownMenuItem>
-                     <DropdownMenuItem onClick={() => setShowBackup(true)}>
-                       <Cloud className="h-4 w-4 mr-2" />
-                       Backup & Sync
-                     </DropdownMenuItem>
-                   </>
-                 )}
+                 <DropdownMenuSeparator />
 
-                 {/* Logged-out users see a clear “log in to unlock” hint */}
-                 {!user && (
-                   <DropdownMenuItem disabled className="text-muted-foreground">
-                     Log in with Nostr to unlock advanced features
-                   </DropdownMenuItem>
-                 )}
+                 {/* Advanced — always available */}
+                 <DropdownMenuItem onClick={handleRefresh}>
+                   <RotateCw className="h-4 w-4 mr-2" />
+                   Refresh App
+                 </DropdownMenuItem>
                </DropdownMenuContent>
              </DropdownMenu>
           </div>
