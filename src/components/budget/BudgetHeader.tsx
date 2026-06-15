@@ -621,6 +621,36 @@ export function BudgetHeader({
           onOpenChange={setShowBackup}
         />
 
+        {/* Maple AI Settings Dialog */}
+        <Dialog open={showSettings} onOpenChange={setShowSettings}>
+          <DialogContent className="sm:max-w-[480px] max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Maple AI</DialogTitle>
+              <DialogDescription>
+                Connect your Maple API key and configure Budget Buddy.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="py-4 space-y-4">
+              <MapleSettings />
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Payment Methods Dialog */}
+        <Dialog open={showPaymentMethods} onOpenChange={setShowPaymentMethods}>
+          <DialogContent className="sm:max-w-[480px] max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Payment Methods</DialogTitle>
+              <DialogDescription>
+                Manage the payment methods you use for transactions.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="py-4">
+              <PaymentMethodsManager />
+            </div>
+          </DialogContent>
+        </Dialog>
+
         {/* Login Dialog */}
         <LoginDialog
           isOpen={showLogin}
