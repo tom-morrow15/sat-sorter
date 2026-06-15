@@ -42,12 +42,8 @@ export function SplitEditor({
   const isComplete = Math.abs(remainingUsd) < 0.01;
 
   const handleAddSplit = () => {
-    const newSplit = createSplit(
-      buckets[0]?.id ?? '',
-      buckets[0]?.lineItems[0]?.id ?? '',
-      Math.max(0, remainingUsd),
-      Math.max(0, remainingSats)
-    );
+    // Start empty — user chooses category/line item and amount.
+    const newSplit = createSplit('', '', 0, 0);
     setSplits([...splits, newSplit]);
   };
 

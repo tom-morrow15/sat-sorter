@@ -274,26 +274,31 @@ export function BudgetHeader({
               </Tooltip>
             )}
 
-             {/* Currency Toggle */}
-             <Tooltip>
-               <TooltipTrigger asChild>
-                 <Button
-                   size="icon"
-                   onClick={onToggleCurrency}
-                   disabled={priceLoading}
-                   className="h-9 w-9 sm:h-10 sm:w-10 bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white border border-white/30"
-                 >
-                   {currency === 'sats' ? (
-                     <Bitcoin className="h-4 w-4" />
-                   ) : (
-                     <DollarSign className="h-4 w-4" />
-                   )}
-                 </Button>
-               </TooltipTrigger>
-               <TooltipContent>
-                 Switch to {currency === 'sats' ? 'USD' : 'Sats'} view
-               </TooltipContent>
-             </Tooltip>
+              {/* Currency Toggle — labeled segmented control for clarity */}
+              <div className="inline-flex rounded-lg border border-white/30 bg-white/10 p-0.5">
+                <button
+                  onClick={() => currency !== 'usd' && onToggleCurrency()}
+                  disabled={priceLoading}
+                  className={`flex items-center gap-1 rounded-md px-3 py-1 text-xs font-medium transition-all ${
+                    currency === 'usd'
+                      ? 'bg-white text-black shadow-sm'
+                      : 'text-white/80 hover:text-white'
+                  }`}
+                >
+                  <DollarSign className="h-3.5 w-3.5" /> USD
+                </button>
+                <button
+                  onClick={() => currency !== 'sats' && onToggleCurrency()}
+                  disabled={priceLoading}
+                  className={`flex items-center gap-1 rounded-md px-3 py-1 text-xs font-medium transition-all ${
+                    currency === 'sats'
+                      ? 'bg-white text-black shadow-sm'
+                      : 'text-white/80 hover:text-white'
+                  }`}
+                >
+                  <Bitcoin className="h-3.5 w-3.5" /> BTC
+                </button>
+              </div>
 
              {/* Wallet Button with notification badge */}
              <Tooltip>

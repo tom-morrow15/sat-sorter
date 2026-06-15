@@ -51,24 +51,18 @@ export function SplitRow({
 
   const handleAmountChange = (value: string) => {
     setAmountInput(value);
-  };
-
-  const handleSave = () => {
-    if (!selectedBucketId || !selectedLineItemId || !amountInput.trim()) return;
-
-    const num = parseFloat(amountInput);
-    if (num <= 0) return;
-
-    const amountSats = priceData ? usdToSats(num, priceData.usdPerBtc) : 0;
-    const amountUsd = num;
-
-    onUpdate({
-      ...split,
-      bucketId: selectedBucketId,
-      lineItemId: selectedLineItemId,
-      amount: amountSats,
-      amountUsd,
-    });
+    // Live update so the parent can immediately recalc "Remaining to allocate"
+    const num = parseFloat(value);
+    if (!isNaN(num) && num > 0 && selectedBucketId && selectedLineItemId) {
+      const amountSats = priceData ? usdToSats(num, priceData.usdPerBtc) : 0;
+      onUpdate({
+        ...split,
+        bucketId: selectedBucketId,
+        lineItemId: selectedLineItemId,
+        amount: amountSats,
+        amountUsd: num,
+      });
+    }
   };
 
   return (

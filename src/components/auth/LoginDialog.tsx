@@ -174,17 +174,20 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ isOpen, onClose, onLogin }) =
   const [isMoreOptionsOpen, setIsMoreOptionsOpen] = useState(false);
 
   const renderTabs = () => (
-    <Tabs defaultValue="key" className="w-full">
+    <Tabs defaultValue="bunker" className="w-full">
       <TabsList className="grid w-full grid-cols-2 bg-muted/80 rounded-lg mb-4">
-        <TabsTrigger value="key" className="flex items-center gap-2">
-          <span>Secret Key</span>
-        </TabsTrigger>
         <TabsTrigger value="bunker" className="flex items-center gap-2">
           <span>Remote Signer</span>
+        </TabsTrigger>
+        <TabsTrigger value="key" className="flex items-center gap-2">
+          <span>Secret Key</span>
         </TabsTrigger>
       </TabsList>
 
       <TabsContent value='key' className='space-y-4'>
+        <div className="rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 p-3 text-xs text-amber-800 dark:text-amber-200">
+          ⚠️ Pasting your secret key (nsec) into any website is equivalent to typing your seed phrase into a website — only do this if you fully trust the site and understand the risk.
+        </div>
         <form onSubmit={(e) => {
           e.preventDefault();
           handleKeyLogin();
@@ -194,8 +197,8 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ isOpen, onClose, onLogin }) =
               id='nsec'
               type="password"
               value={nsec}
-              onChange={(e) => {
-                setNsec(e.target.value);
+              onChange={(e) => setNsec(e.target.value)}
+              onKeyDown={(e) => {
                 if (errors.nsec) setErrors(prev => ({ ...prev, nsec: undefined }));
               }}
               className={`rounded-lg ${

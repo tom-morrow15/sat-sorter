@@ -42,6 +42,7 @@ import { useBudget } from '@/hooks/useBudget';
 import { useNWC } from '@/hooks/useNWCContext';
 import { useNWCSync } from '@/hooks/useNWCSync';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import { useBitcoinPrice } from '@/hooks/useBitcoinPrice';
 import { categorizeMerchant } from '@/lib/merchantUtils';
 
 interface DataSourcesDialogProps {
@@ -298,11 +299,15 @@ function NWCPanel({ onBack }: { onBack: () => void }) {
 function CSVPanel({ onBack, onSuccess }: { onBack: () => void; onSuccess: () => void }) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [importedCount, setImportedCount] = useState(0);
+  const [csvUnit, setCsvUnit] = useState<'usd' | 'sats'>('usd');
+  const [previewRows, setPreviewRows] = useState<ParsedTransaction[]>([]);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const { addTransaction, currentBudget } = useBudget();
+  const { data: priceData } = useBitcoinPrice();
 
-  const parseCSV = (text: string): ParsedTransaction[] => {
+  const parseCSV = (text: string, unit: 'usd' | 'sats'): ParsedTransaction[] => {
     const lines = text.trim().split('\n');
     const transactions: ParsedTransaction[] = [];
 
@@ -325,18 +330,24 @@ function CSVPanel({ onBack, onSuccess }: { onBack: () => void; onSuccess: () => 
         const description = parts[1];
         const amountStr = parts[2];
 
-        // Parse amount (could be negative for expenses)
-        const amount = Math.abs(parseInt(amountStr.replace(/[^0-9.-]/g, '')));
-        const isIncome = !amountStr.includes('-') && parseFloat(amountStr.replace(/[^0-9.-]/g, '')) > 0;
+        const raw = parseFloat(amountStr.replace(/[^0-9.-]/g, ''));
+        if (!raw || raw === 0) continue;
+
+        const isIncome = raw > 0;
 
         // Validate date
         if (!/^\d{4}-\d{2}-\d{2}/.test(date)) {
-          // Try to parse other date formats
           const parsed = new Date(date);
           if (isNaN(parsed.getTime())) {
             console.warn(`Skipping invalid date: ${date}`);
             continue;
           }
+        }
+
+        // Convert to sats if the CSV was authored in USD
+        let amount = Math.abs(raw);
+        if (unit === 'usd' && priceData) {
+          amount = usdToSats(amount, priceData.usdPerBtc);
         }
 
         if (amount <= 0) continue;
@@ -356,15 +367,41 @@ function CSVPanel({ onBack, onSuccess }: { onBack: () => void; onSuccess: () => 
     return transactions;
   };
 
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelectForPreview = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    setSelectedFile(file);
+    try {
+      const text = await file.text();
+      const parsed = parseCSV(text, csvUnit);
+      setPreviewRows(parsed.slice(0, 5)); // show up to 5 preview rows
+    } catch {
+      setPreviewRows([]);
+    }
+  };
+
+  const handleUnitChange = async (newUnit: 'usd' | 'sats') => {
+    setCsvUnit(newUnit);
+    if (selectedFile) {
+      try {
+        const text = await selectedFile.text();
+        const parsed = parseCSV(text, newUnit);
+        setPreviewRows(parsed.slice(0, 5));
+      } catch {
+        setPreviewRows([]);
+      }
+    }
+  };
+
+  const handleImport = async () => {
+    if (!selectedFile) return;
 
     setIsProcessing(true);
 
     try {
-      const text = await file.text();
-      const parsed = parseCSV(text);
+      const text = await selectedFile.text();
+      const parsed = parseCSV(text, csvUnit);
 
       if (parsed.length === 0) {
         toast({
@@ -431,6 +468,8 @@ function CSVPanel({ onBack, onSuccess }: { onBack: () => void; onSuccess: () => 
       });
     } finally {
       setIsProcessing(false);
+      setSelectedFile(null);
+      setPreviewRows([]);
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
@@ -465,13 +504,36 @@ function CSVPanel({ onBack, onSuccess }: { onBack: () => void; onSuccess: () => 
         </Alert>
       )}
 
-      {/* File Upload */}
+      {/* Unit Selector */}
+      <div className="space-y-2">
+        <Label className="text-xs text-muted-foreground">Amounts in CSV are:</Label>
+        <div className="flex gap-2">
+          <Button
+            variant={csvUnit === 'usd' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => handleUnitChange('usd')}
+            className="flex-1"
+          >
+            USD ($)
+          </Button>
+          <Button
+            variant={csvUnit === 'sats' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => handleUnitChange('sats')}
+            className="flex-1"
+          >
+            Sats (₿)
+          </Button>
+        </div>
+      </div>
+
+      {/* File Upload + Preview */}
       <div className="space-y-3">
         <input
           ref={fileInputRef}
           type="file"
           accept=".csv"
-          onChange={handleFileSelect}
+          onChange={handleFileSelectForPreview}
           disabled={isProcessing}
           className="hidden"
         />
@@ -480,34 +542,63 @@ function CSVPanel({ onBack, onSuccess }: { onBack: () => void; onSuccess: () => 
           disabled={isProcessing}
           className="w-full"
           size="lg"
+          variant="outline"
         >
-          {isProcessing ? (
-            <>
-              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-              Processing...
-            </>
-          ) : (
-            <>
-              <Upload className="h-4 w-4 mr-2" />
-              Select CSV File
-            </>
-          )}
+          <Upload className="h-4 w-4 mr-2" />
+          Select CSV File
         </Button>
+
+        {/* Preview */}
+        {previewRows.length > 0 && (
+          <div className="rounded-lg border p-3 bg-muted/50 text-xs space-y-2">
+            <p className="font-medium text-muted-foreground">Preview (first {previewRows.length} rows)</p>
+            {previewRows.map((row, idx) => (
+              <div key={idx} className="font-mono flex justify-between">
+                <span className="truncate pr-2">{row.description}</span>
+                <span className={row.isIncome ? 'text-green-600' : 'text-destructive'}>
+                  {row.isIncome ? '+' : ''}{formatSats(row.amount)} sats
+                </span>
+              </div>
+            ))}
+            <p className="text-[10px] text-muted-foreground pt-1">
+              Detected unit: <strong>{csvUnit.toUpperCase()}</strong>. Import will convert to sats using the live BTC price.
+            </p>
+          </div>
+        )}
+
+        {/* Import button — only visible after a file is chosen */}
+        {selectedFile && previewRows.length > 0 && (
+          <Button onClick={handleImport} disabled={isProcessing} className="w-full" size="lg">
+            {isProcessing ? (
+              <>
+                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                Importing...
+              </>
+            ) : (
+              `Import ${previewRows.length > 0 ? 'CSV' : ''}`
+            )}
+          </Button>
+        )}
       </div>
 
-      {/* Format Help */}
+      {/* Format Help (example matches chosen unit) */}
       <div className="space-y-3 p-4 bg-muted rounded-lg">
         <p className="text-sm font-medium">CSV Format</p>
         <p className="text-xs text-muted-foreground">
-          Your CSV should have columns for: <strong>date</strong>, <strong>description</strong>, <strong>amount</strong>
+          Columns: <strong>date, description, amount</strong>
         </p>
         <div className="font-mono text-xs bg-background p-2 rounded border">
           date,description,amount<br />
-          2024-01-15,Coffee Shop,-450<br />
-          2024-01-14,Paycheck,50000
+          {csvUnit === 'usd' ? (
+            <>2024-01-15,Coffee Shop,-4.50<br />2024-01-14,Paycheck,5000</>
+          ) : (
+            <>2024-01-15,Coffee Shop,-450<br />2024-01-14,Paycheck,5000000</>
+          )}
         </div>
         <p className="text-xs text-muted-foreground">
-          Negative amounts = expenses, positive = income. Amounts in sats.
+          {csvUnit === 'usd'
+            ? 'Negative = expense, positive = income. Amounts in USD.'
+            : 'Negative = expense, positive = income. Amounts in sats.'}
         </p>
       </div>
 

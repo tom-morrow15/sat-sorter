@@ -281,30 +281,26 @@ export function AddTransactionDialog({
            )}
          </div>
  
-          <div className="space-y-2">
-            {!canSave && (
-              <p className="text-xs text-destructive">
-                Please fill in all required fields: description, amount, category, and line item.
-              </p>
-            )}
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => onOpenChange(false)}>
-                Cancel
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={handleOpenSplit}
-                disabled={!description.trim() || totalSats <= 0}
-                className="gap-2"
-              >
-                <Scissors className="h-4 w-4" />
-                Split
-              </Button>
-              <Button onClick={handleSave} disabled={!canSave}>
-                Save Transaction
-              </Button>
-            </div>
-          </div>
+           <div className="space-y-2">
+             {/* Validation message is deferred until the user attempts to save (P3.7) */}
+             <div className="flex justify-end gap-2">
+               <Button variant="outline" onClick={() => onOpenChange(false)}>
+                 Cancel
+               </Button>
+               <Button
+                 variant="ghost"
+                 onClick={handleOpenSplit}
+                 disabled={!description.trim() || totalSats <= 0}
+                 className="gap-2"
+               >
+                 <Scissors className="h-4 w-4" />
+                 Split
+               </Button>
+               <Button onClick={handleSave} disabled={!canSave}>
+                 Save Transaction
+               </Button>
+             </div>
+           </div>
        </DialogContent>
 
        {/* Split Editor for new transaction */}
