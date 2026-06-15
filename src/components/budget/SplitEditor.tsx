@@ -69,8 +69,8 @@ export function SplitEditor({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[480px] p-0">
-        <DialogHeader className="px-6 pt-6 pb-4">
+      <DialogContent className="sm:max-w-[480px] p-0 max-h-[85dvh] flex flex-col overflow-hidden">
+        <DialogHeader className="px-6 pt-6 pb-4 shrink-0">
           <div className="flex items-center justify-between">
             <div>
               <DialogTitle>Split Transaction</DialogTitle>
@@ -84,7 +84,8 @@ export function SplitEditor({
           </div>
         </DialogHeader>
 
-        <div className="px-6 pb-6 space-y-6">
+        {/* Scrollable body — keeps action buttons reachable even with many splits */}
+        <div className="flex-1 overflow-y-auto px-6 pb-6 space-y-6 min-h-0">
           {/* Total Amount - Clean and prominent at the top */}
           <div className="text-center p-6 bg-muted rounded-2xl">
             <p className="text-xs text-muted-foreground mb-1">TOTAL AMOUNT</p>
@@ -155,9 +156,11 @@ export function SplitEditor({
               Add splits until remaining is $0.00
             </div>
           )}
+        </div>
 
-          {/* Actions */}
-          <div className="flex gap-3 pt-2">
+        {/* Sticky footer — always visible, never scrolls out of reach */}
+        <div className="shrink-0 border-t bg-background px-6 py-4">
+          <div className="flex gap-3">
             <Button variant="outline" onClick={handleClose} className="flex-1">
               Cancel
             </Button>

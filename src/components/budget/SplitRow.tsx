@@ -65,6 +65,13 @@ export function SplitRow({
     }
   };
 
+  // Auto-clear leading zero when user focuses an amount that starts at 0
+  const handleAmountFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    if (amountInput === '0' || amountInput === '0.00') {
+      e.target.select();
+    }
+  };
+
   return (
     <div className="p-4 border rounded-xl bg-muted/50 space-y-3">
       <div className="flex justify-between items-center">
@@ -108,6 +115,7 @@ export function SplitRow({
         min="0"
         value={amountInput}
         onChange={(e) => handleAmountChange(e.target.value)}
+        onFocus={handleAmountFocus}
         placeholder="0.00"
       />
     </div>
