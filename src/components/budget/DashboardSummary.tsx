@@ -1,11 +1,9 @@
-import { TrendingUp, TrendingDown, Wallet, Target, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { TrendingDown, Wallet, PiggyBank, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { CircularProgress } from './CircularProgress';
 import { useBitcoinPrice, formatSats, satsToUsd, formatUsd } from '@/hooks/useBitcoinPrice';
 import {
-  calculateTotalIncomeSats,
   calculateTotalExpensesSats,
-  calculateTotalIncomeUsd,
   calculateTotalExpensesUsd,
   calculateSpentForBucket,
 } from '@/lib/budgetTypes';
@@ -18,19 +16,17 @@ interface DashboardSummaryProps {
 }
 
 /**
- * Professional dashboard summary showing key budget metrics at a glance.
- * Inspired by EveryDollar/YNAB dashboard overviews.
+ * Spending tracker dashboard. Focuses on actual spending vs. plan —
+ * complementing (not duplicating) the header's Income/Planned/Remaining.
+ *
+ * The header answers: "Is my budget balanced?"
+ * This answers: "How am I tracking against my plan this month?"
  */
 export function DashboardSummary({ buckets, transactions, currency }: DashboardSummaryProps) {
   const { data: priceData } = useBitcoinPrice();
   const btcPrice = priceData?.usdPerBtc ?? 0;
 
-  // Calculate totals
   const expenseBuckets = buckets.filter((b) => !b.isIncome);
-
-  const totalIncome = currency === 'usd' && btcPrice
-    ? calculateTotalIncomeUsd(buckets, btcPrice)
-    : calculateTotalIncomeSats(buckets, btcPrice);
 
   const totalPlanned = currency === 'usd' && btcPrice
     ? calculateTotalExpensesUsd(buckets, btcPrice)
@@ -45,102 +41,134 @@ export function DashboardSummary({ buckets, transactions, currency }: DashboardS
     ? satsToUsd(totalSpentSats, btcPrice)
     : totalSpentSats;
 
-  const remaining = totalIncome - totalPlanned;
+  // Amount still available to spend
+  const leftToSpend = totalPlanned - totalSpent;
 
   // Percentage spent of planned budget
   const spentPercentage = totalPlanned > 0
     ? Math.round((totalSpent / totalPlanned) * 100)
     : 0;
 
-  // Budget status
-  const isZeroed = Math.abs(remaining) < (currency === 'usd' ? 0.01 : 1) && totalIncome > 0;
-  const isOver = remaining < 0;
+  const isOverspent = totalSpent > totalPlanned;
+  const isOnTrack = spentPercentage <= 75;
+
+  // Count categories over budget
+  const overBudgetCount = expenseBuckets.filter((bucket) => {
+    const bucketSpentSats = calculateSpentForBucket(bucket, transactions);
+    const bucketPlanned = currency === 'usd' && btcPrice
+      ? calculateTotalExpensesUsd([bucket], btcPrice)
+      : calculateTotalExpensesSats([bucket], btcPrice);
+    const bucketSpent = currency === 'usd' && btcPrice
+      ? satsToUsd(bucketSpentSats, btcPrice)
+      : bucketSpentSats;
+    return bucketSpent > bucketPlanned && bucketPlanned > 0;
+  }).length;
 
   const formatAmount = (amount: number) => {
     if (currency === 'usd') return formatUsd(amount);
     return `${formatSats(Math.round(amount))}`;
   };
 
-  const metrics = [
-    {
-      label: 'Income',
-      value: formatAmount(totalIncome),
-      icon: TrendingUp,
-      iconColor: 'text-success',
-      iconBg: 'bg-success/10',
-    },
-    {
-      label: 'Planned',
-      value: formatAmount(totalPlanned),
-      icon: Target,
-      iconColor: 'text-primary',
-      iconBg: 'bg-primary/10',
-    },
-    {
-      label: 'Spent',
-      value: formatAmount(totalSpent),
-      icon: Wallet,
-      iconColor: spentPercentage > 90 ? 'text-orange-500' : 'text-blue-500',
-      iconBg: spentPercentage > 90 ? 'bg-orange-500/10' : 'bg-blue-500/10',
-    },
-  ];
+  // Don't render if there's no budget to track yet
+  if (totalPlanned === 0) {
+    return null;
+  }
 
   return (
     <div className="bg-card rounded-2xl border shadow-sm p-5 sm:p-6">
-      <div className="flex flex-col sm:flex-row items-center gap-6">
-        {/* Circular progress indicator */}
-        <div className="flex-shrink-0 flex flex-col items-center gap-2">
-          <CircularProgress
-            percentage={spentPercentage}
-            size={96}
-            strokeWidth={8}
-            value={`${spentPercentage}%`}
-            label="spent"
-          />
-          <div className="text-center">
-            {isOver ? (
-              <div className="flex items-center gap-1 text-destructive text-xs font-medium">
-                <AlertTriangle className="h-3.5 w-3.5" />
-                Over budget
-              </div>
-            ) : isZeroed ? (
-              <div className="flex items-center gap-1 text-success text-xs font-medium">
-                <CheckCircle2 className="h-3.5 w-3.5" />
-                Fully budgeted
-              </div>
-            ) : (
-              <div className="text-xs text-muted-foreground font-medium">
-                {formatAmount(Math.abs(remaining))} to budget
-              </div>
-            )}
+      <div className="flex items-center justify-between mb-5">
+        <div className="flex items-center gap-2.5">
+          <div className="h-8 w-1 rounded-full bg-gradient-to-b from-blue-500 to-cyan-400" />
+          <div>
+            <h2 className="text-lg font-bold tracking-tight">Spending This Month</h2>
+            <p className="text-xs text-muted-foreground">
+              {isOverspent ? 'You\'ve exceeded your plan' : `${formatAmount(leftToSpend)} left to spend`}
+            </p>
           </div>
         </div>
+        {/* Status pill */}
+        {isOverspent ? (
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-destructive/10 text-destructive text-xs font-medium">
+            <AlertTriangle className="h-3.5 w-3.5" />
+            Overspent
+          </div>
+        ) : isOnTrack ? (
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-success/10 text-success text-xs font-medium">
+            <CheckCircle2 className="h-3.5 w-3.5" />
+            On track
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 text-xs font-medium">
+            <TrendingDown className="h-3.5 w-3.5" />
+            Watch spending
+          </div>
+        )}
+      </div>
 
-        {/* Metrics grid */}
-        <div className="grid grid-cols-3 gap-3 sm:gap-4 flex-1 w-full">
-          {metrics.map((metric) => {
-            const Icon = metric.icon;
-            return (
-              <div
-                key={metric.label}
-                className="flex flex-col items-center sm:items-start gap-2 p-3 rounded-xl bg-muted/30"
-              >
-                <div className={cn('h-9 w-9 rounded-lg flex items-center justify-center', metric.iconBg)}>
-                  <Icon className={cn('h-4.5 w-4.5', metric.iconColor)} />
-                </div>
-                <div className="text-center sm:text-left">
-                  <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">
-                    {metric.label}
-                  </p>
-                  <p className="text-base sm:text-lg font-bold tabular-nums leading-tight">
-                    {metric.value}
-                  </p>
-                </div>
-              </div>
-            );
-          })}
+      <div className="flex items-center gap-6">
+        {/* Circular progress indicator */}
+        <div className="flex-shrink-0">
+          <CircularProgress
+            percentage={spentPercentage}
+            size={104}
+            strokeWidth={9}
+            value={`${spentPercentage}%`}
+            label="of plan"
+          />
+        </div>
+
+        {/* Spent vs Left breakdown */}
+        <div className="flex-1 space-y-3">
+          {/* Spent */}
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-lg bg-blue-500/10 flex items-center justify-center flex-shrink-0">
+              <Wallet className="h-5 w-5 text-blue-500" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">
+                Spent
+              </p>
+              <p className="text-lg font-bold tabular-nums leading-tight">
+                {formatAmount(totalSpent)}
+              </p>
+            </div>
+          </div>
+
+          {/* Left to spend */}
+          <div className="flex items-center gap-3">
+            <div className={cn(
+              'h-10 w-10 rounded-lg flex items-center justify-center flex-shrink-0',
+              isOverspent ? 'bg-destructive/10' : 'bg-success/10'
+            )}>
+              <PiggyBank className={cn(
+                'h-5 w-5',
+                isOverspent ? 'text-destructive' : 'text-success'
+              )} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">
+                {isOverspent ? 'Over by' : 'Left to spend'}
+              </p>
+              <p className={cn(
+                'text-lg font-bold tabular-nums leading-tight',
+                isOverspent ? 'text-destructive' : 'text-foreground'
+              )}>
+                {formatAmount(Math.abs(leftToSpend))}
+              </p>
+            </div>
+          </div>
         </div>
       </div>
+
+      {/* Over-budget categories warning */}
+      {overBudgetCount > 0 && (
+        <div className="mt-4 pt-4 border-t flex items-center gap-2 text-xs text-muted-foreground">
+          <AlertTriangle className="h-3.5 w-3.5 text-orange-500 flex-shrink-0" />
+          <span>
+            {overBudgetCount} {overBudgetCount === 1 ? 'category is' : 'categories are'} over budget
+          </span>
+        </div>
+      )}
     </div>
   );
 }
