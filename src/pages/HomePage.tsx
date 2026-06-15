@@ -138,47 +138,9 @@ export default function HomePage() {
         <div className="space-y-4">
           {/* Income bucket - always first */}
            {incomeBucket && (
-             <BucketCard
-               bucket={incomeBucket}
-               buckets={currentBudget.buckets}
-               transactions={currentBudget.transactions}
-               currency={currency}
-               merchants={merchants}
-               onUpdateBucket={updateBucket}
-               onDeleteBucket={deleteBucket}
-               onAddLineItem={addLineItem}
-               onUpdateLineItem={updateLineItem}
-               onDeleteLineItem={deleteLineItem}
-               onAddTransaction={addTransaction}
-               onViewTransactions={handleViewTransactions}
-             />
-           )}
-
-          {/* Section header for expenses */}
-          <div className="flex items-center justify-between pt-2">
-            <div className="flex items-center gap-2">
-              <h2 className="text-base font-semibold">Expense Categories</h2>
-              <span className="text-sm text-muted-foreground">
-                ({expenseBuckets.length})
-              </span>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowAddBucket(true)}
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              <span className="hidden sm:inline">Add Category</span>
-              <span className="sm:hidden">Add</span>
-            </Button>
-          </div>
-
-           {/* Expense buckets */}
-           <div className="space-y-3">
-             {expenseBuckets.map((bucket) => (
+             <div className="animate-slide-in-up" style={{ animationDelay: '0s' }}>
                <BucketCard
-                 key={bucket.id}
-                 bucket={bucket}
+                 bucket={incomeBucket}
                  buckets={currentBudget.buckets}
                  transactions={currentBudget.transactions}
                  currency={currency}
@@ -191,8 +153,54 @@ export default function HomePage() {
                  onAddTransaction={addTransaction}
                  onViewTransactions={handleViewTransactions}
                />
-             ))}
+             </div>
+           )}
+
+           {/* Section header for expenses */}
+           <div className="flex items-center justify-between pt-2 animate-fade-in" style={{ animationDelay: '0.1s' }}>
+             <div className="flex items-center gap-2">
+               <h2 className="text-base font-semibold">Expense Categories</h2>
+               <span className="text-sm text-muted-foreground">
+                 ({expenseBuckets.length})
+               </span>
+             </div>
+             <Button
+               variant="outline"
+               size="sm"
+               onClick={() => setShowAddBucket(true)}
+               className="btn-interactive"
+             >
+               <Plus className="h-4 w-4 mr-1" />
+               <span className="hidden sm:inline">Add Category</span>
+               <span className="sm:hidden">Add</span>
+             </Button>
            </div>
+
+            {/* Expense buckets */}
+            <div className="space-y-3">
+              {expenseBuckets.map((bucket, index) => (
+                <div
+                  key={bucket.id}
+                  className="animate-slide-in-up"
+                  style={{ animationDelay: `${0.2 + index * 0.1}s` }}
+                >
+                  <BucketCard
+                    bucket={bucket}
+                    buckets={currentBudget.buckets}
+                    transactions={currentBudget.transactions}
+                    currency={currency}
+                    merchants={merchants}
+                    onUpdateBucket={updateBucket}
+                    onDeleteBucket={deleteBucket}
+                    onAddLineItem={addLineItem}
+                    onUpdateLineItem={updateLineItem}
+                    onDeleteLineItem={deleteLineItem}
+                    onAddTransaction={addTransaction}
+                    onViewTransactions={handleViewTransactions}
+                  />
+                </div>
+              ))}
+            </div>
 
           {/* Empty state for no expense buckets */}
           {expenseBuckets.length === 0 && (

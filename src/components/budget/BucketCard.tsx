@@ -183,7 +183,7 @@ export function BucketCard({
   return (
     <Card
       className={cn(
-        'overflow-hidden transition-all duration-200 hover-lift',
+        'overflow-hidden card-interactive',
         bucket.isIncome && 'ring-2 ring-success/30'
       )}
     >
