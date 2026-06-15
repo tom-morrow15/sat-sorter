@@ -231,37 +231,40 @@ export function BudgetHeader({
       window.location.reload();
    };
 
-  return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 safe-top">
-      <div className="container mx-auto px-3 sm:px-4">
-        {/* Top bar with logo and actions */}
-        <div className="flex h-14 items-center justify-between">
-          <div className="flex items-center gap-2 sm:gap-3">
-            <div className="relative">
-              <button onClick={toggleLogo} className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl bg-gradient-to-br from-primary to-orange-600 flex items-center justify-center shadow-lg bitcoin-glow">
-                {logoStyle === 'bitcoin' ? (
-                  <Bitcoin className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
-                ) : (
-                  <Zap className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
-                )}
-              </button>
-            </div>
-            <div>
-              <h1 className="text-lg sm:text-xl font-bold tracking-tight">Sat Sorter</h1>
-              <p className="text-[10px] sm:text-xs text-muted-foreground hidden sm:block">Zero-based budgeting</p>
-            </div>
-          </div>
+   return (
+     <header className="sticky top-0 z-50 w-full bg-header-gradient text-white relative overflow-hidden safe-top">
+       {/* Decorative mesh background */}
+       <div className="absolute inset-0 bg-mesh-gradient opacity-30 pointer-events-none" />
+       
+       <div className="container mx-auto px-3 sm:px-4 relative z-10">
+         {/* Top bar with logo and actions */}
+         <div className="flex h-16 items-center justify-between">
+           <div className="flex items-center gap-3 sm:gap-4">
+             <div className="relative">
+               <button onClick={toggleLogo} className="h-10 w-10 sm:h-12 sm:w-12 rounded-lg bg-white/20 backdrop-blur-sm hover:bg-white/30 flex items-center justify-center transition-all duration-300 border border-white/30">
+                 {logoStyle === 'bitcoin' ? (
+                   <Bitcoin className="h-6 w-6 sm:h-7 sm:w-7 text-white" />
+                 ) : (
+                   <Zap className="h-6 w-6 sm:h-7 sm:w-7 text-white" />
+                 )}
+               </button>
+             </div>
+             <div>
+               <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">Sat Sorter</h1>
+               <p className="text-xs sm:text-sm text-white/80 hidden sm:block">Zero-based Bitcoin budgeting</p>
+             </div>
+           </div>
 
-          <div className="flex items-center gap-1 sm:gap-2">
-            {/* Bitcoin Price - Hidden on small mobile */}
-            {priceData && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Badge variant="secondary" className="hidden md:flex gap-1 font-mono text-xs">
-                    <Bitcoin className="h-3 w-3" />
-                    {formatUsd(priceData.usdPerBtc)}
-                  </Badge>
-                </TooltipTrigger>
+           <div className="flex items-center gap-2 sm:gap-3">
+             {/* Bitcoin Price - Hidden on small mobile */}
+             {priceData && (
+               <Tooltip>
+                 <TooltipTrigger asChild>
+                   <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 font-mono text-sm text-white">
+                     <Bitcoin className="h-4 w-4" />
+                     {formatUsd(priceData.usdPerBtc)}
+                   </div>
+                 </TooltipTrigger>
                 <TooltipContent>
                   <p>Current Bitcoin price</p>
                   <p className="text-xs text-muted-foreground">
@@ -271,52 +274,50 @@ export function BudgetHeader({
               </Tooltip>
             )}
 
-            {/* Currency Toggle */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={onToggleCurrency}
-                  disabled={priceLoading}
-                  className="h-8 w-8 sm:h-9 sm:w-9"
-                >
-                  {currency === 'sats' ? (
-                    <Bitcoin className="h-4 w-4" />
-                  ) : (
-                    <DollarSign className="h-4 w-4" />
-                  )}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                Switch to {currency === 'sats' ? 'USD' : 'Sats'} view
-              </TooltipContent>
-            </Tooltip>
+             {/* Currency Toggle */}
+             <Tooltip>
+               <TooltipTrigger asChild>
+                 <Button
+                   size="icon"
+                   onClick={onToggleCurrency}
+                   disabled={priceLoading}
+                   className="h-9 w-9 sm:h-10 sm:w-10 bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white border border-white/30"
+                 >
+                   {currency === 'sats' ? (
+                     <Bitcoin className="h-4 w-4" />
+                   ) : (
+                     <DollarSign className="h-4 w-4" />
+                   )}
+                 </Button>
+               </TooltipTrigger>
+               <TooltipContent>
+                 Switch to {currency === 'sats' ? 'USD' : 'Sats'} view
+               </TooltipContent>
+             </Tooltip>
 
-            {/* Wallet Button with notification badge */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={onOpenWallet}
-                  className="h-8 w-8 sm:h-9 sm:w-9 relative"
-                >
-                  <Wallet className="h-4 w-4" />
-                  {unassignedCount > 0 && (
-                    <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center">
-                      {unassignedCount > 9 ? '9+' : unassignedCount}
-                    </span>
-                  )}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                {unassignedCount > 0
-                  ? `${unassignedCount} transaction${unassignedCount !== 1 ? 's' : ''} to categorize`
-                  : 'Wallet'
-                }
-              </TooltipContent>
-            </Tooltip>
+             {/* Wallet Button with notification badge */}
+             <Tooltip>
+               <TooltipTrigger asChild>
+                 <Button
+                   size="icon"
+                   onClick={onOpenWallet}
+                   className="h-9 w-9 sm:h-10 sm:w-10 bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white border border-white/30 relative"
+                 >
+                   <Wallet className="h-4 w-4" />
+                   {unassignedCount > 0 && (
+                     <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-yellow-300 text-yellow-900 text-[10px] font-bold flex items-center justify-center">
+                       {unassignedCount > 9 ? '9+' : unassignedCount}
+                     </span>
+                   )}
+                 </Button>
+               </TooltipTrigger>
+               <TooltipContent>
+                 {unassignedCount > 0
+                   ? `${unassignedCount} transaction${unassignedCount !== 1 ? 's' : ''} to categorize`
+                   : 'Wallet'
+                 }
+               </TooltipContent>
+             </Tooltip>
 
             {/* Account Switcher (when logged in) */}
             {user && (
@@ -330,23 +331,22 @@ export function BudgetHeader({
               </div>
             )}
 
-            {/* App Menu - Always visible */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 sm:h-9 sm:w-9 relative"
-                >
-                  <Menu className="h-4 w-4" />
-                  {needRefresh && (
-                    <span className="absolute top-1 right-1 flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-                    </span>
-                  )}
-                </Button>
-              </DropdownMenuTrigger>
+             {/* App Menu - Always visible */}
+             <DropdownMenu>
+               <DropdownMenuTrigger asChild>
+                 <Button
+                   size="icon"
+                   className="h-9 w-9 sm:h-10 sm:w-10 bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white border border-white/30 relative"
+                 >
+                   <Menu className="h-4 w-4" />
+                   {needRefresh && (
+                     <span className="absolute top-1 right-1 flex h-2 w-2">
+                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-300 opacity-75"></span>
+                       <span className="relative inline-flex rounded-full h-2 w-2 bg-yellow-300"></span>
+                     </span>
+                   )}
+                 </Button>
+               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
                 {/* Account */}
                 {!user && (
@@ -451,61 +451,67 @@ export function BudgetHeader({
             </div>
           )}
 
-          {/* Month navigation */}
-          <div className="flex items-center justify-center gap-2 sm:gap-4">
-            <Button variant="ghost" size="icon" onClick={onPreviousMonth} className="h-8 w-8">
-              <ChevronLeft className="h-4 w-4 sm:h-5 sm:w-5" />
-            </Button>
-            <button
-              onClick={() => setShowMonthPicker(true)}
-              className="flex items-center gap-2 px-3 py-1 rounded-lg hover:bg-muted transition-colors"
-            >
-              <h2 className="text-base sm:text-lg font-semibold min-w-[120px] sm:min-w-[160px] text-center">
-                {formatMonth(currentMonth)}
-              </h2>
-              <Calendar className="h-4 w-4 text-muted-foreground" />
-            </button>
-            <Button variant="ghost" size="icon" onClick={onNextMonth} className="h-8 w-8">
-              <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5" />
-            </Button>
-          </div>
-
-           {/* Budget totals - Responsive grid */}
-           <div className="grid grid-cols-3 gap-2 sm:gap-4 text-center">
-             <div className="space-y-0.5 sm:space-y-1">
-               <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wide">Income</p>
-               <p className="text-sm sm:text-lg font-bold text-success tabular-nums">
-                 <span className="sm:hidden">{formatAmountCompact(totalIncome)}</span>
-                 <span className="hidden sm:inline">{formatAmount(totalIncome)}</span>
-               </p>
-             </div>
-
-             <div className="space-y-0.5 sm:space-y-1">
-               <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wide">Planned</p>
-               <p className="text-sm sm:text-lg font-bold tabular-nums">
-                 <span className="sm:hidden">{formatAmountCompact(totalExpenses)}</span>
-                 <span className="hidden sm:inline">{formatAmount(totalExpenses)}</span>
-               </p>
-             </div>
-
-             <div className="space-y-0.5 sm:space-y-1">
-               <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wide">
-                 <span className="sm:hidden">Left</span>
-                 <span className="hidden sm:inline">Left to Budget</span>
-               </p>
-               <p
-                 className={cn(
-                   'text-sm sm:text-lg font-bold tabular-nums',
-                   isZeroed && 'text-success',
-                   isOver && 'text-destructive',
-                   !isZeroed && !isOver && 'text-primary'
-                 )}
-               >
-                 <span className="sm:hidden">{formatAmountCompact(Math.abs(remaining))}</span>
-                 <span className="hidden sm:inline">{formatAmount(Math.abs(remaining))}</span>
-               </p>
-             </div>
+           {/* Month navigation */}
+           <div className="flex items-center justify-center gap-3 py-6">
+             <Button size="icon" onClick={onPreviousMonth} className="h-10 w-10 bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white border border-white/30">
+               <ChevronLeft className="h-5 w-5" />
+             </Button>
+             <button
+               onClick={() => setShowMonthPicker(true)}
+               className="flex items-center gap-3 px-6 py-2 rounded-lg hover:bg-white/10 transition-colors"
+             >
+               <div>
+                 <p className="text-xs text-white/70 uppercase tracking-widest">Current Month</p>
+                 <h2 className="text-3xl font-bold text-white">
+                   {formatMonth(currentMonth)}
+                 </h2>
+               </div>
+               <Calendar className="h-5 w-5 text-white/60" />
+             </button>
+             <Button size="icon" onClick={onNextMonth} className="h-10 w-10 bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white border border-white/30">
+               <ChevronRight className="h-5 w-5" />
+             </Button>
            </div>
+
+            {/* Budget totals - Responsive grid with cards */}
+            <div className="grid grid-cols-3 gap-3 sm:gap-4 pb-6">
+              {/* Income */}
+              <div className="rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 p-4 text-center">
+                <p className="text-xs text-white/70 uppercase tracking-widest mb-2">Income</p>
+                <p className="text-2xl sm:text-3xl font-bold text-green-300 tabular-nums">
+                  <span className="sm:hidden">{formatAmountCompact(totalIncome)}</span>
+                  <span className="hidden sm:inline">{formatAmount(totalIncome)}</span>
+                </p>
+              </div>
+
+              {/* Planned */}
+              <div className="rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 p-4 text-center">
+                <p className="text-xs text-white/70 uppercase tracking-widest mb-2">Planned</p>
+                <p className="text-2xl sm:text-3xl font-bold text-white tabular-nums">
+                  <span className="sm:hidden">{formatAmountCompact(totalExpenses)}</span>
+                  <span className="hidden sm:inline">{formatAmount(totalExpenses)}</span>
+                </p>
+              </div>
+
+              {/* Remaining */}
+              <div className="rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 p-4 text-center">
+                <p className="text-xs text-white/70 uppercase tracking-widest mb-2">
+                  <span className="sm:hidden">Left</span>
+                  <span className="hidden sm:inline">Remaining</span>
+                </p>
+                <p
+                  className={cn(
+                    'text-2xl sm:text-3xl font-bold tabular-nums',
+                    isZeroed && 'text-green-300',
+                    isOver && 'text-red-300',
+                    !isZeroed && !isOver && 'text-blue-300'
+                  )}
+                >
+                  <span className="sm:hidden">{formatAmountCompact(Math.abs(remaining))}</span>
+                  <span className="hidden sm:inline">{formatAmount(Math.abs(remaining))}</span>
+                </p>
+              </div>
+            </div>
 
           {/* Zero-based budget indicator */}
           <div className="flex justify-center">
