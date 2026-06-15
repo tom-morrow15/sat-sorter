@@ -7,6 +7,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/useToast';
 import { BudgetHeader } from '@/components/budget/BudgetHeader';
 import { BucketCard } from '@/components/budget/BucketCard';
+import { DashboardSummary } from '@/components/budget/DashboardSummary';
 import { AddBucketDialog } from '@/components/budget/AddBucketDialog';
 import { LoginArea } from '@/components/auth/LoginArea';
 import { useBudget } from '@/hooks/useBudget';
@@ -134,11 +135,20 @@ export default function HomePage() {
           )}
         </div>
 
+        {/* Dashboard Summary - at-a-glance overview */}
+        <div className="mb-6 animate-slide-in-up" style={{ animationDelay: '0s', animationFillMode: 'both' }}>
+          <DashboardSummary
+            buckets={currentBudget.buckets}
+            transactions={currentBudget.transactions}
+            currency={currency}
+          />
+        </div>
+
         {/* Main Layout - Budget Categories */}
         <div className="space-y-4">
           {/* Income bucket - always first */}
            {incomeBucket && (
-             <div className="animate-slide-in-up" style={{ animationDelay: '0s', animationFillMode: 'both' }}>
+             <div className="animate-slide-in-up" style={{ animationDelay: '0.1s', animationFillMode: 'both' }}>
                <BucketCard
                  bucket={incomeBucket}
                  buckets={currentBudget.buckets}
