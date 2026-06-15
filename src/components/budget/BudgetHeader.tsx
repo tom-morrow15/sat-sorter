@@ -478,51 +478,45 @@ export function BudgetHeader({
              </Button>
            </div>
 
-            {/* Budget totals - Responsive grid with cards */}
-            <div className="grid grid-cols-3 gap-3 sm:gap-4 pb-6">
-              {/* Income */}
-              <div className="rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 p-4 text-center">
-                <p className="text-xs text-white/70 uppercase tracking-widest mb-2">Income</p>
-                <p className="text-2xl sm:text-3xl font-bold text-green-300 tabular-nums">
-                  <span className="sm:hidden">{formatAmountCompact(totalIncome)}</span>
-                  <span className="hidden sm:inline">{formatAmount(totalIncome)}</span>
-                </p>
-              </div>
-
-              {/* Planned */}
-              <div className="rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 p-4 text-center">
-                <p className="text-xs text-white/70 uppercase tracking-widest mb-2">Planned</p>
-                <p className="text-2xl sm:text-3xl font-bold text-white tabular-nums">
-                  <span className="sm:hidden">{formatAmountCompact(totalExpenses)}</span>
-                  <span className="hidden sm:inline">{formatAmount(totalExpenses)}</span>
-                </p>
-              </div>
-
-              {/* Remaining */}
-              <div className="rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 p-4 text-center">
-                <p className="text-xs text-white/70 uppercase tracking-widest mb-2">
-                  <span className="sm:hidden">Left</span>
-                  <span className="hidden sm:inline">Remaining</span>
-                </p>
-                <p
-                  className={cn(
-                    'text-2xl sm:text-3xl font-bold tabular-nums',
-                    isZeroed && 'text-green-300',
-                    isOver && 'text-red-300',
-                    !isZeroed && !isOver && 'text-blue-300'
-                  )}
-                >
-                  <span className="sm:hidden">{formatAmountCompact(Math.abs(remaining))}</span>
-                  <span className="hidden sm:inline">{formatAmount(Math.abs(remaining))}</span>
-                </p>
-              </div>
-            </div>
+             {/* Budget totals - Responsive grid with cards */}
+             <div className="grid grid-cols-3 gap-3 sm:gap-4 pb-6">
+               {/* Income */}
+               <div className="rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 p-3 sm:p-4 text-center min-w-0">
+                 <p className="text-xs text-white/70 uppercase tracking-widest mb-1">Income</p>
+                 <p className="text-xl sm:text-3xl font-bold text-green-300 tabular-nums whitespace-nowrap overflow-hidden text-ellipsis">
+                   {formatAmountCompact(totalIncome)}
+                 </p>
+               </div>
+ 
+               {/* Planned */}
+               <div className="rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 p-3 sm:p-4 text-center min-w-0">
+                 <p className="text-xs text-white/70 uppercase tracking-widest mb-1">Planned</p>
+                 <p className="text-xl sm:text-3xl font-bold text-white tabular-nums whitespace-nowrap overflow-hidden text-ellipsis">
+                   {formatAmountCompact(totalExpenses)}
+                 </p>
+               </div>
+ 
+               {/* Remaining */}
+               <div className="rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 p-3 sm:p-4 text-center min-w-0">
+                 <p className="text-xs text-white/70 uppercase tracking-widest mb-1">Left</p>
+                 <p
+                   className={cn(
+                     'text-xl sm:text-3xl font-bold tabular-nums whitespace-nowrap overflow-hidden text-ellipsis',
+                     isZeroed && 'text-green-300',
+                     isOver && 'text-red-300',
+                     !isZeroed && !isOver && 'text-blue-300'
+                   )}
+                 >
+                   {formatAmountCompact(Math.abs(remaining))}
+                 </p>
+               </div>
+             </div>
 
           {/* Zero-based budget indicator */}
           <div className="flex justify-center">
             {isZeroed ? (
               <Badge className="bg-success text-success-foreground text-xs">
-                ✓ Every sat has a job!
+                ✓ Every {currency === 'usd' ? 'dollar' : 'sat'} has a job!
               </Badge>
             ) : isOver ? (
               <Badge variant="destructive" className="text-xs">

@@ -5,6 +5,8 @@ interface SpendingProgressBarProps {
   budget: number;
   className?: string;
   showLabel?: boolean;
+  currency?: 'sats' | 'usd';
+  formatAmount?: (amount: number) => string;
 }
 
 export function SpendingProgressBar({
@@ -12,12 +14,22 @@ export function SpendingProgressBar({
   budget,
   className,
   showLabel = true,
+  currency = 'usd',
+  formatAmount,
 }: SpendingProgressBarProps) {
   // Calculate percentage spent
   const percentage = budget > 0 ? Math.min((spent / budget) * 100, 100) : 0;
   const actualPercentage = budget > 0 ? (spent / budget) * 100 : 0;
   const remaining = budget - spent;
   const remainingPercent = budget > 0 ? (remaining / budget) * 100 : 0;
+
+  const formatDisplayAmount = (amount: number) => {
+    if (formatAmount) return formatAmount(amount);
+    if (currency === 'usd') {
+      return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+    }
+    return `${amount.toLocaleString()} sats`;
+  };
 
   const isOverBudget = spent > budget;
   const isWarning = remainingPercent <= 20 && remainingPercent > 0; // < 20% remaining
@@ -54,15 +66,15 @@ export function SpendingProgressBar({
           <span className="text-muted-foreground font-medium tabular-nums">
             {actualPercentage.toFixed(0)}% spent
           </span>
-          {!isOverBudget && remaining > 0 ? (
-            <span className="text-muted-foreground tabular-nums">
-              {remainingPercent.toFixed(0)}% left
-            </span>
-          ) : isOverBudget ? (
-            <span className="text-destructive font-medium">
-              Over budget
-            </span>
-          ) : null}
+           {!isOverBudget && remaining > 0 ? (
+             <span className="text-muted-foreground tabular-nums">
+               {remainingPercent.toFixed(0)}% left
+             </span>
+           ) : isOverBudget ? (
+             <span className="text-destructive font-medium">
+               {formatDisplayAmount(Math.abs(remaining))} over
+             </span>
+           ) : null}
         </div>
       )}
     </div>

@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Plus, Bitcoin, Zap, Wallet, Info, Copy } from 'lucide-react';
+import { Plus, Bitcoin, Zap, Wallet, Info, Copy, X } from 'lucide-react';
 import { useSeoMeta, useHead } from '@unhead/react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -9,17 +9,18 @@ import { BudgetHeader } from '@/components/budget/BudgetHeader';
 import { BucketCard } from '@/components/budget/BucketCard';
 import { DashboardSummary } from '@/components/budget/DashboardSummary';
 import { AddBucketDialog } from '@/components/budget/AddBucketDialog';
-import { WalletModalControlled } from '@/components/budget/WalletModalControlled';
 import { LoginArea } from '@/components/auth/LoginArea';
 import { useBudget } from '@/hooks/useBudget';
 import { useWallet } from '@/hooks/useWallet';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useBTCMap } from '@/hooks/useBTCMap';
+import { useLocalStorage } from '@/hooks/useLocalStorage';
 
 export default function HomePage() {
   const navigate = useNavigate();
   const [showAddBucket, setShowAddBucket] = useState(false);
   const [showWalletModal, setShowWalletModal] = useState(false);
+  const [dismissedNwcPrompt, setDismissedNwcPrompt] = useLocalStorage<boolean>('sat-sorter:nwc-prompt-dismissed', false);
   const { toast } = useToast();
 
   const { user } = useCurrentUser();
@@ -114,26 +115,33 @@ export default function HomePage() {
             </Alert>
           )}
 
-          {/* NWC connection prompt */}
-          {user && !hasNWC && (
-            <Alert className="border-primary/30 bg-primary/5">
-              <Zap className="h-4 w-4 text-primary" />
-              <AlertDescription className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <span className="text-sm">
-                  Connect your Lightning wallet to track transactions automatically.
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowWalletModal(true)}
-                  className="shrink-0"
-                >
-                  <Wallet className="h-4 w-4 mr-2" />
-                  Connect
-                </Button>
-              </AlertDescription>
-            </Alert>
-          )}
+           {/* NWC connection prompt — dismissible so it doesn't live persistently */}
+           {user && !hasNWC && !dismissedNwcPrompt && (
+             <Alert className="border-primary/30 bg-primary/5 relative">
+               <button
+                 onClick={() => setDismissedNwcPrompt(true)}
+                 className="absolute top-1.5 right-2 text-muted-foreground hover:text-foreground"
+                 aria-label="Dismiss"
+               >
+                 <X className="h-4 w-4" />
+               </button>
+               <Zap className="h-4 w-4 text-primary" />
+               <AlertDescription className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pr-6">
+                 <span className="text-sm">
+                   Connect your Lightning wallet to track transactions automatically.
+                 </span>
+                 <Button
+                   variant="outline"
+                   size="sm"
+                   onClick={() => setShowWalletModal(true)}
+                   className="shrink-0"
+                 >
+                   <Wallet className="h-4 w-4 mr-2" />
+                   Connect
+                 </Button>
+               </AlertDescription>
+             </Alert>
+           )}
         </div>
 
         {/* Dashboard Summary - at-a-glance overview */}

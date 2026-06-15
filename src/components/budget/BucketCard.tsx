@@ -221,14 +221,14 @@ export function BucketCard({
                    className="h-9 px-3 font-semibold"
                    autoFocus
                  />
-               ) : (
-                 <div className="min-w-0 flex-1">
-                   <h3 className="font-semibold text-base sm:text-lg text-foreground truncate">{bucket.name}</h3>
-                   <p className="text-xs sm:text-sm text-muted-foreground">
-                     {bucket.lineItems.length} item{bucket.lineItems.length !== 1 ? 's' : ''} • ${(total || 0).toFixed(2)}
-                   </p>
-                 </div>
-               )}
+                ) : (
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-semibold text-base sm:text-lg text-foreground break-words leading-tight">{bucket.name}</h3>
+                    <p className="text-xs sm:text-sm text-muted-foreground">
+                      {bucket.lineItems.length} item{bucket.lineItems.length !== 1 ? 's' : ''} • ${(total || 0).toFixed(2)}
+                    </p>
+                  </div>
+                )}
              </div>
 
              <div className="flex items-center gap-2 flex-shrink-0">

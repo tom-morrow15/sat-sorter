@@ -71,16 +71,11 @@ export function SplitEditor({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[480px] p-0 max-h-[85dvh] flex flex-col overflow-hidden">
         <DialogHeader className="px-6 pt-6 pb-4 shrink-0">
-          <div className="flex items-center justify-between">
-            <div>
-              <DialogTitle>Split Transaction</DialogTitle>
-              <DialogDescription>
-                Divide this transaction across multiple budget categories
-              </DialogDescription>
-            </div>
-            <Button variant="ghost" size="icon" onClick={handleClose}>
-              <X className="h-4 w-4" />
-            </Button>
+          <div>
+            <DialogTitle>Split Transaction</DialogTitle>
+            <DialogDescription>
+              Divide this transaction across multiple budget categories
+            </DialogDescription>
           </div>
         </DialogHeader>
 
