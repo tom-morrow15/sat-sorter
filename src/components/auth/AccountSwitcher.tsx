@@ -110,11 +110,11 @@ export function AccountSwitcher({ onAddAccountClick, onBudgetPartnersClick, part
           <DropdownMenuSeparator />
 
           {/* Budget Tools (merged from hamburger menu) */}
-          <DropdownMenuItem onClick={onCopyPreviousMonth}>
+          <DropdownMenuItem onClick={() => onCopyPreviousMonth?.()}>
             <Copy className="h-4 w-4 mr-2" />
             Copy Previous Month
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={onResetBudgetMonth} className="text-destructive focus:text-destructive">
+          <DropdownMenuItem onClick={() => onResetBudgetMonth?.()} className="text-destructive focus:text-destructive">
             <AlertTriangle className="h-4 w-4 mr-2" />
             Reset This Month
           </DropdownMenuItem>
@@ -122,15 +122,15 @@ export function AccountSwitcher({ onAddAccountClick, onBudgetPartnersClick, part
           <DropdownMenuSeparator />
 
           {/* AI & Wallet */}
-          <DropdownMenuItem onClick={onOpenMapleSettings}>
+          <DropdownMenuItem onClick={() => onOpenMapleSettings?.()}>
             <span className="h-4 w-4 mr-2 text-center text-sm">🤖</span>
             Maple AI
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={onOpenPaymentMethods}>
+          <DropdownMenuItem onClick={() => onOpenPaymentMethods?.()}>
             <span className="h-4 w-4 mr-2 text-center text-sm">💳</span>
             Payment Methods
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={onOpenWallet}>
+          <DropdownMenuItem onClick={() => onOpenWallet?.()}>
             <Wallet className="h-4 w-4 mr-2" />
             Lightning Wallet
           </DropdownMenuItem>
@@ -170,11 +170,11 @@ export function AccountSwitcher({ onAddAccountClick, onBudgetPartnersClick, part
           <DropdownMenuSeparator />
 
           {/* Advanced */}
-          <DropdownMenuItem onClick={onRefreshApp}>
+          <DropdownMenuItem onClick={() => onRefreshApp?.()}>
             <RotateCw className="h-4 w-4 mr-2" />
             Refresh App
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={onOpenBackup}>
+          <DropdownMenuItem onClick={() => onOpenBackup?.()}>
             <Cloud className="h-4 w-4 mr-2" />
             Backup & Sync
           </DropdownMenuItem>
