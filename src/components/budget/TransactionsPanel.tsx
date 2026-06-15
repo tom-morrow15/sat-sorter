@@ -47,9 +47,12 @@ interface TransactionsPanelProps {
   buckets: Bucket[];
   currency: 'sats' | 'usd';
   onAddTransaction: (transaction: Omit<Transaction, 'id'>) => void;
+  onAddTransactions?: (transactions: Omit<Transaction, 'id'>[]) => void;
   onAssignTransaction: (transactionId: string, bucketId: string, lineItemId: string) => void;
   onDeleteTransaction: (transactionId: string) => void;
   lineItemIdFilter?: string;
+  paymentMethods?: string[];
+  onAddPaymentMethod?: (method: string) => void;
 }
 
 export function TransactionsPanel({
@@ -57,9 +60,12 @@ export function TransactionsPanel({
   buckets,
   currency,
   onAddTransaction,
+  onAddTransactions,
   onAssignTransaction,
   onDeleteTransaction,
   lineItemIdFilter,
+  paymentMethods: passedPaymentMethods,
+  onAddPaymentMethod,
 }: TransactionsPanelProps) {
   const { data: priceData } = useBitcoinPrice();
   const [showAddDialog, setShowAddDialog] = useState(false);
@@ -77,6 +83,7 @@ export function TransactionsPanel({
   const [newDescription, setNewDescription] = useState('');
   const [newIsIncome, setNewIsIncome] = useState(false);
   const [newPaymentMethod, setNewPaymentMethod] = useState('');
+  const [showAddNewMethod, setShowAddNewMethod] = useState(false);
 
   let paymentMethods: string[] = [];
   try {
@@ -190,28 +197,30 @@ export function TransactionsPanel({
   };
 
   // Save splits for a brand-new transaction (EveryDollar-style: delete original, create new ones)
+  // Use the batch adder when available so all splits are written in a single local state update.
+  // This prevents race conditions where only the last split survives.
   const handleSaveNewSplit = (splits: TransactionSplit[]) => {
-    if (!selectedTransaction) return;
+    if (!selectedTransaction || !splits.length) return;
 
-    // 1. Delete the original (temp) transaction logic doesn't apply here, 
-    //    but we just don't call onAddTransaction for the original.
-    //    We simply create the new split transactions.
-    
-    // 2. Create new transactions for each split
-    splits.forEach(split => {
-      const newTx: Omit<Transaction, 'id'> = {
-        amount: split.amount,
-        amountUsd: split.amountUsd,
-        btcPriceAtEntry: selectedTransaction.btcPriceAtEntry,
-        description: selectedTransaction.description,
-        date: selectedTransaction.date,
-        lineItemId: split.lineItemId,
-        bucketId: split.bucketId,
-        isIncome: selectedTransaction.isIncome,
-        paymentMethod: (selectedTransaction as any).paymentMethod || undefined,
-      };
-      onAddTransaction(newTx);
-    });
+    const base = selectedTransaction;
+    const newTxs: Omit<Transaction, 'id'>[] = splits.map(split => ({
+      amount: split.amount,
+      amountUsd: split.amountUsd,
+      btcPriceAtEntry: base.btcPriceAtEntry,
+      description: base.description,
+      date: base.date,
+      lineItemId: split.lineItemId,
+      bucketId: split.bucketId,
+      isIncome: base.isIncome,
+      paymentMethod: (base as any).paymentMethod || undefined,
+    }));
+
+    if (onAddTransactions) {
+      onAddTransactions(newTxs);
+    } else {
+      // Fallback for older callers
+      newTxs.forEach(t => onAddTransaction(t));
+    }
 
     // Reset form & state
     setNewAmount('');

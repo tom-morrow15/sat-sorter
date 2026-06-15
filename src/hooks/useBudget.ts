@@ -181,7 +181,7 @@ export function useBudget() {
     saveBudget(updatedBudget);
   }, [currentBudget, saveBudget]);
 
-  // Add a transaction
+    // Add a transaction
   const addTransaction = useCallback((transaction: Omit<Transaction, 'id'>) => {
     const newTransaction: Transaction = {
       ...transaction,
@@ -196,6 +196,25 @@ export function useBudget() {
 
     saveBudget(updatedBudget);
     return newTransaction;
+  }, [currentBudget, saveBudget]);
+
+  // Add multiple transactions in a single atomic update (used for splits to avoid stale-closure overwrites)
+  const addTransactions = useCallback((transactions: Omit<Transaction, 'id'>[]) => {
+    if (!transactions.length) return [];
+
+    const newOnes: Transaction[] = transactions.map(t => ({
+      ...t,
+      id: generateId(),
+      date: t.date || new Date().toISOString(),
+    }));
+
+    const updatedBudget = {
+      ...currentBudget,
+      transactions: [...currentBudget.transactions, ...newOnes],
+    };
+
+    saveBudget(updatedBudget);
+    return newOnes;
   }, [currentBudget, saveBudget]);
 
   // Update a transaction (assign to line item)
@@ -586,6 +605,7 @@ export function useBudget() {
 
     // Transaction actions
     addTransaction,
+    addTransactions,
     updateTransaction,
     deleteTransaction,
     assignTransaction,
@@ -615,7 +635,34 @@ export function useBudget() {
      getPreviousMonth,
      hasPreviousMonthBudget,
 
-     // Reset current month
-     resetCurrentMonth,
-   };
- }
+    // Reset current month
+      resetCurrentMonth,
+
+    // Payment methods (synced with budget state for cross-device persistence)
+    paymentMethods: state.paymentMethods || [],
+    addPaymentMethod: (method: string) => {
+      const trimmed = method.trim();
+      if (!trimmed) return;
+      setState(prev => {
+        const current = prev.paymentMethods || [];
+        if (current.includes(trimmed)) return prev;
+        return { ...prev, paymentMethods: [...current, trimmed] };
+      });
+    },
+    removePaymentMethod: (method: string) => {
+      setState(prev => ({
+        ...prev,
+        paymentMethods: (prev.paymentMethods || []).filter(m => m !== method),
+      }));
+    },
+    updatePaymentMethod: (oldMethod: string, newMethod: string) => {
+      const trimmed = newMethod.trim();
+      if (!trimmed || trimmed === oldMethod) return;
+      setState(prev => ({
+        ...prev,
+        paymentMethods: (prev.paymentMethods || []).map(m => m === oldMethod ? trimmed : m),
+      }));
+    },
+  };
+}
+

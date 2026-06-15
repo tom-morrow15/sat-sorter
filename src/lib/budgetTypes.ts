@@ -99,6 +99,7 @@ export interface BudgetState {
   templates?: BudgetTemplate[]; // Saved budget templates
   defaultTemplateId?: string; // ID of template to use for new months
   receivedInvites?: BudgetPartnerInvite[]; // Invites received from other budget owners
+  paymentMethods?: string[]; // User-defined payment methods (e.g. "Citi Credit Card", "ACH", "Cash")
 }
 
 // Helper to generate unique IDs

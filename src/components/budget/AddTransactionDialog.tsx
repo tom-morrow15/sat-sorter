@@ -40,7 +40,10 @@ interface AddTransactionDialogProps {
     isIncome: boolean;
     bucketId: string | null;
     lineItemId: string | null;
+    paymentMethod?: string;
   }) => void;
+  paymentMethods?: string[];
+  onAddPaymentMethod?: (method: string) => void;
 }
 
 export function AddTransactionDialog({

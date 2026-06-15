@@ -23,6 +23,7 @@ export default function TransactionsPage() {
     toggleCurrency,
     setCurrentMonth,
     addTransaction,
+    addTransactions,
     assignTransaction,
     deleteTransaction,
 
@@ -30,6 +31,8 @@ export default function TransactionsPage() {
     resetCurrentMonth,
     availableMonths,
     fullState,
+    paymentMethods,
+    addPaymentMethod,
   } = useBudget();
 
   useSeoMeta({
@@ -142,9 +145,12 @@ export default function TransactionsPage() {
                 buckets={currentBudget.buckets}
                 currency={currency}
                 onAddTransaction={addTransaction}
+                onAddTransactions={addTransactions}
                 onAssignTransaction={assignTransaction}
                 onDeleteTransaction={deleteTransaction}
                 lineItemIdFilter={lineItemIdFilter || undefined}
+                paymentMethods={paymentMethods}
+                onAddPaymentMethod={addPaymentMethod}
               />
         </div>
       </main>

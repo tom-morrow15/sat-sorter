@@ -445,11 +445,22 @@ export function BudgetHeader({
 
                  <DropdownMenuSeparator />
 
-                 {/* Advanced — always available */}
-                 <DropdownMenuItem onClick={handleRefresh}>
-                   <RotateCw className="h-4 w-4 mr-2" />
-                   Refresh App
-                 </DropdownMenuItem>
+                  {/* Advanced — always available */}
+                  <DropdownMenuItem onClick={handleRefresh}>
+                    <RotateCw className="h-4 w-4 mr-2" />
+                    Refresh App
+                  </DropdownMenuItem>
+
+                  {/* Update App (forces a hard reload to pick up the latest build) */}
+                  <DropdownMenuItem onClick={() => window.location.reload()}>
+                    <RotateCw className="h-4 w-4 mr-2" />
+                    Update App
+                  </DropdownMenuItem>
+
+                  {/* Tiny version number at the very bottom of the menu */}
+                  <div className="px-2 pt-2 text-[10px] text-muted-foreground/60 text-center tabular-nums">
+                    v{__APP_VERSION__}
+                  </div>
                </DropdownMenuContent>
              </DropdownMenu>
           </div>

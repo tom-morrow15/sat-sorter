@@ -9,6 +9,13 @@ export default defineConfig(() => ({
     host: "::",
     port: 8080,
   },
+  define: {
+    // Injected at build time so the hamburger menu can show a version that
+    // automatically changes on every deploy.
+    __APP_VERSION__: JSON.stringify(
+      process.env.npm_package_version || new Date().toISOString().slice(0, 19).replace(/[-:T]/g, '')
+    ),
+  },
   plugins: [
     react(),
   ],

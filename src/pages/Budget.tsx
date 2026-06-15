@@ -339,6 +339,7 @@ export default function Budget() {
                 buckets={currentBudget.buckets}
                 currency={currency}
                 onAddTransaction={addTransaction}
+                onAddTransactions={addTransactions}
                 onAssignTransaction={assignTransaction}
                 onDeleteTransaction={deleteTransaction}
               />
