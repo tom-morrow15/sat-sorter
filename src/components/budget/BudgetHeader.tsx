@@ -540,6 +540,9 @@ export function BudgetHeader({
               <Calendar className="h-5 w-5" />
               Select Month
             </DialogTitle>
+            <DialogDescription>
+              Choose a different month to view or edit
+            </DialogDescription>
           </DialogHeader>
           <ScrollArea className="max-h-[400px]">
             <div className="grid grid-cols-2 gap-2 p-1">
