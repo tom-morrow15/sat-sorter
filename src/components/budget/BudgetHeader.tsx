@@ -1,5 +1,11 @@
 import { useState } from 'react';
 import { Bitcoin, DollarSign, ChevronLeft, ChevronRight, Wallet, Zap, Calendar, Menu, Info, Heart, ExternalLink, Shield, Globe, GraduationCap, User, LogIn, UserPlus, Cloud, Moon, Sun, RotateCw, Copy, AlertTriangle } from 'lucide-react';
+
+// Import version directly from package.json.
+// Vite inlines the JSON object at build time, giving us a real string constant.
+// This approach does not depend on Vite's `define` global replacement, which was failing with the SWC plugin.
+import pkg from '../../../package.json';
+const APP_VERSION: string = (pkg as any)?.version ?? 'dev';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -458,9 +464,9 @@ export function BudgetHeader({
                   </DropdownMenuItem>
 
                   {/* Tiny version number at the very bottom of the menu */}
-                  <div className="px-2 pt-2 text-[10px] text-muted-foreground/60 text-center tabular-nums">
-                    v{__APP_VERSION__}
-                  </div>
+                   <div className="px-2 pt-2 text-[10px] text-muted-foreground/60 text-center tabular-nums">
+                     v{APP_VERSION}
+                   </div>
                </DropdownMenuContent>
              </DropdownMenu>
           </div>
