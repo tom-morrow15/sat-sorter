@@ -4,9 +4,8 @@ import fs from "node:fs";
 import react from "@vitejs/plugin-react-swc";
 import { defineConfig } from "vite";
 
-// Read version from package.json at config evaluation time.
-// This is still useful for Vite's `define` if any other code wants the bare global,
-// and provides a reliable fallback. The primary consumption below now imports package.json directly.
+// Resolve version at config load time (works for both `vite` and `vite build`).
+// Preferred source: package.json "version". Fallback: build-time timestamp.
 let version = new Date().toISOString().slice(0, 19).replace("T", " ");
 try {
   const pkgPath = path.resolve(process.cwd(), "package.json");
@@ -18,6 +17,25 @@ try {
   // keep timestamp fallback
 }
 
+const versionValue = JSON.stringify(version);
+
+// Very defensive plugin: replace the bare identifier __APP_VERSION__ at the source level
+// before any JSX/TS transform. This is a belt-and-suspenders measure in case any file
+// (now or in the future) still contains the old global reference. It guarantees that
+// the production bundle never contains an unresolved bare __APP_VERSION__.
+function forceReplaceAppVersion() {
+  return {
+    name: "force-replace-app-version",
+    enforce: "pre" as const,
+    transform(code: string, id: string) {
+      if (id.includes("node_modules") || id.startsWith("\0")) return;
+      if (code.includes("__APP_VERSION__")) {
+        return code.replace(/__APP_VERSION__/g, versionValue);
+      }
+    },
+  };
+}
+
 // https://vitejs.dev/config/
 export default defineConfig({
   server: {
@@ -25,11 +43,16 @@ export default defineConfig({
     port: 8080,
   },
   define: {
-    // Keep the global define for backward compatibility / other potential usage.
-    // The main UI now uses a direct JSON import so it works reliably with any bundler (Vite or esbuild-based preview).
-    __APP_VERSION__: JSON.stringify(version),
+    // Official Vite define (for any code that still references the bare global)
+    __APP_VERSION__: versionValue,
+  },
+  esbuild: {
+    define: {
+      __APP_VERSION__: versionValue,
+    },
   },
   plugins: [
+    forceReplaceAppVersion(),
     react(),
   ],
   resolve: {
