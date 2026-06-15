@@ -227,17 +227,20 @@ export default function HomePage() {
 
           {/* Empty state for no expense buckets */}
           {expenseBuckets.length === 0 && (
-            <div className="text-center py-8 sm:py-12 px-6 sm:px-8 border-2 border-dashed rounded-xl">
-              <div className="h-12 w-12 sm:h-14 sm:w-14 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
-                <Bitcoin className="h-6 w-6 sm:h-7 sm:w-7 text-primary" />
-              </div>
-              <h3 className="font-semibold text-base sm:text-lg mb-2">
-                Start building your budget
-              </h3>
-              <p className="text-muted-foreground text-sm max-w-md mx-auto mb-4">
-                Create expense categories to organize your spending. Give every sat a job.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-2 justify-center">
+            <div className="relative text-center py-12 sm:py-16 px-6 sm:px-8 rounded-2xl bg-gradient-to-br from-card to-muted/40 border shadow-sm overflow-hidden">
+              {/* Decorative background */}
+              <div className="absolute inset-0 bg-mesh-gradient opacity-40 pointer-events-none" />
+              <div className="relative">
+                <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-2xl bg-gradient-to-br from-primary/20 to-orange-500/10 flex items-center justify-center mx-auto mb-5 shadow-sm">
+                  <Bitcoin className="h-8 w-8 sm:h-10 sm:w-10 text-primary" />
+                </div>
+                <h3 className="font-bold text-xl sm:text-2xl mb-2 tracking-tight">
+                  Start building your budget
+                </h3>
+                <p className="text-muted-foreground text-sm sm:text-base max-w-md mx-auto mb-6 leading-relaxed">
+                  Create expense categories to organize your spending. Give every sat a job and take control of your finances.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-3 justify-center">
                 {hasPreviousMonthBudget && (
                   <Button
                     variant="outline"
@@ -261,10 +264,11 @@ export default function HomePage() {
                     Copy from Last Month
                   </Button>
                 )}
-                <Button onClick={() => setShowAddBucket(true)}>
+                <Button onClick={() => setShowAddBucket(true)} className="shadow-sm">
                   <Plus className="h-4 w-4 mr-2" />
                   {hasPreviousMonthBudget ? 'Start Fresh' : 'Add Your First Category'}
                 </Button>
+                </div>
               </div>
             </div>
           )}
