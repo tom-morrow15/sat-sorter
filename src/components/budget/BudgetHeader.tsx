@@ -55,6 +55,8 @@ import { DonateDialog } from './DonateDialog';
 import { MapleSettings } from '@/components/maple/MapleSettings';
 import { PaymentMethodsManager } from './PaymentMethodsManager';
 import { useRegisterSW } from '@/hooks/useRegisterSW';
+import { useOnboarding } from '@/contexts/OnboardingContext';
+import { GuestUpgradeModal } from '@/components/GuestUpgradeModal';
 
 interface BudgetHeaderProps {
   buckets: Bucket[];
@@ -108,6 +110,7 @@ export function BudgetHeader({
   const { partners: nostrPartners } = usePartners();
   // Get pending invites count for the notification badge
   const { pendingInvitesCount } = usePartnerInvites();
+  const { state: onboardingState } = useOnboarding();
   const [showMonthPicker, setShowMonthPicker] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
   const [showDonate, setShowDonate] = useState(false);
@@ -121,6 +124,7 @@ export function BudgetHeader({
   const [showCopyPrompt, setShowCopyPrompt] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showPaymentMethods, setShowPaymentMethods] = useState(false);
+  const [showGuestUpgrade, setShowGuestUpgrade] = useState(false);
 
   // Generate list of months for picker (current month + 11 months back + 6 months forward)
   const getAvailableMonths = () => {
@@ -344,9 +348,16 @@ export function BudgetHeader({
                     )}
                   </Button>
                 </DropdownMenuTrigger>
-               <DropdownMenuContent align="end" className="w-56">
-                 {/* Account */}
-                 {!user && (
+                <DropdownMenuContent align="end" className="w-56">
+                  {/* Account */}
+                  {/* Guest mode: offer upgrade option */}
+                  {onboardingState === 'guest' && (
+                    <DropdownMenuItem onClick={() => setShowGuestUpgrade(true)}>
+                      <Shield className="h-4 w-4 mr-2" />
+                      Upgrade to Nostr Account
+                    </DropdownMenuItem>
+                  )}
+                  {!user && (
                    <DropdownMenuItem onClick={() => setShowLogin(true)}>
                      <LogIn className="h-4 w-4 mr-2" />
                      Log In with Nostr
@@ -673,6 +684,12 @@ export function BudgetHeader({
           isOpen={showLogin}
           onClose={() => setShowLogin(false)}
           onLogin={() => setShowLogin(false)}
+        />
+
+        {/* Guest Upgrade Modal */}
+        <GuestUpgradeModal
+          open={showGuestUpgrade}
+          onOpenChange={setShowGuestUpgrade}
         />
       </header>
    );

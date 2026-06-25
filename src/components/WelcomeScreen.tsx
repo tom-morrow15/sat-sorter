@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight, ChevronDown, Sparkles, Key, Eye } from 'lucide-react';
+import { ChevronRight, ChevronDown, Sparkles, Key, Eye, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { InfoModal, NostrInfoContent, DifferenceInfoContent, PrivacyPromiseContent } from '@/components/InfoModal';
+
+const GUEST_BUDGET_KEY = 'sat-sorter-budget';
 
 interface WelcomeScreenProps {
   onGuestMode: () => void;
@@ -13,6 +15,22 @@ export function WelcomeScreen({ onGuestMode }: WelcomeScreenProps) {
   const navigate = useNavigate();
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
   const [activeModal, setActiveModal] = useState<string | null>(null);
+  const [hasGuestData, setHasGuestData] = useState(false);
+
+  // Check if guest budget data exists from a previous session
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(GUEST_BUDGET_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && parsed.budgets && Array.isArray(parsed.budgets) && parsed.budgets.length > 0) {
+          setHasGuestData(true);
+        }
+      }
+    } catch {
+      // No guest data found
+    }
+  }, []);
 
   const toggleSection = (section: string) => {
     setExpandedSection(expandedSection === section ? null : section);
@@ -30,6 +48,32 @@ export function WelcomeScreen({ onGuestMode }: WelcomeScreenProps) {
             Your budget. Your keys. Your freedom.
           </p>
         </div>
+
+        {/* Return visitor: Continue as guest prompt */}
+        {hasGuestData && (
+          <div className="mb-8 p-5 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/30 rounded-xl">
+            <p className="text-sm font-medium text-amber-900 dark:text-amber-200 mb-3">
+              Welcome back! You have budget data from a previous session.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Button
+                onClick={onGuestMode}
+                className="flex-1 bg-amber-100 hover:bg-amber-200 text-amber-900 dark:bg-amber-900/40 dark:hover:bg-amber-900/60 dark:text-amber-200 border-0"
+                variant="outline"
+              >
+                <ArrowRight className="h-4 w-4 mr-2" />
+                Continue as guest
+              </Button>
+              <Button
+                onClick={() => setHasGuestData(false)}
+                variant="ghost"
+                className="text-sm text-muted-foreground"
+              >
+                Start fresh instead
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* Three choice cards */}
         <div className="space-y-3 mb-8">
