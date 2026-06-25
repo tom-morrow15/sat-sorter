@@ -1,6 +1,6 @@
 import { generateMnemonic as bip39GenerateMnemonic, mnemonicToSeedSync, validateMnemonic } from 'bip39';
 import BIP32Factory from 'bip32';
-import * as ecc from '@noble/secp256k1';
+import * as ecc from '@bitcoinerlab/secp256k1';
 import { nip19 } from 'nostr-tools';
 import { scrypt } from '@noble/hashes/scrypt';
 import { xchacha20poly1305 } from '@noble/ciphers/chacha';
@@ -47,11 +47,14 @@ export function keysFromMnemonic(mnemonic: string, passphrase?: string): KeyPair
   // Extract the 32-byte private key
   const secretKey = new Uint8Array(child.privateKey!);
 
-  // Derive the public key using secp256k1
-  const publicKey = ecc.getPublicKey(secretKey, true);
+  // Derive the public key using secp256k1 (tiny-secp256k1 API via @bitcoinerlab/secp256k1)
+  const publicKey = ecc.pointFromScalar(Buffer.from(secretKey), true);
+  if (!publicKey) {
+    throw new Error('Failed to derive public key from private key');
+  }
 
   // Convert public key to hex (remove the 02/03 prefix byte for nostr hex format)
-  const pubkeyHex = Buffer.from(publicKey.slice(1)).toString('hex');
+  const pubkeyHex = Buffer.from(publicKey.subarray(1)).toString('hex');
 
   // Encode as bech32 Nostr identifiers
   const nsec = nip19.nsecEncode(secretKey);
@@ -77,8 +80,11 @@ export function parseKeyInput(input: string): ParsedKeyPair {
       const decoded = nip19.decode(trimmed);
       if (decoded.type === 'nsec') {
         const secretKey = decoded.data as Uint8Array;
-        const publicKey = ecc.getPublicKey(secretKey, true);
-        const pubkeyHex = Buffer.from(publicKey.slice(1)).toString('hex');
+        const publicKey = ecc.pointFromScalar(Buffer.from(secretKey), true);
+        if (!publicKey) {
+          throw new Error('Failed to derive public key from private key');
+        }
+        const pubkeyHex = Buffer.from(publicKey.subarray(1)).toString('hex');
         const npub = nip19.npubEncode(pubkeyHex);
 
         return {
@@ -96,8 +102,11 @@ export function parseKeyInput(input: string): ParsedKeyPair {
   // Detect hex private key (64 characters)
   if (/^[0-9a-fA-F]{64}$/.test(trimmed)) {
     const secretKey = new Uint8Array(Buffer.from(trimmed, 'hex'));
-    const publicKey = ecc.getPublicKey(secretKey, true);
-    const pubkeyHex = Buffer.from(publicKey.slice(1)).toString('hex');
+    const publicKey = ecc.pointFromScalar(Buffer.from(secretKey), true);
+    if (!publicKey) {
+      throw new Error('Failed to derive public key from private key');
+    }
+    const pubkeyHex = Buffer.from(publicKey.subarray(1)).toString('hex');
     const nsec = nip19.nsecEncode(secretKey);
     const npub = nip19.npubEncode(pubkeyHex);
 
