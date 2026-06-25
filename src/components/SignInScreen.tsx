@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { ChevronLeft, AlertCircle } from 'lucide-react';
+import { ChevronLeft, AlertCircle, Zap, Key, Shield, ExternalLink, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { parseKeyInput, encryptSecretKey } from '@/utils/nostrAuth';
@@ -58,106 +58,150 @@ export function SignInScreen() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/20 flex flex-col items-center justify-center px-4 py-12">
-      <div className="w-full max-w-lg">
-        {/* Back link */}
-        <Link
-          to="/"
-          className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors mb-8"
-        >
-          <ChevronLeft className="h-4 w-4" />
-          Back
-        </Link>
-
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold tracking-tight mb-2">
-            Sign in with your Nostr account
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Paste your 12-word seed phrase or your nsec:
-          </p>
-        </div>
-
-        {/* Input area */}
-        <div className="space-y-4">
-          <Textarea
-            value={input}
-            onChange={(e) => {
-              setInput(e.target.value);
-              setError(null);
-            }}
-            placeholder="Enter your 12-word seed phrase or nsec1..."
-            className="min-h-[120px] font-mono text-sm resize-none"
-            autoComplete="off"
-            spellCheck={false}
-          />
-
-          {error && (
-            <div className="flex items-start gap-2 text-sm text-destructive bg-destructive/10 rounded-lg p-3">
-              <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
-              <span>{error}</span>
-            </div>
-          )}
-
-          <Button
-            onClick={handleSignIn}
-            disabled={isSubmitting || !input.trim()}
-            className="w-full"
+    <div className="min-h-screen flex flex-col bg-background">
+      {/* Header bar */}
+      <header className="relative w-full bg-header-gradient text-white overflow-hidden shrink-0">
+        <div className="absolute inset-0 bg-mesh-gradient opacity-30 pointer-events-none" />
+        <div className="relative z-10 container mx-auto px-4 py-4 flex items-center justify-between">
+          <Link
+            to="/"
+            className="flex items-center gap-1.5 text-sm text-white/80 hover:text-white transition-colors"
           >
-            {isSubmitting ? 'Signing in...' : 'Sign In'}
-          </Button>
+            <ChevronLeft className="h-4 w-4" />
+            Back
+          </Link>
+          <div className="flex items-center gap-2">
+            <div className="h-8 w-8 rounded-lg bg-white/15 backdrop-blur-sm border border-white/20 flex items-center justify-center">
+              <Zap className="h-4 w-4 text-white" />
+            </div>
+            <span className="font-bold text-sm tracking-tight">Sat Sorter</span>
+          </div>
+          <div className="w-16" />
         </div>
+      </header>
 
-        {/* Help text */}
-        <div className="mt-6 space-y-4 text-sm text-muted-foreground">
-          <p>
-            Your 12 words and your nsec unlock the same account. Either works. 12 words: for humans, write down. nsec: for apps, copy/paste.
-          </p>
-
-          <div className="bg-muted/30 rounded-lg p-3">
-            <p className="text-xs">
-              Your key never leaves your browser. It's encrypted locally. We never see it.
+      {/* Main content */}
+      <main className="flex-1 container mx-auto px-4 py-8 sm:py-12 max-w-lg">
+        <div className="animate-slide-in-up" style={{ animationDelay: '0.1s', animationFillMode: 'both' }}>
+          {/* Header block */}
+          <div className="text-center mb-8">
+            <div className="inline-flex h-12 w-12 rounded-2xl bg-primary/10 border border-primary/10 items-center justify-center mb-4">
+              <Key className="h-6 w-6 text-primary" />
+            </div>
+            <h1 className="text-2xl font-bold tracking-tight">
+              Sign in
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Paste your 12-word seed phrase or nsec to restore your account.
             </p>
           </div>
 
-          {/* Advanced section */}
-          <div className="border-t pt-4">
-            <button
-              onClick={() => setShowAdvanced(!showAdvanced)}
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
-              {showAdvanced ? '▾' : '▸'} Advanced
-            </button>
-            {showAdvanced && (
-              <div className="mt-3 p-4 bg-muted/30 rounded-lg">
-                <p className="text-xs text-muted-foreground mb-3">
-                  Use a NIP-07 browser extension (like nos2x, Alby, or Flamingo) to sign in without entering your key manually.
-                </p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    navigate('/home', { replace: true });
-                  }}
-                >
-                  Sign in with extension
-                </Button>
+          {/* Form card */}
+          <div className="rounded-2xl border bg-card shadow-sm p-5 sm:p-6 space-y-4 animate-slide-in-up" style={{ animationDelay: '0.2s', animationFillMode: 'both' }}>
+            <div className="space-y-2">
+              <label htmlFor="key-input" className="text-sm font-medium">
+                Your private key
+              </label>
+              <Textarea
+                id="key-input"
+                value={input}
+                onChange={(e) => {
+                  setInput(e.target.value);
+                  setError(null);
+                }}
+                placeholder="Enter your 12-word seed phrase, nsec1..., or 64-character hex key..."
+                className="min-h-[140px] font-mono text-sm resize-none bg-muted/20 border-muted-foreground/20 focus:bg-background"
+                autoComplete="off"
+                spellCheck={false}
+                autoFocus
+              />
+              <p className="text-xs text-muted-foreground">
+                12 words, nsec, or hex — all unlock the same account.
+              </p>
+            </div>
+
+            {error && (
+              <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-3 flex gap-2.5 animate-fade-in">
+                <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+                <p className="text-sm text-destructive">{error}</p>
               </div>
             )}
+
+            <Button
+              onClick={handleSignIn}
+              disabled={isSubmitting || !input.trim()}
+              className="w-full h-12 text-base font-semibold btn-interactive"
+            >
+              {isSubmitting ? (
+                <span className="flex items-center gap-2">
+                  <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Signing in...
+                </span>
+              ) : (
+                'Sign In'
+              )}
+            </Button>
           </div>
 
-          {/* Create account link */}
-          <div className="text-center pt-4">
-            <p className="text-sm text-muted-foreground">
-              Don't have an account?{' '}
-              <Link to="/create-account" className="text-primary hover:underline font-medium">
-                Create a Nostr account
-              </Link>
-            </p>
+          {/* Help section */}
+          <div className="mt-6 space-y-4 animate-slide-in-up" style={{ animationDelay: '0.3s', animationFillMode: 'both' }}>
+            {/* Info card */}
+            <div className="rounded-xl border bg-muted/20 p-4">
+              <div className="flex items-start gap-3">
+                <Shield className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="text-sm text-foreground font-medium">Your key stays on your device.</p>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    We never see, store, or transmit it. It's encrypted in your browser with a random session password. Sat Sorter cannot decrypt it without your browser.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Extension sign-in */}
+            <div className="rounded-xl border bg-card p-4">
+              <button
+                onClick={() => setShowAdvanced(!showAdvanced)}
+                className="flex items-center justify-between w-full text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <span className="flex items-center gap-2">
+                  <ExternalLink className="h-4 w-4" />
+                  Sign in with a browser extension
+                </span>
+                <span className="text-xs">{showAdvanced ? 'Hide' : 'Show'}</span>
+              </button>
+              {showAdvanced && (
+                <div className="mt-3 pt-3 border-t animate-fade-in">
+                  <p className="text-xs text-muted-foreground mb-3">
+                    If you have a NIP-07 extension (Alby, nos2x, etc.), you can sign in without pasting your key.
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigate('/home', { replace: true })}
+                  >
+                    Use NIP-07 extension
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            {/* No account link */}
+            <div className="text-center pt-2">
+              <p className="text-sm text-muted-foreground">
+                Don't have an account?{' '}
+                <Link
+                  to="/create-account"
+                  className="inline-flex items-center gap-1 text-primary hover:underline font-semibold"
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Create one
+                </Link>
+              </p>
+            </div>
           </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 }

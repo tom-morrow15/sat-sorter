@@ -1,6 +1,15 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Check, Copy, ChevronLeft, HelpCircle } from 'lucide-react';
+import {
+  Check,
+  Copy,
+  ChevronLeft,
+  HelpCircle,
+  Zap,
+  Shield,
+  Lock,
+  AlertTriangle,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,8 +18,10 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { generateMnemonic, keysFromMnemonic, encryptSecretKey } from '@/utils/nostrAuth';
 import { saveSession } from '@/utils/sessionStore';
 import { useOnboarding } from '@/contexts/OnboardingContext';
+import { cn } from '@/lib/utils';
 
 const MNEMONIC_WORDS = [4, 9, 12] as const;
+const STEPS = [1, 2, 3] as const;
 
 function generateBrowserPassword(): string {
   const array = new Uint8Array(32);
@@ -40,7 +51,6 @@ export function CreateAccountFlow() {
   const [showSats, setShowSats] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Generate mnemonic and derive keys once
   const { mnemonic, keys } = useMemo(() => {
     const m = generateMnemonic();
     const k = keysFromMnemonic(m);
@@ -87,7 +97,6 @@ export function CreateAccountFlow() {
       const ncryptsec = encryptSecretKey(keys.secretKey, password);
       await saveSession(ncryptsec, password);
 
-      // Store display preferences in localStorage
       localStorage.setItem('sat-sorter-display-name', displayName);
       localStorage.setItem('sat-sorter-currency', currency);
       localStorage.setItem('sat-sorter-show-sats', String(showSats));
@@ -105,281 +114,359 @@ export function CreateAccountFlow() {
     (w) => confirmWords[w].trim().toLowerCase() === mnemonicArray[w - 1].toLowerCase()
   );
 
+  const stepTitle = step === 1 ? 'Your backup phrase' : step === 2 ? 'Confirm your backup' : "You're all set";
+  const stepSubtitle = step === 1 ? 'Step 1 of 3' : step === 2 ? 'Step 2 of 3' : 'Step 3 of 3';
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/20 flex flex-col items-center justify-center px-4 py-12">
-      <div className="w-full max-w-xl">
-        {/* Step indicators */}
-        <div className="flex items-center gap-2 mb-8">
-          {[1, 2, 3].map((s) => (
-            <div key={s} className="flex-1 flex items-center gap-2">
-              <div
-                className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
-                  s <= step ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
-                }`}
-              >
-                {s < step ? <Check className="h-4 w-4" /> : s}
-              </div>
-              {s < 3 && (
-                <div
-                  className={`flex-1 h-0.5 rounded transition-colors ${
-                    s < step ? 'bg-primary' : 'bg-muted'
-                  }`}
-                />
-              )}
+    <div className="min-h-screen flex flex-col bg-background">
+      {/* Header bar with brand continuity */}
+      <header className="relative w-full bg-header-gradient text-white overflow-hidden shrink-0">
+        <div className="absolute inset-0 bg-mesh-gradient opacity-30 pointer-events-none" />
+        <div className="relative z-10 container mx-auto px-4 py-4 flex items-center justify-between">
+          <button
+            onClick={() => (step === 1 ? navigate('/') : setStep(step - 1))}
+            className="flex items-center gap-1.5 text-sm text-white/80 hover:text-white transition-colors"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            Back
+          </button>
+          <div className="flex items-center gap-2">
+            <div className="h-8 w-8 rounded-lg bg-white/15 backdrop-blur-sm border border-white/20 flex items-center justify-center">
+              <Zap className="h-4 w-4 text-white" />
             </div>
-          ))}
+            <span className="font-bold text-sm tracking-tight">Sat Sorter</span>
+          </div>
+          <div className="w-16" />
         </div>
+      </header>
 
-        {/* Back button */}
-        <button
-          onClick={() => (step === 1 ? navigate('/') : setStep(step - 1))}
-          className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors mb-6"
-        >
-          <ChevronLeft className="h-4 w-4" />
-          {step === 1 ? 'Back to welcome' : 'Back'}
-        </button>
-
-        {/* === STEP 1: Show backup phrase === */}
-        {step === 1 && (
-          <div className="space-y-8">
-            <div>
-              <p className="text-xs text-muted-foreground mb-1">Step 1 of 3</p>
-              <h2 className="text-2xl font-bold tracking-tight">Your backup phrase</h2>
-            </div>
-
-            {/* Mnemonic grid */}
-            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-              {mnemonicArray.map((word, i) => (
+      {/* Stepper */}
+      <div className="bg-background border-b pb-6 pt-8">
+        <div className="flex items-center justify-center max-w-md mx-auto px-4">
+          {STEPS.map((s, i) => {
+            const isCompleted = step > s;
+            const isActive = step === s;
+            return (
+              <div key={s} className="flex items-center">
+                {/* Circle */}
                 <div
-                  key={i}
-                  className="bg-muted/50 border rounded-lg px-3 py-2 text-center"
-                >
-                  <span className="text-xs text-muted-foreground">{i + 1}</span>
-                  <p className="text-sm font-medium">{word}</p>
-                </div>
-              ))}
-            </div>
-
-            {/* Warning callout */}
-            <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
-              <p className="text-sm text-destructive font-medium">
-                These words ARE your account. Anyone who has them can access your budget. Keep them safe. We don't have a copy and can't reset them.
-              </p>
-            </div>
-
-            {/* nsec section */}
-            <div>
-              <h3 className="text-sm font-semibold mb-2">Also: your nsec</h3>
-              <div className="flex gap-2">
-                <div className="flex-1 bg-muted/50 border rounded-lg px-3 py-2 font-mono text-xs break-all">
-                  {nsec}
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleCopyNsec}
-                  className="shrink-0"
-                >
-                  {copiedNsec ? (
-                    <Check className="h-4 w-4 text-green-500" />
-                  ) : (
-                    <Copy className="h-4 w-4" />
+                  className={cn(
+                    'h-9 w-9 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all duration-300',
+                    isCompleted || isActive
+                      ? 'bg-primary border-primary text-primary-foreground shadow-md shadow-primary/20'
+                      : 'bg-background border-border text-muted-foreground'
                   )}
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground mt-2">
-                This long string starting with 'nsec' is your private key — a computer-readable version of the same account the 12 words unlock.
-              </p>
-              <div className="grid grid-cols-2 gap-2 mt-3 text-xs">
-                <div className="bg-muted/30 rounded-lg p-2.5">
-                  <span className="font-medium block">12 words</span>
-                  <span className="text-muted-foreground">= master key (for humans, write on paper)</span>
+                >
+                  {isCompleted ? <Check className="h-4 w-4" /> : s}
                 </div>
-                <div className="bg-muted/30 rounded-lg p-2.5">
-                  <span className="font-medium block">nsec</span>
-                  <span className="text-muted-foreground">= daily key (for apps, copy/paste to sign in quickly)</span>
+                {/* Connector */}
+                {i < STEPS.length - 1 && (
+                  <div
+                    className={cn(
+                      'w-16 sm:w-24 h-[2px] mx-1 sm:mx-2 rounded transition-colors duration-300',
+                      isCompleted ? 'bg-primary' : 'bg-border'
+                    )}
+                  />
+                )}
+              </div>
+            );
+          })}
+        </div>
+        <div className="text-center mt-4">
+          <p className="text-xs text-muted-foreground font-medium tracking-wide">{stepSubtitle}</p>
+          <h1 className="text-2xl font-bold tracking-tight mt-0.5">{stepTitle}</h1>
+        </div>
+      </div>
+
+      {/* Main content */}
+      <main className="flex-1 container mx-auto px-4 py-6 max-w-xl">
+        <div
+          key={step}
+          className={cn(
+            step === 1 || step === 2 ? 'animate-slide-in-up' : 'animate-scale-in'
+          )}
+        >
+          {/* === STEP 1: Backup phrase === */}
+          {step === 1 && (
+            <div className="space-y-6">
+              {/* Mnemonic card */}
+              <div className="rounded-2xl border bg-card shadow-sm overflow-hidden">
+                <div className="p-4 border-b bg-muted/30">
+                  <div className="flex items-center gap-2">
+                    <Lock className="h-4 w-4 text-primary" />
+                    <span className="text-sm font-semibold">12-word backup phrase</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Write these down in order. They're your only recovery key.
+                  </p>
+                </div>
+                <div className="p-4">
+                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                    {mnemonicArray.map((word, i) => (
+                      <div
+                        key={i}
+                        className="relative bg-muted/40 border rounded-lg px-2 py-2.5 text-center group hover:border-primary/30 transition-colors"
+                      >
+                        <span className="absolute top-1 left-2 text-[10px] text-muted-foreground/60 font-mono tabular-nums">
+                          {i + 1}
+                        </span>
+                        <p className="text-sm font-semibold pt-3">{word}</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
-              <p className="text-xs text-muted-foreground mt-2">
-                You can use either to sign into any Nostr app — including Sat Sorter. Most apps accept both.
+
+              {/* Warning callout */}
+              <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-4 flex gap-3">
+                <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-destructive">
+                    These words ARE your account.
+                  </p>
+                  <p className="text-xs text-destructive/70 mt-1">
+                    Anyone who has them can access your budget. Keep them safe. We don't have a copy and can't reset them.
+                  </p>
+                </div>
+              </div>
+
+              {/* nsec section */}
+              <div className="rounded-2xl border bg-card shadow-sm overflow-hidden">
+                <div className="p-4 border-b bg-muted/30">
+                  <div className="flex items-center gap-2">
+                    <Shield className="h-4 w-4 text-primary" />
+                    <span className="text-sm font-semibold">Also save your nsec</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    A shorter format for copy/paste. Same account as the 12 words.
+                  </p>
+                </div>
+                <div className="p-4 space-y-3">
+                  <div className="flex gap-2">
+                    <div className="flex-1 bg-muted/40 border rounded-lg px-3 py-2.5 font-mono text-xs break-all">
+                      {nsec}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleCopyNsec}
+                      className="shrink-0 h-auto"
+                    >
+                      {copiedNsec ? (
+                        <Check className="h-4 w-4 text-green-500" />
+                      ) : (
+                        <Copy className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="bg-muted/30 rounded-lg p-3">
+                      <span className="font-semibold block text-foreground">12 words</span>
+                      <span className="text-muted-foreground">Master key. Write on paper.</span>
+                    </div>
+                    <div className="bg-muted/30 rounded-lg p-3">
+                      <span className="font-semibold block text-foreground">nsec</span>
+                      <span className="text-muted-foreground">Daily key. Copy/paste to apps.</span>
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-3">
+                    <p className="text-xs text-destructive/80 font-medium">
+                      Treat your nsec like your 12 words. Never share it, screenshot it, or store it online.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Backup checkbox */}
+              <div className="flex items-start gap-3 p-4 rounded-xl border bg-card/50">
+                <Checkbox
+                  id="backed-up"
+                  checked={backedUp}
+                  onCheckedChange={(v) => setBackedUp(Boolean(v))}
+                  className="mt-0.5"
+                />
+                <Label htmlFor="backed-up" className="text-sm leading-relaxed cursor-pointer">
+                  I've written down my 12 words and saved my nsec in a safe place.
+                </Label>
+              </div>
+
+              <Button
+                onClick={() => setStep(2)}
+                disabled={!backedUp}
+                className="w-full h-12 text-base font-semibold btn-interactive"
+              >
+                I saved my backup — Continue
+              </Button>
+            </div>
+          )}
+
+          {/* === STEP 2: Confirm backup === */}
+          {step === 2 && (
+            <div className="space-y-6">
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                To make sure you saved your phrase, enter the words at positions <strong className="text-foreground">4</strong>, <strong className="text-foreground">9</strong>, and <strong className="text-foreground">12</strong>.
               </p>
-              <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 mt-3">
-                <p className="text-xs text-destructive font-medium">
-                  Treat your nsec like the 12 words: never share it, screenshot it, or store it online.
+
+              <div className="space-y-4">
+                {MNEMONIC_WORDS.map((wordNum) => (
+                  <div key={wordNum} className="space-y-1.5">
+                    <Label htmlFor={`word-${wordNum}`} className="text-sm font-medium">
+                      Word {wordNum}
+                    </Label>
+                    <Input
+                      id={`word-${wordNum}`}
+                      value={confirmWords[wordNum]}
+                      onChange={(e) => handleConfirmWord(wordNum, e.target.value)}
+                      placeholder={`Enter word ${wordNum}`}
+                      autoComplete="off"
+                      className={cn(
+                        'h-12 text-base font-medium',
+                        errors[wordNum] ? 'border-destructive focus-visible:ring-destructive' : ''
+                      )}
+                    />
+                    {errors[wordNum] && (
+                      <p className="text-xs text-destructive flex items-center gap-1">
+                        <AlertTriangle className="h-3 w-3" />
+                        {errors[wordNum]}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              <div className="rounded-xl border bg-muted/40 p-4 text-sm text-muted-foreground leading-relaxed">
+                <p>
+                  In a traditional app, you click "Forgot password?" to reset. Here, there's no reset — no company holds your keys. That's the point. That's what keeps your data private. It also means you're responsible for your backup.
                 </p>
               </div>
+
+              <Button
+                onClick={handleVerify}
+                disabled={!allWordsVerified}
+                className="w-full h-12 text-base font-semibold btn-interactive"
+              >
+                Verify
+              </Button>
             </div>
+          )}
 
-            {/* Backup checkbox */}
-            <div className="flex items-start gap-3">
-              <Checkbox
-                id="backed-up"
-                checked={backedUp}
-                onCheckedChange={(v) => setBackedUp(Boolean(v))}
-              />
-              <Label htmlFor="backed-up" className="text-sm cursor-pointer">
-                I've written down my 12 words and saved my nsec securely.
-              </Label>
-            </div>
-
-            <Button
-              onClick={() => setStep(2)}
-              disabled={!backedUp}
-              className="w-full"
-            >
-              Continue
-            </Button>
-          </div>
-        )}
-
-        {/* === STEP 2: Confirm backup === */}
-        {step === 2 && (
-          <div className="space-y-8">
-            <div>
-              <p className="text-xs text-muted-foreground mb-1">Step 2 of 3</p>
-              <h2 className="text-2xl font-bold tracking-tight">Confirm your backup</h2>
-            </div>
-
-            <p className="text-sm text-muted-foreground">
-              To make sure you saved your phrase, enter word 4, word 9, and word 12.
-            </p>
-
-            <div className="space-y-4">
-              {MNEMONIC_WORDS.map((wordNum) => (
-                <div key={wordNum} className="space-y-1.5">
-                  <Label htmlFor={`word-${wordNum}`}>Word {wordNum}</Label>
-                  <Input
-                    id={`word-${wordNum}`}
-                    value={confirmWords[wordNum]}
-                    onChange={(e) => handleConfirmWord(wordNum, e.target.value)}
-                    placeholder={`Enter word ${wordNum}`}
-                    autoComplete="off"
-                    className={errors[wordNum] ? 'border-destructive' : ''}
-                  />
-                  {errors[wordNum] && (
-                    <p className="text-xs text-destructive">{errors[wordNum]}</p>
-                  )}
+          {/* === STEP 3: You're all set === */}
+          {step === 3 && (
+            <div className="space-y-6">
+              <div className="text-center space-y-2 pb-2">
+                <div className="inline-flex h-16 w-16 rounded-full bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/30 items-center justify-center mb-1">
+                  <Check className="h-8 w-8 text-emerald-500" />
                 </div>
-              ))}
-            </div>
+                <p className="text-sm text-muted-foreground">
+                  Your Nostr account is ready. Your budget data will be encrypted and synced across your devices.
+                </p>
+              </div>
 
-            <div className="bg-muted/50 rounded-lg p-4 text-sm text-muted-foreground">
-              <p>
-                Why this matters: In a traditional app, if you forget your password, you click 'Forgot password?' and get a reset email. Here, there's no reset button — because there's no company holding your keys. That's what keeps your data private. It also means you're responsible for your backup.
-              </p>
-            </div>
-
-            <Button
-              onClick={handleVerify}
-              disabled={!allWordsVerified}
-              className="w-full"
-            >
-              Verify
-            </Button>
-          </div>
-        )}
-
-        {/* === STEP 3: You're all set === */}
-        {step === 3 && (
-          <div className="space-y-8">
-            <div>
-              <p className="text-xs text-muted-foreground mb-1">Step 3 of 3</p>
-              <h2 className="text-2xl font-bold tracking-tight">You're all set.</h2>
-            </div>
-
-            <div className="space-y-4">
-              <p className="text-sm">
-                Your Nostr account has been created. Your budget data is encrypted and synced across your devices.
-              </p>
-
-              <div className="bg-muted/30 rounded-lg p-4 space-y-2">
-                <h3 className="text-sm font-semibold">What you just did:</h3>
-                <ul className="space-y-1.5 text-sm text-muted-foreground">
-                  <li className="flex items-start gap-2">
-                    <Check className="h-4 w-4 text-green-500 mt-0.5 shrink-0" />
-                    <span>Created cryptographic keys that only you hold</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <Check className="h-4 w-4 text-green-500 mt-0.5 shrink-0" />
-                    <span>Backed them up with a 12-word phrase</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <Check className="h-4 w-4 text-green-500 mt-0.5 shrink-0" />
-                    <span>Set up encrypted syncing across your devices</span>
-                  </li>
+              <div className="rounded-xl border bg-card/50 p-4 space-y-3">
+                <h3 className="text-sm font-semibold text-foreground">What just happened:</h3>
+                <ul className="space-y-2.5 text-sm text-muted-foreground">
+                  {[
+                    'Created cryptographic keys that only you hold',
+                    'Backed them up with a 12-word phrase',
+                    'Set up encrypted syncing across your devices',
+                  ].map((item) => (
+                    <li key={item} className="flex items-start gap-2.5">
+                      <Check className="h-4 w-4 text-emerald-500 mt-0.5 shrink-0" />
+                      <span>{item}</span>
+                    </li>
+                  ))}
                 </ul>
               </div>
 
-              <p className="text-sm text-muted-foreground">
-                No email. No tracking. No data harvesting. Just you and your money.
+              <p className="text-sm text-muted-foreground text-center">
+                No email. No tracking. No data harvesting.
               </p>
-            </div>
 
-            {/* Setup form */}
-            <div className="space-y-4 border rounded-xl p-5">
-              <div className="space-y-1.5">
-                <Label htmlFor="display-name">Display name</Label>
-                <Input
-                  id="display-name"
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  placeholder="Your name"
-                />
-              </div>
+              {/* Settings form */}
+              <div className="rounded-2xl border bg-card shadow-sm overflow-hidden">
+                <div className="p-4 border-b bg-muted/30">
+                  <h3 className="text-sm font-semibold">Quick preferences</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    You can change these later in settings.
+                  </p>
+                </div>
+                <div className="p-4 space-y-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="display-name">Display name</Label>
+                    <Input
+                      id="display-name"
+                      value={displayName}
+                      onChange={(e) => setDisplayName(e.target.value)}
+                      placeholder="Your name"
+                    />
+                  </div>
 
-              <div className="space-y-1.5">
-                <Label htmlFor="currency">Currency</Label>
-                <select
-                  id="currency"
-                  value={currency}
-                  onChange={(e) => setCurrency(e.target.value)}
-                  className="w-full h-10 rounded-md border bg-background px-3 text-sm"
-                >
-                  <option value="USD">USD</option>
-                  <option value="EUR">EUR</option>
-                  <option value="GBP">GBP</option>
-                  <option value="CAD">CAD</option>
-                  <option value="AUD">AUD</option>
-                  <option value="JPY">JPY</option>
-                </select>
-              </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="currency">Currency</Label>
+                    <select
+                      id="currency"
+                      value={currency}
+                      onChange={(e) => setCurrency(e.target.value)}
+                      className="w-full h-11 rounded-md border bg-background px-3 text-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-shadow"
+                    >
+                      <option value="USD">USD — US Dollar</option>
+                      <option value="EUR">EUR — Euro</option>
+                      <option value="GBP">GBP — British Pound</option>
+                      <option value="CAD">CAD — Canadian Dollar</option>
+                      <option value="AUD">AUD — Australian Dollar</option>
+                      <option value="JPY">JPY — Japanese Yen</option>
+                    </select>
+                  </div>
 
-              <div className="flex items-start gap-3">
-                <Checkbox
-                  id="show-sats"
-                  checked={showSats}
-                  onCheckedChange={(v) => setShowSats(Boolean(v))}
-                />
-                <div className="flex items-center gap-1.5">
-                  <Label htmlFor="show-sats" className="text-sm cursor-pointer">
-                    Show sats
-                  </Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <button className="text-primary hover:text-primary/80 transition-colors" aria-label="What's a sat?">
-                        <HelpCircle className="h-4 w-4" />
-                      </button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-72 text-sm" side="top">
-                      <p>
-                        A 'sat' (short for satoshi) is the smallest unit of Bitcoin — 1/100,000,000th of a bitcoin. Think of it like a cent to a dollar, but for digital money that no government or bank controls. If you enable this, Sat Sorter will show your spending in sats alongside dollars. It's a low-pressure way to start thinking in a sound money standard. You can turn it off anytime.
-                      </p>
-                    </PopoverContent>
-                  </Popover>
+                  <div className="flex items-start gap-3">
+                    <Checkbox
+                      id="show-sats"
+                      checked={showSats}
+                      onCheckedChange={(v) => setShowSats(Boolean(v))}
+                      className="mt-0.5"
+                    />
+                    <div className="flex items-center gap-1.5">
+                      <Label htmlFor="show-sats" className="text-sm cursor-pointer">
+                        Show sats
+                      </Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button
+                            className="text-primary hover:text-primary/80 transition-colors"
+                            aria-label="What's a sat?"
+                          >
+                            <HelpCircle className="h-4 w-4" />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-72 text-sm" side="top">
+                          <p>
+                            A "sat" (satoshi) is the smallest unit of Bitcoin — 1/100,000,000th of a bitcoin. Think of it like a cent, but for money no bank controls. Enabling this shows your spending in sats alongside dollars — a low-pressure way to start thinking in a sound money standard.
+                          </p>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <Button
-              onClick={handleStartBudgeting}
-              disabled={isSubmitting}
-              className="w-full"
-            >
-              {isSubmitting ? 'Setting up...' : 'Start Budgeting'}
-            </Button>
-          </div>
-        )}
-      </div>
+              <Button
+                onClick={handleStartBudgeting}
+                disabled={isSubmitting}
+                className="w-full h-12 text-base font-semibold btn-interactive"
+              >
+                {isSubmitting ? (
+                  <span className="flex items-center gap-2">
+                    <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Setting up...
+                  </span>
+                ) : (
+                  'Start Budgeting'
+                )}
+              </Button>
+            </div>
+          )}
+        </div>
+      </main>
     </div>
   );
 }
