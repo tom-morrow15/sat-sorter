@@ -4,7 +4,6 @@ import { getSecretKey, hasSession, saveSession } from '@/utils/sessionStore';
 import { encryptSecretKey } from '@/utils/nostrAuth';
 import type { KeyPair } from '@/utils/nostrAuth';
 import type { BudgetState } from '@/lib/budgetTypes';
-import type { useBudgetSync } from '@/hooks/useBudgetSync';
 
 export type OnboardingState = 'loading' | 'welcome' | 'authenticated' | 'guest';
 
