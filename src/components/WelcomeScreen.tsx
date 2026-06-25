@@ -211,7 +211,7 @@ export function WelcomeScreen({ onGuestMode }: WelcomeScreenProps) {
               },
               {
                 key: 'difference',
-                title: 'How is this different from normal apps?',
+                title: 'How is this different from traditional budgeting apps?',
                 teaser:
                   'Unlike traditional apps that store your data on their servers, Sat Sorter encrypts everything on your device and stores it on public relays that nobody but you can read.',
                 modalTitle: 'The difference',
@@ -219,7 +219,7 @@ export function WelcomeScreen({ onGuestMode }: WelcomeScreenProps) {
               },
               {
                 key: 'privacy',
-                title: 'Read our privacy promise (60 seconds)',
+                title: 'Read our privacy promise',
                 teaser:
                   'Sat Sorter cannot read your budget, access your keys, or sell your data. All encryption happens on your device. Your data is yours — period.',
                 modalTitle: 'Our privacy promise',

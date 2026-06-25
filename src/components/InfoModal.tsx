@@ -165,7 +165,7 @@ export function DifferenceInfoContent() {
             </tr>
             <tr>
               <td className="py-2.5 pr-3 text-muted-foreground">Forces one currency view</td>
-              <td className="py-2.5 pl-3">USD and Bitcoin side by side — learn the standard at your own pace</td>
+              <td className="py-2.5 pl-3">USD and Bitcoin side by side — learn a Bitcoin standard at your own pace</td>
             </tr>
             <tr>
               <td className="py-2.5 pr-3 text-muted-foreground">Helps you spend — that's it</td>
@@ -241,9 +241,32 @@ export function PrivacyPromiseContent() {
         </ul>
       </section>
 
-      <p className="text-muted-foreground">
-        All encryption happens on your device. Your unencrypted data never leaves your browser. We are open source. You can verify this.
-      </p>
+      <section className="rounded-xl border bg-muted/30 p-4">
+        <h3 className="text-base font-semibold mb-2 flex items-center gap-2">
+          <span className="text-primary">🔐</span> Don't trust — verify
+        </h3>
+        <p className="text-muted-foreground mb-2">
+          All encryption happens on your device. Your unencrypted data never leaves your browser. You don't have to trust our word — you can verify it yourself.
+        </p>
+        <ul className="space-y-1.5 ml-1">
+          <li className="flex items-start gap-2">
+            <span className="text-primary mt-0.5 shrink-0">•</span>
+            <span>Our code is open source. You can inspect every line.</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="text-primary mt-0.5 shrink-0">•</span>
+            <span>Encryption is performed by your browser, not our servers.</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="text-primary mt-0.5 shrink-0">•</span>
+            <span>We literally cannot read your data even if we wanted to.</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="text-primary mt-0.5 shrink-0">•</span>
+            <span>This is a promise — but also a provable fact.</span>
+          </li>
+        </ul>
+      </section>
 
       <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
         <p className="text-sm font-medium text-destructive">
