@@ -7,6 +7,8 @@ interface InfoModalProps {
   onClose: () => void;
   title: string;
   children: ReactNode;
+  /** Optional action for the primary footer button (e.g. proceed to create account). If omitted, just closes. */
+  onConfirm?: () => void;
 }
 
 export function InfoModal({ isOpen, onClose, title, children }: InfoModalProps) {
@@ -47,7 +49,7 @@ export function InfoModal({ isOpen, onClose, title, children }: InfoModalProps) 
 
         {/* Footer */}
         <div className="px-6 py-4 border-t shrink-0">
-          <Button onClick={onClose} className="w-full">
+          <Button onClick={onConfirm ?? onClose} className="w-full">
             I understand — let's go
           </Button>
         </div>

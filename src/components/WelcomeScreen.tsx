@@ -113,7 +113,10 @@ export function WelcomeScreen({ onGuestMode }: WelcomeScreenProps) {
                   </div>
                   <div className="flex flex-col sm:flex-row gap-2">
                     <Button
-                      onClick={onGuestMode}
+                      onClick={() => {
+                        onGuestMode();
+                        navigate('/home', { replace: true });
+                      }}
                       className="flex-1 bg-amber-500 hover:bg-amber-600 text-white border-0 shadow-sm"
                     >
                       Continue as guest
@@ -180,7 +183,10 @@ export function WelcomeScreen({ onGuestMode }: WelcomeScreenProps) {
             {/* Card 3: Skip — TERTIARY, ghost card */}
             <Card
               className="cursor-pointer group overflow-hidden animate-slide-in-up border-dashed hover:border-solid transition-all duration-300 hover:shadow-sm hover:-translate-y-0.5"
-              onClick={onGuestMode}
+              onClick={() => {
+                onGuestMode();
+                navigate('/home', { replace: true });
+              }}
               style={{ animationDelay: '0.35s', animationFillMode: 'both' }}
             >
               <CardContent className="relative p-5 flex items-center gap-4">
@@ -188,7 +194,7 @@ export function WelcomeScreen({ onGuestMode }: WelcomeScreenProps) {
                   <Eye className="h-5 w-5 text-muted-foreground" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-sm tracking-tight text-muted-foreground">SKIP FOR NOW</h3>
+                  <h3 className="font-semibold text-sm tracking-tight text-muted-foreground">USE WITHOUT AN ACCOUNT</h3>
                   <p className="text-xs text-muted-foreground/70 mt-1 leading-relaxed">
                     Try without an account. Your budget stays in this browser only. You can upgrade anytime.
                   </p>
@@ -292,7 +298,15 @@ export function WelcomeScreen({ onGuestMode }: WelcomeScreenProps) {
       </main>
 
       {/* Modals */}
-      <InfoModal isOpen={activeModal === 'nostr'} onClose={() => setActiveModal(null)} title="What is Nostr?">
+      <InfoModal
+        isOpen={activeModal === 'nostr'}
+        onClose={() => setActiveModal(null)}
+        onConfirm={() => {
+          setActiveModal(null);
+          navigate('/create-account');
+        }}
+        title="What is Nostr?"
+      >
         <NostrInfoContent />
       </InfoModal>
       <InfoModal isOpen={activeModal === 'difference'} onClose={() => setActiveModal(null)} title="The difference">

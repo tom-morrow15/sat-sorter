@@ -26,74 +26,81 @@ function AppContent() {
     );
   }
 
-  if (state === 'welcome') {
-    return <WelcomeScreen onGuestMode={setGuestMode} />;
-  }
-
   return (
     <Routes>
-      {/* Onboarding routes - no MainLayout (no bottom nav during setup) */}
+      {/* Onboarding flows — always mounted so WelcomeScreen navigation works */}
       <Route path="/create-account" element={<CreateAccountFlow />} />
       <Route path="/sign-in" element={<SignInScreen />} />
 
-      {/* Root redirect to home */}
-      <Route path="/" element={<Navigate to="/home" replace />} />
+      {state === 'welcome' ? (
+        <>
+          {/* Welcome screen shown at root while in welcome state */}
+          <Route path="/" element={<WelcomeScreen onGuestMode={setGuestMode} />} />
+          {/* Any non-onboarding path while welcome → redirect to welcome */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </>
+      ) : (
+        <>
+          {/* Root redirect to home */}
+          <Route path="/" element={<Navigate to="/home" replace />} />
 
-      {/* App pages - with bottom navigation */}
-      <Route
-        path="/home"
-        element={
-          <MainLayout>
-            <HomePage />
-          </MainLayout>
-        }
-      />
-      <Route
-        path="/breakdown"
-        element={
-          <MainLayout>
-            <SpendingBreakdownPage />
-          </MainLayout>
-        }
-      />
-      <Route
-        path="/local-spend"
-        element={
-          <MainLayout>
-            <LocalSpendPage />
-          </MainLayout>
-        }
-      />
-      <Route
-        path="/transactions"
-        element={
-          <MainLayout>
-            <TransactionsPage />
-          </MainLayout>
-        }
-      />
-      <Route
-        path="/wealth"
-        element={
-          <MainLayout>
-            <WealthTrackerPage />
-          </MainLayout>
-        }
-      />
-      <Route
-        path="/buddy"
-        element={
-          <MainLayout>
-            <BuddyPage />
-          </MainLayout>
-        }
-      />
+          {/* App pages - with bottom navigation */}
+          <Route
+            path="/home"
+            element={
+              <MainLayout>
+                <HomePage />
+              </MainLayout>
+            }
+          />
+          <Route
+            path="/breakdown"
+            element={
+              <MainLayout>
+                <SpendingBreakdownPage />
+              </MainLayout>
+            }
+          />
+          <Route
+            path="/local-spend"
+            element={
+              <MainLayout>
+                <LocalSpendPage />
+              </MainLayout>
+            }
+          />
+          <Route
+            path="/transactions"
+            element={
+              <MainLayout>
+                <TransactionsPage />
+              </MainLayout>
+            }
+          />
+          <Route
+            path="/wealth"
+            element={
+              <MainLayout>
+                <WealthTrackerPage />
+              </MainLayout>
+            }
+          />
+          <Route
+            path="/buddy"
+            element={
+              <MainLayout>
+                <BuddyPage />
+              </MainLayout>
+            }
+          />
 
-      {/* NIP-19 route for npub1, note1, naddr1, nevent1, nprofile1 */}
-      <Route path="/:nip19" element={<NIP19Page />} />
+          {/* NIP-19 route for npub1, note1, naddr1, nevent1, nprofile1 */}
+          <Route path="/:nip19" element={<NIP19Page />} />
 
-      {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-      <Route path="*" element={<NotFound />} />
+          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+          <Route path="*" element={<NotFound />} />
+        </>
+      )}
     </Routes>
   );
 }
