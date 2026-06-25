@@ -11,7 +11,7 @@ interface InfoModalProps {
   onConfirm?: () => void;
 }
 
-export function InfoModal({ isOpen, onClose, title, children }: InfoModalProps) {
+export function InfoModal({ isOpen, onClose, title, children, onConfirm }: InfoModalProps) {
   if (!isOpen) return null;
 
   return (
