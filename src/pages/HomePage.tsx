@@ -15,17 +15,20 @@ import { useWallet } from '@/hooks/useWallet';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useBTCMap } from '@/hooks/useBTCMap';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { useOnboarding } from '@/contexts/OnboardingContext';
 
 export default function HomePage() {
   const navigate = useNavigate();
   const [showAddBucket, setShowAddBucket] = useState(false);
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [dismissedNwcPrompt, setDismissedNwcPrompt] = useLocalStorage<boolean>('sat-sorter:nwc-prompt-dismissed', false);
+  const [dismissedGuestBanner, setDismissedGuestBanner] = useLocalStorage<boolean>('sat-sorter:guest-banner-dismissed', false);
   const { toast } = useToast();
 
   const { user } = useCurrentUser();
   const { hasNWC } = useWallet();
   const { merchants } = useBTCMap();
+  const { state: onboardingState } = useOnboarding();
 
   const {
     currentBudget,
@@ -102,8 +105,34 @@ export default function HomePage() {
       <main className="container mx-auto px-3 sm:px-4 py-6 lg:py-8 max-w-4xl">
         {/* Alerts Section - Full width */}
         <div className="space-y-3 mb-4">
-          {/* Login prompt for guests */}
-          {!user && (
+          {/* Guest mode banner */}
+          {onboardingState === 'guest' && !dismissedGuestBanner && (
+            <Alert className="border-amber-400/40 bg-amber-50 dark:bg-amber-950/20 relative">
+              <button
+                onClick={() => setDismissedGuestBanner(true)}
+                className="absolute top-1.5 right-2 text-muted-foreground hover:text-foreground"
+                aria-label="Dismiss"
+              >
+                <X className="h-4 w-4" />
+              </button>
+              <AlertDescription className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pr-6">
+                <span className="text-sm">
+                  Your budget is stored in this browser only. To sync across devices or back up, create a free account.
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate('/create-account')}
+                  className="shrink-0 border-amber-400/60 hover:bg-amber-100 dark:hover:bg-amber-900/30"
+                >
+                  Create Account
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* Login prompt for logged-out users (not guest mode) */}
+          {!user && onboardingState !== 'guest' && (
             <Alert className="border-primary/30 bg-primary/5">
               <Info className="h-4 w-4 text-primary" />
               <AlertDescription className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">

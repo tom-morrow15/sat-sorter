@@ -14,6 +14,7 @@ import { NostrLoginProvider } from '@nostrify/react/login';
 import { AppProvider } from '@/components/AppProvider';
 import { NWCProvider } from '@/contexts/NWCContext';
 import { BudgetProvider } from '@/contexts/BudgetContext';
+import { OnboardingProvider } from '@/contexts/OnboardingContext';
 import { AppConfig } from '@/contexts/AppContext';
 import AppRouter from './AppRouter';
 
@@ -55,13 +56,15 @@ export function App() {
               <NostrSync />
               <NWCProvider>
                 <BudgetProvider>
-                  <TooltipProvider>
-                    <Toaster />
-                    <OfflineIndicator />
-                    <Suspense>
-                      <AppRouter />
-                    </Suspense>
-                  </TooltipProvider>
+                  <OnboardingProvider>
+                    <TooltipProvider>
+                      <Toaster />
+                      <OfflineIndicator />
+                      <Suspense>
+                        <AppRouter />
+                      </Suspense>
+                    </TooltipProvider>
+                  </OnboardingProvider>
                 </BudgetProvider>
               </NWCProvider>
             </NostrProvider>
