@@ -9,6 +9,7 @@ const DEFAULT_STATE: BudgetState = {
   currentMonth: getCurrentMonth(),
   budgets: [],
   currency: 'sats',
+  accessibleBudgets: [],
 };
 
 interface BudgetContextValue {
@@ -18,9 +19,12 @@ interface BudgetContextValue {
 
 const BudgetContext = createContext<BudgetContextValue | null>(null);
 
+const MIGRATION_KEY = 'sat-sorter-partner-migration-shown';
+
 export function BudgetProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useLocalStorage<BudgetState>('sat-sorter-budget', DEFAULT_STATE);
   const hasAutoSetMonth = useRef(false);
+  const hasRunMigration = useRef(false);
 
   // On initial load, always reset currentMonth to the REAL current month.
   // This prevents issues where the stored month (e.g. from an accepted invite
@@ -40,12 +44,112 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ---------------------------------------------------------------------------
+  // Migration: upgrade existing partner setup to shared-budget-keypair model
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    if (hasRunMigration.current) return;
+    hasRunMigration.current = true;
+
+    // Already migrated or fresh install — nothing to do
+    if (state.accessibleBudgets.length > 0) return;
+    if (state.budgetKeypair) return;
+
+    // No partners = no migration needed
+    const partners = state.partners || [];
+    if (partners.length === 0) return;
+
+    // Do we have existing partners but no budgetKeypair? Show a one-time banner.
+    console.log(
+      '[BudgetProvider] Existing partners found without budgetKeypair. Migration banner needed.'
+    );
+
+    // We don't auto-generate a keypair here because existing kind-4002 events
+    // cannot be migrated automatically. The banner will inform the user to
+    // re-invite partners for improved sync.
+    //
+    // Persist the fact that we've flagged this so we don't flag again.
+    try {
+      localStorage.setItem(MIGRATION_KEY, '1');
+    } catch {
+      // Storage may not be available
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Ensure accessibleBudgets and budgetKeypair are always present (for older
+  // localStorage data that predates these fields).
+  const normalizedState = useMemo<BudgetState>(() => {
+    let next = state;
+    let changed = false;
+
+    if (!next.accessibleBudgets) {
+      next = { ...next, accessibleBudgets: [] };
+      changed = true;
+    }
+
+    // If the user has a personal budget (no shared keypair), add it to
+    // accessibleBudgets implicitly so the selector always has an entry.
+    if (!next.budgetKeypair && next.accessibleBudgets.length === 0) {
+      // Personal budget — no shared keypair needed
+      next = {
+        ...next,
+        accessibleBudgets: [
+          ...next.accessibleBudgets,
+          {
+            budgetNpub: '',
+            budgetNsec: '',
+            role: 'owner' as const,
+          },
+        ],
+      };
+      changed = true;
+    }
+
+    return changed ? next : state;
+  }, [state]);
+
   const value = useMemo(
-    () => ({ state, setState }),
-    [state, setState]
+    () => ({ state: normalizedState, setState }),
+    [normalizedState, setState]
   );
 
   return <BudgetContext.Provider value={value}>{children}</BudgetContext.Provider>;
+}
+
+/**
+ * Hook to switch to a different shared budget.
+ * When switching, the app loads the appropriate budget nsec and subscribes
+ * to events under the target budget npub.
+ */
+export function useSwitchBudget() {
+  const { state, setState } = useBudgetContext();
+
+  const switchToBudget = (budgetNpub: string) => {
+    const target = state.accessibleBudgets.find(b => b.budgetNpub === budgetNpub);
+    if (!target) {
+      console.warn('[BudgetContext] Cannot switch to unknown budget:', budgetNpub);
+      return;
+    }
+
+    setState(prev => ({
+      ...prev,
+      budgetKeypair: target.budgetNpub
+        ? {
+            budgetNsec: target.budgetNsec,
+            budgetNpub: target.budgetNpub,
+          }
+        : undefined,
+    }));
+
+    console.log('[BudgetContext] Switched to budget:', budgetNpub.slice(0, 16) + '...');
+  };
+
+  return {
+    accessibleBudgets: state.accessibleBudgets,
+    activeBudgetNpub: state.budgetKeypair?.budgetNpub || '',
+    switchToBudget,
+  };
 }
 
 export function useBudgetContext() {

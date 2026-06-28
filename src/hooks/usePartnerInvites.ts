@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
-import type { BudgetPartnerInvite, BudgetState } from '@/lib/budgetTypes';
+import type { BudgetPartnerInvite } from '@/lib/budgetTypes';
 import { generateId } from '@/lib/budgetTypes';
 
 // Custom application event kind for Sat Sorter partner invites
@@ -13,12 +13,14 @@ const INVITE_KIND = 4001;
 interface PartnerInvitePayload {
   type: 'invite' | 'accept' | 'decline';
   inviteId: string;
-  budgetMonth: string;
-  permission: 'view' | 'edit';
-  fromPubkey: string;
+  month: string;
+  permission: 'viewer' | 'editor';
+  from: string;
   fromName?: string;
-  // For invites: the budget snapshot so the partner can import it
-  budgetSnapshot?: BudgetState;
+  /** NIP-44 encrypted budget nsec (only present in type=invite). */
+  encryptedBudgetKey?: string;
+  /** The budget's npub (only present in type=invite). */
+  budgetNpub?: string;
 }
 
 /**
@@ -28,10 +30,10 @@ interface PartnerInvitePayload {
  * specifically for Sat Sorter partner invites.
  *
  * - Sends encrypted invites to another Sat Sorter user
- * - The invite includes a snapshot of the current budget so the partner
- *   can access it once accepted
- * - Recipients see invites in their own Sat Sorter app (no DM interference)
- * - Uses NIP-04 encryption (with NIP-44 fallback) for privacy
+ * - The invite shares only the encrypted budget nsec, NOT a full snapshot
+ * - Recipients decrypt the budget nsec and use it to fetch budget data
+ *   directly from relays under the budget npub
+ * - Uses NIP-04/NIP-44 encryption for privacy
  */
 export function usePartnerInvites() {
   const { nostr } = useNostr();
@@ -90,14 +92,17 @@ export function usePartnerInvites() {
   );
 
   /**
-   * Send a partner invite with the budget snapshot embedded
+   * Send a partner invite with the encrypted budget nsec (no snapshot).
+   * The recipient will decrypt the budget nsec and use it to subscribe to
+   * budget data from relays under the budget npub.
    */
   const sendInvite = useCallback(
     async (
       toPubkey: string,
       budgetMonth: string,
       permission: 'view' | 'edit',
-      budgetSnapshot: BudgetState,
+      encryptedBudgetKey: string,
+      budgetNpub: string,
       fromName?: string
     ): Promise<boolean> => {
       if (!user?.pubkey) {
@@ -115,11 +120,12 @@ export function usePartnerInvites() {
         const payload: PartnerInvitePayload = {
           type: 'invite',
           inviteId,
-          budgetMonth,
-          permission,
-          fromPubkey: user.pubkey,
+          month: budgetMonth,
+          permission: permission === 'edit' ? 'editor' : 'viewer',
+          from: user.pubkey,
           fromName,
-          budgetSnapshot, // Include current budget so partner can access it
+          encryptedBudgetKey,
+          budgetNpub,
         };
 
         const encryptedContent = await encryptForRecipient(
@@ -137,10 +143,10 @@ export function usePartnerInvites() {
           kind: INVITE_KIND,
           content: encryptedContent,
           tags: [
-            ['p', toPubkey], // Recipient pubkey (indexable by relays)
-            ['t', 'sat-sorter-invite'], // Category tag (indexable by relays)
-            ['d', inviteId], // Unique invite identifier
-            ['month', budgetMonth],
+            ['p', toPubkey],
+            ['t', 'sat-sorter-invite'],
+            ['d', inviteId],
+            ['budget', budgetNpub],
             ['perm', permission],
             ['alt', `Sat Sorter budget partner invite`],
           ],
@@ -149,8 +155,8 @@ export function usePartnerInvites() {
         console.log(
           '[usePartnerInvites] Invite sent to',
           toPubkey.slice(0, 16) + '...',
-          'for month',
-          budgetMonth
+          'for budget npub',
+          budgetNpub.slice(0, 16) + '...'
         );
         return true;
       } catch (error) {
@@ -162,13 +168,12 @@ export function usePartnerInvites() {
   );
 
   /**
-   * Accept a partner invite - returns the budget snapshot so caller can import it
+   * Accept a partner invite — publishes the acceptance response.
+   * The caller is responsible for decrypting the budget key and storing it
+   * locally (see ManagePartnersDialog.handleAcceptInvite).
    */
   const acceptInvite = useCallback(
-    async (invite: BudgetPartnerInvite & { budgetSnapshot?: BudgetState }): Promise<{
-      success: boolean;
-      budgetSnapshot?: BudgetState;
-    }> => {
+    async (invite: BudgetPartnerInvite): Promise<{ success: boolean }> => {
       if (!user?.pubkey) {
         console.error('[usePartnerInvites] User not logged in');
         return { success: false };
@@ -183,13 +188,13 @@ export function usePartnerInvites() {
         const payload: PartnerInvitePayload = {
           type: 'accept',
           inviteId: invite.id,
-          budgetMonth: invite.budgetMonth,
+          month: invite.month,
           permission: invite.permission,
-          fromPubkey: user.pubkey,
+          from: user.pubkey,
         };
 
         const encryptedContent = await encryptForRecipient(
-          invite.fromPubkey,
+          invite.from,
           JSON.stringify(payload)
         );
 
@@ -202,10 +207,9 @@ export function usePartnerInvites() {
           kind: INVITE_KIND,
           content: encryptedContent,
           tags: [
-            ['p', invite.fromPubkey],
+            ['p', invite.from],
             ['t', 'sat-sorter-invite-response'],
             ['d', invite.id],
-            ['month', invite.budgetMonth],
             ['status', 'accepted'],
             ['alt', 'Sat Sorter budget invite accepted'],
           ],
@@ -213,13 +217,10 @@ export function usePartnerInvites() {
 
         console.log(
           '[usePartnerInvites] Invite accepted from',
-          invite.fromPubkey.slice(0, 16) + '...'
+          invite.from.slice(0, 16) + '...'
         );
 
-        return {
-          success: true,
-          budgetSnapshot: invite.budgetSnapshot,
-        };
+        return { success: true };
       } catch (error) {
         console.error('[usePartnerInvites] Failed to accept invite:', error);
         return { success: false };
@@ -242,13 +243,13 @@ export function usePartnerInvites() {
         const payload: PartnerInvitePayload = {
           type: 'decline',
           inviteId: invite.id,
-          budgetMonth: invite.budgetMonth,
+          month: invite.month,
           permission: invite.permission,
-          fromPubkey: user.pubkey,
+          from: user.pubkey,
         };
 
         const encryptedContent = await encryptForRecipient(
-          invite.fromPubkey,
+          invite.from,
           JSON.stringify(payload)
         );
 
@@ -260,10 +261,9 @@ export function usePartnerInvites() {
           kind: INVITE_KIND,
           content: encryptedContent,
           tags: [
-            ['p', invite.fromPubkey],
+            ['p', invite.from],
             ['t', 'sat-sorter-invite-response'],
             ['d', invite.id],
-            ['month', invite.budgetMonth],
             ['status', 'declined'],
             ['alt', 'Sat Sorter budget invite declined'],
           ],
@@ -271,7 +271,7 @@ export function usePartnerInvites() {
 
         console.log(
           '[usePartnerInvites] Invite declined from',
-          invite.fromPubkey.slice(0, 16) + '...'
+          invite.from.slice(0, 16) + '...'
         );
         return true;
       } catch (error) {
@@ -325,7 +325,7 @@ export function usePartnerInvites() {
 
         console.log('[usePartnerInvites] Found', events.length, 'invite events');
 
-        const invites: Array<BudgetPartnerInvite & { budgetSnapshot?: BudgetState }> = [];
+        const invites: BudgetPartnerInvite[] = [];
         const seenInviteIds = new Set<string>();
 
         for (const event of events) {
@@ -347,12 +347,13 @@ export function usePartnerInvites() {
 
               invites.push({
                 id: payload.inviteId,
-                fromPubkey: payload.fromPubkey,
-                budgetMonth: payload.budgetMonth,
+                from: payload.from,
+                month: payload.month,
                 permission: payload.permission,
+                encryptedBudgetKey: payload.encryptedBudgetKey || '',
+                budgetNpub: payload.budgetNpub || '',
                 createdAt: event.created_at,
                 status: 'pending',
-                budgetSnapshot: payload.budgetSnapshot,
               });
             }
           } catch (error) {

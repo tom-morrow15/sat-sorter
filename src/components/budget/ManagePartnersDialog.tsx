@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { Plus, Trash2, Shield, Eye, QrCode, Loader2, Bell, CheckCircle, XCircle, UserPlus } from 'lucide-react';
-import { useState } from 'react';
 import { nip19 } from 'nostr-tools';
 import { useAuthor } from '@/hooks/useAuthor';
 import { genUserName } from '@/lib/genUserName';
-import type { BudgetPartnerInvite, BudgetState } from '@/lib/budgetTypes';
+import type { BudgetPartnerInvite } from '@/lib/budgetTypes';
+import { formatMonth } from '@/lib/budgetTypes';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,7 +12,9 @@ import { useToast } from '@/hooks/useToast';
 import { usePartners } from '@/hooks/usePartners';
 import { usePartnerInvites } from '@/hooks/usePartnerInvites';
 import { useBudget } from '@/hooks/useBudget';
+import { useBudgetContext } from '@/contexts/BudgetContext';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { generateBudgetKeypair, encryptBudgetKeyForPartner, decryptBudgetKeyFromInvite } from '@/lib/budgetCrypto';
 import { QRScanner } from './QRScanner';
 import {
   Dialog,
@@ -47,7 +49,8 @@ export function ManagePartnersDialog({
   // Use Nostr-native partners hook - this bypasses localStorage sync issues
   const { partners, isLoading, addPartner, removePartner, changePartnerPermission } = usePartners();
   const { sendInvite, pendingInvites, acceptInvite, declineInvite } = usePartnerInvites();
-  const { currentMonth, fullState, importBudgetState } = useBudget();
+  const { currentMonth, fullState } = useBudget();
+  const { setState } = useBudgetContext();
   const { user } = useCurrentUser();
   
   const [newPartnerPubkey, setNewPartnerPubkey] = useState('');
@@ -61,26 +64,82 @@ export function ManagePartnersDialog({
 
   const isOwner = userRole === 'owner';
 
-  // Handle accepting a partner invite - downloads the owner's budget
-  const handleAcceptInvite = async (invite: BudgetPartnerInvite & { budgetSnapshot?: BudgetState }) => {
+  // Handle accepting a partner invite — decrypts the budget key and stores it
+  const handleAcceptInvite = async (invite: BudgetPartnerInvite) => {
     setProcessingInviteId(invite.id);
     try {
-      const result = await acceptInvite(invite);
-      if (result.success && result.budgetSnapshot) {
-        // Import the owner's budget into our local state
-        importBudgetState(result.budgetSnapshot, {
-          asRole: invite.permission === 'edit' ? 'editor' : 'viewer',
-          ownerPubkey: invite.fromPubkey,
+      if (!user?.signer?.nip44) {
+        toast({
+          title: 'Cannot accept invite',
+          description: 'Your signer does not support NIP-44 decryption.',
+          variant: 'destructive',
         });
+        return;
+      }
+
+      // 1. Decrypt the budget nsec using the invitee's signer
+      const budgetNsec = await decryptBudgetKeyFromInvite(
+        invite.encryptedBudgetKey,
+        user.signer.nip44,
+        invite.from
+      );
+
+      // 2. Derive the budget npub and verify it matches
+      const decoded = nip19.decode(budgetNsec);
+      if (decoded.type !== 'nsec') {
+        throw new Error('Decrypted budget key is not a valid nsec');
+      }
+      const budgetNpub = nip19.npubEncode(
+        nip19.decode(budgetNsec).type === 'nsec'
+          ? decoded.data
+          : ''
+      );
+      // Verify the npub matches what the invite claims
+      if (budgetNpub !== invite.budgetNpub) {
+        console.error('[ManagePartnersDialog] Budget npub mismatch!');
+        toast({
+          title: 'Invalid invite',
+          description: 'The budget key in this invite does not match. It may have been tampered with.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // 3. Publish acceptance via acceptInvite (sends kind 4001 response)
+      const result = await acceptInvite(invite);
+
+      if (result.success) {
+        // 4. Store the budget keypair locally
+        setState(prev => ({
+          ...prev,
+          accessibleBudgets: [
+            ...prev.accessibleBudgets.filter(b => b.budgetNpub !== budgetNpub),
+            {
+              budgetNpub,
+              budgetNsec: budgetNsec,
+              role: invite.permission === 'editor' ? 'editor' as const : 'viewer' as const,
+            },
+          ],
+          budgetKeypair: {
+            budgetNsec: budgetNsec,
+            budgetNpub,
+          },
+          // Add the owner as a partner (so sync subscriptions include them)
+          partners: [
+            ...(prev.partners || []).filter(p => p.pubkey !== invite.from),
+            {
+              pubkey: invite.from,
+              permission: 'edit',
+              addedAt: Math.floor(Date.now() / 1000),
+              status: 'accepted',
+              acceptedAt: Math.floor(Date.now() / 1000),
+            },
+          ],
+        }));
 
         toast({
           title: 'Budget Partner Invite Accepted!',
-          description: `You now have ${invite.permission === 'edit' ? 'edit' : 'view-only'} access to the shared budget.`,
-        });
-      } else if (result.success) {
-        toast({
-          title: 'Invite Accepted',
-          description: 'The invite was accepted but no budget data was included.',
+          description: `You now have ${invite.permission === 'editor' ? 'edit' : 'view-only'} access. Data will sync via the shared budget key.`,
         });
       } else {
         toast({
@@ -161,26 +220,80 @@ export function ManagePartnersDialog({
        return;
      }
 
+     if (!user?.signer?.nip44) {
+       setValidationError('Your signer does not support NIP-44. Please use a compatible Nostr extension.');
+       return;
+     }
+
       setIsSubmitting(true);
       try {
-        console.log('[ManagePartnersDialog] Adding partner:', hexPubkey, 'with permission:', newPartnerPermission);
+        // 1. Ensure we have a budget keypair. If this is the first partner,
+        //    generate one and save it to state. All future partners share
+        //    the same keypair.
+        let budgetKeypair = fullState.budgetKeypair;
+        const isFirstPartner = !budgetKeypair;
+        if (!budgetKeypair) {
+          const generated = generateBudgetKeypair();
+          budgetKeypair = {
+            budgetNsec: generated.budgetNsec,
+            budgetNpub: generated.budgetNpub,
+            budgetPrivateKey: generated.budgetPrivateKey,
+            budgetPublicKey: generated.budgetPublicKey,
+          };
+          // Persist the keypair immediately
+          setState(prev => ({
+            ...prev,
+            budgetKeypair: {
+              budgetNsec: budgetKeypair!.budgetNsec,
+              budgetNpub: budgetKeypair!.budgetNpub,
+            },
+            accessibleBudgets: [
+              ...prev.accessibleBudgets.filter(b => b.budgetNpub !== '' && b.budgetNpub !== budgetKeypair!.budgetNpub),
+              {
+                budgetNpub: budgetKeypair!.budgetNpub,
+                budgetNsec: budgetKeypair!.budgetNsec,
+                role: 'owner' as const,
+              },
+            ],
+          }));
+          console.log('[ManagePartnersDialog] Generated new budget keypair:', budgetKeypair.budgetNpub.slice(0, 16) + '...');
+        }
+
+        // 2. Encrypt the budget nsec for the new partner
+        const encryptedKey = await encryptBudgetKeyForPartner(
+          budgetKeypair.budgetNsec,
+          user.signer.nip44,
+          hexPubkey
+        );
+
+        // 3. Save the partner to the NIP-78 partner list with the encrypted key
         await addPartner(hexPubkey, newPartnerPermission);
-        
-        // Send Nostr invite to the partner with the current budget snapshot
-        // so they can access the shared budget once they accept
+
+        // Also store the encrypted key in the BudgetState partner list
+        setState(prev => ({
+          ...prev,
+          partners: (prev.partners || []).map(p =>
+            p.pubkey === hexPubkey
+              ? { ...p, encryptedBudgetKey: encryptedKey }
+              : p
+          ),
+        }));
+
+        // 4. Publish kind 4001 invite with the encrypted budget nsec (no snapshot!)
         const inviteSent = await sendInvite(
           hexPubkey,
           currentMonth,
           newPartnerPermission,
-          fullState, // Include current budget state
+          encryptedKey,
+          budgetKeypair.budgetNpub,
           user?.metadata?.name
         );
 
         toast({
-          title: 'Partner Added',
+          title: isFirstPartner ? 'Budget Shared!' : 'Partner Added',
           description: inviteSent
-            ? `Invite sent to ${formatPubkey(hexPubkey)}. They'll see a notification in their Sat Sorter app.`
-            : `${formatPubkey(hexPubkey)} has been added. They will see it when they log in.`,
+            ? `Invite sent to ${formatPubkey(hexPubkey)}. They'll decrypt the budget key and sync data automatically.`
+            : `${formatPubkey(hexPubkey)} has been added locally. They need to be online to receive the invite.`,
         });
         setNewPartnerPubkey('');
         setValidationError('');
@@ -593,7 +706,7 @@ export function ManagePartnersDialog({
  * Pending Invite Card - shows a received invite with accept/decline actions
  */
 interface PendingInviteCardProps {
-  invite: BudgetPartnerInvite & { budgetSnapshot?: BudgetState };
+  invite: BudgetPartnerInvite;
   isProcessing: boolean;
   onAccept: () => void;
   onDecline: () => void;
@@ -605,10 +718,9 @@ function PendingInviteCard({
   onAccept,
   onDecline,
 }: PendingInviteCardProps) {
-  const inviterProfile = useAuthor(invite.fromPubkey);
+  const inviterProfile = useAuthor(invite.from);
   const inviterName =
-    inviterProfile.data?.metadata?.name || genUserName(invite.fromPubkey);
-  const hasBudgetData = !!invite.budgetSnapshot;
+    inviterProfile.data?.metadata?.name || genUserName(invite.from);
 
   return (
     <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-blue-500/5">
@@ -631,19 +743,18 @@ function PendingInviteCard({
           <div className="flex flex-col gap-0.5">
             <span className="text-muted-foreground">Budget Month</span>
             <span className="font-medium">
-              {new Date(`${invite.budgetMonth}-01`).toLocaleDateString('en-US', {
-                month: 'long',
-                year: 'numeric',
-              })}
+              {invite.month
+                ? formatMonth(invite.month)
+                : 'Unknown'}
             </span>
           </div>
           <div className="flex flex-col gap-0.5">
             <span className="text-muted-foreground">Permission</span>
             <Badge
-              variant={invite.permission === 'edit' ? 'default' : 'secondary'}
+              variant={invite.permission === 'editor' ? 'default' : 'secondary'}
               className="w-fit text-[10px]"
             >
-              {invite.permission === 'edit' ? (
+              {invite.permission === 'editor' ? (
                 <>
                   <Shield className="h-2.5 w-2.5 mr-1" />
                   Can Edit
@@ -659,14 +770,15 @@ function PendingInviteCard({
         </div>
 
         {/* Info message about what happens on accept */}
-        {hasBudgetData && (
-          <div className="p-2 rounded bg-muted/50 border border-muted">
-            <p className="text-[11px] text-muted-foreground">
-              💡 Accepting will download the shared budget to your device. You'll be
-              able to {invite.permission === 'edit' ? 'add transactions and edit categories' : 'view transactions'}.
-            </p>
-          </div>
-        )}
+        <div className="p-2 rounded bg-muted/50 border border-muted">
+          <p className="text-[11px] text-muted-foreground">
+            Accepting will connect you to the shared budget. Data will sync
+            automatically. You'll be able to{' '}
+            {invite.permission === 'editor'
+              ? 'add transactions and edit categories'
+              : 'view transactions'}.
+          </p>
+        </div>
 
         {/* Action buttons */}
         <div className="flex gap-2">

@@ -1,49 +1,43 @@
 import { useEffect, useRef } from 'react';
 import { useBudget } from '@/hooks/useBudget';
-import { usePartners } from '@/hooks/usePartners';
-import { usePartnerTransactionSync } from '@/hooks/usePartnerTransactionSync';
+import { useBudgetContext } from '@/contexts/BudgetContext';
+import { useSharedBudgetSync } from '@/hooks/useSharedBudgetSync';
 import { usePartnerInviteResponses } from '@/hooks/usePartnerInviteResponses';
-import { useCurrentUser } from '@/hooks/useCurrentUser';
 import type { Transaction } from '@/lib/budgetTypes';
 
 /**
- * PartnerSyncWrapper - Detects local transaction changes and publishes them to partners.
+ * PartnerSyncWrapper — Detects local transaction changes and publishes them
+ * to the shared budget keypair (kind 30078).
  *
- * Works alongside usePartnerTransactionSync which handles receiving events and
- * updating local state. This wrapper only publishes LOCAL changes.
+ * OLD BEHAVIOR (removed):
+ * - Compared previous vs current state serialized JSON
+ * - Published one kind 4002 event per partner
+ * - Used RemoteOriginTracker for echo prevention
  *
- * Echo-loop prevention: When a transaction arrives from a partner, the sync hook
- * marks it in the `remoteTracker`. When this wrapper detects that transaction
- * in local state, it checks the tracker and skips publishing it (since it already
- * came from a partner).
+ * NEW BEHAVIOR:
+ * - When local transactions change, publishes a single kind 30078 event
+ *   under the budget npub. All partners receive it via their subscription.
  */
 export function PartnerSyncWrapper({ children }: { children: React.ReactNode }) {
-  const { user } = useCurrentUser();
   const { fullState } = useBudget();
-  const { partners: nostrPartners } = usePartners();
-  const localPartners = fullState.partners || [];
+  const { state } = useBudgetContext();
+  const budgetKeypair = state.budgetKeypair;
 
-  // Combine partner sources (same logic as the sync hook)
-  const combinedPartners = [
-    ...nostrPartners,
-    ...localPartners.filter(
-      (lp) => !nostrPartners.some((np) => np.pubkey === lp.pubkey)
-    ),
-  ];
-
+  // Use the new shared-budget sync hook if we have a keypair
   const {
     publishTransactionAdd,
     publishTransactionUpdate,
     publishTransactionDelete,
-    remoteTracker,
-  } = usePartnerTransactionSync();
+  } = useSharedBudgetSync(
+    budgetKeypair?.budgetNpub || '',
+    budgetKeypair?.budgetNsec || ''
+  );
 
   // Listen for invite accept/decline responses to keep partner status in sync
   usePartnerInviteResponses();
 
   // Track previous state for change detection
   const prevStateRef = useRef<{
-    // Map of month -> transaction ID -> serialized transaction
     byMonth: Map<string, Map<string, string>>;
     initialized: boolean;
   }>({
@@ -51,17 +45,9 @@ export function PartnerSyncWrapper({ children }: { children: React.ReactNode }) 
     initialized: false,
   });
 
-  // Include pending partners — optimistic sync even before accept response received
-  const acceptedPartnerCount = combinedPartners.filter(
-    (p) => p.status === 'accepted' || p.status === 'pending'
-  ).length;
-
-  // Publish local transaction changes
+  // Publish local transaction changes (only if we have a budget keypair)
   useEffect(() => {
-    // Skip if no user or no accepted partners
-    if (!user?.pubkey || acceptedPartnerCount === 0) {
-      return;
-    }
+    if (!budgetKeypair) return;
 
     const prev = prevStateRef.current;
 
@@ -75,9 +61,9 @@ export function PartnerSyncWrapper({ children }: { children: React.ReactNode }) 
       currentByMonth.set(budget.month, monthMap);
     }
 
-    // On first run, just initialize — don't publish anything yet.
+    // On first run, just initialize — don't publish existing transactions.
     // Existing transactions are considered "already synced" (they may have
-    // come from the initial invite snapshot or an earlier session).
+    // come from the initial data load or an earlier session).
     if (!prev.initialized) {
       prevStateRef.current = {
         byMonth: currentByMonth,
@@ -96,15 +82,7 @@ export function PartnerSyncWrapper({ children }: { children: React.ReactNode }) 
         const prevSerialized = prevTxs.get(txId);
 
         if (prevSerialized === undefined) {
-          // New transaction
-          // Check if this was added by a REMOTE partner event (echo prevention)
-          if (remoteTracker.remoteAdded.has(txId)) {
-            remoteTracker.remoteAdded.delete(txId); // Consume the marker
-            console.log('[PartnerSyncWrapper] Skipping publish for remote-added tx:', txId);
-            continue;
-          }
-
-          // Locally added — publish to partners
+          // New transaction — publish under budget npub
           try {
             const tx: Transaction = JSON.parse(currentSerialized);
             console.log('[PartnerSyncWrapper] Publishing new local tx:', txId, 'for month', month);
@@ -116,14 +94,6 @@ export function PartnerSyncWrapper({ children }: { children: React.ReactNode }) 
           }
         } else if (prevSerialized !== currentSerialized) {
           // Updated transaction
-          // Check if this update came from a REMOTE event (echo prevention)
-          const remoteSerialized = remoteTracker.remoteUpdated.get(txId);
-          if (remoteSerialized === currentSerialized) {
-            remoteTracker.remoteUpdated.delete(txId);
-            console.log('[PartnerSyncWrapper] Skipping publish for remote-updated tx:', txId);
-            continue;
-          }
-
           try {
             const tx: Transaction = JSON.parse(currentSerialized);
             console.log('[PartnerSyncWrapper] Publishing updated local tx:', txId, 'for month', month);
@@ -139,14 +109,6 @@ export function PartnerSyncWrapper({ children }: { children: React.ReactNode }) 
       // Detect deleted transactions
       for (const prevTxId of prevTxs.keys()) {
         if (!currentTxs.has(prevTxId)) {
-          // Transaction was deleted
-          // Check if this was a remote deletion (echo prevention)
-          if (remoteTracker.remoteDeleted.has(prevTxId)) {
-            remoteTracker.remoteDeleted.delete(prevTxId);
-            console.log('[PartnerSyncWrapper] Skipping publish for remote-deleted tx:', prevTxId);
-            continue;
-          }
-
           console.log('[PartnerSyncWrapper] Publishing deletion of local tx:', prevTxId, 'for month', month);
           publishTransactionDelete(prevTxId, month).catch((e) => {
             console.error('[PartnerSyncWrapper] Publish delete failed:', e);
@@ -155,15 +117,10 @@ export function PartnerSyncWrapper({ children }: { children: React.ReactNode }) 
       }
     }
 
-    // Also check for fully removed months (all transactions gone)
+    // Also check for fully removed months
     for (const [month, prevTxs] of prev.byMonth) {
       if (!currentByMonth.has(month)) {
-        // Entire month was removed; publish deletions for all its transactions
         for (const txId of prevTxs.keys()) {
-          if (remoteTracker.remoteDeleted.has(txId)) {
-            remoteTracker.remoteDeleted.delete(txId);
-            continue;
-          }
           console.log('[PartnerSyncWrapper] Month removed, publishing deletion of tx:', txId);
           publishTransactionDelete(txId, month).catch((e) => {
             console.error('[PartnerSyncWrapper] Publish delete failed:', e);
@@ -178,26 +135,12 @@ export function PartnerSyncWrapper({ children }: { children: React.ReactNode }) 
       initialized: true,
     };
   }, [
-    user?.pubkey,
-    acceptedPartnerCount,
+    budgetKeypair,
     fullState.budgets,
     publishTransactionAdd,
     publishTransactionUpdate,
     publishTransactionDelete,
-    remoteTracker,
   ]);
-
-  // When partners list changes (e.g. first partner added), reset the initialization
-  // so we re-snapshot the current state without re-publishing existing transactions.
-  useEffect(() => {
-    if (acceptedPartnerCount > 0) {
-      // Keep initialized = true if we already had partners
-      // Only reset on transition from 0 -> 1+
-      if (!prevStateRef.current.initialized) {
-        prevStateRef.current.initialized = false;
-      }
-    }
-  }, [acceptedPartnerCount]);
 
   return <>{children}</>;
 }

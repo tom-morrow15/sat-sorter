@@ -4,25 +4,27 @@ This document describes the custom event kinds used by Sat Sorter for functional
 
 ## Kind 4001 - Budget Partner Invite
 
-A regular event used to send encrypted partner invite notifications between Sat Sorter users. The content is encrypted using NIP-04 (with NIP-44 as fallback) so only the intended recipient can read it.
+A regular event used to send encrypted partner invite notifications between Sat Sorter users. The content is encrypted using NIP-44 so only the intended recipient can read it.
 
 ### Purpose
 
-When a user adds a partner to their budget, an encrypted invite is published to Nostr. The recipient's Sat Sorter app queries for these events and shows them as pending invites that can be accepted or declined.
+When a budget owner adds a partner, an encrypted invite is published to Nostr. The invite contains the encrypted budget nsec, NOT a full budget snapshot. The recipient decrypts the budget nsec and uses it to subscribe to budget data directly from relays under the budget npub.
 
 ### Event Structure
 
 **Kind**: 4001 (regular event)
 
-**Content**: NIP-04 encrypted JSON payload:
+**Content**: NIP-44 encrypted JSON payload:
 ```json
 {
-  "type": "invite" | "accept" | "decline" | "revoke",
+  "type": "invite" | "accept" | "decline",
   "inviteId": "unique-invite-id",
-  "budgetMonth": "YYYY-MM",
-  "permission": "view" | "edit",
-  "fromPubkey": "hex-pubkey-of-sender",
-  "fromName": "optional-display-name"
+  "month": "YYYY-MM",
+  "permission": "viewer" | "editor",
+  "from": "hex-pubkey-of-sender",
+  "fromName": "optional-display-name",
+  "encryptedBudgetKey": "nip44-ciphertext-of-budget-nsec",
+  "budgetNpub": "npub1..."
 }
 ```
 
@@ -30,7 +32,7 @@ When a user adds a partner to their budget, an encrypted invite is published to 
 - `["p", "<recipient-hex-pubkey>"]` - Recipient of the invite (indexable)
 - `["t", "sat-sorter-invite"]` - Category tag for filtering (indexable)
 - `["d", "<invite-id>"]` - Unique invite identifier
-- `["month", "YYYY-MM"]` - Budget month reference
+- `["budget", "<budget-npub>"]` - The budget's public identity
 - `["perm", "view" | "edit"]` - Permission level
 - `["alt", "<description>"]` - Human-readable description (NIP-31)
 
@@ -53,86 +55,70 @@ Recipients query for their invites using:
 
 ### Security
 
-- Content is encrypted with NIP-04 (with NIP-44 fallback)
+- Content is encrypted with NIP-44
 - Only the recipient can decrypt the invite payload
-- Public tags only reveal metadata (sender, recipient, invite category)
+- Public tags only reveal metadata (sender, recipient, budget npub)
 - Event signatures verify authenticity of invites
+- The budget nsec is shared peer-to-peer, never stored on relays
 
-## Kind 4002 - Budget Partner Transaction Sync
+## Kind 30078 - Shared Budget Data (NIP-78)
 
-A regular event used to sync transactions and budget updates between budget partners in real-time. Each partner publishes their own changes, which other partners can subscribe to for real-time synchronization.
+Addressable events (kind 30078) are used for all budget data storage and synchronization. Each shared budget has its own Nostr identity (nsec/npub). All budget entries are signed and encrypted by the budget keypair, not by individual users.
 
 ### Purpose
 
-When a partner adds a transaction, updates a line item, or makes other budget changes, they publish a sync event that all other partners can subscribe to. This enables real-time synchronization of budget data across all partners' devices without needing to manually save or reload.
+When two users share a budget, they share a single Nostr keypair. All budget data (categories, line items, transactions, templates) is published as kind 30078 events authored by the budget npub. Both partners subscribe to the budget npub's events — one subscription covers everyone.
 
 ### Event Structure
 
-**Kind**: 4002 (regular event)
+**Kind**: 30078 (addressable / parameterized replaceable)
 
-**Content**: NIP-44 encrypted JSON payload:
-```json
-{
-  "type": "transaction-added" | "transaction-updated" | "transaction-deleted" | "budget-updated",
-  "budgetMonth": "YYYY-MM",
-  "data": {
-    // For transaction-added/updated:
-    "transaction": { /* Transaction object */ },
-    // For transaction-deleted:
-    "transactionId": "transaction-id",
-    // For budget-updated:
-    "snapshot": { /* Full budget state or delta */ }
-  },
-  "timestamp": 1234567890,
-  "version": 1
-}
-```
+**Content**: NIP-44 encrypted JSON payload (MonthlyBudget or BudgetManifest)
+
+**Format**: Split storage — one manifest + one small event per month:
+- Manifest d-tag: `sat-sorter/budget-data`
+- Per-month d-tags: `sat-sorter/budget-data/YYYY-MM`
 
 **Required Tags**:
-- `["p", "<owner-hex-pubkey>"]` - Budget owner (indexable)
-- `["budget", "sat-sorter"]` - Budget category tag (indexable)
-- `["month", "YYYY-MM"]` - Budget month reference
-- `["type", "transaction-sync" | "budget-update"]` - Event type
+- `["d", "<identifier>"]` - Unique d-tag (see above)
 - `["alt", "<description>"]` - Human-readable description (NIP-31)
 
-### Data Format
+### Publish and Subscribe
 
-All transaction and budget data is encrypted with NIP-44 so only the budget participants can read it.
+**Owner publishes**: Signs and encrypts budget entries with the budget keypair:
+```typescript
+const signer = new NSecSigner(budgetPrivateKey);
+const encrypted = encryptWithBudgetKey(data, budgetPrivateKey, budgetPublicKey);
+await publish({ kind: 30078, content: encrypted, tags: [['d', dTag], ...] });
+```
 
-### Querying
-
-Partners query for budget updates using:
+**Partners subscribe**: Subscribe to the budget npub's events:
 ```json
 {
-  "kinds": [4002],
-  "#p": ["<budget-owner-pubkey>"],
-  "#budget": ["sat-sorter"],
-  "#month": ["YYYY-MM"]
+  "kinds": [30078],
+  "authors": ["<budget-npub-hex>"]
 }
 ```
 
-### Real-Time Subscription
+### Deduplication
 
-Partners maintain open subscriptions to budget owner and co-partner events:
-```json
-{
-  "kinds": [4002],
-  "#p": ["<owner-pubkey>", "<partner-pubkey>"],
-  "#budget": ["sat-sorter"]
-}
-```
-
-### Merge Strategy
-
-When receiving updates from multiple partners:
-1. Apply transaction updates in order of timestamp
-2. Use version numbers to detect out-of-order updates
-3. Mark conflicts with timestamps for user review
-4. Local changes always take precedence within a session (until explicitly synced)
+Transactions are deduplicated by their `id` field. Applying the same entry twice is idempotent. No RemoteOriginTracker is needed because all events come from the same budget npub.
 
 ### Security
 
-- Content is encrypted with NIP-44 (each participant's key to self)
-- Only budget participants can decrypt their own events
-- Public tags reveal budget participation but not data
-- Event signatures verify authenticity of updates
+- Content is encrypted with NIP-44 using the budget keypair
+- All data at rest on relays is opaque to non-participants
+- The budget nsec is shared peer-to-peer (encrypted per-partner in the invite)
+- Public tags only reveal that a budget npub has published budget data
+- Event signatures verify the budget keypair's authenticity
+
+### Comparison with Old Model
+
+| Feature | Old (kind 4002) | New (kind 30078) |
+|---------|-----------------|-------------------|
+| Event kind | 4002 | 30078 |
+| Encryption | Per-partner NIP-44 | Budget keypair NIP-44 |
+| Publishing | One event per partner | One event total |
+| Subscription | Multiple partner authors | Single budget npub |
+| Echo prevention | RemoteOriginTracker | Transaction ID dedup |
+| Invite payload | Full budget snapshot | Encrypted budget nsec |

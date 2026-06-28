@@ -67,13 +67,20 @@ export interface BudgetPartner {
   lastActive?: number; // Unix timestamp of last activity
   status?: 'pending' | 'accepted' | 'declined'; // Partner acceptance status
   acceptedAt?: number; // When partner accepted the invite
+  /** NIP-44 encrypted budget nsec, scoped to this partner. Only set by the
+   *  budget owner so the partner can decrypt and hold the shared keypair. */
+  encryptedBudgetKey?: string;
 }
 
 export interface BudgetPartnerInvite {
   id: string; // Unique invite ID
-  fromPubkey: string; // Who invited this user
-  budgetMonth: string; // YYYY-MM format
-  permission: 'view' | 'edit';
+  month: string; // YYYY-MM of the budget at invite time
+  from: string; // Sender's hex pubkey
+  permission: 'viewer' | 'editor';
+  /** NIP-44 encrypted budget nsec, decryptable only by the recipient. */
+  encryptedBudgetKey: string;
+  /** The budget's npub (unencrypted, so the recipient can verify). */
+  budgetNpub: string;
   createdAt: number; // Unix timestamp
   status: 'pending' | 'accepted' | 'declined';
   acceptedAt?: number;
@@ -100,6 +107,21 @@ export interface BudgetState {
   defaultTemplateId?: string; // ID of template to use for new months
   receivedInvites?: BudgetPartnerInvite[]; // Invites received from other budget owners
   paymentMethods?: string[]; // User-defined payment methods (e.g. "Citi Credit Card", "ACH", "Cash")
+
+  /** Shared-budget keypair. Created when the first partner is added.
+   *  Both partners hold this so all budget data is signed + encrypted by the
+   *  budget npub rather than by individual user identities. */
+  budgetKeypair?: {
+    budgetNsec: string;
+    budgetNpub: string;
+  };
+
+  /** All shared budgets this user can access (including their own). */
+  accessibleBudgets: {
+    budgetNpub: string;
+    budgetNsec: string;
+    role: 'owner' | 'editor' | 'viewer';
+  }[];
 }
 
 // Helper to generate unique IDs
