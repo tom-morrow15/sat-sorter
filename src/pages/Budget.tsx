@@ -16,6 +16,7 @@ import { BTCMapBanner } from '@/components/budget/BTCMapBanner';
 import { WalletModalControlled } from '@/components/budget/WalletModalControlled';
 import { QuickAddFAB } from '@/components/budget/QuickAddFAB';
 import { PartnerSyncWrapper } from '@/components/budget/PartnerSyncWrapper';
+import { MigrationBanner } from '@/components/budget/MigrationBanner';
 import { LoginArea } from '@/components/auth/LoginArea';
 import { useBudget } from '@/hooks/useBudget';
 import { useWallet } from '@/hooks/useWallet';
@@ -165,6 +166,8 @@ export default function Budget() {
           });
         }}
       />
+
+      <MigrationBanner />
 
        <main className="container mx-auto px-3 sm:px-4 py-4 lg:py-6">
          {/* Alerts Section - Full width */}
