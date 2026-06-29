@@ -204,15 +204,17 @@ export function BudgetHeader({
     updateConfig((c) => ({ ...c, logoStyle: c.logoStyle === 'sats' ? 'bitcoin' : 'sats' }));
   };
 
-    // Safe reload for PWA users (including guest mode).
-    // Never touches localStorage, IndexedDB, or your budget data.
-    // Only ensures you get the latest app code after a deploy.
+    // "Reload latest version" (more aggressive)
+    // Always forces the browser to ignore its HTTP cache (?_fresh=...)
+    // and refetch the newest app shell from the network.
     const handleRefresh = async () => {
       await refreshApp();
     };
 
-    // Preferred "Update App" path — uses Service Worker update + SKIP_WAITING when available.
-    // Completely safe for local data (guest mode included).
+    // "Update App" (polite / recommended)
+    // Uses the normal Service Worker update flow.
+    // Only does a cache-busted reload if a new worker is actually waiting.
+    // Otherwise just does a normal reload.
     const handleUpdateApp = async () => {
       await updateApp();
     };
@@ -380,14 +382,16 @@ export function BudgetHeader({
 
                     <DropdownMenuSeparator />
 
-                    {/* Advanced - safe reloads that never touch your local budget data */}
+                    {/* Advanced - both are safe (never touch your local budgets) */}
                     <DropdownMenuItem onClick={handleRefresh}>
                       <RotateCw className="h-4 w-4 mr-2" />
                       Reload latest version
+                      <span className="ml-auto text-[10px] text-muted-foreground/60">force network</span>
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={handleUpdateApp}>
                       <RotateCw className="h-4 w-4 mr-2" />
                       Update App
+                      <span className="ml-auto text-[10px] text-muted-foreground/60">normal</span>
                     </DropdownMenuItem>
 
                     <div className="px-2 pt-2 text-[10px] text-muted-foreground/60 text-center tabular-nums">

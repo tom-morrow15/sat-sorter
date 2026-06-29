@@ -268,14 +268,16 @@ export function AccountSwitcher({
 
           <DropdownMenuSeparator />
 
-          {/* Advanced - safe reloads (never touch your local budgets) */}
+          {/* Advanced - both are safe (never touch local budgets) */}
           <DropdownMenuItem onClick={() => onRefreshApp?.()}>
             <RotateCw className="h-4 w-4 mr-2" />
             Reload latest version
+            <span className="ml-auto text-[10px] text-muted-foreground/60">force</span>
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => handleUpdateApp?.()}>
             <RotateCw className="h-4 w-4 mr-2" />
             Update App
+            <span className="ml-auto text-[10px] text-muted-foreground/60">normal</span>
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => onOpenBackup?.()}>
             <Cloud className="h-4 w-4 mr-2" />

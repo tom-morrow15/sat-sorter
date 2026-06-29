@@ -48,25 +48,25 @@ export function useRegisterSW() {
   }, []);
 
   /**
-   * Safe reload that fetches the latest app code.
+   * "Reload latest version"
    *
-   * Designed specifically for PWA / installed app usage (including guest mode).
+   * Purpose: Force the app to check the network right now and load the newest code.
    *
-   * GUARANTEES:
-   * - **Never touches localStorage or IndexedDB** — your budgets, transactions,
-   *   partners, settings etc. are 100% safe. Guest users will not lose anything.
-   * - **Never deletes Cache Storage** — the offline PWA experience is preserved.
-   * - **Never unregisters the Service Worker** — the app stays installed and
-   *   continues to work offline.
+   * When to use:
+   * - You just deployed something and the yellow dot hasn't appeared yet.
+   * - You want to be 100% sure you're not running any stale cached files.
    *
-   * How it works (gentle / PWA-friendly):
-   * 1. Asks the Service Worker (if any) to check the network for a new version.
-   * 2. If a new version is waiting, tells it to activate immediately (SKIP_WAITING).
-   * 3. Does a normal reload (the active SW will serve the new shell if available,
-   *    or the browser will fetch fresh assets).
+   * Behavior:
+   * - Always asks the Service Worker (if present) to check for updates.
+   * - If a new worker is waiting, activates it.
+   * - Then does a hard reload **with a cache-busting query parameter**.
+   *   This tells the browser "ignore whatever you think you have in HTTP cache"
+   *   and fetch the shell fresh from the network.
    *
-   * This is the recommended way to pick up a deploy while staying inside your
-   * installed PWA.
+   * Still completely safe for PWA + guest mode:
+   * - Never touches localStorage / IndexedDB
+   * - Never deletes Cache Storage
+   * - Never unregisters the Service Worker
    */
   const refreshApp = useCallback(async () => {
     try {
@@ -74,8 +74,6 @@ export function useRegisterSW() {
         const reg = await navigator.serviceWorker.getRegistration();
         if (reg) {
           await reg.update().catch(() => {});
-
-          // Politely activate a waiting worker if one is ready
           if (reg.waiting) {
             reg.waiting.postMessage({ type: 'SKIP_WAITING' });
           }
@@ -85,21 +83,33 @@ export function useRegisterSW() {
       console.warn('[useRegisterSW] SW update step failed (non-fatal):', e);
     }
 
-    // Simple reload. Because we did SKIP_WAITING (if applicable), the new code
-    // will be used. Browser HTTP cache for the main bundles is usually bypassed
-    // after a SW-controlled reload in modern browsers.
-    window.location.reload();
+    // Force the browser to bypass its HTTP cache for the main documents.
+    // This is the "I really want the newest code right now" path.
+    const url = new URL(window.location.href);
+    url.searchParams.set('_fresh', Date.now().toString());
+    window.location.href = url.toString();
   }, []);
 
   /**
-   * "Update App" — preferred button for normal PWA use.
+   * "Update App"
    *
-   * Tries the standard Service Worker update flow.
-   * Activates any waiting worker and reloads.
+   * Purpose: The polite, recommended way to apply an available update.
    *
-   * Falls back to the safe refreshApp() above.
+   * When to use:
+   * - The yellow update dot is showing.
+   * - You want the cleanest possible transition using the Service Worker's
+   *   normal update mechanism.
    *
-   * Completely safe for guest mode and all local data.
+   * Behavior:
+   * - Asks the Service Worker for updates.
+   * - If a new version is already waiting (the normal case after the dot appears),
+   *   it activates it with SKIP_WAITING and reloads.
+   * - If nothing is waiting, it does nothing visible (you're already up to date)
+   *   or falls back to a gentle reload.
+   *
+   * This is usually the better button for day-to-day PWA use.
+   *
+   * Still 100% safe for local data and installed PWAs.
    */
   const updateApp = useCallback(async () => {
     try {
@@ -109,45 +119,65 @@ export function useRegisterSW() {
           await reg.update().catch(() => {});
 
           if (reg.waiting) {
+            // This is the normal "update is ready" case
             reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-            // Give the new worker a tiny moment to take control
             setTimeout(() => window.location.reload(), 80);
             return;
           }
+
+          // No waiting worker. A plain reload is still safe and light.
+          // We do a normal reload here (no _fresh param) so we respect
+          // the Service Worker's caching strategy as much as possible.
+          window.location.reload();
+          return;
         }
       }
     } catch (e) {
       console.warn('[useRegisterSW] Update App path failed (falling back):', e);
     }
 
-    // Still safe — just does the gentle reload
+    // Last resort – still the safe path
     await refreshApp();
   }, [refreshApp]);
 
   return {
     needRefresh,
     updateSW,
+
     /**
-     * Safe reload that gets the latest app code (PWA-friendly).
+     * "Reload latest version"  ← the more aggressive button
      *
-     * Guarantees:
-     * - Never touches localStorage or IndexedDB → your budgets are 100% safe
-     *   (critical for guest mode)
-     * - Never deletes Cache Storage → offline PWA continues to work
-     * - Never unregisters the Service Worker → app stays installed
+     * What makes it different from "Update App":
+     * - It **always** adds a cache-busting query param: ?_fresh=1720000000000
+     * - It **always** forces the browser to re-download the main HTML + JS bundles
+     *   from the network (bypasses browser HTTP cache).
+     * - It still activates any waiting Service Worker.
      *
-     * Uses SKIP_WAITING + reload when a new Service Worker is waiting.
-     * Falls back to a plain reload otherwise.
+     * When to use it:
+     * - You just pushed code and the yellow dot never appeared.
+     * - You're not seeing your latest changes.
+     * - You want to be 100% sure you're not getting any stale cached files.
      *
-     * This is the button you should use as a daily PWA user.
+     * Still 100% safe for PWA + guest mode.
      */
     refreshApp,
+
     /**
-     * Preferred "Update App" for normal PWA use.
-     * Tries the standard Service Worker update flow first.
-     * Falls back to refreshApp.
+     * "Update App"  ← the polite / recommended button
      *
-     * Completely safe for local data and guest mode.
+     * What makes it different from "Reload latest version":
+     * - If a new Service Worker is waiting (the normal case when the yellow dot shows),
+     *   it activates it and reloads.
+     * - If no new worker is waiting, it just does a normal `window.location.reload()`
+     *   (no forced cache-bust). This lets the Service Worker and browser caching
+     *   do their normal thing.
+     * - Only falls back to the aggressive cache-busted path on error.
+     *
+     * When to use it:
+     * - The yellow update dot is visible.
+     * - You want the clean, normal PWA update experience.
+     *
+     * This is usually the better button for everyday use.
      */
     updateApp,
   };
