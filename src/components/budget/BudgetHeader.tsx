@@ -101,7 +101,7 @@ export function BudgetHeader({
   getPreviousMonth = () => '',
 }: BudgetHeaderProps) {
   const { data: priceData, isLoading: priceLoading } = useBitcoinPrice();
-  const { needRefresh, forceReloadLatest, updateApp, factoryResetApp } = useRegisterSW();
+  const { needRefresh, softReset, hardReset, totalReset } = useRegisterSW();
   const { isDark, toggle: toggleTheme } = useTheme();
   // Use Nostr-native partners hook for the count badge
   const { partners: nostrPartners } = usePartners();
@@ -204,21 +204,19 @@ export function BudgetHeader({
     updateConfig((c) => ({ ...c, logoStyle: c.logoStyle === 'sats' ? 'bitcoin' : 'sats' }));
   };
 
-    // "Force reload latest code from server"
-    // More aggressive safe button — always bypasses browser cache.
-    const handleForceReload = async () => {
-      await forceReloadLatest();
+    // Soft Reset — normal recommended reload
+    const handleSoftReset = async () => {
+      await softReset();
     };
 
-    // "Update App" (recommended)
-    // Polite normal update using Service Worker when available.
-    const handleUpdateApp = async () => {
-      await updateApp();
+    // Hard Reset — forces fresh code from the network
+    const handleHardReset = async () => {
+      await hardReset();
     };
 
-    // NUCLEAR: Factory Reset — deletes local budget data.
-    const handleFactoryReset = async () => {
-      await factoryResetApp();
+    // Total Reset — the nuclear option that deletes local data
+    const handleTotalReset = async () => {
+      await totalReset();
     };
 
    return (
@@ -306,9 +304,9 @@ export function BudgetHeader({
                 onOpenPaymentMethods={() => setShowPaymentMethods(true)}
                 onCopyPreviousMonth={() => onCopyPreviousMonth?.()}
                 onResetBudgetMonth={() => setShowResetConfirm(true)}
-                onRefreshApp={handleForceReload}
-                onUpdateApp={handleUpdateApp}
-                onFactoryReset={handleFactoryReset}
+                onSoftReset={handleSoftReset}
+                onHardReset={handleHardReset}
+                onTotalReset={handleTotalReset}
                 onOpenBackup={() => setShowBackup(true)}
                 onSupportSatSorter={() => setShowDonateSorter(true)}
                 onSupportBitcoinProjects={() => setShowDonate(true)}
@@ -385,31 +383,33 @@ export function BudgetHeader({
 
                     <DropdownMenuSeparator />
 
-                    {/* Safe reloads — never delete your local budgets */}
-                    <DropdownMenuItem onClick={handleForceReload}>
+                    {/* Soft Reset — normal recommended reload (safe) */}
+                    <DropdownMenuItem onClick={handleSoftReset}>
                       <RotateCw className="h-4 w-4 mr-2" />
-                      Force reload latest code from server
-                      <span className="ml-auto text-[10px] text-muted-foreground/60">bypass cache</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={handleUpdateApp}>
-                      <RotateCw className="h-4 w-4 mr-2" />
-                      Update to latest version
+                      Soft Reset — Reload latest version
                       <span className="ml-auto text-[10px] text-muted-foreground/60">recommended</span>
+                    </DropdownMenuItem>
+
+                    {/* Hard Reset — force fresh code from the server (still safe) */}
+                    <DropdownMenuItem onClick={handleHardReset}>
+                      <RotateCw className="h-4 w-4 mr-2" />
+                      Hard Reset — Force newest code from server
+                      <span className="ml-auto text-[10px] text-muted-foreground/60">bypass cache</span>
                     </DropdownMenuItem>
 
                     <DropdownMenuSeparator />
 
-                    {/* NUCLEAR OPTION — can permanently delete local budgets */}
+                    {/* Total Reset — the nuclear option that deletes local data */}
                     <DropdownMenuItem
-                      onClick={handleFactoryReset}
+                      onClick={handleTotalReset}
                       className="text-destructive focus:text-destructive font-medium"
                     >
                       <RotateCw className="h-4 w-4 mr-2" />
-                      Factory Reset — Delete all local data
+                      Total Reset — Delete all local data
                     </DropdownMenuItem>
                     <div className="px-3 pb-1 text-[9px] leading-tight text-destructive/80">
-                      ⚠️ WARNING: This permanently deletes your budgets on this device.<br />
-                      Safe ONLY if you are logged in with Nostr AND have a working cloud backup.<br />
+                      ⚠️ DANGER: This permanently deletes your budgets saved on this device.<br />
+                      Only safe if you are logged in with Nostr AND have a working cloud backup.<br />
                       Guest mode or no backup = your data will be lost forever.
                     </div>
 

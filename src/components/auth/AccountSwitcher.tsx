@@ -53,9 +53,9 @@ export function AccountSwitcher({
   onOpenPaymentMethods,
   onCopyPreviousMonth,
   onResetBudgetMonth,
-  onRefreshApp,
-  onUpdateApp,
-  onFactoryReset,
+  onSoftReset,
+  onHardReset,
+  onTotalReset,
   onOpenBackup,
   onSupportSatSorter,
   onSupportBitcoinProjects,
@@ -67,12 +67,13 @@ export function AccountSwitcher({
 }: AccountSwitcherProps) {
   const { currentUser, otherUsers, setLogin, removeLogin } = useLoggedInAccounts();
   const { isDark, toggle: toggleTheme } = useTheme();
-  const { needRefresh, updateApp, factoryResetApp } = useRegisterSW();
+  const { needRefresh, softReset, hardReset, totalReset } = useRegisterSW();
   const showUpdateBadge = updateAvailable || needRefresh;
 
-  // If parent didn't provide onUpdateApp, fall back to the hook's version
-  const handleUpdateApp = onUpdateApp ?? updateApp;
-  const handleFactoryReset = onFactoryReset ?? factoryResetApp;
+  // Use provided handlers or fall back to the hook versions
+  const handleSoftReset = onSoftReset ?? softReset;
+  const handleHardReset = onHardReset ?? hardReset;
+  const handleTotalReset = onTotalReset ?? totalReset;
 
   if (!currentUser && variant === 'avatar') return null;
 
@@ -271,30 +272,34 @@ export function AccountSwitcher({
 
           <DropdownMenuSeparator />
 
-          {/* Safe reloads — do NOT delete your local budgets */}
-          <DropdownMenuItem onClick={() => onRefreshApp?.()}>
+          {/* Soft Reset — normal recommended reload (safe) */}
+          <DropdownMenuItem onClick={() => handleSoftReset?.()}>
             <RotateCw className="h-4 w-4 mr-2" />
-            Force reload from server
-            <span className="ml-auto text-[10px] text-muted-foreground/60">bypass cache</span>
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => handleUpdateApp?.()}>
-            <RotateCw className="h-4 w-4 mr-2" />
-            Update to latest version
+            Soft Reset — Reload latest version
             <span className="ml-auto text-[10px] text-muted-foreground/60">recommended</span>
+          </DropdownMenuItem>
+
+          {/* Hard Reset — force fresh code from the server (still safe) */}
+          <DropdownMenuItem onClick={() => handleHardReset?.()}>
+            <RotateCw className="h-4 w-4 mr-2" />
+            Hard Reset — Force newest code from server
+            <span className="ml-auto text-[10px] text-muted-foreground/60">bypass cache</span>
           </DropdownMenuItem>
 
           <DropdownMenuSeparator />
 
-          {/* Nuclear option — can delete local data in guest mode */}
+          {/* Total Reset — nuclear option that deletes local data */}
           <DropdownMenuItem
-            onClick={() => handleFactoryReset?.()}
-            className="text-destructive focus:text-destructive"
+            onClick={() => handleTotalReset?.()}
+            className="text-destructive focus:text-destructive font-medium"
           >
             <RotateCw className="h-4 w-4 mr-2" />
-            Factory Reset (deletes local data)
+            Total Reset — Delete all local data
           </DropdownMenuItem>
-          <div className="px-3 pb-1 text-[9px] leading-tight text-destructive/70">
-            Only safe with Nostr + cloud backup.<br />Guest mode = data lost forever.
+          <div className="px-3 pb-1 text-[9px] leading-tight text-destructive/80">
+            ⚠️ DANGER: Permanently deletes your budgets saved on this device.<br />
+            Safe ONLY with Nostr login + working cloud backup.<br />
+            Guest mode or no backup = data lost forever.
           </div>
           <DropdownMenuItem onClick={() => onOpenBackup?.()}>
             <Cloud className="h-4 w-4 mr-2" />

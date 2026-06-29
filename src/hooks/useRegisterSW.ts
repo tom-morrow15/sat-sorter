@@ -207,27 +207,30 @@ export function useRegisterSW() {
     updateSW,
 
     /**
-     * Force reload the newest app code from the network.
-     * Safe — does not delete your budgets.
+     * Soft Reset — Recommended normal reload.
+     * Gets the latest code using the normal Service Worker flow.
+     * Safe: does NOT delete any of your local budget data.
      */
-    forceReloadLatest: refreshApp,
+    softReset: updateApp,
 
     /**
-     * Normal update using Service Worker (recommended for daily use).
-     * Safe — does not delete your budgets.
+     * Hard Reset — Force fresh code from the server.
+     * Always bypasses browser cache to download the newest app files.
+     * Safe: does NOT delete any of your local budget data.
      */
-    updateApp,
+    hardReset: refreshApp,
 
     /**
-     * THE NUCLEAR OPTION.
+     * Total Reset (⚠️ Nuclear) — Deletes all local data.
      *
-     * Deletes ALL local budget data on this device.
+     * This permanently deletes the budget saved on this device.
      *
-     * WARNING:
-     * - If you are NOT logged in with Nostr + have not successfully synced your budget to the cloud,
-     *   this will PERMANENTLY DELETE your budgets.
-     * - Only safe if you have a working Nostr + cloud backup.
+     * Only safe if:
+     * - You are logged in with Nostr, AND
+     * - You have successfully backed up / synced your budget to the cloud.
+     *
+     * In guest mode or without a backup → all your budgets will be lost forever.
      */
-    factoryResetApp,
+    totalReset: factoryResetApp,
   };
 }
