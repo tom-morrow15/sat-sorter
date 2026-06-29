@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Sparkles, MessageSquare } from 'lucide-react';
+import { Sparkles, MessageSquare, AlertTriangle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -20,6 +20,7 @@ export function MapleInsightsCard() {
 
   const [insights, setInsights] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const btcPrice = priceData?.usdPerBtc ?? 0;
   const hasKey = apiKey.length > 0;
@@ -32,13 +33,16 @@ export function MapleInsightsCard() {
       return;
     }
     setIsLoading(true);
+    setError(null);
     try {
       const context = buildBudgetContext(currentMonth, currentBudget, btcPrice, evergreenContext);
       const text = await analyzeMonth(apiKey, proxyUrl, context, model);
       if (!text || !text.trim()) {
+        const msg = "Maple didn't return any insights for this month. Try again or check your spending data.";
+        setInsights(msg);
         toast({
           title: 'No insights returned',
-          description: 'Maple sent back an empty response. Tap "Try Again".',
+          description: 'Maple sent back an empty response. Tap "Retry".',
           variant: 'destructive',
         });
         return;
@@ -46,6 +50,7 @@ export function MapleInsightsCard() {
       setInsights(cleanMarkdown(text));
     } catch (err) {
       const msg = getMapleErrorMessage(err);
+      setError(msg);
       toast({ title: msg, variant: 'destructive' });
     } finally {
       setIsLoading(false);
@@ -73,7 +78,8 @@ export function MapleInsightsCard() {
 
       <Card className="border border-border/60 shadow-sm overflow-hidden">
         <CardContent className="p-0">
-          {!insights && !isLoading && (
+          {/* Initial state: no insights yet, no error */}
+          {!insights && !isLoading && !error && (
             <div className="p-6 text-center space-y-4">
               <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto">
                 <Sparkles className="h-6 w-6 text-primary" />
@@ -99,6 +105,25 @@ export function MapleInsightsCard() {
               <Skeleton className="h-4 w-full" />
               <Skeleton className="h-4 w-5/6" />
               <Skeleton className="h-4 w-4/6" />
+            </div>
+          )}
+
+          {/* Error state: inline error with retry button */}
+          {error && !isLoading && (
+            <div className="p-6 text-center space-y-3">
+              <div className="h-12 w-12 rounded-2xl bg-destructive/10 flex items-center justify-center mx-auto">
+                <AlertTriangle className="h-6 w-6 text-destructive" />
+              </div>
+              <div className="space-y-1">
+                <p className="font-medium text-sm text-destructive">
+                  Could not generate insights
+                </p>
+                <p className="text-xs text-muted-foreground">{error}</p>
+              </div>
+              <Button size="sm" variant="outline" onClick={handleAnalyze}>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Retry
+              </Button>
             </div>
           )}
 

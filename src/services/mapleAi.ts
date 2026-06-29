@@ -188,7 +188,7 @@ export interface MapleModelOption {
   description: string;
 }
 
-export const MAPLE_MODELS: MapleModelOption[] = [
+export const MAPLE_MODELS_FALLBACK: MapleModelOption[] = [
   {
     id: 'llama3-3-70b',
     label: 'Llama 3.3 70B',
@@ -209,10 +209,71 @@ export const MAPLE_MODELS: MapleModelOption[] = [
 // Default to a model that formats reliably so a user's first impression of the
 // AI feature is the clean, correct version (the previous "Auto (Quick)" default
 // frequently produced garbled numbers and dropped words).
-export const DEFAULT_MAPLE_MODEL = MAPLE_MODELS[0].id;
+export const DEFAULT_MAPLE_MODEL = MAPLE_MODELS_FALLBACK[0].id;
 
-// Back-compat: index 0 used as a fallback model id.
-const MODEL_NAMES = MAPLE_MODELS.map((m) => m.id);
+/** The default model list used before dynamic models are fetched. */
+export const MAPLE_MODELS_DEFAULT = MAPLE_MODELS_FALLBACK;
+
+// Back-compat alias: components previously imported MAPLE_MODELS.
+export { MAPLE_MODELS_FALLBACK as MAPLE_MODELS };
+
+/** Build the /models URL from a base proxy URL */
+function getModelsUrl(proxyUrl: string): string {
+  const base = proxyUrl.replace(/\/+$/, '');
+  return `${base}/models`;
+}
+
+/**
+ * Fetch available models from Maple's /v1/models endpoint.
+ * Returns an empty array on failure so the app falls back to the hardcoded list.
+ */
+export async function fetchMapleModels(
+  apiKey: string,
+  proxyUrl: string
+): Promise<MapleModelOption[]> {
+  try {
+    const url = getModelsUrl(proxyUrl);
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+      },
+    });
+
+    if (!response.ok) {
+      console.warn('[fetchMapleModels] Non-200 response:', response.status);
+      return [];
+    }
+
+    const json = await response.json();
+    // OpenAI-compatible format: { object: "list", data: [{ id, owned_by, ... }] }
+    const rawModels: { id: string; owned_by?: string }[] = json.data ?? [];
+    if (!Array.isArray(rawModels) || rawModels.length === 0) {
+      return [];
+    }
+
+    const models: MapleModelOption[] = rawModels
+      .filter((m) => m.id && typeof m.id === 'string')
+      .map((m) => ({
+        id: m.id,
+        label: m.id
+          // Capitalize first letter of each word, replace hyphens/underscores
+          // with spaces; special-case "auto:" prefix
+          .replace(/^auto:/, 'Auto: ')
+          .replace(/[-_]/g, ' ')
+          .replace(/\b\w/g, (c) => c.toUpperCase())
+          .trim(),
+        description: m.owned_by
+          ? `Powered by ${m.owned_by}`
+          : '',
+      }))
+      .sort((a, b) => a.id.localeCompare(b.id));
+
+    return models;
+  } catch (err) {
+    console.warn('[fetchMapleModels] Error fetching models:', err);
+    return [];
+  }
+}
 
 /** Build the full chat completions URL from a base proxy URL */
 function getChatCompletionsUrl(proxyUrl: string): string {
@@ -275,7 +336,9 @@ async function callMaple(
     throw new Error(`Maple API error ${response.status}: ${errorText}`);
   }
 
-  // Handle streaming response
+  // Handle streaming response with cross-chunk buffering.
+  // SSE lines can span across read() boundaries, so we accumulate a buffer
+  // and only process complete lines.
   const reader = response.body?.getReader();
   if (!reader) {
     throw new Error('Failed to read Maple response stream');
@@ -283,14 +346,17 @@ async function callMaple(
 
   const decoder = new TextDecoder();
   let fullContent = '';
+  let buffer = '';
 
   try {
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
 
-      const chunk = decoder.decode(value);
-      const lines = chunk.split('\n');
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      // Keep the last (possibly incomplete) line in the buffer
+      buffer = lines.pop() || '';
 
       for (const line of lines) {
         if (line.startsWith('data: ')) {
@@ -332,12 +398,15 @@ export async function chatWithMaple(
   history: ChatMessage[],
   model: string = DEFAULT_MAPLE_MODEL
 ): Promise<string> {
-  return callMaple(apiKey, proxyUrl, CHAT_SYSTEM_PROMPT, context, history, 600, model);
+  // Reduce output tokens when history is long to leave room for the prompt.
+  const maxTokens = history.length > 20 ? 400 : 600;
+  return callMaple(apiKey, proxyUrl, CHAT_SYSTEM_PROMPT, context, history, maxTokens, model);
 }
 
 export async function testKey(
   apiKey: string,
-  proxyUrl: string
+  proxyUrl: string,
+  model?: string
 ): Promise<{ ok: boolean; error?: string }> {
   try {
     const url = getChatCompletionsUrl(proxyUrl);
@@ -348,7 +417,7 @@ export async function testKey(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: MODEL_NAMES[0],
+        model: model || DEFAULT_MAPLE_MODEL,
         messages: [{ role: 'user', content: 'Hello' }],
         temperature: 0.7,
         max_tokens: 10,
@@ -377,6 +446,8 @@ export async function testKey(
     }
 
     try {
+      // Consume the stream — we don't need the content, just want to
+      // verify the connection works end-to-end.
       while (true) {
         const { done } = await reader.read();
         if (done) break;

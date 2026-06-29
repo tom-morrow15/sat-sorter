@@ -48,6 +48,34 @@ export function useMapleChat(): UseMapleChatReturn {
 
   const abortRef = useRef<AbortController | null>(null);
 
+  /**
+   * Maximum number of ChatEntry items to keep in the API history.
+   * Prevents the context window from blowing out on long conversations.
+   */
+  const MAX_HISTORY_MESSAGES = 30;
+
+  /**
+   * Trim conversation history to stay within a reasonable context window.
+   * Keeps the first 2 messages (greeting context) and the last 20 messages,
+   * inserting a synthetic summary note in between.
+   */
+  function trimHistory(history: ChatMessage[]): ChatMessage[] {
+    if (history.length <= MAX_HISTORY_MESSAGES) return history;
+
+    const firstTwo = history.slice(0, 2);
+    const lastTwenty = history.slice(-20);
+
+    return [
+      ...firstTwo,
+      {
+        role: 'assistant' as const,
+        content:
+          '(Earlier conversation summarized: you were discussing budget categories and transactions.)',
+      },
+      ...lastTwenty,
+    ];
+  }
+
   const getContext = useCallback(() => {
     const btcPrice = priceData?.usdPerBtc ?? 0;
     if (!btcPrice) {
@@ -87,12 +115,15 @@ export function useMapleChat(): UseMapleChatReturn {
           role: m.role,
           content: m.content,
         }));
-        const history: ChatMessage[] = [
+        const fullHistory: ChatMessage[] = [
           ...previousMessages,
           { role: 'user', content: text },
         ];
 
-        const responseText = await chatWithMaple(apiKey, proxyUrl, context, history, model);
+        // Trim history to stay within context window limits
+        const trimmedHistory = trimHistory(fullHistory);
+
+        const responseText = await chatWithMaple(apiKey, proxyUrl, context, trimmedHistory, model);
 
         const assistantEntry: ChatEntry = {
           id: `${Date.now()}-assistant`,

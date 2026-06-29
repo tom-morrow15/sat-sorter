@@ -9,6 +9,7 @@ import {
   AlertCircle,
   ExternalLink,
   Server,
+  Pencil,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,7 +27,7 @@ import {
 } from '@/components/ui/select';
 import { useMapleSettings, DEFAULT_PROXY_URL } from '@/hooks/useMapleSettings';
 import { useToast } from '@/hooks/useToast';
-import { testKey, MAPLE_MODELS } from '@/services/mapleAi';
+import { testKey, MAPLE_MODELS_FALLBACK } from '@/services/mapleAi';
 
 export function MapleSettings() {
   const {
@@ -40,40 +41,47 @@ export function MapleSettings() {
     setProxyUrl,
     model,
     setModel,
+    availableModels,
+    modelsLoading,
   } = useMapleSettings();
   const { toast } = useToast();
   const [showKey, setShowKey] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
+  const [customModelMode, setCustomModelMode] = useState(false);
+  const [customModelInput, setCustomModelInput] = useState('');
 
   const hasKey = apiKey.length > 0;
 
-   const handleTest = async () => {
-     if (!apiKey.trim()) {
-       toast({ title: 'Please enter an API key', variant: 'destructive' });
-       return;
-     }
-     setIsTesting(true);
-     try {
-       const result = await testKey(apiKey.trim(), proxyUrl);
-       if (result.ok) {
-         toast({ title: '✅ Connected to Maple successfully!' });
-       } else {
-         toast({
-           title: 'Connection failed',
-           description: result.error || 'Check your key and proxy URL, then try again.',
-           variant: 'destructive',
-         });
-       }
-     } catch (error) {
-       toast({
-         title: "Can't reach Maple",
-         description: error instanceof Error ? error.message : 'Check your connection and try again.',
-         variant: 'destructive',
-       });
-     } finally {
-       setIsTesting(false);
-     }
-   };
+  // Use fetched models if available, otherwise fall back to hardcoded list.
+  const modelOptions = availableModels.length > 0 ? availableModels : MAPLE_MODELS_FALLBACK;
+
+  const handleTest = async () => {
+    if (!apiKey.trim()) {
+      toast({ title: 'Please enter an API key', variant: 'destructive' });
+      return;
+    }
+    setIsTesting(true);
+    try {
+      const result = await testKey(apiKey.trim(), proxyUrl, model);
+      if (result.ok) {
+        toast({ title: '✅ Connected to Maple successfully!' });
+      } else {
+        toast({
+          title: 'Connection failed',
+          description: result.error || 'Check your key and proxy URL, then try again.',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Can't reach Maple",
+        description: error instanceof Error ? error.message : 'Check your connection and try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsTesting(false);
+    }
+  };
 
   return (
     <Card>
@@ -201,22 +209,73 @@ export function MapleSettings() {
               <KeyRound className="h-4 w-4" />
               <Label htmlFor="maple-model">Model</Label>
             </div>
-            <Select value={model} onValueChange={setModel}>
-              <SelectTrigger id="maple-model">
-                <SelectValue placeholder="Choose a model" />
-              </SelectTrigger>
-              <SelectContent>
-                {MAPLE_MODELS.map((m) => (
-                  <SelectItem key={m.id} value={m.id}>
-                    {m.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">
-              {MAPLE_MODELS.find((m) => m.id === model)?.description ??
-                'Choose which Maple model Budget Buddy talks to. You can also switch it on the fly from the chat header.'}
-            </p>
+
+            {customModelMode ? (
+              <div className="space-y-2">
+                <Input
+                  id="maple-model-custom"
+                  type="text"
+                  value={customModelInput}
+                  onChange={(e) => setCustomModelInput(e.target.value)}
+                  onBlur={() => {
+                    if (customModelInput.trim()) {
+                      setModel(customModelInput.trim());
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && customModelInput.trim()) {
+                      setModel(customModelInput.trim());
+                    }
+                  }}
+                  placeholder="e.g. llama3-3-70b"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCustomModelMode(false);
+                    setCustomModelInput('');
+                  }}
+                  className="text-xs text-primary hover:underline"
+                >
+                  Use list
+                </button>
+              </div>
+            ) : (
+              <>
+                <Select value={model} onValueChange={setModel}>
+                  <SelectTrigger id="maple-model">
+                    <SelectValue placeholder="Choose a model" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {modelsLoading && modelOptions.length === 0 && (
+                      <div className="px-2 py-3 text-xs text-muted-foreground text-center">
+                        Fetching models...
+                      </div>
+                    )}
+                    {modelOptions.map((m) => (
+                      <SelectItem key={m.id} value={m.id}>
+                        {m.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  {modelOptions.find((m) => m.id === model)?.description ??
+                    'Choose which Maple model Budget Buddy talks to. You can also switch it on the fly from the chat header.'}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCustomModelInput(model || '');
+                    setCustomModelMode(true);
+                  }}
+                  className="flex items-center gap-1 text-xs text-primary hover:underline"
+                >
+                  <Pencil className="h-3 w-3" />
+                  Custom model...
+                </button>
+              </>
+            )}
           </div>
         )}
 

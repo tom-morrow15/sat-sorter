@@ -20,15 +20,25 @@ import { QuickActionChips } from './QuickActionChips';
 import { TypingIndicator } from './TypingIndicator';
 import { ContextBottomSheet } from './ContextBottomSheet';
 import { OverspendDialog } from './OverspendDialog';
-import { MAPLE_MODELS } from '@/services/mapleAi';
+import { MAPLE_MODELS_FALLBACK, type MapleModelOption } from '@/services/mapleAi';
 import type { Bucket } from '@/lib/budgetTypes';
 
 export function BudgetBuddyScreen() {
-  const { isMapleEnabled, evergreenContext, model, setModel } = useMapleSettings();
+  const { isMapleEnabled, evergreenContext, model, setModel, availableModels } = useMapleSettings();
   const { messages, isLoading, sendMessage, clearHistory, preflightCheck } =
     useMapleChat();
 
-  const activeModel = MAPLE_MODELS.find((m) => m.id === model) ?? MAPLE_MODELS[0];
+  // Use fetched models if available, fall back to hardcoded list
+  const modelList: MapleModelOption[] = availableModels.length > 0 ? availableModels : MAPLE_MODELS_FALLBACK;
+
+  // Find the active model info. If the model isn't in the list (custom model),
+  // show the raw ID as the label.
+  const findModel = (modelId: string): MapleModelOption => {
+    const found = modelList.find((m) => m.id === modelId);
+    if (found) return found;
+    return { id: modelId, label: modelId, description: '' };
+  };
+  const activeModel = findModel(model);
 
   const [input, setInput] = useState('');
   const [showContext, setShowContext] = useState(false);
@@ -160,7 +170,7 @@ export function BudgetBuddyScreen() {
               <DropdownMenuContent align="start" className="w-64">
                 <DropdownMenuLabel>Choose a model</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                {MAPLE_MODELS.map((m) => (
+                {modelList.map((m) => (
                   <DropdownMenuItem
                     key={m.id}
                     onClick={() => setModel(m.id)}
@@ -172,9 +182,11 @@ export function BudgetBuddyScreen() {
                         <span className="text-[10px] text-primary">● active</span>
                       )}
                     </span>
-                    <span className="text-[11px] text-muted-foreground">
-                      {m.description}
-                    </span>
+                    {m.description && (
+                      <span className="text-[11px] text-muted-foreground">
+                        {m.description}
+                      </span>
+                    )}
                   </DropdownMenuItem>
                 ))}
               </DropdownMenuContent>
