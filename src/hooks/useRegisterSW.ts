@@ -48,67 +48,107 @@ export function useRegisterSW() {
   }, []);
 
   /**
-   * Force a completely fresh load of the app.
-   * This is the "Fresh App" / "Refresh App" behavior users want when they
-   * see stale UI after a deploy or after Safari cache/history clear.
+   * Safe reload that fetches the latest app code.
    *
-   * It:
-   *  - Clears all Cache Storage
-   *  - Unregisters all Service Workers
-   *  - Does a hard navigation (avoids browser cache as much as possible)
+   * Designed specifically for PWA / installed app usage (including guest mode).
+   *
+   * GUARANTEES:
+   * - **Never touches localStorage or IndexedDB** — your budgets, transactions,
+   *   partners, settings etc. are 100% safe. Guest users will not lose anything.
+   * - **Never deletes Cache Storage** — the offline PWA experience is preserved.
+   * - **Never unregisters the Service Worker** — the app stays installed and
+   *   continues to work offline.
+   *
+   * How it works (gentle / PWA-friendly):
+   * 1. Asks the Service Worker (if any) to check the network for a new version.
+   * 2. If a new version is waiting, tells it to activate immediately (SKIP_WAITING).
+   * 3. Does a normal reload (the active SW will serve the new shell if available,
+   *    or the browser will fetch fresh assets).
+   *
+   * This is the recommended way to pick up a deploy while staying inside your
+   * installed PWA.
    */
   const refreshApp = useCallback(async () => {
     try {
-      // 1. Clear every Cache Storage bucket (app shell, images, etc.)
-      if ('caches' in window) {
-        const names = await caches.keys();
-        await Promise.all(names.map((name) => caches.delete(name)));
-      }
-    } catch (e) {
-      console.warn('[useRegisterSW] Cache clear failed (non-fatal):', e);
-    }
-
-    try {
-      // 2. Unregister any service workers so they can't serve old assets
       if ('serviceWorker' in navigator) {
-        const regs = await navigator.serviceWorker.getRegistrations();
-        await Promise.all(regs.map((reg) => reg.unregister()));
+        const reg = await navigator.serviceWorker.getRegistration();
+        if (reg) {
+          await reg.update().catch(() => {});
+
+          // Politely activate a waiting worker if one is ready
+          if (reg.waiting) {
+            reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+          }
+        }
       }
     } catch (e) {
-      console.warn('[useRegisterSW] SW unregister failed (non-fatal):', e);
+      console.warn('[useRegisterSW] SW update step failed (non-fatal):', e);
     }
 
-    // 3. Hard navigation that is very likely to bypass disk cache.
-    // Using a cache-busting query string + replacing the location forces a fresh fetch.
-    const url = new URL(window.location.href);
-    url.searchParams.set('_fresh', Date.now().toString());
-    window.location.href = url.toString();
+    // Simple reload. Because we did SKIP_WAITING (if applicable), the new code
+    // will be used. Browser HTTP cache for the main bundles is usually bypassed
+    // after a SW-controlled reload in modern browsers.
+    window.location.reload();
   }, []);
 
   /**
-   * Lightweight "check for updates + reload".
-   * If a SW is controlling the page and reports an update, it will use it.
-   * Otherwise it falls back to the same force-refresh behavior.
+   * "Update App" — preferred button for normal PWA use.
+   *
+   * Tries the standard Service Worker update flow.
+   * Activates any waiting worker and reloads.
+   *
+   * Falls back to the safe refreshApp() above.
+   *
+   * Completely safe for guest mode and all local data.
    */
   const updateApp = useCallback(async () => {
     try {
-      if (updateSW) {
-        await updateSW(true);
-        return;
+      if ('serviceWorker' in navigator) {
+        const reg = await navigator.serviceWorker.getRegistration();
+        if (reg) {
+          await reg.update().catch(() => {});
+
+          if (reg.waiting) {
+            reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+            // Give the new worker a tiny moment to take control
+            setTimeout(() => window.location.reload(), 80);
+            return;
+          }
+        }
       }
-    } catch {
-      // fall through to hard refresh
+    } catch (e) {
+      console.warn('[useRegisterSW] Update App path failed (falling back):', e);
     }
-    // No SW update hook available — do the full fresh load
+
+    // Still safe — just does the gentle reload
     await refreshApp();
-  }, [updateSW, refreshApp]);
+  }, [refreshApp]);
 
   return {
     needRefresh,
     updateSW,
-    /** Full "fresh app" — nukes caches + SWs + hard reload */
+    /**
+     * Safe reload that gets the latest app code (PWA-friendly).
+     *
+     * Guarantees:
+     * - Never touches localStorage or IndexedDB → your budgets are 100% safe
+     *   (critical for guest mode)
+     * - Never deletes Cache Storage → offline PWA continues to work
+     * - Never unregisters the Service Worker → app stays installed
+     *
+     * Uses SKIP_WAITING + reload when a new Service Worker is waiting.
+     * Falls back to a plain reload otherwise.
+     *
+     * This is the button you should use as a daily PWA user.
+     */
     refreshApp,
-    /** "Update app" — prefers SW update if present, otherwise same as refreshApp */
+    /**
+     * Preferred "Update App" for normal PWA use.
+     * Tries the standard Service Worker update flow first.
+     * Falls back to refreshApp.
+     *
+     * Completely safe for local data and guest mode.
+     */
     updateApp,
   };
 }

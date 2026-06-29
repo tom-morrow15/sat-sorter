@@ -204,13 +204,21 @@ export function BudgetHeader({
     updateConfig((c) => ({ ...c, logoStyle: c.logoStyle === 'sats' ? 'bitcoin' : 'sats' }));
   };
 
-    // Reliable "Fresh App" handler (uses the improved hook that clears caches + SWs + hard reload)
+    // Safe reload for PWA users (including guest mode).
+    // Never touches localStorage, IndexedDB, or your budget data.
+    // Only ensures you get the latest app code after a deploy.
     const handleRefresh = async () => {
       await refreshApp();
     };
 
-    // "Update App" — tries to use a new service worker if one was registered,
-    // otherwise does the same full fresh reload.
+    // Preferred "Update App" path — uses Service Worker update + SKIP_WAITING when available.
+    // Completely safe for local data (guest mode included).
+    const handleUpdateApp = async () => {
+      await updateApp();
+    };
+
+    // Preferred "Update App" path — uses Service Worker update when available.
+    // Completely safe for local/guest data.
     const handleUpdateApp = async () => {
       await updateApp();
     };
@@ -378,10 +386,10 @@ export function BudgetHeader({
 
                     <DropdownMenuSeparator />
 
-                    {/* Advanced */}
+                    {/* Advanced - safe reloads that never touch your local budget data */}
                     <DropdownMenuItem onClick={handleRefresh}>
                       <RotateCw className="h-4 w-4 mr-2" />
-                      Refresh App (Fresh)
+                      Reload latest version
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={handleUpdateApp}>
                       <RotateCw className="h-4 w-4 mr-2" />
