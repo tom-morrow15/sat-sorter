@@ -309,53 +309,28 @@ export function BudgetHeader({
 
 
 
-            {/* Account Switcher (when logged in) - Avatar variant */}
-            {user && (
-              <div className="ml-1">
-                <AccountSwitcher 
-                  variant="avatar"
-                  onAddAccountClick={() => setShowLogin(true)}
-                  onBudgetPartnersClick={() => setShowPartners(true)}
-                  partnersCount={nostrPartners.length}
-                  pendingInvitesCount={pendingInvitesCount}
-                  onOpenWallet={() => onOpenWallet && onOpenWallet()}
-                  onOpenMapleSettings={() => setShowSettings(true)}
-                  onOpenPaymentMethods={() => setShowPaymentMethods(true)}
-                  onCopyPreviousMonth={() => onCopyPreviousMonth?.()}
-                  onResetBudgetMonth={() => setShowResetConfirm(true)}
-                  onRefreshApp={handleRefresh}
-                  onOpenBackup={() => setShowBackup(true)}
-                  onSupportSatSorter={() => setShowDonateSorter(true)}
-                  onSupportBitcoinProjects={() => setShowDonate(true)}
-                  onAbout={() => setShowAbout(true)}
-                  onLearnAboutBitcoin={() => setShowBitcoinEdu(true)}
-                />
-              </div>
-            )}
-
-             {/* Unified Menu — hamburger icon opens the same menu */}
-              {user ? (
-                <AccountSwitcher
-                  variant="hamburger"
-                  updateAvailable={needRefresh}
-                  triggerClassName="h-9 w-9 sm:h-10 sm:w-10 bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white border border-white/30 !rounded-md !p-0 !flex !items-center !justify-center"
-                  onAddAccountClick={() => setShowLogin(true)}
-                  onBudgetPartnersClick={() => setShowPartners(true)}
-                  partnersCount={nostrPartners.length}
-                  pendingInvitesCount={pendingInvitesCount}
-                  onOpenWallet={() => onOpenWallet && onOpenWallet()}
-                  onOpenMapleSettings={() => setShowSettings(true)}
-                  onOpenPaymentMethods={() => setShowPaymentMethods(true)}
-                  onCopyPreviousMonth={() => onCopyPreviousMonth?.()}
-                  onResetBudgetMonth={() => setShowResetConfirm(true)}
-                  onRefreshApp={handleRefresh}
-                  onOpenBackup={() => setShowBackup(true)}
-                  onSupportSatSorter={() => setShowDonateSorter(true)}
-                  onSupportBitcoinProjects={() => setShowDonate(true)}
-                  onAbout={() => setShowAbout(true)}
-                  onLearnAboutBitcoin={() => setShowBitcoinEdu(true)}
-                />
-              ) : (
+            {/* Account Switcher (avatar trigger, far right) — only when logged in */}
+            {user ? (
+              <AccountSwitcher 
+                variant="avatar"
+                updateAvailable={needRefresh}
+                onAddAccountClick={() => setShowLogin(true)}
+                onBudgetPartnersClick={() => setShowPartners(true)}
+                partnersCount={nostrPartners.length}
+                pendingInvitesCount={pendingInvitesCount}
+                onOpenWallet={() => onOpenWallet && onOpenWallet()}
+                onOpenMapleSettings={() => setShowSettings(true)}
+                onOpenPaymentMethods={() => setShowPaymentMethods(true)}
+                onCopyPreviousMonth={() => onCopyPreviousMonth?.()}
+                onResetBudgetMonth={() => setShowResetConfirm(true)}
+                onRefreshApp={handleRefresh}
+                onOpenBackup={() => setShowBackup(true)}
+                onSupportSatSorter={() => setShowDonateSorter(true)}
+                onSupportBitcoinProjects={() => setShowDonate(true)}
+                onAbout={() => setShowAbout(true)}
+                onLearnAboutBitcoin={() => setShowBitcoinEdu(true)}
+              />
+            ) : (
                 /* Guest hamburger menu — limited options until login */
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
