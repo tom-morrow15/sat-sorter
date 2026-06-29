@@ -124,9 +124,110 @@ export interface BudgetState {
   }[];
 }
 
+/** Current storage schema version. Bump when adding required fields. */
+export const BUDGET_STORAGE_VERSION = 2;
+
+/** A complete, safe default BudgetState that is guaranteed to have all required fields. */
+export const SAFE_DEFAULT_BUDGET_STATE: BudgetState = {
+  currentMonth: getCurrentMonth(),
+  budgets: [],
+  currency: 'sats',
+  accessibleBudgets: [
+    { budgetNpub: '', budgetNsec: '', role: 'owner' },
+  ],
+};
+
 // Helper to generate unique IDs
 export function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+}
+
+/**
+ * Normalizes any (possibly partial or legacy) persisted BudgetState into a
+ * complete, valid BudgetState. This is the single source of truth for repairing
+ * corrupt / old localStorage data (especially common in Safari after clearing
+ * history/cache).
+ *
+ * Always returns a state that has:
+ *  - currentMonth (falls back to today)
+ *  - budgets: array
+ *  - currency
+ *  - accessibleBudgets: array (never undefined)
+ *  - all optional arrays defaulted to []
+ *  - budgetKeypair preserved if present
+ */
+export function normalizeBudgetState(input: any): BudgetState {
+  const nowMonth = getCurrentMonth();
+
+  const base: BudgetState = {
+    currentMonth: nowMonth,
+    budgets: [],
+    currency: 'sats',
+    accessibleBudgets: [],
+  };
+
+  if (!input || typeof input !== 'object') {
+    return base;
+  }
+
+  // Merge known fields safely
+  const merged: BudgetState = {
+    ...base,
+    currentMonth: typeof input.currentMonth === 'string' && input.currentMonth
+      ? input.currentMonth
+      : nowMonth,
+    currency: input.currency === 'usd' || input.currency === 'sats' ? input.currency : 'sats',
+    budgets: Array.isArray(input.budgets) ? input.budgets : [],
+    partners: Array.isArray(input.partners) ? input.partners : undefined,
+    templates: Array.isArray(input.templates) ? input.templates : undefined,
+    paymentMethods: Array.isArray(input.paymentMethods) ? input.paymentMethods : undefined,
+    receivedInvites: Array.isArray(input.receivedInvites) ? input.receivedInvites : undefined,
+    defaultTemplateId: typeof input.defaultTemplateId === 'string' ? input.defaultTemplateId : undefined,
+    userRole: input.userRole === 'owner' || input.userRole === 'editor' || input.userRole === 'viewer'
+      ? input.userRole
+      : undefined,
+    lastSynced: typeof input.lastSynced === 'number' ? input.lastSynced : undefined,
+    budgetKeypair: input.budgetKeypair && typeof input.budgetKeypair === 'object'
+      ? {
+          budgetNsec: String(input.budgetKeypair.budgetNsec || ''),
+          budgetNpub: String(input.budgetKeypair.budgetNpub || ''),
+        }
+      : undefined,
+  };
+
+  // CRITICAL: always ensure accessibleBudgets is a real array
+  const rawAccessible = Array.isArray(input.accessibleBudgets) ? input.accessibleBudgets : [];
+  merged.accessibleBudgets = rawAccessible.map((b: any) => ({
+    budgetNpub: String(b?.budgetNpub || ''),
+    budgetNsec: String(b?.budgetNsec || ''),
+    role: (b?.role === 'editor' || b?.role === 'viewer') ? b.role : 'owner',
+  }));
+
+  // If we have a budgetKeypair but no entry in accessibleBudgets, add a synthetic owner entry
+  // so UI selectors and migration logic never see an empty list when a keypair exists.
+  if (merged.budgetKeypair?.budgetNpub && !merged.accessibleBudgets.some(b => b.budgetNpub === merged.budgetKeypair!.budgetNpub)) {
+    merged.accessibleBudgets = [
+      ...merged.accessibleBudgets,
+      {
+        budgetNpub: merged.budgetKeypair.budgetNpub,
+        budgetNsec: merged.budgetKeypair.budgetNsec,
+        role: 'owner',
+      },
+    ];
+  }
+
+  // If still no accessibleBudgets at all, add the implicit personal one (for legacy personal-only users)
+  if (merged.accessibleBudgets.length === 0 && !merged.budgetKeypair) {
+    merged.accessibleBudgets = [
+      {
+        budgetNpub: '',
+        budgetNsec: '',
+        role: 'owner',
+      },
+    ];
+  }
+
+  return merged;
 }
 
 // Default buckets for a new month

@@ -1,8 +1,10 @@
-import { createContext, useContext, useMemo, useEffect, useRef, ReactNode } from 'react';
+import { createContext, useContext, useMemo, useEffect, useRef, useCallback, ReactNode } from 'react';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import {
   BudgetState,
   getCurrentMonth,
+  normalizeBudgetState,
+  SAFE_DEFAULT_BUDGET_STATE,
 } from '@/lib/budgetTypes';
 
 const DEFAULT_STATE: BudgetState = {
@@ -23,7 +25,24 @@ const BudgetContext = createContext<BudgetContextValue | null>(null);
   const PAYMENT_METHODS_MIGRATION_KEY = 'sat-sorter-payment-methods-migrated';
 
 export function BudgetProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useLocalStorage<BudgetState>('sat-sorter-budget', DEFAULT_STATE);
+  // Use the ultra-safe default. This is the #1 defense against Safari "Clear History"
+  // leaving behind a partial object that is missing accessibleBudgets (or other new fields).
+  const [rawState, setRawState] = useLocalStorage<BudgetState>('sat-sorter-budget', SAFE_DEFAULT_BUDGET_STATE);
+
+  // Always normalize on every render / load. This guarantees we never hand a broken
+  // object downstream even if localStorage contains legacy or half-written data.
+  const state = normalizeBudgetState(rawState);
+
+  // setState wrapper that also normalizes the value the caller stores.
+  // We still persist the normalized shape so future loads are cleaner.
+  const setState = useCallback((value: BudgetState | ((prev: BudgetState) => BudgetState)) => {
+    setRawState((prevRaw) => {
+      const prevNormalized = normalizeBudgetState(prevRaw);
+      const next = typeof value === 'function' ? value(prevNormalized) : value;
+      return normalizeBudgetState(next);
+    });
+  }, [setRawState]);
+
   const hasAutoSetMonth = useRef(false);
   const hasRunMigration = useRef(false);
   const hasMigratedPaymentMethods = useRef(false);
@@ -105,7 +124,8 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
     hasRunMigration.current = true;
 
     // Already migrated or fresh install — nothing to do
-    if (state.accessibleBudgets.length > 0) return;
+    const accessible = state.accessibleBudgets || [];
+    if (accessible.length > 0) return;
     if (state.budgetKeypair) return;
 
     // No partners = no migration needed
@@ -130,41 +150,11 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Ensure accessibleBudgets and budgetKeypair are always present (for older
-  // localStorage data that predates these fields).
-  const normalizedState = useMemo<BudgetState>(() => {
-    let next = state;
-    let changed = false;
-
-    if (!next.accessibleBudgets) {
-      next = { ...next, accessibleBudgets: [] };
-      changed = true;
-    }
-
-    // If the user has a personal budget (no shared keypair), add it to
-    // accessibleBudgets implicitly so the selector always has an entry.
-    if (!next.budgetKeypair && next.accessibleBudgets.length === 0) {
-      // Personal budget — no shared keypair needed
-      next = {
-        ...next,
-        accessibleBudgets: [
-          ...next.accessibleBudgets,
-          {
-            budgetNpub: '',
-            budgetNsec: '',
-            role: 'owner' as const,
-          },
-        ],
-      };
-      changed = true;
-    }
-
-    return changed ? next : state;
-  }, [state]);
-
+  // We now normalize at the useLocalStorage + setState level (via normalizeBudgetState).
+  // This memo is kept only for future extension points; the object is already safe.
   const value = useMemo(
-    () => ({ state: normalizedState, setState }),
-    [normalizedState, setState]
+    () => ({ state, setState }),
+    [state, setState]
   );
 
   return <BudgetContext.Provider value={value}>{children}</BudgetContext.Provider>;
@@ -179,7 +169,8 @@ export function useSwitchBudget() {
   const { state, setState } = useBudgetContext();
 
   const switchToBudget = (budgetNpub: string) => {
-    const target = state.accessibleBudgets.find(b => b.budgetNpub === budgetNpub);
+    const accessible = state.accessibleBudgets || [];
+    const target = accessible.find(b => b.budgetNpub === budgetNpub);
     if (!target) {
       console.warn('[BudgetContext] Cannot switch to unknown budget:', budgetNpub);
       return;
@@ -199,7 +190,7 @@ export function useSwitchBudget() {
   };
 
   return {
-    accessibleBudgets: state.accessibleBudgets,
+    accessibleBudgets: state.accessibleBudgets || [],
     activeBudgetNpub: state.budgetKeypair?.budgetNpub || '',
     switchToBudget,
   };

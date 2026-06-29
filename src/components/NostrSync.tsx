@@ -3,6 +3,7 @@ import { useNostr } from '@nostrify/react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useAppContext } from '@/hooks/useAppContext';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { SAFE_DEFAULT_BUDGET_STATE } from '@/lib/budgetTypes';
 import type { BudgetState, MonthlyBudget } from '@/lib/budgetTypes';
 import type { WealthTrackerState } from '@/lib/wealthTypes';
 import { mergeWealthStates } from '@/lib/wealthTypes';
@@ -159,12 +160,9 @@ export function NostrSync() {
   const { config, updateConfig } = useAppContext();
   const { toast } = useToast();
 
-  // Access local budget state
-  const [localBudget, setLocalBudget] = useLocalStorage<BudgetState>('sat-sorter-budget', {
-    currentMonth: '',
-    budgets: [],
-    currency: 'sats',
-  });
+  // Access local budget state — use the same safe default as the main provider
+  // so we never get a partial object that is missing accessibleBudgets etc.
+  const [localBudget, setLocalBudget] = useLocalStorage<BudgetState>('sat-sorter-budget', SAFE_DEFAULT_BUDGET_STATE);
 
   // Access local wealth tracker state (same storage key as useWealthTracker).
   const [, setLocalWealth] = useLocalStorage<WealthTrackerState>(

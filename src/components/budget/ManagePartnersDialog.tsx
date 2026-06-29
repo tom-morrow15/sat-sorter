@@ -312,7 +312,7 @@ export function ManagePartnersDialog({
                budgetNpub: budgetKeypair!.budgetNpub,
              },
              accessibleBudgets: [
-               ...prev.accessibleBudgets.filter(b => b.budgetNpub !== '' && b.budgetNpub !== budgetKeypair!.budgetNpub),
+               ...(prev.accessibleBudgets || []).filter(b => b.budgetNpub !== '' && b.budgetNpub !== budgetKeypair!.budgetNpub),
                {
                  budgetNpub: budgetKeypair!.budgetNpub,
                  budgetNsec: budgetKeypair!.budgetNsec,

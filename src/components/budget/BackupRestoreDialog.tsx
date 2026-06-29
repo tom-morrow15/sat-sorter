@@ -26,6 +26,7 @@ import { useToast } from '@/hooks/useToast';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useBudgetSync } from '@/hooks/useBudgetSync';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { SAFE_DEFAULT_BUDGET_STATE } from '@/lib/budgetTypes';
 import type { BudgetState } from '@/lib/budgetTypes';
 
 interface BackupRestoreDialogProps {
@@ -49,12 +50,8 @@ export function BackupRestoreDialog({ open, onOpenChange }: BackupRestoreDialogP
     canSync,
   } = useBudgetSync();
 
-  // Access local budget state
-  const [localBudget, setLocalBudget] = useLocalStorage<BudgetState>('sat-sorter-budget', {
-    currentMonth: '',
-    budgets: [],
-    currency: 'sats',
-  });
+  // Access local budget state — use the exact same safe default as everywhere else
+  const [localBudget, setLocalBudget] = useLocalStorage<BudgetState>('sat-sorter-budget', SAFE_DEFAULT_BUDGET_STATE);
 
   // Export to JSON file
   const handleExport = () => {

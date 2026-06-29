@@ -27,9 +27,14 @@ export function useLocalStorage<T>(
   const [state, setState] = useState<T>(() => {
     try {
       const item = localStorage.getItem(key);
-      return item ? deserialize(item) : defaultValue;
+      if (!item) return defaultValue;
+      const parsed = deserialize(item);
+      // Always return something; never let partial objects leak out
+      return parsed ?? defaultValue;
     } catch (error) {
-      console.warn(`Failed to load ${key} from localStorage:`, error);
+      console.warn(`Failed to load ${key} from localStorage (corrupt or incompatible data):`, error);
+      // Safari + "Clear History" often leaves behind partial or unreadable data.
+      // Fall back to default so the app never crashes on first render.
       return defaultValue;
     }
   });
