@@ -14,6 +14,7 @@ import { usePartnerInvites } from '@/hooks/usePartnerInvites';
 import { useBudget } from '@/hooks/useBudget';
 import { useBudgetContext } from '@/contexts/BudgetContext';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useNostrLogin } from '@nostrify/react/login';
 import { generateBudgetKeypair, encryptBudgetKeyForPartner, decryptBudgetKeyFromInvite } from '@/lib/budgetCrypto';
 import { QRScanner } from './QRScanner';
 import {
@@ -52,6 +53,7 @@ export function ManagePartnersDialog({
   const { currentMonth, fullState } = useBudget();
   const { setState } = useBudgetContext();
   const { user } = useCurrentUser();
+  const { logins } = useNostrLogin();
   
   const [newPartnerPubkey, setNewPartnerPubkey] = useState('');
   const [newPartnerPermission, setNewPartnerPermission] = useState<'view' | 'edit'>('edit');
@@ -77,12 +79,37 @@ export function ManagePartnersDialog({
         return;
       }
 
-      // 1. Decrypt the budget nsec using the invitee's signer
-      const budgetNsec = await decryptBudgetKeyFromInvite(
-        invite.encryptedBudgetKey,
-        user.signer.nip44,
-        invite.from
-      );
+      let budgetNsec: string;
+
+      // Try to extract raw private key bytes for nsec-based logins.
+      // This is required by decryptBudgetKeyFromInvite (which uses nip44.getConversationKey).
+      let myPriv: Uint8Array | null = null;
+
+      const nsecLogin = logins.find((l: any) => l.type === 'nsec' && l.data?.nsec);
+      if (nsecLogin) {
+        try {
+          const decoded = nip19.decode(nsecLogin.data.nsec);
+          if (decoded.type === 'nsec') {
+            myPriv = decoded.data as Uint8Array;
+          }
+        } catch {
+          // ignore
+        }
+      }
+
+      if (myPriv) {
+        // nsec user: use raw key path
+        budgetNsec = await decryptBudgetKeyFromInvite(
+          invite.encryptedBudgetKey,
+          myPriv,
+          invite.from
+        );
+      } else {
+        // Extension / bunker / other NIP-07 signer: use the signer's nip44.decrypt directly.
+        // The invite's encryptedBudgetKey was produced by calling the owner's signer.encrypt
+        // with the partner's pubkey, so we can decrypt it with our signer.
+        budgetNsec = await user.signer.nip44.decrypt(invite.from, invite.encryptedBudgetKey);
+      }
 
       // 2. Derive the budget npub and verify it matches
       const decoded = nip19.decode(budgetNsec);
