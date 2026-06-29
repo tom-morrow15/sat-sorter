@@ -212,7 +212,7 @@ export function AccountSwitcher({
 
           <DropdownMenuSeparator />
 
-          {/* Budget Tools (merged from hamburger menu) */}
+          {/* Budget Tools */}
           <DropdownMenuItem onClick={() => onCopyPreviousMonth?.()}>
             <Copy className="h-4 w-4 mr-2" />
             Copy Previous Month
@@ -220,7 +220,7 @@ export function AccountSwitcher({
           <DropdownMenuItem onClick={() => onResetBudgetMonth?.()} className="text-destructive focus:text-destructive">
             <AlertTriangle className="h-4 w-4 mr-2" />
             Reset This Month's Budget
-            <span className="ml-auto text-[10px] text-muted-foreground/60">clears categories + txs — this month only</span>
+            <span className="ml-auto text-[10px] text-muted-foreground/60">categories + txs — this month only</span>
           </DropdownMenuItem>
 
           <DropdownMenuSeparator />
@@ -273,34 +273,33 @@ export function AccountSwitcher({
 
           <DropdownMenuSeparator />
 
-          {/* Soft Reset — normal recommended reload (safe) */}
+          {/* App-level reloads / resets (do NOT affect your budget data for months) */}
           <DropdownMenuItem onClick={() => handleSoftReset?.()}>
             <RotateCw className="h-4 w-4 mr-2" />
-            Soft Reset — Reload latest version
-            <span className="ml-auto text-[10px] text-muted-foreground/60">recommended</span>
+            Soft Reset App
+            <span className="ml-auto text-[10px] text-muted-foreground/60">recommended — get latest code</span>
           </DropdownMenuItem>
 
-          {/* Hard Reset — force fresh code from the server (still safe) */}
           <DropdownMenuItem onClick={() => handleHardReset?.()}>
             <RotateCw className="h-4 w-4 mr-2" />
-            Hard Reset — Force newest code from server
-            <span className="ml-auto text-[10px] text-muted-foreground/60">bypass cache</span>
+            Hard Reset App
+            <span className="ml-auto text-[10px] text-muted-foreground/60">force fresh from server</span>
           </DropdownMenuItem>
 
           <DropdownMenuSeparator />
 
-          {/* Total Reset — nuclear option that deletes local data */}
+          {/* Total Reset App — the nuclear one that can delete local budgets */}
           <DropdownMenuItem
             onClick={() => handleTotalReset?.()}
             className="text-destructive focus:text-destructive font-medium"
           >
             <RotateCw className="h-4 w-4 mr-2" />
-            Total Reset — Delete all local data
+            Total Reset App — Delete everything local
           </DropdownMenuItem>
           <div className="px-3 pb-1 text-[9px] leading-tight text-destructive/80">
-            ⚠️ DANGER: Permanently deletes your budgets saved on this device.<br />
-            Safe ONLY with Nostr login + working cloud backup.<br />
-            Guest mode or no backup = data lost forever.
+            ⚠️ DANGER: Permanently deletes all budgets saved on this device.<br />
+            Only safe if you have a Nostr login + working cloud backup.<br />
+            Guest mode or no backup = your data will be lost forever.
           </div>
           <DropdownMenuItem onClick={() => onOpenBackup?.()}>
             <Cloud className="h-4 w-4 mr-2" />
