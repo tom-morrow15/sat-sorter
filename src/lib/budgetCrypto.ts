@@ -66,17 +66,43 @@ export async function encryptBudgetKeyForPartner(
   ownerSigner: Nip44Signer,
   partnerPub: string
 ): Promise<string> {
+  if (typeof partnerPub !== 'string') {
+    throw new Error(
+      `encryptBudgetKeyForPartner: partnerPub must be a hex string, got ${typeof partnerPub}`
+    );
+  }
+  if (typeof budgetNsec !== 'string') {
+    throw new Error(
+      `encryptBudgetKeyForPartner: budgetNsec must be a string, got ${typeof budgetNsec}`
+    );
+  }
   return ownerSigner.encrypt(partnerPub, budgetNsec);
 }
 
 /**
  * Decrypt the budget nsec received via an invite using the invitee's signer.
+ *
+ * Both senderPub and encryptedContent MUST be strings.  If either is not a
+ * string (e.g. became deserialised from JSON as an object), the error deep
+ * inside @noble/curves is extremely cryptic ("hex string expected, got
+ * object").  We catch that here and give a clear message that also protects
+ * the caller from passing a Uint8Array where a string is expected.
  */
 export async function decryptBudgetKeyFromInvite(
   encryptedContent: string,
   mySigner: Nip44Signer,
   senderPub: string
 ): Promise<string> {
+  if (typeof senderPub !== 'string') {
+    throw new Error(
+      `decryptBudgetKeyFromInvite: senderPub must be a hex string, got ${typeof senderPub}`
+    );
+  }
+  if (typeof encryptedContent !== 'string') {
+    throw new Error(
+      `decryptBudgetKeyFromInvite: encryptedContent must be a string, got ${typeof encryptedContent}`
+    );
+  }
   return mySigner.decrypt(senderPub, encryptedContent);
 }
 
