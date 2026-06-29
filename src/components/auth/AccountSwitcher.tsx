@@ -222,6 +222,16 @@ export function AccountSwitcher({
             Reset This Month's Budget
             <span className="ml-auto text-[10px] text-muted-foreground/60">categories + txs — this month only</span>
           </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onResetBudgetMonth?.()} className="text-destructive focus:text-destructive">
+            <AlertTriangle className="h-4 w-4 mr-2" />
+            Reset This Month's Budget Data
+            <span className="ml-auto text-[10px] text-muted-foreground/60">categories + transactions — this month only</span>
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onResetBudgetMonth?.()} className="text-destructive focus:text-destructive">
+            <AlertTriangle className="h-4 w-4 mr-2" />
+            Reset This Month's Budget
+            <span className="ml-auto text-[10px] text-muted-foreground/60">only this month's categories + transactions</span>
+          </DropdownMenuItem>
 
           <DropdownMenuSeparator />
 
@@ -273,33 +283,33 @@ export function AccountSwitcher({
 
           <DropdownMenuSeparator />
 
-          {/* App-level reloads / resets (do NOT affect your budget data for months) */}
+          {/* App reload / reset buttons (these do NOT touch your budget data) */}
           <DropdownMenuItem onClick={() => handleSoftReset?.()}>
             <RotateCw className="h-4 w-4 mr-2" />
-            Soft Reset App
-            <span className="ml-auto text-[10px] text-muted-foreground/60">recommended — get latest code</span>
+            Soft Reset (get latest app version)
+            <span className="ml-auto text-[10px] text-muted-foreground/60">recommended</span>
           </DropdownMenuItem>
 
           <DropdownMenuItem onClick={() => handleHardReset?.()}>
             <RotateCw className="h-4 w-4 mr-2" />
-            Hard Reset App
-            <span className="ml-auto text-[10px] text-muted-foreground/60">force fresh from server</span>
+            Hard Reset (force latest from server)
+            <span className="ml-auto text-[10px] text-muted-foreground/60">bypass cache</span>
           </DropdownMenuItem>
 
           <DropdownMenuSeparator />
 
-          {/* Total Reset App — the nuclear one that can delete local budgets */}
+          {/* Total Reset — can delete all your local budget data */}
           <DropdownMenuItem
             onClick={() => handleTotalReset?.()}
             className="text-destructive focus:text-destructive font-medium"
           >
             <RotateCw className="h-4 w-4 mr-2" />
-            Total Reset App — Delete everything local
+            Total Reset — Delete all local data
           </DropdownMenuItem>
           <div className="px-3 pb-1 text-[9px] leading-tight text-destructive/80">
-            ⚠️ DANGER: Permanently deletes all budgets saved on this device.<br />
-            Only safe if you have a Nostr login + working cloud backup.<br />
-            Guest mode or no backup = your data will be lost forever.
+            ⚠️ DANGER: Permanently deletes every budget saved on this device.<br />
+            Safe ONLY with Nostr + working cloud backup.<br />
+            Guest mode or no backup = your data is gone forever.
           </div>
           <DropdownMenuItem onClick={() => onOpenBackup?.()}>
             <Cloud className="h-4 w-4 mr-2" />
