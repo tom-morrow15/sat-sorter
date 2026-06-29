@@ -219,7 +219,18 @@ export function AccountSwitcher({
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => onResetBudgetMonth?.()} className="text-destructive focus:text-destructive">
             <AlertTriangle className="h-4 w-4 mr-2" />
-            Reset This Month
+            Reset This Month's Budget Data
+            <span className="ml-auto text-[10px] text-muted-foreground/60">categories + txs — this month only</span>
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onResetBudgetMonth?.()} className="text-destructive focus:text-destructive">
+            <AlertTriangle className="h-4 w-4 mr-2" />
+            Reset This Month's Budget Data
+            <span className="ml-auto text-[10px] text-muted-foreground/60">categories + transactions — this month only</span>
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onResetBudgetMonth?.()} className="text-destructive focus:text-destructive">
+            <AlertTriangle className="h-4 w-4 mr-2" />
+            Reset This Month's Budget
+            <span className="ml-auto text-[10px] text-muted-foreground/60">clears categories + transactions — this month only</span>
           </DropdownMenuItem>
 
           <DropdownMenuSeparator />
