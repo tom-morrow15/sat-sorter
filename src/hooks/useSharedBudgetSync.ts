@@ -235,6 +235,37 @@ export function useSharedBudgetSync(budgetNpub: string, budgetNsec: string) {
             });
             break;
           }
+
+          case 'budget-updated': {
+            if (!syncEvent.data.snapshot) break;
+            const snapshot = syncEvent.data.snapshot as MonthlyBudget;
+
+            stateRef.current.setState((prev) => {
+              const existingBudgetIdx = prev.budgets.findIndex(
+                (b) => b.month === syncEvent.budgetMonth
+              );
+
+              if (existingBudgetIdx >= 0) {
+                // Merge: keep local transactions that aren't in the snapshot
+                const localBudget = prev.budgets[existingBudgetIdx];
+                const localTxIds = new Set(localBudget.transactions.map((t) => t.id));
+                const snapshotOnlyTxs = (snapshot.transactions || []).filter(
+                  (t) => !localTxIds.has(t.id)
+                );
+                const merged: MonthlyBudget = {
+                  ...snapshot,
+                  transactions: [...localBudget.transactions, ...snapshotOnlyTxs],
+                };
+                const newBudgets = [...prev.budgets];
+                newBudgets[existingBudgetIdx] = merged;
+                return { ...prev, budgets: newBudgets };
+              } else {
+                // New month entirely — just add it
+                return { ...prev, budgets: [...prev.budgets, snapshot] };
+              }
+            });
+            break;
+          }
         }
 
         setSyncStatus((prev) => ({
@@ -356,12 +387,101 @@ export function useSharedBudgetSync(budgetNpub: string, budgetNsec: string) {
     [publishEntry]
   );
 
+  /**
+   * Publish a full budget snapshot (buckets + transactions) for a month.
+   * Used when a new month is created (e.g. via copy) to sync the structure
+   * to the shared budget keypair.
+   */
+  const publishBudgetSnapshot = useCallback(
+    async (budget: MonthlyBudget): Promise<boolean> => {
+      const keys = keyBytesRef.current;
+      if (!keys) return false;
+
+      const dTag = `${MONTH_DTAG_PREFIX}${budget.month}`;
+      const syncEvent: BudgetSyncEvent = {
+        type: 'budget-updated',
+        budgetMonth: budget.month,
+        data: {
+          snapshot: budget,
+        },
+        timestamp: Math.floor(Date.now() / 1000),
+        version: 1,
+      };
+      const encrypted = encryptWithBudgetKey(
+        JSON.stringify(syncEvent),
+        keys.budgetPriv,
+        keys.budgetPub
+      );
+      return publishEntry(dTag, encrypted, `Sat Sorter budget snapshot ${budget.month} (encrypted)`);
+    },
+    [publishEntry]
+  );
+
   return {
     syncStatus,
     publishTransactionAdd,
     publishTransactionUpdate,
     publishTransactionDelete,
+    publishBudgetSnapshot,
     processedEventsCount: processedEventsRef.current.size,
     hasBudgetKeypair: !!keyBytesRef.current,
   };
+}
+
+/**
+ * Lightweight hook that pages can use to sync a newly-copied budget month
+ * to the shared budget keypair (if one exists). Call `syncCopiedBudget(budget)`
+ * after duplicateFromMonth succeeds.
+ */
+export function useSyncCopiedBudget() {
+  const { state } = useBudgetContext();
+  const { nostr } = useNostr();
+  const budgetKeypair = state.budgetKeypair;
+
+  const syncCopiedBudget = useCallback(
+    async (budget: MonthlyBudget): Promise<boolean> => {
+      if (!budgetKeypair) return false;
+
+      try {
+        const decoded = nip19.decode(budgetKeypair.budgetNsec);
+        if (decoded.type !== 'nsec') return false;
+        const signer = new NSecSigner(decoded.data);
+
+        const dTag = `${MONTH_DTAG_PREFIX}${budget.month}`;
+        const syncEvent: BudgetSyncEvent = {
+          type: 'budget-updated',
+          budgetMonth: budget.month,
+          data: { snapshot: budget },
+          timestamp: Math.floor(Date.now() / 1000),
+          version: 1,
+        };
+
+        const encrypted = encryptWithBudgetKey(
+          JSON.stringify(syncEvent),
+          decoded.data,
+          signer.pubkey
+        );
+
+        const event = await signer.signEvent({
+          kind: BUDGET_KIND,
+          content: encrypted,
+          tags: [
+            ['d', dTag],
+            ['alt', `Sat Sorter budget snapshot ${budget.month} (encrypted)`],
+          ],
+          created_at: Math.floor(Date.now() / 1000),
+        });
+
+        await nostr.event(event, { signal: AbortSignal.timeout(5000) });
+        console.log(`[useSyncCopiedBudget] Published budget snapshot for ${budget.month}`);
+        return true;
+      } catch (e) {
+        console.error('[useSyncCopiedBudget] Failed to sync copied budget:', e);
+        return false;
+      }
+    },
+    [budgetKeypair, nostr]
+  );
+
+  return { syncCopiedBudget, hasBudgetKeypair: !!budgetKeypair };
 }

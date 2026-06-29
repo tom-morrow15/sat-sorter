@@ -3,7 +3,7 @@ import { useBudget } from '@/hooks/useBudget';
 import { useBudgetContext } from '@/contexts/BudgetContext';
 import { useSharedBudgetSync } from '@/hooks/useSharedBudgetSync';
 import { usePartnerInviteResponses } from '@/hooks/usePartnerInviteResponses';
-import type { Transaction } from '@/lib/budgetTypes';
+import type { Transaction, MonthlyBudget } from '@/lib/budgetTypes';
 
 /**
  * PartnerSyncWrapper — Detects local transaction changes and publishes them
@@ -28,6 +28,7 @@ export function PartnerSyncWrapper({ children }: { children: React.ReactNode }) 
     publishTransactionAdd,
     publishTransactionUpdate,
     publishTransactionDelete,
+    publishBudgetSnapshot,
   } = useSharedBudgetSync(
     budgetKeypair?.budgetNpub || '',
     budgetKeypair?.budgetNsec || ''

@@ -50,7 +50,6 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { genUserName } from '@/lib/genUserName';
 import { BackupRestoreDialog } from './BackupRestoreDialog';
 import { ManagePartnersDialog } from './ManagePartnersDialog';
-import { CopyMonthPrompt } from './CopyMonthPrompt';
 import { DonateDialog } from './DonateDialog';
 import { MapleSettings } from '@/components/maple/MapleSettings';
 import { PaymentMethodsManager } from './PaymentMethodsManager';
@@ -75,7 +74,7 @@ interface BudgetHeaderProps {
   onChangePartnerPermission?: (pubkey: string, permission: 'view' | 'edit') => void;
   availableMonths?: string[];
   allBudgets?: any[];
-  onCopyPreviousMonth?: (sourceMonth: string) => void;
+  onCopyPreviousMonth?: () => void;
   onResetBudgetMonth?: () => void;
   hasPreviousMonthBudget?: boolean;
   getPreviousMonth?: () => string;
@@ -121,7 +120,6 @@ export function BudgetHeader({
   const [showPartners, setShowPartners] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showResetFinalConfirm, setShowResetFinalConfirm] = useState(false);
-  const [showCopyPrompt, setShowCopyPrompt] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showPaymentMethods, setShowPaymentMethods] = useState(false);
   const [showGuestUpgrade, setShowGuestUpgrade] = useState(false);
@@ -324,7 +322,7 @@ export function BudgetHeader({
                   onOpenWallet={() => onOpenWallet && onOpenWallet()}
                   onOpenMapleSettings={() => setShowSettings(true)}
                   onOpenPaymentMethods={() => setShowPaymentMethods(true)}
-                  onCopyPreviousMonth={() => setShowCopyPrompt(true)}
+                   onCopyPreviousMonth={() => onCopyPreviousMonth?.()}
                   onResetBudgetMonth={() => setShowResetConfirm(true)}
                   onRefreshApp={handleRefresh}
                   onOpenBackup={() => setShowBackup(true)}
@@ -372,11 +370,11 @@ export function BudgetHeader({
 
                  <DropdownMenuSeparator />
 
-                 {/* Budget Tools — always available */}
-                 <DropdownMenuItem onClick={() => setShowCopyPrompt(true)}>
-                   <Copy className="h-4 w-4 mr-2" />
-                   Copy Previous Month
-                 </DropdownMenuItem>
+                  {/* Budget Tools — always available */}
+                  <DropdownMenuItem onClick={() => onCopyPreviousMonth?.()}>
+                    <Copy className="h-4 w-4 mr-2" />
+                    Copy Previous Month
+                  </DropdownMenuItem>
                  <DropdownMenuItem 
                    onClick={() => setShowResetConfirm(true)}
                    className="text-destructive focus:text-destructive focus:bg-destructive/10"

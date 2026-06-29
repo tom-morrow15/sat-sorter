@@ -256,42 +256,65 @@ export function useBudget() {
     return Array.from(months).sort().reverse();
   }, [state.budgets, state.currentMonth]);
 
-  // Duplicate budget from a previous month (copies buckets and line items with amounts, not transactions)
-  // This now allows replacement of an existing budget (with confirmation from the caller).
-  const duplicateFromMonth = useCallback((sourceMonth: string): { success: boolean; message?: string } => {
-    let sourceBudget = state.budgets.find(b => b.month === sourceMonth);
-    
-    // If no previous month budget exists, use a default template
-    if (!sourceBudget) {
-      sourceBudget = {
+  // Duplicate budget from a source month to a target month.
+  // Copies buckets and line items with amounts, but NOT transactions.
+  // If a budget already exists for targetMonth, it is replaced.
+  const duplicateFromMonth = useCallback((
+    sourceMonth: string,
+    targetMonth: string,
+    currentBtcPrice?: number,
+  ): { success: boolean; message?: string } => {
+    try {
+      // Guard: cannot copy a month into itself
+      if (sourceMonth === targetMonth) {
+        return { success: false, message: 'Cannot copy a month into itself' };
+      }
+
+      // Find the source budget
+      const sourceBudget = state.budgets.find(b => b.month === sourceMonth);
+
+      // Guard: source month must have budget data
+      if (!sourceBudget) {
+        return { success: false, message: `No budget found for ${formatMonth(sourceMonth)}` };
+      }
+
+      // Guard: source budget must have at least one bucket to copy
+      if (sourceBudget.buckets.length === 0) {
+        return { success: false, message: 'Previous month has no budget categories to copy' };
+      }
+
+      // Deep-clone buckets with new IDs. Reset btcPriceAtBudget to the current
+      // price so the copied line items are priced at the copy time, not the
+      // source month's potentially stale price.
+      const priceAtCopy = currentBtcPrice ?? sourceBudget.buckets[0]?.lineItems[0]?.btcPriceAtBudget;
+      const newBuckets = sourceBudget.buckets.map(bucket => ({
+        ...bucket,
         id: generateId(),
-        month: sourceMonth,
-        buckets: createDefaultBuckets(),
-        transactions: [],
+        lineItems: bucket.lineItems.map(item => ({
+          ...item,
+          id: generateId(),
+          btcPriceAtBudget: priceAtCopy,
+        })),
+      }));
+
+      const newBudget: MonthlyBudget = {
+        id: generateId(),
+        month: targetMonth,
+        buckets: newBuckets,
+        transactions: [], // Start fresh — no transactions are copied
+      };
+
+      saveBudget(newBudget);
+      console.log(`[useBudget] Successfully duplicated budget from ${sourceMonth} to ${targetMonth}`);
+      return { success: true, message: `Budget copied from ${formatMonth(sourceMonth)}` };
+    } catch (error) {
+      console.error('[useBudget] Failed to duplicate budget:', error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'An unknown error occurred while copying the budget',
       };
     }
-
-    // Create new buckets with new IDs but same structure and amounts
-    const newBuckets = sourceBudget.buckets.map(bucket => ({
-      ...bucket,
-      id: generateId(),
-      lineItems: bucket.lineItems.map(item => ({
-        ...item,
-        id: generateId(),
-      })),
-    }));
-
-    const newBudget: MonthlyBudget = {
-      id: generateId(),
-      month: state.currentMonth,
-      buckets: newBuckets,
-      transactions: [], // Start fresh with transactions
-    };
-
-    saveBudget(newBudget);
-    console.log(`[useBudget] Successfully duplicated budget from ${sourceMonth} to ${state.currentMonth}`);
-    return { success: true, message: 'Budget copied successfully!' };
-  }, [state.budgets, state.currentMonth, saveBudget]);
+  }, [state.budgets, saveBudget]);
 
    // Get the previous month string
    const getPreviousMonth = useCallback(() => {

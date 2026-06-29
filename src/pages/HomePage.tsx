@@ -9,18 +9,24 @@ import { BudgetHeader } from '@/components/budget/BudgetHeader';
 import { BucketCard } from '@/components/budget/BucketCard';
 import { DashboardSummary } from '@/components/budget/DashboardSummary';
 import { AddBucketDialog } from '@/components/budget/AddBucketDialog';
+import { CopyMonthPrompt, type AvailableMonth } from '@/components/budget/CopyMonthPrompt';
+import { WalletModalControlled } from '@/components/budget/WalletModalControlled';
 import { LoginArea } from '@/components/auth/LoginArea';
 import { useBudget } from '@/hooks/useBudget';
 import { useWallet } from '@/hooks/useWallet';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useBTCMap } from '@/hooks/useBTCMap';
+import { useBitcoinPrice } from '@/hooks/useBitcoinPrice';
+import { useSyncCopiedBudget } from '@/hooks/useSharedBudgetSync';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useOnboarding } from '@/contexts/OnboardingContext';
+import { formatMonth } from '@/lib/budgetTypes';
 
 export default function HomePage() {
   const navigate = useNavigate();
   const [showAddBucket, setShowAddBucket] = useState(false);
   const [showWalletModal, setShowWalletModal] = useState(false);
+  const [showCopyPrompt, setShowCopyPrompt] = useState(false);
   const [dismissedNwcPrompt, setDismissedNwcPrompt] = useLocalStorage<boolean>('sat-sorter:nwc-prompt-dismissed', false);
   const [dismissedGuestBanner, setDismissedGuestBanner] = useLocalStorage<boolean>('sat-sorter:guest-banner-dismissed', false);
   const { toast } = useToast();
@@ -28,12 +34,15 @@ export default function HomePage() {
   const { user } = useCurrentUser();
   const { hasNWC } = useWallet();
   const { merchants } = useBTCMap();
+  const { data: priceData } = useBitcoinPrice();
+  const { syncCopiedBudget } = useSyncCopiedBudget();
   const { state: onboardingState } = useOnboarding();
 
   const {
     currentBudget,
     currentMonth,
     currency,
+    fullState,
     setCurrentMonth,
     toggleCurrency,
     addBucket,
@@ -44,8 +53,6 @@ export default function HomePage() {
     deleteLineItem,
     addTransaction,
     duplicateFromMonth,
-    getPreviousMonth,
-    hasPreviousMonthBudget,
   } = useBudget();
 
   useSeoMeta({
@@ -89,6 +96,41 @@ export default function HomePage() {
   const incomeBucket = sortedBuckets.find(b => b.isIncome);
   const expenseBuckets = sortedBuckets.filter(b => !b.isIncome);
 
+  // Build available months list for CopyMonthPrompt
+  const availableCopyMonths = useMemo<AvailableMonth[]>(() => {
+    return fullState.budgets
+      .filter(b => b.month !== currentMonth && b.buckets.length > 0)
+      .sort((a, b) => b.month.localeCompare(a.month))
+      .map(b => ({ month: b.month, budget: b }));
+  }, [fullState.budgets, currentMonth]);
+
+  // Unified copy handler
+  const handleCopyPreviousMonth = (sourceMonth: string) => {
+    const currentPrice = priceData?.usdPerBtc;
+    const result = duplicateFromMonth(sourceMonth, currentMonth, currentPrice);
+
+    if (result.success) {
+      toast({
+        title: 'Budget copied!',
+        description: result.message,
+      });
+      setShowCopyPrompt(false);
+
+      const newBudget = fullState.budgets.find(b => b.month === currentMonth);
+      if (newBudget && newBudget.buckets.length > 0) {
+        syncCopiedBudget(newBudget).catch(e => {
+          console.error('[HomePage] Failed to sync copied budget:', e);
+        });
+      }
+    } else {
+      toast({
+        title: 'Cannot copy budget',
+        description: result.message ?? 'An unknown error occurred',
+        variant: 'destructive',
+      });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/30">
       <BudgetHeader
@@ -100,6 +142,9 @@ export default function HomePage() {
         onNextMonth={handleNextMonth}
         onOpenWallet={() => setShowWalletModal(true)}
         onSelectMonth={setCurrentMonth}
+        availableMonths={[currentMonth]}
+        allBudgets={fullState.budgets}
+        onCopyPreviousMonth={() => setShowCopyPrompt(true)}
       />
 
       <main className="container mx-auto px-3 sm:px-4 py-6 lg:py-8 max-w-4xl">
@@ -279,32 +324,18 @@ export default function HomePage() {
                   Create expense categories to organize your spending. Give every sat a job and take control of your finances.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                {hasPreviousMonthBudget && (
+                {availableCopyMonths.length > 0 && (
                   <Button
                     variant="outline"
-                    onClick={() => {
-                      const result = duplicateFromMonth(getPreviousMonth());
-                      if (result.success) {
-                        toast({
-                          title: 'Budget copied!',
-                          description: result.message,
-                        });
-                      } else if (result.message) {
-                        toast({
-                          title: 'Cannot copy budget',
-                          description: result.message,
-                          variant: 'destructive',
-                        });
-                      }
-                    }}
+                    onClick={() => setShowCopyPrompt(true)}
                   >
                     <Copy className="h-4 w-4 mr-2" />
-                    Copy from Last Month
+                    Copy from Previous Month
                   </Button>
                 )}
                 <Button onClick={() => setShowAddBucket(true)} className="shadow-sm">
                   <Plus className="h-4 w-4 mr-2" />
-                  {hasPreviousMonthBudget ? 'Start Fresh' : 'Add Your First Category'}
+                  {availableCopyMonths.length > 0 ? 'Start Fresh' : 'Add Your First Category'}
                 </Button>
                 </div>
               </div>
@@ -341,6 +372,21 @@ export default function HomePage() {
         open={showAddBucket}
         onOpenChange={setShowAddBucket}
         onAdd={(name, color, icon) => addBucket(name, color, icon)}
+      />
+
+      {/* Copy Budget Prompt — unified flow */}
+      <CopyMonthPrompt
+        open={showCopyPrompt}
+        onOpenChange={setShowCopyPrompt}
+        currentMonth={currentMonth}
+        availableMonths={availableCopyMonths}
+        onStartFresh={() => {
+          toast({
+            title: 'Starting fresh',
+            description: 'Your new month is ready.',
+          });
+        }}
+        onCopyPrevious={handleCopyPreviousMonth}
       />
 
       {/* Wallet / Data Sources modal (opened from the header wallet icon) */}
