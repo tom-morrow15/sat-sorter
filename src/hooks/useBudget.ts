@@ -663,6 +663,16 @@ export function useBudget() {
 
     // Payment methods (synced with budget state for cross-device persistence)
     paymentMethods: state.paymentMethods || [],
+    /** Count transactions across ALL months that reference a given payment method. */
+    getTransactionsUsingMethod: (method: string): number => {
+      let count = 0;
+      for (const budget of state.budgets) {
+        for (const tx of budget.transactions) {
+          if (tx.paymentMethod === method) count++;
+        }
+      }
+      return count;
+    },
     addPaymentMethod: (method: string) => {
       const trimmed = method.trim();
       if (!trimmed) return;
@@ -681,10 +691,22 @@ export function useBudget() {
     updatePaymentMethod: (oldMethod: string, newMethod: string) => {
       const trimmed = newMethod.trim();
       if (!trimmed || trimmed === oldMethod) return;
-      setState(prev => ({
-        ...prev,
-        paymentMethods: (prev.paymentMethods || []).map(m => m === oldMethod ? trimmed : m),
-      }));
+      setState(prev => {
+        const updatedMethods = (prev.paymentMethods || []).map(m => m === oldMethod ? trimmed : m);
+        // Cascade rename to all transactions across all months
+        const updatedBudgets = prev.budgets.map(budget => {
+          let changed = false;
+          const updatedTxs = budget.transactions.map(tx => {
+            if (tx.paymentMethod === oldMethod) {
+              changed = true;
+              return { ...tx, paymentMethod: trimmed };
+            }
+            return tx;
+          });
+          return changed ? { ...budget, transactions: updatedTxs } : budget;
+        });
+        return { ...prev, paymentMethods: updatedMethods, budgets: updatedBudgets };
+      });
     },
   };
 }

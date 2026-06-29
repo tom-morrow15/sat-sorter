@@ -18,21 +18,21 @@ import {
 } from '@/components/ui/collapsible';
 import type { Transaction, Bucket } from '@/lib/budgetTypes';
 import { getTransactionAssignments } from '@/lib/splitUtils';
-import { usePaymentMethods } from '@/hooks/usePaymentMethods';
 
 interface TransactionSearchFilterProps {
   transactions: Transaction[];
   buckets: Bucket[];
   onFilter: (filtered: Transaction[]) => void;
+  paymentMethods?: string[];
 }
 
 export function TransactionSearchFilter({
   transactions,
   buckets,
   onFilter,
+  paymentMethods = [],
 }: TransactionSearchFilterProps) {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { paymentMethods } = usePaymentMethods();
   
   // Initialize from URL params or defaults
   const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '');
@@ -100,7 +100,11 @@ export function TransactionSearchFilter({
 
     // Filter by payment method
     if (selectedPaymentMethod && selectedPaymentMethod !== 'all') {
-      filtered = filtered.filter((t) => t.paymentMethod === selectedPaymentMethod);
+      if (selectedPaymentMethod === 'none') {
+        filtered = filtered.filter((t) => !t.paymentMethod);
+      } else {
+        filtered = filtered.filter((t) => t.paymentMethod === selectedPaymentMethod);
+      }
     }
 
     // Sort
@@ -129,6 +133,7 @@ export function TransactionSearchFilter({
     if (endDate) params.set('endDate', endDate);
     if (minAmount) params.set('minAmount', minAmount);
     if (maxAmount) params.set('maxAmount', maxAmount);
+    if (selectedPaymentMethod !== 'all') params.set('paymentMethod', selectedPaymentMethod);
     
     if (params.toString()) {
       setSearchParams(params);
@@ -146,6 +151,7 @@ export function TransactionSearchFilter({
     setEndDate('');
     setMinAmount('');
     setMaxAmount('');
+    setSelectedPaymentMethod('all');
     setSearchParams(new URLSearchParams());
     onFilter([]);
   };
@@ -161,7 +167,8 @@ export function TransactionSearchFilter({
       searchParams.get('startDate') ||
       searchParams.get('endDate') ||
       searchParams.get('minAmount') ||
-      searchParams.get('maxAmount');
+      searchParams.get('maxAmount') ||
+      searchParams.get('paymentMethod');
     if (hasSearchParams) {
       applyFilters();
     } else {
@@ -178,7 +185,8 @@ export function TransactionSearchFilter({
     startDate ||
     endDate ||
     minAmount ||
-    maxAmount;
+    maxAmount ||
+    selectedPaymentMethod !== 'all';
 
   const activeFilterCount = [
     searchQuery.trim(),
@@ -189,6 +197,7 @@ export function TransactionSearchFilter({
     endDate,
     minAmount,
     maxAmount,
+    selectedPaymentMethod !== 'all',
   ].filter(Boolean).length;
 
   return (
@@ -254,6 +263,25 @@ export function TransactionSearchFilter({
                  <SelectItem value="all">All types</SelectItem>
                  <SelectItem value="income">Income</SelectItem>
                  <SelectItem value="expense">Expense</SelectItem>
+               </SelectContent>
+             </Select>
+           </div>
+
+           {/* Payment Method filter */}
+           <div>
+             <label className="text-xs text-muted-foreground mb-1 block">Payment Method</label>
+             <Select value={selectedPaymentMethod} onValueChange={setSelectedPaymentMethod}>
+               <SelectTrigger className="h-9 text-xs">
+                 <SelectValue placeholder="All payment methods" />
+               </SelectTrigger>
+               <SelectContent>
+                 <SelectItem value="all">All payment methods</SelectItem>
+                 <SelectItem value="none">No payment method</SelectItem>
+                 {paymentMethods.map((method) => (
+                   <SelectItem key={method} value={method}>
+                     {method}
+                   </SelectItem>
+                 ))}
                </SelectContent>
              </Select>
            </div>
@@ -354,6 +382,12 @@ export function TransactionSearchFilter({
            {selectedType !== 'all' && (
              <Badge variant="secondary" className="text-xs cursor-pointer hover:bg-secondary/80" onClick={() => { setSelectedType('all'); applyFilters(); }}>
                {selectedType}
+               <X className="h-2.5 w-2.5 ml-1" />
+             </Badge>
+           )}
+           {selectedPaymentMethod !== 'all' && (
+             <Badge variant="secondary" className="text-xs cursor-pointer hover:bg-secondary/80" onClick={() => { setSelectedPaymentMethod('all'); applyFilters(); }}>
+               {selectedPaymentMethod === 'none' ? 'No method' : selectedPaymentMethod}
                <X className="h-2.5 w-2.5 ml-1" />
              </Badge>
            )}

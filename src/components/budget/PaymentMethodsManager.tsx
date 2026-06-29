@@ -3,7 +3,17 @@ import { Plus, Trash2, Edit2, Check, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { usePaymentMethods } from '@/hooks/usePaymentMethods';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { useBudget } from '@/hooks/useBudget';
 
 export function PaymentMethodsManager() {
   const {
@@ -11,11 +21,13 @@ export function PaymentMethodsManager() {
     addPaymentMethod,
     removePaymentMethod,
     updatePaymentMethod,
-  } = usePaymentMethods();
+    getTransactionsUsingMethod,
+  } = useBudget();
 
   const [newMethod, setNewMethod] = useState('');
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editingValue, setEditingValue] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   const handleAdd = () => {
     if (!newMethod.trim()) return;
@@ -40,6 +52,14 @@ export function PaymentMethodsManager() {
     setEditingIndex(null);
     setEditingValue('');
   };
+
+  const handleConfirmDelete = () => {
+    if (!deleteTarget) return;
+    removePaymentMethod(deleteTarget);
+    setDeleteTarget(null);
+  };
+
+  const deleteTxCount = deleteTarget ? getTransactionsUsingMethod(deleteTarget) : 0;
 
   return (
     <div className="space-y-6">
@@ -108,7 +128,7 @@ export function PaymentMethodsManager() {
                       <Button
                         size="sm"
                         variant="ghost"
-                        onClick={() => removePaymentMethod(method)}
+                        onClick={() => setDeleteTarget(method)}
                       >
                         <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
@@ -124,6 +144,27 @@ export function PaymentMethodsManager() {
       <p className="text-xs text-muted-foreground">
         These payment methods will appear as a dropdown when you add or edit any transaction.
       </p>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete "{deleteTarget}"?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This payment method will be removed from your list of options.
+              {deleteTxCount > 0 && (
+                <>{" "}{deleteTxCount} transaction{deleteTxCount !== 1 && 's'} use this method. Those transactions will keep the label but it will no longer appear in dropdowns.</>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

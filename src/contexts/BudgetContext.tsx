@@ -19,12 +19,65 @@ interface BudgetContextValue {
 
 const BudgetContext = createContext<BudgetContextValue | null>(null);
 
-const MIGRATION_KEY = 'sat-sorter-partner-migration-shown';
+  const MIGRATION_KEY = 'sat-sorter-partner-migration-shown';
+  const PAYMENT_METHODS_MIGRATION_KEY = 'sat-sorter-payment-methods-migrated';
 
 export function BudgetProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useLocalStorage<BudgetState>('sat-sorter-budget', DEFAULT_STATE);
   const hasAutoSetMonth = useRef(false);
   const hasRunMigration = useRef(false);
+  const hasMigratedPaymentMethods = useRef(false);
+
+  // ---------------------------------------------------------------------------
+  // Migration: import standalone payment methods into BudgetState
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    if (hasMigratedPaymentMethods.current) return;
+    hasMigratedPaymentMethods.current = true;
+
+    // Check if already migrated (one-time operation)
+    try {
+      if (localStorage.getItem(PAYMENT_METHODS_MIGRATION_KEY)) return;
+    } catch {
+      // localStorage may not be available
+    }
+
+    try {
+      const oldRaw = localStorage.getItem('sat-sorter:payment-methods');
+      if (oldRaw) {
+        const oldMethods: string[] = JSON.parse(oldRaw);
+        if (Array.isArray(oldMethods) && oldMethods.length > 0) {
+          const filtered = oldMethods.filter((m): m is string => typeof m === 'string' && m.trim().length > 0);
+          if (filtered.length > 0) {
+            setState(prev => {
+              const existing = new Set(prev.paymentMethods || []);
+              let added = false;
+              for (const m of filtered) {
+                if (!existing.has(m)) {
+                  existing.add(m);
+                  added = true;
+                }
+              }
+              if (!added) return prev;
+              const unioned = Array.from(existing);
+              console.log('[BudgetProvider] Migrated standalone payment methods:', filtered.length);
+              return { ...prev, paymentMethods: unioned };
+            });
+          }
+        }
+        localStorage.removeItem('sat-sorter:payment-methods');
+      }
+    } catch {
+      // Ignore migration errors
+    }
+
+    try {
+      localStorage.setItem(PAYMENT_METHODS_MIGRATION_KEY, '1');
+    } catch {
+      // localStorage may not be available
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // On initial load, always reset currentMonth to the REAL current month.
   // This prevents issues where the stored month (e.g. from an accepted invite

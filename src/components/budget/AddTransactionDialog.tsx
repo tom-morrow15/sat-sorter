@@ -20,7 +20,6 @@ import {
 } from '@/components/ui/select';
 import { useBitcoinPrice, satsToUsd, usdToSats, formatSats, formatUsd } from '@/hooks/useBitcoinPrice';
 import { useToast } from '@/hooks/useToast';
-import { usePaymentMethods } from '@/hooks/usePaymentMethods';
 import { SplitEditor } from './SplitEditor';
 import type { Bucket, Transaction, TransactionSplit } from '@/lib/budgetTypes';
 
@@ -46,26 +45,27 @@ interface AddTransactionDialogProps {
   onAddPaymentMethod?: (method: string) => void;
 }
 
-export function AddTransactionDialog({
-  open,
-  onOpenChange,
-  buckets,
-  defaultBucketId,
-  currency,
-  isIncome,
-  onSave,
-}: AddTransactionDialogProps) {
-  const { data: priceData } = useBitcoinPrice();
-  const { toast } = useToast();
-  const [description, setDescription] = useState('');
-  const [amountInput, setAmountInput] = useState('');
-  const [selectedBucketId, setSelectedBucketId] = useState(defaultBucketId || '');
-  const [selectedLineItemId, setSelectedLineItemId] = useState('');
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('');
-  const [showSplitEditor, setShowSplitEditor] = useState(false);
-  const [tempTxForSplit, setTempTxForSplit] = useState<Transaction | null>(null);
+ export function AddTransactionDialog({
+   open,
+   onOpenChange,
+   buckets,
+   defaultBucketId,
+   currency,
+   isIncome,
+   onSave,
+   paymentMethods: passedPaymentMethods,
+ }: AddTransactionDialogProps) {
+   const { data: priceData } = useBitcoinPrice();
+   const { toast } = useToast();
+   const [description, setDescription] = useState('');
+   const [amountInput, setAmountInput] = useState('');
+   const [selectedBucketId, setSelectedBucketId] = useState(defaultBucketId || '');
+   const [selectedLineItemId, setSelectedLineItemId] = useState('');
+   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('');
+   const [showSplitEditor, setShowSplitEditor] = useState(false);
+   const [tempTxForSplit, setTempTxForSplit] = useState<Transaction | null>(null);
 
-  const { paymentMethods } = usePaymentMethods();
+   const paymentMethods = passedPaymentMethods || [];
 
   const filteredBuckets = buckets.filter(b => b.isIncome === isIncome);
 
@@ -93,7 +93,7 @@ export function AddTransactionDialog({
       bucketId: selectedBucketId,
       lineItemId: selectedLineItemId,
       source: 'manual',
-      paymentMethod: selectedPaymentMethod || undefined,
+       paymentMethod: selectedPaymentMethod && selectedPaymentMethod !== 'none' ? selectedPaymentMethod : undefined,
     };
 
     // When in USD mode, store the USD amount as source of truth
@@ -222,23 +222,22 @@ export function AddTransactionDialog({
             </div>
 
             {/* Payment Method Selection */}
-            {paymentMethods.length > 0 && (
-              <div className="space-y-2">
-                <Label>Payment Method (optional)</Label>
-                <Select value={selectedPaymentMethod} onValueChange={setSelectedPaymentMethod}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select payment method..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {paymentMethods.map((method) => (
-                      <SelectItem key={method} value={method}>
-                        {method}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+            <div className="space-y-2">
+              <Label>Payment Method (optional)</Label>
+              <Select value={selectedPaymentMethod} onValueChange={setSelectedPaymentMethod}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select payment method..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No payment method</SelectItem>
+                  {paymentMethods.map((method) => (
+                    <SelectItem key={method} value={method}>
+                      {method}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
            <div className="space-y-2">
              <div className="flex items-center gap-2">

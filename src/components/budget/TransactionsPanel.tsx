@@ -85,13 +85,8 @@ export function TransactionsPanel({
   const [newPaymentMethod, setNewPaymentMethod] = useState('');
   const [showAddNewMethod, setShowAddNewMethod] = useState(false);
 
-  let paymentMethods: string[] = [];
-  try {
-    const hookResult = usePaymentMethods();
-    paymentMethods = hookResult.paymentMethods || [];
-  } catch {
-    paymentMethods = [];
-  }
+  // Use paymentMethods from props (now single source of truth from useBudget)
+  const paymentMethods = passedPaymentMethods || [];
 
   // Assign form state
   const [selectedBucketId, setSelectedBucketId] = useState<string>('');
@@ -151,7 +146,7 @@ export function TransactionsPanel({
         lineItemId: null,
         bucketId: null,
         isIncome: newIsIncome,
-        paymentMethod: newPaymentMethod || undefined,
+        paymentMethod: newPaymentMethod && newPaymentMethod !== 'none' ? newPaymentMethod : undefined,
       };
 
       // When in USD mode, store the USD amount as source of truth
@@ -203,6 +198,7 @@ export function TransactionsPanel({
     if (!selectedTransaction || !splits.length) return;
 
     const base = selectedTransaction;
+    const pm = newPaymentMethod && newPaymentMethod !== 'none' ? newPaymentMethod : undefined;
     const newTxs: Omit<Transaction, 'id'>[] = splits.map(split => ({
       amount: split.amount,
       amountUsd: split.amountUsd,
@@ -212,7 +208,7 @@ export function TransactionsPanel({
       lineItemId: split.lineItemId,
       bucketId: split.bucketId,
       isIncome: base.isIncome,
-      paymentMethod: (base as any).paymentMethod || undefined,
+      paymentMethod: pm,
     }));
 
     if (onAddTransactions) {
@@ -256,6 +252,7 @@ export function TransactionsPanel({
       // EveryDollar-style split: Delete original, create new ones
       onDeleteTransaction(selectedTransaction.id);
       
+      const pm = selectedTransaction.paymentMethod;
       splits.forEach(split => {
         const newTx: Omit<Transaction, 'id'> = {
           amount: split.amount,
@@ -266,7 +263,7 @@ export function TransactionsPanel({
           lineItemId: split.lineItemId,
           bucketId: split.bucketId,
           isIncome: selectedTransaction.isIncome,
-          paymentMethod: (selectedTransaction as any).paymentMethod || undefined,
+          paymentMethod: pm,
         };
         onAddTransaction(newTx);
       });
@@ -327,6 +324,7 @@ export function TransactionsPanel({
               transactions={transactionsByLineItem}
               buckets={buckets}
               onFilter={setFilteredTransactions}
+              paymentMethods={paymentMethods}
             />
           </div>
 
@@ -358,14 +356,15 @@ export function TransactionsPanel({
                         <ArrowUpRight className="h-4 w-4" />
                       )}
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">
-                        {transaction.description}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {formatDate(transaction.date)}
-                      </p>
-                    </div>
+                     <div className="flex-1 min-w-0">
+                       <p className="text-sm font-medium truncate">
+                         {transaction.description}
+                       </p>
+                       <p className="text-xs text-muted-foreground">
+                         {formatDate(transaction.date)}
+                         {transaction.paymentMethod && <span className="ml-1.5 text-muted-foreground/70">· {transaction.paymentMethod}</span>}
+                       </p>
+                     </div>
                     <div className="flex items-center gap-2">
                           <span
                             className={cn(
@@ -417,28 +416,31 @@ export function TransactionsPanel({
                             <ArrowUpRight className="h-3.5 w-3.5" />
                           )}
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm truncate">
-                            {transaction.description}
-                          </p>
-                          <div className="flex items-center gap-1.5">
-                            <Badge
-                              variant="secondary"
-                              className="text-xs px-1.5 py-0"
-                              style={{
-                                backgroundColor: bucket
-                                  ? `${bucket.color}20`
-                                  : undefined,
-                                color: bucket?.color,
-                              }}
-                            >
-                              {lineItem?.name || 'Unknown'}
-                            </Badge>
-                            <span className="text-xs text-muted-foreground">
-                              {formatDate(transaction.date)}
-                            </span>
-                          </div>
-                        </div>
+                         <div className="flex-1 min-w-0">
+                           <p className="text-sm truncate">
+                             {transaction.description}
+                           </p>
+                           <div className="flex items-center gap-1.5">
+                             <Badge
+                               variant="secondary"
+                               className="text-xs px-1.5 py-0"
+                               style={{
+                                 backgroundColor: bucket
+                                   ? `${bucket.color}20`
+                                   : undefined,
+                                 color: bucket?.color,
+                               }}
+                             >
+                               {lineItem?.name || 'Unknown'}
+                             </Badge>
+                             <span className="text-xs text-muted-foreground">
+                               {formatDate(transaction.date)}
+                             </span>
+                             {transaction.paymentMethod && (
+                               <span className="text-xs text-muted-foreground/70">· {transaction.paymentMethod}</span>
+                             )}
+                           </div>
+                         </div>
                          <div className="flex items-center gap-2">
                            <span
                              className={cn(
@@ -503,35 +505,38 @@ export function TransactionsPanel({
                               <ArrowUpRight className="h-3.5 w-3.5" />
                             )}
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm truncate">
-                              {transaction.description}
-                            </p>
-                            <div className="flex items-center gap-1.5">
-                               {hasSplits(transaction) ? (
-                                 <Badge
-                                   variant="secondary"
-                                   className="text-xs px-1.5 py-0 bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200"
-                                 >
-                                   Split ({getSplitCount(transaction)})
-                                 </Badge>
-                               ) : bucket ? (
-                                 <Badge
-                                   variant="secondary"
-                                   className="text-xs px-1.5 py-0"
-                                   style={{
-                                     backgroundColor: `${bucket.color}20`,
-                                     color: bucket.color,
-                                   }}
-                                 >
-                                   {lineItem?.name || 'Unknown'}
-                                 </Badge>
-                               ) : null}
-                               <span className="text-xs text-muted-foreground">
-                                 {formatDate(transaction.date)}
-                               </span>
-                            </div>
-                          </div>
+                           <div className="flex-1 min-w-0">
+                             <p className="text-sm truncate">
+                               {transaction.description}
+                             </p>
+                             <div className="flex items-center gap-1.5">
+                                {hasSplits(transaction) ? (
+                                  <Badge
+                                    variant="secondary"
+                                    className="text-xs px-1.5 py-0 bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200"
+                                  >
+                                    Split ({getSplitCount(transaction)})
+                                  </Badge>
+                                ) : bucket ? (
+                                  <Badge
+                                    variant="secondary"
+                                    className="text-xs px-1.5 py-0"
+                                    style={{
+                                      backgroundColor: `${bucket.color}20`,
+                                      color: bucket.color,
+                                    }}
+                                  >
+                                    {lineItem?.name || 'Unknown'}
+                                  </Badge>
+                                ) : null}
+                                <span className="text-xs text-muted-foreground">
+                                  {formatDate(transaction.date)}
+                                </span>
+                                {transaction.paymentMethod && (
+                                  <span className="text-xs text-muted-foreground/70">· {transaction.paymentMethod}</span>
+                                )}
+                             </div>
+                           </div>
                         </div>
                         <div className="flex items-center gap-2">
                           <span
@@ -648,23 +653,22 @@ export function TransactionsPanel({
             </div>
 
             {/* Payment Method Selection */}
-            {paymentMethods.length > 0 && (
-              <div className="space-y-2">
-                <Label>Payment Method (optional)</Label>
-                <Select value={newPaymentMethod} onValueChange={setNewPaymentMethod}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select payment method..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {paymentMethods.map((method) => (
-                      <SelectItem key={method} value={method}>
-                        {method}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+            <div className="space-y-2">
+              <Label>Payment Method (optional)</Label>
+              <Select value={newPaymentMethod} onValueChange={setNewPaymentMethod}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select payment method..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No payment method</SelectItem>
+                  {paymentMethods.map((method) => (
+                    <SelectItem key={method} value={method}>
+                      {method}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowAddDialog(false)}>

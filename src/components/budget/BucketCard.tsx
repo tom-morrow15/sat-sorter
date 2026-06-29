@@ -88,6 +88,7 @@ interface BucketCardProps {
      lineItemId: string | null;
    }) => void;
   onViewTransactions?: (lineItemId: string) => void;
+  paymentMethods?: string[];
 }
 
 const BUCKET_COLORS = [
@@ -116,6 +117,7 @@ export function BucketCard({
   onDeleteLineItem,
   onAddTransaction,
   onViewTransactions,
+  paymentMethods,
 }: BucketCardProps) {
   const { data: priceData } = useBitcoinPrice();
   const [isOpen, setIsOpen] = useState(true);
@@ -401,6 +403,7 @@ export function BucketCard({
                  currency={currency}
                  isIncome={bucket.isIncome}
                  onSave={(transaction) => onAddTransaction?.(transaction)}
+                 paymentMethods={paymentMethods}
                />
             </CardContent>
          </CollapsibleContent>

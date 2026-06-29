@@ -83,6 +83,7 @@ export default function Budget() {
     removePartner,
     changePartnerPermission,
     resetCurrentMonth,
+    paymentMethods,
   } = useBudget();
 
   useSeoMeta({
@@ -283,19 +284,21 @@ export default function Budget() {
              />
 
              {/* Income bucket - always first */}
-             {incomeBucket && (
-               <BucketCard
-                 bucket={incomeBucket}
-                 transactions={currentBudget.transactions}
-                 currency={currency}
-                 merchants={merchants}
-                 onUpdateBucket={updateBucket}
-                 onDeleteBucket={deleteBucket}
-                 onAddLineItem={addLineItem}
-                 onUpdateLineItem={updateLineItem}
-                 onDeleteLineItem={deleteLineItem}
-               />
-             )}
+              {incomeBucket && (
+                <BucketCard
+                  bucket={incomeBucket}
+                  buckets={currentBudget.buckets}
+                  transactions={currentBudget.transactions}
+                  currency={currency}
+                  merchants={merchants}
+                  onUpdateBucket={updateBucket}
+                  onDeleteBucket={deleteBucket}
+                  onAddLineItem={addLineItem}
+                  onUpdateLineItem={updateLineItem}
+                  onDeleteLineItem={deleteLineItem}
+                  paymentMethods={paymentMethods}
+                />
+              )}
 
               {/* Section header for expenses */}
               <div className="flex items-center justify-between pt-2">
@@ -319,21 +322,23 @@ export default function Budget() {
               </div>
 
              {/* Expense buckets */}
-             <div className="space-y-3">
-               {expenseBuckets.map((bucket) => (
-                 <BucketCard
-                   key={bucket.id}
-                   bucket={bucket}
-                   transactions={currentBudget.transactions}
-                   currency={currency}
-                   merchants={merchants}
-                   onUpdateBucket={updateBucket}
-                   onDeleteBucket={deleteBucket}
-                   onAddLineItem={addLineItem}
-                   onUpdateLineItem={updateLineItem}
-                   onDeleteLineItem={deleteLineItem}
-                 />
-               ))}
+              <div className="space-y-3">
+                {expenseBuckets.map((bucket) => (
+                  <BucketCard
+                    key={bucket.id}
+                    bucket={bucket}
+                    buckets={currentBudget.buckets}
+                    transactions={currentBudget.transactions}
+                    currency={currency}
+                    merchants={merchants}
+                    onUpdateBucket={updateBucket}
+                    onDeleteBucket={deleteBucket}
+                    onAddLineItem={addLineItem}
+                    onUpdateLineItem={updateLineItem}
+                    onDeleteLineItem={deleteLineItem}
+                    paymentMethods={paymentMethods}
+                  />
+                ))}
              </div>
 
              {/* Empty state for no expense buckets */}

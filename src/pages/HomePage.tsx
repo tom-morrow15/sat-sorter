@@ -53,6 +53,7 @@ export default function HomePage() {
     deleteLineItem,
     addTransaction,
     duplicateFromMonth,
+    paymentMethods,
   } = useBudget();
 
   useSeoMeta({
@@ -256,6 +257,7 @@ export default function HomePage() {
                  onDeleteLineItem={deleteLineItem}
                  onAddTransaction={addTransaction}
                  onViewTransactions={handleViewTransactions}
+                 paymentMethods={paymentMethods}
                />
              </div>
            )}
@@ -303,6 +305,7 @@ export default function HomePage() {
                     onDeleteLineItem={deleteLineItem}
                     onAddTransaction={addTransaction}
                     onViewTransactions={handleViewTransactions}
+                    paymentMethods={paymentMethods}
                   />
                 </div>
               ))}
