@@ -217,12 +217,6 @@ export function BudgetHeader({
       await updateApp();
     };
 
-    // Preferred "Update App" path — uses Service Worker update when available.
-    // Completely safe for local/guest data.
-    const handleUpdateApp = async () => {
-      await updateApp();
-    };
-
    return (
      <header className="sticky top-0 z-50 w-full bg-header-gradient text-white relative overflow-hidden safe-top">
        {/* Decorative mesh background */}
