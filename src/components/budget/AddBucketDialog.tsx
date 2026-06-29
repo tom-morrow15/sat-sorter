@@ -367,7 +367,7 @@ export function AddBucketDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[520px] max-h-[90vh]" style={{ animation: 'scale-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards' }}>
+      <DialogContent className="sm:max-w-[520px] max-h-[90vh]">
         <DialogHeader>
           <DialogTitle className="text-2xl">
             ✨ Create Budget Category
