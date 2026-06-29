@@ -101,7 +101,7 @@ export function BudgetHeader({
   getPreviousMonth = () => '',
 }: BudgetHeaderProps) {
   const { data: priceData, isLoading: priceLoading } = useBitcoinPrice();
-  const { needRefresh, refreshApp, updateApp } = useRegisterSW();
+  const { needRefresh, forceReloadLatest, updateApp, factoryResetApp } = useRegisterSW();
   const { isDark, toggle: toggleTheme } = useTheme();
   // Use Nostr-native partners hook for the count badge
   const { partners: nostrPartners } = usePartners();
@@ -204,19 +204,21 @@ export function BudgetHeader({
     updateConfig((c) => ({ ...c, logoStyle: c.logoStyle === 'sats' ? 'bitcoin' : 'sats' }));
   };
 
-    // "Reload latest version" (more aggressive)
-    // Always forces the browser to ignore its HTTP cache (?_fresh=...)
-    // and refetch the newest app shell from the network.
-    const handleRefresh = async () => {
-      await refreshApp();
+    // "Force reload latest code from server"
+    // More aggressive safe button — always bypasses browser cache.
+    const handleForceReload = async () => {
+      await forceReloadLatest();
     };
 
-    // "Update App" (polite / recommended)
-    // Uses the normal Service Worker update flow.
-    // Only does a cache-busted reload if a new worker is actually waiting.
-    // Otherwise just does a normal reload.
+    // "Update App" (recommended)
+    // Polite normal update using Service Worker when available.
     const handleUpdateApp = async () => {
       await updateApp();
+    };
+
+    // NUCLEAR: Factory Reset — deletes local budget data.
+    const handleFactoryReset = async () => {
+      await factoryResetApp();
     };
 
    return (
@@ -304,8 +306,9 @@ export function BudgetHeader({
                 onOpenPaymentMethods={() => setShowPaymentMethods(true)}
                 onCopyPreviousMonth={() => onCopyPreviousMonth?.()}
                 onResetBudgetMonth={() => setShowResetConfirm(true)}
-                onRefreshApp={handleRefresh}
+                onRefreshApp={handleForceReload}
                 onUpdateApp={handleUpdateApp}
+                onFactoryReset={handleFactoryReset}
                 onOpenBackup={() => setShowBackup(true)}
                 onSupportSatSorter={() => setShowDonateSorter(true)}
                 onSupportBitcoinProjects={() => setShowDonate(true)}
@@ -382,17 +385,33 @@ export function BudgetHeader({
 
                     <DropdownMenuSeparator />
 
-                    {/* Advanced - both are safe (never touch your local budgets) */}
-                    <DropdownMenuItem onClick={handleRefresh}>
+                    {/* Safe reloads — never delete your local budgets */}
+                    <DropdownMenuItem onClick={handleForceReload}>
                       <RotateCw className="h-4 w-4 mr-2" />
-                      Reload latest version
-                      <span className="ml-auto text-[10px] text-muted-foreground/60">force network</span>
+                      Force reload latest code from server
+                      <span className="ml-auto text-[10px] text-muted-foreground/60">bypass cache</span>
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={handleUpdateApp}>
                       <RotateCw className="h-4 w-4 mr-2" />
-                      Update App
-                      <span className="ml-auto text-[10px] text-muted-foreground/60">normal</span>
+                      Update to latest version
+                      <span className="ml-auto text-[10px] text-muted-foreground/60">recommended</span>
                     </DropdownMenuItem>
+
+                    <DropdownMenuSeparator />
+
+                    {/* NUCLEAR OPTION — can permanently delete local budgets */}
+                    <DropdownMenuItem
+                      onClick={handleFactoryReset}
+                      className="text-destructive focus:text-destructive font-medium"
+                    >
+                      <RotateCw className="h-4 w-4 mr-2" />
+                      Factory Reset — Delete all local data
+                    </DropdownMenuItem>
+                    <div className="px-3 pb-1 text-[9px] leading-tight text-destructive/80">
+                      ⚠️ WARNING: This permanently deletes your budgets on this device.<br />
+                      Safe ONLY if you are logged in with Nostr AND have a working cloud backup.<br />
+                      Guest mode or no backup = your data will be lost forever.
+                    </div>
 
                     <div className="px-2 pt-2 text-[10px] text-muted-foreground/60 text-center tabular-nums">
                       v{APP_VERSION}

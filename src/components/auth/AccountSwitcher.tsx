@@ -29,6 +29,7 @@ interface AccountSwitcherProps {
   onResetBudgetMonth?: () => void;
   onRefreshApp?: () => void;
   onUpdateApp?: () => void;
+  onFactoryReset?: () => void;
   onOpenBackup?: () => void;
   onSupportSatSorter?: () => void;
   onSupportBitcoinProjects?: () => void;
@@ -54,6 +55,7 @@ export function AccountSwitcher({
   onResetBudgetMonth,
   onRefreshApp,
   onUpdateApp,
+  onFactoryReset,
   onOpenBackup,
   onSupportSatSorter,
   onSupportBitcoinProjects,
@@ -65,11 +67,12 @@ export function AccountSwitcher({
 }: AccountSwitcherProps) {
   const { currentUser, otherUsers, setLogin, removeLogin } = useLoggedInAccounts();
   const { isDark, toggle: toggleTheme } = useTheme();
-  const { needRefresh, updateApp } = useRegisterSW();
+  const { needRefresh, updateApp, factoryResetApp } = useRegisterSW();
   const showUpdateBadge = updateAvailable || needRefresh;
 
   // If parent didn't provide onUpdateApp, fall back to the hook's version
   const handleUpdateApp = onUpdateApp ?? updateApp;
+  const handleFactoryReset = onFactoryReset ?? factoryResetApp;
 
   if (!currentUser && variant === 'avatar') return null;
 
@@ -268,17 +271,31 @@ export function AccountSwitcher({
 
           <DropdownMenuSeparator />
 
-          {/* Advanced - both are safe (never touch local budgets) */}
+          {/* Safe reloads — do NOT delete your local budgets */}
           <DropdownMenuItem onClick={() => onRefreshApp?.()}>
             <RotateCw className="h-4 w-4 mr-2" />
-            Reload latest version
-            <span className="ml-auto text-[10px] text-muted-foreground/60">force</span>
+            Force reload from server
+            <span className="ml-auto text-[10px] text-muted-foreground/60">bypass cache</span>
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => handleUpdateApp?.()}>
             <RotateCw className="h-4 w-4 mr-2" />
-            Update App
-            <span className="ml-auto text-[10px] text-muted-foreground/60">normal</span>
+            Update to latest version
+            <span className="ml-auto text-[10px] text-muted-foreground/60">recommended</span>
           </DropdownMenuItem>
+
+          <DropdownMenuSeparator />
+
+          {/* Nuclear option — can delete local data in guest mode */}
+          <DropdownMenuItem
+            onClick={() => handleFactoryReset?.()}
+            className="text-destructive focus:text-destructive"
+          >
+            <RotateCw className="h-4 w-4 mr-2" />
+            Factory Reset (deletes local data)
+          </DropdownMenuItem>
+          <div className="px-3 pb-1 text-[9px] leading-tight text-destructive/70">
+            Only safe with Nostr + cloud backup.<br />Guest mode = data lost forever.
+          </div>
           <DropdownMenuItem onClick={() => onOpenBackup?.()}>
             <Cloud className="h-4 w-4 mr-2" />
             Backup & Sync

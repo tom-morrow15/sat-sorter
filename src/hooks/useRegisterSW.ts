@@ -140,45 +140,94 @@ export function useRegisterSW() {
     await refreshApp();
   }, [refreshApp]);
 
+  /**
+   * Nuclear "Factory Reset" — deletes local app data.
+   *
+   * This is the REAL nuclear option.
+   *
+   * WARNING:
+   * - This will permanently delete the budget stored in localStorage on this device.
+   * - If you are logged in with Nostr + have synced, you can restore from the cloud.
+   * - If you are in guest mode (or not backed up), ALL your budgets will be lost forever.
+   *
+   * Only expose this with very clear warnings.
+   */
+  const factoryResetApp = useCallback(async () => {
+    const message =
+      "⚠️ FACTORY RESET — DANGER\n\n" +
+      "This will DELETE all budget data saved locally on this device.\n\n" +
+      "• If you use Nostr login and have used Backup & Sync (or the app has synced), you can recover your data after logging back in.\n" +
+      "• If you are in guest mode, or have never synced to Nostr/cloud, your budgets will be PERMANENTLY LOST.\n\n" +
+      "Are you absolutely sure you want to do this?";
+
+    if (!window.confirm(message)) {
+      return;
+    }
+
+    try {
+      // 1. Clear all Cache Storage
+      if ('caches' in window) {
+        const names = await caches.keys();
+        await Promise.all(names.map((name) => caches.delete(name)));
+      }
+    } catch (e) {
+      console.warn('[useRegisterSW] Cache clear during factory reset failed:', e);
+    }
+
+    try {
+      // 2. Unregister all Service Workers
+      if ('serviceWorker' in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map((reg) => reg.unregister()));
+      }
+    } catch (e) {
+      console.warn('[useRegisterSW] SW unregister during factory reset failed:', e);
+    }
+
+    try {
+      // 3. Nuke the main budget localStorage key (and known legacy keys)
+      localStorage.removeItem('sat-sorter-budget');
+      localStorage.removeItem('sat-sorter:payment-methods');
+      // Remove any other sat-sorter keys we know about
+      Object.keys(localStorage).forEach((key) => {
+        if (key.startsWith('sat-sorter')) {
+          try { localStorage.removeItem(key); } catch {}
+        }
+      });
+    } catch (e) {
+      console.warn('[useRegisterSW] localStorage clear during factory reset failed:', e);
+    }
+
+    // 4. Hard reload to a clean state
+    window.location.href = window.location.origin + window.location.pathname;
+  }, []);
+
   return {
     needRefresh,
     updateSW,
 
     /**
-     * "Reload latest version"  ← the more aggressive button
-     *
-     * What makes it different from "Update App":
-     * - It **always** adds a cache-busting query param: ?_fresh=1720000000000
-     * - It **always** forces the browser to re-download the main HTML + JS bundles
-     *   from the network (bypasses browser HTTP cache).
-     * - It still activates any waiting Service Worker.
-     *
-     * When to use it:
-     * - You just pushed code and the yellow dot never appeared.
-     * - You're not seeing your latest changes.
-     * - You want to be 100% sure you're not getting any stale cached files.
-     *
-     * Still 100% safe for PWA + guest mode.
+     * Force reload the newest app code from the network.
+     * Safe — does not delete your budgets.
      */
-    refreshApp,
+    forceReloadLatest: refreshApp,
 
     /**
-     * "Update App"  ← the polite / recommended button
-     *
-     * What makes it different from "Reload latest version":
-     * - If a new Service Worker is waiting (the normal case when the yellow dot shows),
-     *   it activates it and reloads.
-     * - If no new worker is waiting, it just does a normal `window.location.reload()`
-     *   (no forced cache-bust). This lets the Service Worker and browser caching
-     *   do their normal thing.
-     * - Only falls back to the aggressive cache-busted path on error.
-     *
-     * When to use it:
-     * - The yellow update dot is visible.
-     * - You want the clean, normal PWA update experience.
-     *
-     * This is usually the better button for everyday use.
+     * Normal update using Service Worker (recommended for daily use).
+     * Safe — does not delete your budgets.
      */
     updateApp,
+
+    /**
+     * THE NUCLEAR OPTION.
+     *
+     * Deletes ALL local budget data on this device.
+     *
+     * WARNING:
+     * - If you are NOT logged in with Nostr + have not successfully synced your budget to the cloud,
+     *   this will PERMANENTLY DELETE your budgets.
+     * - Only safe if you have a working Nostr + cloud backup.
+     */
+    factoryResetApp,
   };
 }
