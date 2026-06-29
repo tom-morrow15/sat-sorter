@@ -5,6 +5,7 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import type { BudgetPartnerInvite } from '@/lib/budgetTypes';
 import { generateId } from '@/lib/budgetTypes';
+import { ensureHexPubkey } from '@/lib/budgetCrypto';
 
 // Custom application event kind for Sat Sorter partner invites
 // Not a DM - this is a dedicated app event that only Sat Sorter listens for
@@ -46,12 +47,12 @@ export function usePartnerInvites() {
   const encryptForRecipient = useCallback(
     async (recipientPubkey: string, data: string): Promise<string | null> => {
       if (!user?.signer) return null;
-
+      const recipientHex = ensureHexPubkey(recipientPubkey);
       try {
         if (user.signer.nip04) {
-          return await user.signer.nip04.encrypt(recipientPubkey, data);
+          return await user.signer.nip04.encrypt(recipientHex, data);
         } else if (user.signer.nip44) {
-          return await user.signer.nip44.encrypt(recipientPubkey, data);
+          return await user.signer.nip44.encrypt(recipientHex, data);
         }
       } catch (error) {
         console.error('[usePartnerInvites] Encryption failed:', error);
@@ -67,11 +68,12 @@ export function usePartnerInvites() {
   const decryptFromSender = useCallback(
     async (senderPubkey: string, ciphertext: string): Promise<string | null> => {
       if (!user?.signer) return null;
+      const senderHex = ensureHexPubkey(senderPubkey);
 
       // Try NIP-04 first
       if (user.signer.nip04) {
         try {
-          return await user.signer.nip04.decrypt(senderPubkey, ciphertext);
+          return await user.signer.nip04.decrypt(senderHex, ciphertext);
         } catch {
           // Fall through to NIP-44
         }
@@ -80,7 +82,7 @@ export function usePartnerInvites() {
       // Try NIP-44 as fallback
       if (user.signer.nip44) {
         try {
-          return await user.signer.nip44.decrypt(senderPubkey, ciphertext);
+          return await user.signer.nip44.decrypt(senderHex, ciphertext);
         } catch {
           // All decryption attempts failed
         }
@@ -122,7 +124,7 @@ export function usePartnerInvites() {
           inviteId,
           month: budgetMonth,
           permission: permission === 'edit' ? 'editor' : 'viewer',
-          from: user.pubkey,
+          from: ensureHexPubkey(user.pubkey),
           fromName,
           encryptedBudgetKey,
           budgetNpub,
@@ -190,11 +192,12 @@ export function usePartnerInvites() {
           inviteId: invite.id,
           month: invite.month,
           permission: invite.permission,
-          from: user.pubkey,
+          from: ensureHexPubkey(user.pubkey),
         };
 
+        const fromHex = ensureHexPubkey(invite.from);
         const encryptedContent = await encryptForRecipient(
-          invite.from,
+          fromHex,
           JSON.stringify(payload)
         );
 
@@ -245,11 +248,12 @@ export function usePartnerInvites() {
           inviteId: invite.id,
           month: invite.month,
           permission: invite.permission,
-          from: user.pubkey,
+          from: ensureHexPubkey(user.pubkey),
         };
 
+        const fromHex = ensureHexPubkey(invite.from);
         const encryptedContent = await encryptForRecipient(
-          invite.from,
+          fromHex,
           JSON.stringify(payload)
         );
 
@@ -261,7 +265,7 @@ export function usePartnerInvites() {
           kind: INVITE_KIND,
           content: encryptedContent,
           tags: [
-            ['p', invite.from],
+            ['p', fromHex],
             ['t', 'sat-sorter-invite-response'],
             ['d', invite.id],
             ['status', 'declined'],
@@ -345,9 +349,13 @@ export function usePartnerInvites() {
             if (payload.type === 'invite' && !seenInviteIds.has(payload.inviteId)) {
               seenInviteIds.add(payload.inviteId);
 
+              // Always coerce the 'from' (owner/sender pubkey) to hex.
+              // Fall back to the event author (event.pubkey) which is always hex,
+              // in case payload.from is missing, npub, or legacy data.
+              const senderPub = ensureHexPubkey(payload.from || event.pubkey);
               invites.push({
                 id: payload.inviteId,
-                from: payload.from,
+                from: senderPub,
                 month: payload.month,
                 permission: payload.permission,
                 encryptedBudgetKey: payload.encryptedBudgetKey || '',

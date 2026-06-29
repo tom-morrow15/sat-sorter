@@ -15,7 +15,7 @@ import { useBudget } from '@/hooks/useBudget';
 import { useBudgetContext } from '@/contexts/BudgetContext';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrLogin } from '@nostrify/react/login';
-import { generateBudgetKeypair, encryptBudgetKeyForPartner, decryptBudgetKeyFromInvite } from '@/lib/budgetCrypto';
+import { generateBudgetKeypair, encryptBudgetKeyForPartner, decryptBudgetKeyFromInvite, ensureHexPubkey } from '@/lib/budgetCrypto';
 import { QRScanner } from './QRScanner';
 import {
   Dialog,
@@ -97,18 +97,21 @@ export function ManagePartnersDialog({
         }
       }
 
+      // Always ensure invite.from is a hex pubkey for NIP-44 (getConversationKey / signer decrypt)
+      const fromHex = ensureHexPubkey(invite.from);
+
       if (myPriv) {
         // nsec user: use raw key path
         budgetNsec = await decryptBudgetKeyFromInvite(
           invite.encryptedBudgetKey,
           myPriv,
-          invite.from
+          fromHex
         );
       } else {
         // Extension / bunker / other NIP-07 signer: use the signer's nip44.decrypt directly.
         // The invite's encryptedBudgetKey was produced by calling the owner's signer.encrypt
         // with the partner's pubkey, so we can decrypt it with our signer.
-        budgetNsec = await user.signer.nip44.decrypt(invite.from, invite.encryptedBudgetKey);
+        budgetNsec = await user.signer.nip44.decrypt(fromHex, invite.encryptedBudgetKey);
       }
 
       // 2. Derive the budget npub and verify it matches
@@ -152,10 +155,11 @@ export function ManagePartnersDialog({
             budgetNpub,
           },
           // Add the owner as a partner (so sync subscriptions include them)
+          // Use normalized hex for pubkey
           partners: [
-            ...(prev.partners || []).filter(p => p.pubkey !== invite.from),
+            ...(prev.partners || []).filter(p => p.pubkey !== fromHex),
             {
-              pubkey: invite.from,
+              pubkey: fromHex,
               permission: 'edit',
               addedAt: Math.floor(Date.now() / 1000),
               status: 'accepted',
@@ -214,32 +218,32 @@ export function ManagePartnersDialog({
        return;
      }
 
-     // Try to decode if it's an npub address
-     let hexPubkey: string;
-     const isHex = /^[0-9a-f]{64}$/i.test(pubkey);
-     const isNpub = pubkey.startsWith('npub1');
+      // Try to decode if it's an npub address
+      let hexPubkey: string;
+      const isHex = /^[0-9a-f]{64}$/i.test(pubkey);
+      const isNpub = pubkey.startsWith('npub1');
 
-     if (isNpub) {
-       try {
-         const decoded = nip19.decode(pubkey);
-         if (decoded.type !== 'npub') {
-           setValidationError('Invalid Nostr address. Please use an npub address or hex public key.');
-           console.warn('[ManagePartnersDialog] Invalid NIP-19 type:', decoded.type);
-           return;
-         }
-         hexPubkey = decoded.data;
-       } catch (error) {
-         setValidationError('Invalid Nostr address format. Please check the address and try again.');
-         console.warn('[ManagePartnersDialog] Failed to decode npub:', error);
-         return;
-       }
-     } else if (isHex) {
-       hexPubkey = pubkey.toLowerCase();
-     } else {
-       setValidationError('Invalid format. Use a 64-character hex key or npub1... address');
-       console.warn('[ManagePartnersDialog] Invalid pubkey format:', pubkey);
-       return;
-     }
+      if (isNpub) {
+        try {
+          const decoded = nip19.decode(pubkey);
+          if (decoded.type !== 'npub') {
+            setValidationError('Invalid Nostr address. Please use an npub address or hex public key.');
+            console.warn('[ManagePartnersDialog] Invalid NIP-19 type:', decoded.type);
+            return;
+          }
+          hexPubkey = ensureHexPubkey(decoded.data as string);
+        } catch (error) {
+          setValidationError('Invalid Nostr address format. Please check the address and try again.');
+          console.warn('[ManagePartnersDialog] Failed to decode npub:', error);
+          return;
+        }
+      } else if (isHex) {
+        hexPubkey = ensureHexPubkey(pubkey);
+      } else {
+        setValidationError('Invalid format. Use a 64-character hex key or npub1... address');
+        console.warn('[ManagePartnersDialog] Invalid pubkey format:', pubkey);
+        return;
+      }
 
      // Check if partner already exists (compare hex pubkeys)
      if (partners.some(p => p.pubkey === hexPubkey)) {
@@ -287,10 +291,12 @@ export function ManagePartnersDialog({
         }
 
         // 2. Encrypt the budget nsec for the new partner
+        // Explicitly ensure hex before crypto call (defense in depth)
+        const partnerHexForEncrypt = ensureHexPubkey(hexPubkey);
         const encryptedKey = await encryptBudgetKeyForPartner(
           budgetKeypair.budgetNsec,
           user.signer.nip44,
-          hexPubkey
+          partnerHexForEncrypt
         );
 
         // 3. Save the partner to the NIP-78 partner list with the encrypted key

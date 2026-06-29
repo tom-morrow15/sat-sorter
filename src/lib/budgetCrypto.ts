@@ -19,6 +19,61 @@
 import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
 import { nip19, nip44 } from 'nostr-tools';
 
+/**
+ * Ensure a Nostr public key is in raw hex format (64 hex chars).
+ * Converts npub1... bech32 to hex if necessary.
+ * If already hex (or starts with "02"/"03"), returns as-is.
+ * Defensively handles non-string values (e.g. legacy objects in old invite data)
+ * and falls back to extracting .pubkey when possible.
+ */
+export function ensureHexPubkey(pub: unknown): string {
+  if (!pub) {
+    return '';
+  }
+
+  // If it's already the decoded nprofile-like object {pubkey: '...', relays?}
+  if (typeof pub === 'object') {
+    const p = pub as any;
+    if (typeof p.pubkey === 'string') {
+      pub = p.pubkey;
+    } else if (typeof p.data === 'string') {
+      pub = p.data;
+    } else {
+      console.warn('[budgetCrypto] ensureHexPubkey received non-string object without pubkey/data:', pub);
+      return '';
+    }
+  }
+
+  let s = String(pub).trim();
+
+  if (s.startsWith('npub1')) {
+    try {
+      const decoded = nip19.decode(s);
+      if (decoded.type === 'npub' && typeof decoded.data === 'string') {
+        s = decoded.data;
+      } else if (decoded.type === 'nprofile' && decoded.data && typeof (decoded.data as any).pubkey === 'string') {
+        s = (decoded.data as any).pubkey;
+      } else {
+        console.warn('[budgetCrypto] Unexpected nip19 type for pubkey field:', decoded.type);
+      }
+    } catch (e) {
+      console.warn('[budgetCrypto] Failed to decode npub/nprofile pubkey, using as-is:', s, e);
+      // fall through with the bech32; caller may fail later with clearer error
+    }
+  }
+
+  // If it looks like hex already (64 chars) or starts with 02/03 (compressed), accept
+  if (/^[0-9a-f]{64}$/i.test(s) || s.startsWith('02') || s.startsWith('03')) {
+    return s.toLowerCase();
+  }
+
+  // If we got here with something that is not 64-hex, log and return original (will likely cause explicit error downstream)
+  if (s.length !== 64 || !/^[0-9a-f]+$/i.test(s)) {
+    console.warn('[budgetCrypto] ensureHexPubkey did not resolve to 64-hex pubkey, returning as-is:', s);
+  }
+  return s;
+}
+
 // ---------------------------------------------------------------------------
 // Key generation
 // ---------------------------------------------------------------------------
@@ -66,7 +121,8 @@ export async function encryptBudgetKeyForPartner(
   ownerSigner: Nip44Signer,
   partnerPub: string
 ): Promise<string> {
-  return ownerSigner.encrypt(partnerPub, budgetNsec);
+  const partnerHex = ensureHexPubkey(partnerPub);
+  return ownerSigner.encrypt(partnerHex, budgetNsec);
 }
 
 /**
@@ -78,7 +134,8 @@ export async function decryptBudgetKeyFromInvite(
   myPriv: Uint8Array,
   senderPub: string
 ): Promise<string> {
-  const conversationKey = nip44.getConversationKey(myPriv, senderPub);
+  const senderHex = ensureHexPubkey(senderPub);
+  const conversationKey = nip44.getConversationKey(myPriv, senderHex);
   return nip44.decrypt(encryptedContent, conversationKey);
 }
 
