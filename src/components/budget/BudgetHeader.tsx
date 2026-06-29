@@ -545,7 +545,36 @@ export function BudgetHeader({
          </DialogContent>
        </Dialog>
 
-        {/* Final Reset Confirmation — extra security layer */}
+         {/* Reset Confirmation — first step */}
+         <Dialog open={showResetConfirm} onOpenChange={setShowResetConfirm}>
+           <DialogContent>
+             <DialogHeader>
+               <DialogTitle className="flex items-center gap-2 text-destructive">
+                 <AlertTriangle className="h-5 w-5" />
+                 Reset This Month?
+               </DialogTitle>
+               <DialogDescription>
+                 This will clear all categories, line items, and transactions for {formatMonth(currentMonth)}. This action cannot be undone.
+               </DialogDescription>
+             </DialogHeader>
+             <div className="flex gap-3 justify-end">
+               <Button variant="outline" onClick={() => setShowResetConfirm(false)}>
+                 Cancel
+               </Button>
+               <Button
+                 variant="destructive"
+                 onClick={() => {
+                   setShowResetConfirm(false);
+                   setShowResetFinalConfirm(true);
+                 }}
+               >
+                 Continue
+               </Button>
+             </div>
+           </DialogContent>
+         </Dialog>
+
+         {/* Final Reset Confirmation — extra security layer */}
          <Dialog open={showResetFinalConfirm} onOpenChange={setShowResetFinalConfirm}>
            <DialogContent>
              <DialogHeader>
