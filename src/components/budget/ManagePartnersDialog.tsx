@@ -16,7 +16,9 @@ import { useBudget } from '@/hooks/useBudget';
 import { useBudgetContext } from '@/contexts/BudgetContext';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrLogin } from '@nostrify/react/login';
+import { useNostr } from '@nostrify/react';
 import { generateBudgetKeypair, encryptBudgetKeyForPartner, decryptBudgetKeyFromInvite, ensureHexPubkey } from '@/lib/budgetCrypto';
+import { seedAllBudgetSnapshots, fetchAllSharedBudgetSnapshots } from '@/hooks/useSharedBudgetSync';
 import { QRScanner } from './QRScanner';
 import {
   Dialog,
@@ -55,6 +57,7 @@ export function ManagePartnersDialog({
   const { setState } = useBudgetContext();
   const { user } = useCurrentUser();
   const { logins } = useNostrLogin();
+  const { nostr } = useNostr();
   
   const [newPartnerPubkey, setNewPartnerPubkey] = useState('');
   const [newPartnerPermission, setNewPartnerPermission] = useState<'view' | 'edit'>('edit');
@@ -139,38 +142,64 @@ export function ManagePartnersDialog({
       const result = await acceptInvite(invite);
 
       if (result.success) {
-        // 4. Store the budget keypair locally
-        setState(prev => ({
-          ...prev,
-          accessibleBudgets: [
-            ...prev.accessibleBudgets.filter(b => b.budgetNpub !== budgetNpub),
-            {
-              budgetNpub,
+        const role = invite.permission === 'editor' ? 'editor' as const : 'viewer' as const;
+
+        // 4. Eagerly fetch full snapshots for ALL months from the shared budget keypair.
+        // This ensures the partner immediately sees buckets/line items for current + future months.
+        let seededBudgets: any[] = [];
+        try {
+          seededBudgets = await fetchAllSharedBudgetSnapshots(budgetNsec, nostr);
+          console.log('[ManagePartnersDialog] Fetched', seededBudgets.length, 'month snapshots from shared budget on accept');
+        } catch (e) {
+          console.warn('[ManagePartnersDialog] Could not fetch snapshots on accept (will rely on live sync):', e);
+        }
+
+        // 5. Store the budget keypair locally + merge any snapshots we fetched
+        setState(prev => {
+          // Merge fetched snapshots (if any) by month — they contain the buckets structure
+          let mergedBudgets = [...(prev.budgets || [])];
+          if (seededBudgets.length > 0) {
+            const incomingMonths = new Set(seededBudgets.map((b: any) => b.month));
+            const withoutIncoming = mergedBudgets.filter((b: any) => !incomingMonths.has(b.month));
+            mergedBudgets = [...withoutIncoming, ...seededBudgets];
+          }
+
+          return {
+            ...prev,
+            budgets: mergedBudgets,
+            // Always land on real current month after accepting
+            currentMonth: new Date().toISOString().slice(0, 7),
+            accessibleBudgets: [
+              ...prev.accessibleBudgets.filter(b => b.budgetNpub !== budgetNpub),
+              {
+                budgetNpub,
+                budgetNsec: budgetNsec,
+                role,
+              },
+            ],
+            budgetKeypair: {
               budgetNsec: budgetNsec,
-              role: invite.permission === 'editor' ? 'editor' as const : 'viewer' as const,
+              budgetNpub,
             },
-          ],
-          budgetKeypair: {
-            budgetNsec: budgetNsec,
-            budgetNpub,
-          },
-          // Add the owner as a partner (so sync subscriptions include them)
-          // Use normalized hex for pubkey
-          partners: [
-            ...(prev.partners || []).filter(p => p.pubkey !== fromHex),
-            {
-              pubkey: fromHex,
-              permission: 'edit',
-              addedAt: Math.floor(Date.now() / 1000),
-              status: 'accepted',
-              acceptedAt: Math.floor(Date.now() / 1000),
-            },
-          ],
-        }));
+            userRole: role,
+            // Add the owner as a partner (so sync subscriptions include them)
+            // Use normalized hex for pubkey
+            partners: [
+              ...(prev.partners || []).filter(p => p.pubkey !== fromHex),
+              {
+                pubkey: fromHex,
+                permission: 'edit',
+                addedAt: Math.floor(Date.now() / 1000),
+                status: 'accepted',
+                acceptedAt: Math.floor(Date.now() / 1000),
+              },
+            ],
+          };
+        });
 
         toast({
           title: 'Budget Partner Invite Accepted!',
-          description: `You now have ${invite.permission === 'editor' ? 'edit' : 'view-only'} access. Data will sync via the shared budget key.`,
+          description: `You now have ${invite.permission === 'editor' ? 'edit' : 'view-only'} access. Data will sync via the shared budget key. All future months are included automatically.`,
         });
       } else {
         toast({
@@ -261,34 +290,48 @@ export function ManagePartnersDialog({
         // 1. Ensure we have a budget keypair. If this is the first partner,
         //    generate one and save it to state. All future partners share
         //    the same keypair.
-        let budgetKeypair = fullState.budgetKeypair;
-        const isFirstPartner = !budgetKeypair;
-        if (!budgetKeypair) {
-          const generated = generateBudgetKeypair();
-          budgetKeypair = {
-            budgetNsec: generated.budgetNsec,
-            budgetNpub: generated.budgetNpub,
-            budgetPrivateKey: generated.budgetPrivateKey,
-            budgetPublicKey: generated.budgetPublicKey,
-          };
-          // Persist the keypair immediately
-          setState(prev => ({
-            ...prev,
-            budgetKeypair: {
-              budgetNsec: budgetKeypair!.budgetNsec,
-              budgetNpub: budgetKeypair!.budgetNpub,
-            },
-            accessibleBudgets: [
-              ...prev.accessibleBudgets.filter(b => b.budgetNpub !== '' && b.budgetNpub !== budgetKeypair!.budgetNpub),
-              {
-                budgetNpub: budgetKeypair!.budgetNpub,
-                budgetNsec: budgetKeypair!.budgetNsec,
-                role: 'owner' as const,
-              },
-            ],
-          }));
-          console.log('[ManagePartnersDialog] Generated new budget keypair:', budgetKeypair.budgetNpub.slice(0, 16) + '...');
-        }
+         let budgetKeypair = fullState.budgetKeypair;
+         const isFirstPartner = !budgetKeypair;
+
+         // Capture current budgets BEFORE any state mutation (for seeding on first partner)
+         const currentBudgetsForSeeding = [...(fullState.budgets || [])];
+
+         if (!budgetKeypair) {
+           const generated = generateBudgetKeypair();
+           budgetKeypair = {
+             budgetNsec: generated.budgetNsec,
+             budgetNpub: generated.budgetNpub,
+             budgetPrivateKey: generated.budgetPrivateKey,
+             budgetPublicKey: generated.budgetPublicKey,
+           };
+           // Persist the keypair immediately
+           setState(prev => ({
+             ...prev,
+             budgetKeypair: {
+               budgetNsec: budgetKeypair!.budgetNsec,
+               budgetNpub: budgetKeypair!.budgetNpub,
+             },
+             accessibleBudgets: [
+               ...prev.accessibleBudgets.filter(b => b.budgetNpub !== '' && b.budgetNpub !== budgetKeypair!.budgetNpub),
+               {
+                 budgetNpub: budgetKeypair!.budgetNpub,
+                 budgetNsec: budgetKeypair!.budgetNsec,
+                 role: 'owner' as const,
+               },
+             ],
+           }));
+           console.log('[ManagePartnersDialog] Generated new budget keypair:', budgetKeypair.budgetNpub.slice(0, 16) + '...');
+
+           // Seed all existing months' full budgets (buckets + line items + tx) to the shared keypair
+           // so the partner will receive the complete budget structure for every month immediately.
+           if (currentBudgetsForSeeding.length > 0) {
+             seedAllBudgetSnapshots(currentBudgetsForSeeding, budgetKeypair.budgetNsec, nostr)
+               .then((count) => {
+                 console.log(`[ManagePartnersDialog] Seeded ${count} budget month(s) to shared keypair`);
+               })
+               .catch((e) => console.warn('[ManagePartnersDialog] Seeding snapshots failed (non-fatal):', e));
+           }
+         }
 
         // 2. Encrypt the budget nsec for the new partner
         // Explicitly ensure hex before crypto call (defense in depth)

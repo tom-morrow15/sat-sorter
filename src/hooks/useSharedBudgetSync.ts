@@ -9,6 +9,66 @@ import { encryptWithBudgetKey, decryptWithBudgetKey } from '@/lib/budgetCrypto';
 import type { Transaction, MonthlyBudget } from '@/lib/budgetTypes';
 import { generateId } from '@/lib/budgetTypes';
 
+/**
+ * Fetch and decrypt all budget snapshots that have been published under a shared budget keypair.
+ * Used on invite acceptance to immediately populate the partner's local state with
+ * buckets/line items for all months (not just the current one).
+ */
+export async function fetchAllSharedBudgetSnapshots(
+  budgetNsec: string,
+  nostr: any
+): Promise<MonthlyBudget[]> {
+  try {
+    const decoded = nip19.decode(budgetNsec);
+    if (decoded.type !== 'nsec') return [];
+    const priv = decoded.data as Uint8Array;
+    const signer = new NSecSigner(priv);
+    const budgetPub = signer.pubkey;
+
+    const events = await nostr.query(
+      [
+        {
+          kinds: [BUDGET_KIND],
+          authors: [budgetPub],
+          limit: 200,
+        },
+      ],
+      { signal: AbortSignal.timeout(8000) }
+    );
+
+    const results: MonthlyBudget[] = [];
+    for (const ev of events) {
+      const dTag = ev.tags.find((t: string[]) => t[0] === 'd')?.[1];
+      if (!dTag || !dTag.startsWith(MONTH_DTAG_PREFIX)) continue;
+
+      try {
+        const decrypted = decryptWithBudgetKey(ev.content, priv, budgetPub);
+        const parsed = JSON.parse(decrypted);
+        if (parsed?.type === 'budget-updated' && parsed.data?.snapshot) {
+          const snap = parsed.data.snapshot as MonthlyBudget;
+          if (snap?.month) {
+            results.push(snap);
+          }
+        }
+      } catch {
+        // ignore bad events
+      }
+    }
+
+    // Dedup by month, keep newest by created_at if duplicates
+    const byMonth = new Map<string, MonthlyBudget>();
+    for (const r of results) {
+      const existing = byMonth.get(r.month);
+      // crude: last one wins (events were not sorted, but query limit is recent first-ish)
+      byMonth.set(r.month, r);
+    }
+    return Array.from(byMonth.values());
+  } catch (e) {
+    console.warn('[fetchAllSharedBudgetSnapshots] Failed:', e);
+    return [];
+  }
+}
+
 const BUDGET_KIND = 30078;
 const APP_IDENTIFIER = 'sat-sorter/budget-data';
 const MONTH_DTAG_PREFIX = 'sat-sorter/budget-data/';
@@ -246,7 +306,8 @@ export function useSharedBudgetSync(budgetNpub: string, budgetNsec: string) {
               );
 
               if (existingBudgetIdx >= 0) {
-                // Merge: keep local transactions that aren't in the snapshot
+                // Merge: prefer the incoming snapshot's buckets/lineItems (structure),
+                // but keep local transactions that aren't in the snapshot.
                 const localBudget = prev.budgets[existingBudgetIdx];
                 const localTxIds = new Set(localBudget.transactions.map((t) => t.id));
                 const snapshotOnlyTxs = (snapshot.transactions || []).filter(
@@ -254,13 +315,15 @@ export function useSharedBudgetSync(budgetNpub: string, budgetNsec: string) {
                 );
                 const merged: MonthlyBudget = {
                   ...snapshot,
+                  // Adopt the authoritative bucket structure from the snapshot
+                  buckets: snapshot.buckets || localBudget.buckets || [],
                   transactions: [...localBudget.transactions, ...snapshotOnlyTxs],
                 };
                 const newBudgets = [...prev.budgets];
                 newBudgets[existingBudgetIdx] = merged;
                 return { ...prev, budgets: newBudgets };
               } else {
-                // New month entirely — just add it
+                // New month entirely — just add the snapshot (full buckets + txs)
                 return { ...prev, budgets: [...prev.budgets, snapshot] };
               }
             });
@@ -418,14 +481,78 @@ export function useSharedBudgetSync(budgetNpub: string, budgetNsec: string) {
   );
 
   return {
-    syncStatus,
-    publishTransactionAdd,
-    publishTransactionUpdate,
-    publishTransactionDelete,
-    publishBudgetSnapshot,
-    processedEventsCount: processedEventsRef.current.size,
-    hasBudgetKeypair: !!keyBytesRef.current,
+    syncCopiedBudget,
+    hasBudgetKeypair: !!budgetKeypair,
   };
+}
+
+/**
+ * Standalone publisher for a full month snapshot under the shared budget keypair.
+ * Can be called from anywhere (e.g. partner invite flow) given the raw nsec.
+ */
+export async function publishBudgetSnapshotToNostr(
+  budget: MonthlyBudget,
+  budgetNsec: string,
+  nostr: any
+): Promise<boolean> {
+  try {
+    const decoded = nip19.decode(budgetNsec);
+    if (decoded.type !== 'nsec') return false;
+    const priv = decoded.data as Uint8Array;
+    const signer = new NSecSigner(priv);
+    const pub = signer.pubkey;
+
+    const dTag = `${MONTH_DTAG_PREFIX}${budget.month}`;
+    const syncEvent: BudgetSyncEvent = {
+      type: 'budget-updated',
+      budgetMonth: budget.month,
+      data: { snapshot: budget },
+      timestamp: Math.floor(Date.now() / 1000),
+      version: 1,
+    };
+
+    const encrypted = encryptWithBudgetKey(
+      JSON.stringify(syncEvent),
+      priv,
+      pub
+    );
+
+    const event = await signer.signEvent({
+      kind: BUDGET_KIND,
+      content: encrypted,
+      tags: [
+        ['d', dTag],
+        ['alt', `Sat Sorter budget snapshot ${budget.month} (encrypted)`],
+      ],
+      created_at: Math.floor(Date.now() / 1000),
+    });
+
+    await nostr.event(event, { signal: AbortSignal.timeout(5000) });
+    console.log(`[publishBudgetSnapshotToNostr] Published snapshot for ${budget.month}`);
+    return true;
+  } catch (e) {
+    console.error('[publishBudgetSnapshotToNostr] Failed to publish snapshot:', e);
+    return false;
+  }
+}
+
+/**
+ * Seed full snapshots for multiple months to the shared budget.
+ * Useful right after creating the keypair or adding the first partner.
+ */
+export async function seedAllBudgetSnapshots(
+  budgets: MonthlyBudget[],
+  budgetNsec: string,
+  nostr: any
+): Promise<number> {
+  let seeded = 0;
+  for (const budget of budgets || []) {
+    if (budget.buckets && budget.buckets.length > 0) {
+      const ok = await publishBudgetSnapshotToNostr(budget, budgetNsec, nostr);
+      if (ok) seeded++;
+    }
+  }
+  return seeded;
 }
 
 /**

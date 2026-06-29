@@ -40,9 +40,11 @@ export function PartnerSyncWrapper({ children }: { children: React.ReactNode }) 
   // Track previous state for change detection
   const prevStateRef = useRef<{
     byMonth: Map<string, Map<string, string>>;
+    structureByMonth: Map<string, string>; // serialized buckets/lineItems (without txs)
     initialized: boolean;
   }>({
     byMonth: new Map(),
+    structureByMonth: new Map(),
     initialized: false,
   });
 
@@ -66,8 +68,15 @@ export function PartnerSyncWrapper({ children }: { children: React.ReactNode }) 
     // Existing transactions are considered "already synced" (they may have
     // come from the initial data load or an earlier session).
     if (!prev.initialized) {
+      // Also capture structural snapshot (buckets/line items) so future edits publish snapshots
+      const structureByMonth = new Map<string, string>();
+      for (const budget of fullState.budgets) {
+        const structure = JSON.stringify(budget.buckets || []);
+        structureByMonth.set(budget.month, structure);
+      }
       prevStateRef.current = {
         byMonth: currentByMonth,
+        structureByMonth,
         initialized: true,
       };
       console.log('[PartnerSyncWrapper] Initialized with', fullState.budgets.length, 'budget(s)');
@@ -116,6 +125,19 @@ export function PartnerSyncWrapper({ children }: { children: React.ReactNode }) 
           });
         }
       }
+
+      // Detect structural changes (buckets / line items) — publish full snapshot so partners receive categories immediately
+      const prevStructure = prev.structureByMonth?.get(month) || '';
+      const currentBudgetForMonth = fullState.budgets.find((b) => b.month === month);
+      if (currentBudgetForMonth) {
+        const currentStructure = JSON.stringify(currentBudgetForMonth.buckets || []);
+        if (currentStructure !== prevStructure) {
+          console.log('[PartnerSyncWrapper] Budget structure changed for', month, '— publishing snapshot');
+          publishBudgetSnapshot(currentBudgetForMonth).catch((e) => {
+            console.error('[PartnerSyncWrapper] Publish budget snapshot failed:', e);
+          });
+        }
+      }
     }
 
     // Also check for fully removed months
@@ -130,9 +152,14 @@ export function PartnerSyncWrapper({ children }: { children: React.ReactNode }) 
       }
     }
 
-    // Update snapshot
+    // Update snapshot (transactions + structure)
+    const newStructureByMonth = new Map<string, string>();
+    for (const budget of fullState.budgets) {
+      newStructureByMonth.set(budget.month, JSON.stringify(budget.buckets || []));
+    }
     prevStateRef.current = {
       byMonth: currentByMonth,
+      structureByMonth: newStructureByMonth,
       initialized: true,
     };
   }, [
@@ -141,6 +168,7 @@ export function PartnerSyncWrapper({ children }: { children: React.ReactNode }) 
     publishTransactionAdd,
     publishTransactionUpdate,
     publishTransactionDelete,
+    publishBudgetSnapshot,
   ]);
 
   return <>{children}</>;
