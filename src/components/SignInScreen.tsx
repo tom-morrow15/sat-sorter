@@ -6,6 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { parseKeyInput, encryptSecretKey } from '@/utils/nostrAuth';
 import { saveSession } from '@/utils/sessionStore';
 import { useOnboarding } from '@/contexts/OnboardingContext';
+import { useLoginActions } from '@/hooks/useLoginActions';
 
 function generateBrowserPassword(): string {
   const array = new Uint8Array(32);
@@ -16,6 +17,7 @@ function generateBrowserPassword(): string {
 export function SignInScreen() {
   const navigate = useNavigate();
   const { completeOnboarding } = useOnboarding();
+  const login = useLoginActions();
 
   const [input, setInput] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -37,6 +39,11 @@ export function SignInScreen() {
       const password = generateBrowserPassword();
       const ncryptsec = encryptSecretKey(keys.secretKey, password);
       await saveSession(ncryptsec, password);
+
+      // Also log into the Nostr system immediately so the user does not have
+      // to repeat "Log in" on the home screen. This fixes the "sign in with
+      // existing account" flow.
+      login.nsec(keys.nsec);
 
       completeOnboarding({
         ...keys,
@@ -175,10 +182,17 @@ export function SignInScreen() {
                   <p className="text-xs text-muted-foreground mb-3">
                     If you have a NIP-07 extension (Alby, nos2x, etc.), you can sign in without pasting your key.
                   </p>
-                  <Button
+                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => navigate('/home', { replace: true })}
+                    onClick={async () => {
+                      try {
+                        login.extension();
+                      } catch {
+                        // ignore; user may not have extension
+                      }
+                      navigate('/home', { replace: true });
+                    }}
                   >
                     Use NIP-07 extension
                   </Button>

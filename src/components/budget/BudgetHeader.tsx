@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bitcoin, DollarSign, ChevronLeft, ChevronRight, Zap, Calendar, Menu, Info, Heart, Shield, GraduationCap, LogIn, Moon, Sun, RotateCw, Copy, AlertTriangle } from 'lucide-react';
+import { Bitcoin, DollarSign, ChevronLeft, ChevronRight, Zap, Calendar, Menu, Info, Heart, Shield, GraduationCap, LogIn, Moon, Sun, RotateCw, Copy, AlertTriangle, QrCode } from 'lucide-react';
 
 // Import version directly from package.json.
 // Vite inlines the JSON object at build time, giving us a real string constant.
@@ -49,11 +49,13 @@ import { useAppContext } from '@/hooks/useAppContext';
 import { BackupRestoreDialog } from './BackupRestoreDialog';
 import { ManagePartnersDialog } from './ManagePartnersDialog';
 import { DonateDialog } from './DonateDialog';
+import { BudgetKeyDialog } from './BudgetKeyDialog';
 import { MapleSettings } from '@/components/maple/MapleSettings';
 import { PaymentMethodsManager } from './PaymentMethodsManager';
 import { useRegisterSW } from '@/hooks/useRegisterSW';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { GuestUpgradeModal } from '@/components/GuestUpgradeModal';
+import { useBudget } from '@/hooks/useBudget';
 
 interface BudgetHeaderProps {
   buckets: Bucket[];
@@ -108,6 +110,7 @@ export function BudgetHeader({
   // Get pending invites count for the notification badge
   const { pendingInvitesCount } = usePartnerInvites();
   const { state: onboardingState } = useOnboarding();
+  const { fullState } = useBudget();
   const [showMonthPicker, setShowMonthPicker] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
   const [showDonate, setShowDonate] = useState(false);
@@ -121,6 +124,7 @@ export function BudgetHeader({
   const [showSettings, setShowSettings] = useState(false);
   const [showPaymentMethods, setShowPaymentMethods] = useState(false);
   const [showGuestUpgrade, setShowGuestUpgrade] = useState(false);
+  const [showBudgetKey, setShowBudgetKey] = useState(false);
 
   // Generate list of months for picker (current month + 11 months back + 6 months forward)
   const getAvailableMonths = () => {
@@ -299,6 +303,7 @@ export function BudgetHeader({
                 onBudgetPartnersClick={() => setShowPartners(true)}
                 partnersCount={nostrPartners.length}
                 pendingInvitesCount={pendingInvitesCount}
+                onShowBudgetKey={() => setShowBudgetKey(true)}
                 onOpenWallet={() => onOpenWallet && onOpenWallet()}
                 onOpenMapleSettings={() => setShowSettings(true)}
                 onOpenPaymentMethods={() => setShowPaymentMethods(true)}
@@ -383,23 +388,23 @@ export function BudgetHeader({
 
                     <DropdownMenuSeparator />
 
-                    {/* Soft Reset — normal recommended reload (safe) */}
+                    {/* Soft Reset — normal PWA update (safe, recommended) */}
                     <DropdownMenuItem onClick={handleSoftReset}>
                       <RotateCw className="h-4 w-4 mr-2" />
-                      Soft Reset — Reload latest version
-                      <span className="ml-auto text-[10px] text-muted-foreground/60">recommended</span>
+                      Refresh the app (recommended)
+                      <span className="ml-auto text-[10px] text-muted-foreground/60">get latest version</span>
                     </DropdownMenuItem>
 
-                    {/* Hard Reset — force fresh code from the server (still safe) */}
+                    {/* Hard Reset — force fresh code (still safe) */}
                     <DropdownMenuItem onClick={handleHardReset}>
                       <RotateCw className="h-4 w-4 mr-2" />
-                      Hard Reset — Force newest code from server
+                      Force refresh from server
                       <span className="ml-auto text-[10px] text-muted-foreground/60">bypass cache</span>
                     </DropdownMenuItem>
 
                     <DropdownMenuSeparator />
 
-                    {/* Total Reset — the nuclear option that deletes local data */}
+                    {/* Total Reset — the ONLY button that can delete local budget data */}
                     <DropdownMenuItem
                       onClick={handleTotalReset}
                       className="text-destructive focus:text-destructive font-medium"
@@ -407,10 +412,12 @@ export function BudgetHeader({
                       <RotateCw className="h-4 w-4 mr-2" />
                       Total Reset — Delete all local data
                     </DropdownMenuItem>
+                    <div className="px-3 pb-1 text-[9px] leading-tight text-muted-foreground/70">
+                      This is the only reset that can delete your budget data.
+                    </div>
                     <div className="px-3 pb-1 text-[9px] leading-tight text-destructive/80">
-                      ⚠️ DANGER: This permanently deletes your budgets saved on this device.<br />
-                      Only safe if you are logged in with Nostr AND have a working cloud backup.<br />
-                      Guest mode or no backup = your data will be lost forever.
+                      ⚠️ Safe ONLY if logged in with Nostr + active cloud backup.<br />
+                      Guest mode = all data is lost forever.
                     </div>
 
                     <div className="px-2 pt-2 text-[10px] text-muted-foreground/60 text-center tabular-nums">
@@ -753,6 +760,14 @@ export function BudgetHeader({
           open={showGuestUpgrade}
           onOpenChange={setShowGuestUpgrade}
         />
+
+        {/* Budget Key (QR for partners) */}
+        <BudgetKeyDialog
+          open={showBudgetKey}
+          onOpenChange={setShowBudgetKey}
+          budgetNsec={fullState.budgetKeypair?.budgetNsec}
+          budgetNpub={fullState.budgetKeypair?.budgetNpub}
+        />
       </header>
    );
- }
+  }
