@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bitcoin, DollarSign, ChevronLeft, ChevronRight, Wallet, Zap, Calendar, Menu, Info, Heart, ExternalLink, Shield, Globe, GraduationCap, User, LogIn, UserPlus, Cloud, Moon, Sun, RotateCw, Copy, AlertTriangle } from 'lucide-react';
+import { Bitcoin, DollarSign, ChevronLeft, ChevronRight, Zap, Calendar, Menu, Info, Heart, Shield, GraduationCap, LogIn, Moon, Sun, RotateCw, Copy, AlertTriangle } from 'lucide-react';
 
 // Import version directly from package.json.
 // Vite inlines the JSON object at build time, giving us a real string constant.
@@ -46,8 +46,6 @@ import { usePartnerInvites } from '@/hooks/usePartnerInvites';
 import { AccountSwitcher } from '@/components/auth/AccountSwitcher';
 import LoginDialog from '@/components/auth/LoginDialog';
 import { useAppContext } from '@/hooks/useAppContext';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { genUserName } from '@/lib/genUserName';
 import { BackupRestoreDialog } from './BackupRestoreDialog';
 import { ManagePartnersDialog } from './ManagePartnersDialog';
 import { DonateDialog } from './DonateDialog';
@@ -311,10 +309,11 @@ export function BudgetHeader({
 
 
 
-            {/* Account Switcher (when logged in) */}
+            {/* Account Switcher (when logged in) - Avatar variant */}
             {user && (
               <div className="ml-1">
                 <AccountSwitcher 
+                  variant="avatar"
                   onAddAccountClick={() => setShowLogin(true)}
                   onBudgetPartnersClick={() => setShowPartners(true)}
                   partnersCount={nostrPartners.length}
@@ -322,162 +321,126 @@ export function BudgetHeader({
                   onOpenWallet={() => onOpenWallet && onOpenWallet()}
                   onOpenMapleSettings={() => setShowSettings(true)}
                   onOpenPaymentMethods={() => setShowPaymentMethods(true)}
-                   onCopyPreviousMonth={() => onCopyPreviousMonth?.()}
+                  onCopyPreviousMonth={() => onCopyPreviousMonth?.()}
                   onResetBudgetMonth={() => setShowResetConfirm(true)}
                   onRefreshApp={handleRefresh}
                   onOpenBackup={() => setShowBackup(true)}
+                  onSupportSatSorter={() => setShowDonateSorter(true)}
+                  onSupportBitcoinProjects={() => setShowDonate(true)}
+                  onAbout={() => setShowAbout(true)}
+                  onLearnAboutBitcoin={() => setShowBitcoinEdu(true)}
                 />
               </div>
             )}
 
-             {/* App Menu — always visible so every item is reachable */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    size="icon"
-                    className="h-9 w-9 sm:h-10 sm:w-10 bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white border border-white/30 relative"
-                  >
-                    <Menu className="h-4 w-4" />
-                    {needRefresh && (
-                      <span className="absolute top-1 right-1 flex h-2 w-2">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-300 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-yellow-300"></span>
-                      </span>
+             {/* Unified Menu — hamburger icon opens the same menu */}
+              {user ? (
+                <AccountSwitcher
+                  variant="hamburger"
+                  updateAvailable={needRefresh}
+                  triggerClassName="h-9 w-9 sm:h-10 sm:w-10 bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white border border-white/30 !rounded-md !p-0 !flex !items-center !justify-center"
+                  onAddAccountClick={() => setShowLogin(true)}
+                  onBudgetPartnersClick={() => setShowPartners(true)}
+                  partnersCount={nostrPartners.length}
+                  pendingInvitesCount={pendingInvitesCount}
+                  onOpenWallet={() => onOpenWallet && onOpenWallet()}
+                  onOpenMapleSettings={() => setShowSettings(true)}
+                  onOpenPaymentMethods={() => setShowPaymentMethods(true)}
+                  onCopyPreviousMonth={() => onCopyPreviousMonth?.()}
+                  onResetBudgetMonth={() => setShowResetConfirm(true)}
+                  onRefreshApp={handleRefresh}
+                  onOpenBackup={() => setShowBackup(true)}
+                  onSupportSatSorter={() => setShowDonateSorter(true)}
+                  onSupportBitcoinProjects={() => setShowDonate(true)}
+                  onAbout={() => setShowAbout(true)}
+                  onLearnAboutBitcoin={() => setShowBitcoinEdu(true)}
+                />
+              ) : (
+                /* Guest hamburger menu — limited options until login */
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      size="icon"
+                      className="h-9 w-9 sm:h-10 sm:w-10 bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white border border-white/30 relative"
+                    >
+                      <Menu className="h-4 w-4" />
+                      {needRefresh && (
+                        <span className="absolute top-1 right-1 flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-300 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-yellow-300"></span>
+                        </span>
+                      )}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    {onboardingState === 'guest' && (
+                      <DropdownMenuItem onClick={() => setShowGuestUpgrade(true)}>
+                        <Shield className="h-4 w-4 mr-2" />
+                        Upgrade to Nostr Account
+                      </DropdownMenuItem>
                     )}
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  {/* Account */}
-                  {/* Guest mode: offer upgrade option */}
-                  {onboardingState === 'guest' && (
-                    <DropdownMenuItem onClick={() => setShowGuestUpgrade(true)}>
-                      <Shield className="h-4 w-4 mr-2" />
-                      Upgrade to Nostr Account
+                    <DropdownMenuItem onClick={() => setShowLogin(true)}>
+                      <LogIn className="h-4 w-4 mr-2" />
+                      Log In with Nostr
                     </DropdownMenuItem>
-                  )}
-                  {!user && (
-                   <DropdownMenuItem onClick={() => setShowLogin(true)}>
-                     <LogIn className="h-4 w-4 mr-2" />
-                     Log In with Nostr
-                   </DropdownMenuItem>
-                 )}
-                 {user && (
-                   <DropdownMenuItem onClick={() => setShowPartners(true)}>
-                     <User className="h-4 w-4 mr-2" />
-                     Budget Partners
-                   </DropdownMenuItem>
-                 )}
 
-                 <DropdownMenuSeparator />
+                    <DropdownMenuSeparator />
 
-                  {/* Budget Tools — always available */}
-                  <DropdownMenuItem onClick={() => onCopyPreviousMonth?.()}>
-                    <Copy className="h-4 w-4 mr-2" />
-                    Copy Previous Month
-                  </DropdownMenuItem>
-                 <DropdownMenuItem 
-                   onClick={() => setShowResetConfirm(true)}
-                   className="text-destructive focus:text-destructive focus:bg-destructive/10"
-                 >
-                   <AlertTriangle className="h-4 w-4 mr-2" />
-                   Reset This Month
-                 </DropdownMenuItem>
+                    {/* Budget Tools */}
+                    <DropdownMenuItem onClick={() => onCopyPreviousMonth?.()}>
+                      <Copy className="h-4 w-4 mr-2" />
+                      Copy Previous Month
+                    </DropdownMenuItem>
 
-                 <DropdownMenuSeparator />
+                    <DropdownMenuSeparator />
 
-                 {/* Paywalled features — greyed out until logged in */}
-                 <DropdownMenuItem 
-                   disabled={!user}
-                   onClick={() => user && setShowSettings(true)}
-                   className={!user ? "text-muted-foreground" : ""}
-                 >
-                   <span className="h-4 w-4 mr-2 text-center text-sm">🤖</span>
-                   Maple AI {!user && "(log in to unlock)"}
-                 </DropdownMenuItem>
+                    {/* Preferences */}
+                    <DropdownMenuItem onClick={toggleTheme}>
+                      {isDark ? <Sun className="h-4 w-4 mr-2" /> : <Moon className="h-4 w-4 mr-2" />}
+                      {isDark ? 'Light Mode' : 'Dark Mode'}
+                    </DropdownMenuItem>
 
-                 <DropdownMenuItem 
-                   disabled={!user}
-                   onClick={() => user && setShowPaymentMethods(true)}
-                   className={!user ? "text-muted-foreground" : ""}
-                 >
-                   <span className="h-4 w-4 mr-2 text-center text-sm">💳</span>
-                   Payment Methods {!user && "(log in to unlock)"}
-                 </DropdownMenuItem>
+                    <DropdownMenuSeparator />
 
-                 <DropdownMenuItem 
-                   disabled={!user}
-                   onClick={() => user && onOpenWallet?.()}
-                   className={!user ? "text-muted-foreground" : ""}
-                 >
-                   <Wallet className="h-4 w-4 mr-2" />
-                   Lightning Wallet {!user && "(log in to unlock)"}
-                 </DropdownMenuItem>
+                    {/* Support & About */}
+                    <DropdownMenuItem onClick={() => setShowDonateSorter(true)}>
+                      <Heart className="h-4 w-4 mr-2 text-pink-500" />
+                      Support Sat Sorter
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setShowDonate(true)}>
+                      <Heart className="h-4 w-4 mr-2" />
+                      Support Bitcoin Projects
+                    </DropdownMenuItem>
 
-                 <DropdownMenuItem 
-                   disabled={!user}
-                   onClick={() => user && setShowBackup(true)}
-                   className={!user ? "text-muted-foreground" : ""}
-                 >
-                   <Cloud className="h-4 w-4 mr-2" />
-                   Backup & Sync {!user && "(log in to unlock)"}
-                 </DropdownMenuItem>
+                    <DropdownMenuSeparator />
 
-                 <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => setShowAbout(true)}>
+                      <Info className="h-4 w-4 mr-2" />
+                      About Sat Sorter
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setShowBitcoinEdu(true)}>
+                      <GraduationCap className="h-4 w-4 mr-2" />
+                      Learn About Bitcoin
+                    </DropdownMenuItem>
 
-                 {/* Preferences — always available */}
-                 <DropdownMenuItem onClick={toggleTheme}>
-                   {isDark ? <Sun className="h-4 w-4 mr-2" /> : <Moon className="h-4 w-4 mr-2" />}
-                   {isDark ? 'Light Mode' : 'Dark Mode'}
-                 </DropdownMenuItem>
+                    <DropdownMenuSeparator />
 
-                 <DropdownMenuSeparator />
+                    {/* Advanced */}
+                    <DropdownMenuItem onClick={handleRefresh}>
+                      <RotateCw className="h-4 w-4 mr-2" />
+                      Refresh App
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => window.location.reload()}>
+                      <RotateCw className="h-4 w-4 mr-2" />
+                      Update App
+                    </DropdownMenuItem>
 
-                 {/* Support — always available */}
-                 <DropdownMenuItem onClick={() => setShowDonateSorter(true)}>
-                   <Heart className="h-4 w-4 mr-2 text-pink-500" />
-                   Support Sat Sorter
-                 </DropdownMenuItem>
-                 <DropdownMenuItem onClick={() => setShowDonate(true)}>
-                   <Heart className="h-4 w-4 mr-2" />
-                   Support Bitcoin Projects
-                 </DropdownMenuItem>
-
-                 <DropdownMenuSeparator />
-
-                 {/* About & Education — always available */}
-                 <DropdownMenuItem onClick={() => setShowAbout(true)}>
-                   <Info className="h-4 w-4 mr-2" />
-                   About Sat Sorter
-                 </DropdownMenuItem>
-                 <DropdownMenuItem onClick={() => setShowBitcoinEdu(true)}>
-                   <GraduationCap className="h-4 w-4 mr-2" />
-                   Learn About Bitcoin
-                 </DropdownMenuItem>
-                 <DropdownMenuItem>
-                   <GraduationCap className="h-4 w-4 mr-2" />
-                   Learn About Nostr
-                 </DropdownMenuItem>
-
-                 <DropdownMenuSeparator />
-
-                  {/* Advanced — always available */}
-                  <DropdownMenuItem onClick={handleRefresh}>
-                    <RotateCw className="h-4 w-4 mr-2" />
-                    Refresh App
-                  </DropdownMenuItem>
-
-                  {/* Update App (forces a hard reload to pick up the latest build) */}
-                  <DropdownMenuItem onClick={() => window.location.reload()}>
-                    <RotateCw className="h-4 w-4 mr-2" />
-                    Update App
-                  </DropdownMenuItem>
-
-                  {/* Tiny version number at the very bottom of the menu */}
-                   <div className="px-2 pt-2 text-[10px] text-muted-foreground/60 text-center tabular-nums">
-                     v{APP_VERSION}
-                   </div>
-               </DropdownMenuContent>
-             </DropdownMenu>
+                    <div className="px-2 pt-2 text-[10px] text-muted-foreground/60 text-center tabular-nums">
+                      v{APP_VERSION}
+                    </div>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
           </div>
         </div>
 
@@ -608,38 +571,45 @@ export function BudgetHeader({
        </Dialog>
 
         {/* Final Reset Confirmation — extra security layer */}
-        <Dialog open={showResetFinalConfirm} onOpenChange={setShowResetFinalConfirm}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2 text-destructive">
-                <AlertTriangle className="h-5 w-5" />
-                Final Confirmation — Reset This Month?
-              </DialogTitle>
-              <DialogDescription>
-                This action is irreversible. All categories, line items, and transactions for {formatMonth(currentMonth)} will be permanently deleted.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                Please confirm one more time that you want to completely reset this month’s budget.
-              </p>
-            </div>
-            <div className="flex gap-3 justify-end">
-              <Button variant="outline" onClick={() => setShowResetFinalConfirm(false)}>
-                Cancel
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={() => {
-                  onResetBudgetMonth?.();
-                  setShowResetFinalConfirm(false);
-                }}
-              >
-                Yes, permanently reset
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+         <Dialog open={showResetFinalConfirm} onOpenChange={setShowResetFinalConfirm}>
+           <DialogContent>
+             <DialogHeader>
+               <DialogTitle className="flex items-center gap-2 text-destructive">
+                 <AlertTriangle className="h-5 w-5" />
+                 Final Confirmation — Reset This Month?
+               </DialogTitle>
+               <DialogDescription>
+                 This action is irreversible. All categories, line items, and transactions for {formatMonth(currentMonth)} will be permanently deleted.
+               </DialogDescription>
+             </DialogHeader>
+             <div className="space-y-4">
+               <p className="text-sm text-muted-foreground">
+                 Please confirm one more time that you want to completely reset this month's budget.
+               </p>
+             </div>
+             <div className="flex gap-3 justify-end">
+               <Button variant="outline" onClick={() => setShowResetFinalConfirm(false)}>
+                 Cancel
+               </Button>
+               <Button
+                 variant="destructive"
+                 onClick={() => {
+                   onResetBudgetMonth?.();
+                   setShowResetFinalConfirm(false);
+                 }}
+               >
+                 Yes, permanently reset
+               </Button>
+             </div>
+           </DialogContent>
+         </Dialog>
+
+         {/* Manage Partners Dialog */}
+         <ManagePartnersDialog
+           open={showPartners}
+           onOpenChange={setShowPartners}
+           userRole={userRole}
+         />
 
         {/* Backup & Sync Dialog */}
         <BackupRestoreDialog
@@ -677,7 +647,94 @@ export function BudgetHeader({
           </DialogContent>
         </Dialog>
 
-        {/* Login Dialog */}
+        {/* Donate Dialog — Support Sat Sorter */}
+        <DonateDialog
+          open={showDonateSorter}
+          onOpenChange={setShowDonateSorter}
+        />
+
+        {/* Donate Dialog — Support Bitcoin Projects */}
+        <DonateDialog
+          open={showDonate}
+          onOpenChange={setShowDonate}
+        />
+
+        {/* About Sat Sorter Dialog */}
+        <Dialog open={showAbout} onOpenChange={setShowAbout}>
+          <DialogContent className="sm:max-w-[500px] max-h-[85vh]">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Zap className="h-5 w-5 text-primary" />
+                About Sat Sorter
+              </DialogTitle>
+              <DialogDescription>
+                Zero-based budgeting on a Bitcoin standard
+              </DialogDescription>
+            </DialogHeader>
+            <ScrollArea className="max-h-[60vh] pr-4">
+              <div className="space-y-6 py-4">
+                <div className="space-y-2">
+                  <h3 className="font-semibold flex items-center gap-2">
+                    <Bitcoin className="h-4 w-4 text-primary" />
+                    What is Sat Sorter?
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    Sat Sorter is a privacy-first budgeting app built for Bitcoiners.
+                    It uses the zero-based budgeting method — where every satoshi gets assigned a job
+                    before you spend it. No wasted sats, no wasted money.
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <h3 className="font-semibold flex items-center gap-2">
+                    <Shield className="h-4 w-4 text-primary" />
+                    100% Private
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    Your data stays on your device. We don't have servers that store your financial information.
+                    When you log in with Nostr, your budget syncs securely using your own keys.
+                  </p>
+                </div>
+              </div>
+            </ScrollArea>
+          </DialogContent>
+        </Dialog>
+
+        {/* Learn About Bitcoin Dialog */}
+        <Dialog open={showBitcoinEdu} onOpenChange={setShowBitcoinEdu}>
+          <DialogContent className="sm:max-w-[500px] max-h-[85vh]">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <GraduationCap className="h-5 w-5 text-primary" />
+                Learn About Bitcoin
+              </DialogTitle>
+              <DialogDescription>
+                Resources to deepen your understanding of Bitcoin
+              </DialogDescription>
+            </DialogHeader>
+            <ScrollArea className="max-h-[60vh] pr-4">
+              <div className="space-y-6 py-4">
+                <div className="space-y-2">
+                  <h3 className="font-semibold">Getting Started</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Bitcoin is a decentralized digital currency that enables peer-to-peer transactions
+                    without intermediaries. It was created in 2009 by Satoshi Nakamoto.
+                    Start with <a href="https://bitcoin.org/bitcoin.pdf" target="_blank" rel="noopener noreferrer" className="text-primary underline">the original whitepaper</a>.
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <h3 className="font-semibold">Key Resources</h3>
+                  <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+                    <li><a href="https://bitcoin.org" target="_blank" rel="noopener noreferrer" className="text-primary underline">Bitcoin.org</a> — Official site</li>
+                    <li><a href="https://btcmap.org" target="_blank" rel="noopener noreferrer" className="text-primary underline">BTCMap.org</a> — Find Bitcoin merchants near you</li>
+                    <li><a href="https://opensats.org" target="_blank" rel="noopener noreferrer" className="text-primary underline">OpenSats</a> — Fund Bitcoin open-source development</li>
+                  </ul>
+                </div>
+              </div>
+            </ScrollArea>
+          </DialogContent>
+        </Dialog>
+
+         {/* Login Dialog */}
         <LoginDialog
           isOpen={showLogin}
           onClose={() => setShowLogin(false)}
