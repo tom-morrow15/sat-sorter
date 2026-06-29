@@ -28,6 +28,7 @@ interface AccountSwitcherProps {
   onCopyPreviousMonth?: () => void;
   onResetBudgetMonth?: () => void;
   onRefreshApp?: () => void;
+  onUpdateApp?: () => void;
   onOpenBackup?: () => void;
   onSupportSatSorter?: () => void;
   onSupportBitcoinProjects?: () => void;
@@ -52,6 +53,7 @@ export function AccountSwitcher({
   onCopyPreviousMonth,
   onResetBudgetMonth,
   onRefreshApp,
+  onUpdateApp,
   onOpenBackup,
   onSupportSatSorter,
   onSupportBitcoinProjects,
@@ -63,7 +65,11 @@ export function AccountSwitcher({
 }: AccountSwitcherProps) {
   const { currentUser, otherUsers, setLogin, removeLogin } = useLoggedInAccounts();
   const { isDark, toggle: toggleTheme } = useTheme();
-  const { needRefresh } = useRegisterSW();
+  const { needRefresh, updateApp } = useRegisterSW();
+  const showUpdateBadge = updateAvailable || needRefresh;
+
+  // If parent didn't provide onUpdateApp, fall back to the hook's version
+  const handleUpdateApp = onUpdateApp ?? updateApp;
 
   if (!currentUser && variant === 'avatar') return null;
 
@@ -97,7 +103,7 @@ export function AccountSwitcher({
                 {pendingInvitesCount > 9 ? '9+' : pendingInvitesCount}
               </span>
             )}
-            {updateAvailable && (
+            {showUpdateBadge && (
               <span className="absolute -top-0.5 -right-0.5 flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-300 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-yellow-300"></span>
@@ -265,7 +271,11 @@ export function AccountSwitcher({
           {/* Advanced */}
           <DropdownMenuItem onClick={() => onRefreshApp?.()}>
             <RotateCw className="h-4 w-4 mr-2" />
-            Refresh App
+            Refresh App (Fresh)
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => handleUpdateApp?.()}>
+            <RotateCw className="h-4 w-4 mr-2" />
+            Update App
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => onOpenBackup?.()}>
             <Cloud className="h-4 w-4 mr-2" />

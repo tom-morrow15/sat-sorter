@@ -101,7 +101,7 @@ export function BudgetHeader({
   getPreviousMonth = () => '',
 }: BudgetHeaderProps) {
   const { data: priceData, isLoading: priceLoading } = useBitcoinPrice();
-  const { needRefresh } = useRegisterSW();
+  const { needRefresh, refreshApp, updateApp } = useRegisterSW();
   const { isDark, toggle: toggleTheme } = useTheme();
   // Use Nostr-native partners hook for the count badge
   const { partners: nostrPartners } = usePartners();
@@ -204,39 +204,16 @@ export function BudgetHeader({
     updateConfig((c) => ({ ...c, logoStyle: c.logoStyle === 'sats' ? 'bitcoin' : 'sats' }));
   };
 
-   const handleRefresh = async () => {
-     // Clear all caches to force fresh download of app code
-     if ('caches' in window) {
-       try {
-         const cacheNames = await caches.keys();
-         await Promise.all(cacheNames.map(name => caches.delete(name)));
-       } catch (e) {
-         console.warn('Failed to clear caches:', e);
-       }
-     }
-      // 1. Unregister any service workers
-      if ('serviceWorker' in navigator) {
-        try {
-          const registrations = await navigator.serviceWorker.getRegistrations();
-          await Promise.all(registrations.map(reg => reg.unregister()));
-        } catch (e) {
-          console.warn('Failed to unregister service workers:', e);
-        }
-      }
-      
-      // 2. Clear Cache Storage (the app assets cache)
-      if ('caches' in window) {
-        try {
-          const cacheNames = await caches.keys();
-          await Promise.all(cacheNames.map(name => caches.delete(name)));
-        } catch (e) {
-          console.warn('Failed to clear caches:', e);
-        }
-      }
-      
-      // 3. Hard reload - bypass browser cache
-      window.location.reload();
-   };
+    // Reliable "Fresh App" handler (uses the improved hook that clears caches + SWs + hard reload)
+    const handleRefresh = async () => {
+      await refreshApp();
+    };
+
+    // "Update App" — tries to use a new service worker if one was registered,
+    // otherwise does the same full fresh reload.
+    const handleUpdateApp = async () => {
+      await updateApp();
+    };
 
    return (
      <header className="sticky top-0 z-50 w-full bg-header-gradient text-white relative overflow-hidden safe-top">
@@ -324,6 +301,7 @@ export function BudgetHeader({
                 onCopyPreviousMonth={() => onCopyPreviousMonth?.()}
                 onResetBudgetMonth={() => setShowResetConfirm(true)}
                 onRefreshApp={handleRefresh}
+                onUpdateApp={handleUpdateApp}
                 onOpenBackup={() => setShowBackup(true)}
                 onSupportSatSorter={() => setShowDonateSorter(true)}
                 onSupportBitcoinProjects={() => setShowDonate(true)}
@@ -403,9 +381,9 @@ export function BudgetHeader({
                     {/* Advanced */}
                     <DropdownMenuItem onClick={handleRefresh}>
                       <RotateCw className="h-4 w-4 mr-2" />
-                      Refresh App
+                      Refresh App (Fresh)
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => window.location.reload()}>
+                    <DropdownMenuItem onClick={handleUpdateApp}>
                       <RotateCw className="h-4 w-4 mr-2" />
                       Update App
                     </DropdownMenuItem>
