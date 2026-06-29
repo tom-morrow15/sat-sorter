@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Plus, Trash2, Shield, Eye, QrCode, Loader2, Bell, CheckCircle, XCircle, UserPlus } from 'lucide-react';
 import { nip19 } from 'nostr-tools';
+import { getPublicKey } from 'nostr-tools/pure';
 import { useAuthor } from '@/hooks/useAuthor';
 import { genUserName } from '@/lib/genUserName';
 import type { BudgetPartnerInvite } from '@/lib/budgetTypes';
@@ -114,16 +115,15 @@ export function ManagePartnersDialog({
         budgetNsec = await user.signer.nip44.decrypt(fromHex, invite.encryptedBudgetKey);
       }
 
-      // 2. Derive the budget npub and verify it matches
-      const decoded = nip19.decode(budgetNsec);
-      if (decoded.type !== 'nsec') {
+      // 2. Derive the budget npub from the decrypted nsec and verify it matches the invite
+      const nsecDecoded = nip19.decode(budgetNsec);
+      if (nsecDecoded.type !== 'nsec') {
         throw new Error('Decrypted budget key is not a valid nsec');
       }
-      const budgetNpub = nip19.npubEncode(
-        nip19.decode(budgetNsec).type === 'nsec'
-          ? decoded.data
-          : ''
-      );
+      const secretKey = nsecDecoded.data as Uint8Array;
+      const budgetPubkeyHex = getPublicKey(secretKey);
+      const budgetNpub = nip19.npubEncode(budgetPubkeyHex);
+
       // Verify the npub matches what the invite claims
       if (budgetNpub !== invite.budgetNpub) {
         console.error('[ManagePartnersDialog] Budget npub mismatch!');
