@@ -204,15 +204,6 @@ export function LineItemRow({
     }
   }, [isEditing]);
 
-  // Handle quick amount update (click on amount)
-  const handleAmountClick = () => {
-    if (!isEditing) {
-      setEditAmount(getEditableAmount());
-      setIsEditing(true);
-      setTimeout(() => inputRef.current?.focus(), 0);
-    }
-  };
-
    if (isEditing) {
       return (
         <>
@@ -288,7 +279,6 @@ export function LineItemRow({
           'group py-2.5 px-3 sm:px-4 rounded-lg transition-colors',
           'hover:bg-muted/50 active:bg-muted/70'
         )}
-        onClick={handleStartEdit}
       >
         {/* Main row - always horizontal */}
         <div className="flex items-center gap-2 sm:gap-3">
@@ -304,7 +294,7 @@ export function LineItemRow({
           </span>
           {/* Merchant indicator - smaller on mobile */}
           {!isIncome && merchants.length > 0 && (
-            <div className="flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+            <div className="flex-shrink-0">
               <MerchantBadge
                 lineItemName={lineItem.name}
                 merchants={merchants}
@@ -313,20 +303,36 @@ export function LineItemRow({
           )}
         </div>
 
-        {/* Amount */}
-         <div
-           className={cn(
-             'text-right font-semibold tabular-nums text-sm flex-shrink-0',
-             isIncome && 'text-success'
-           )}
-         >
-           {/* Show compact on very small screens */}
-           <span className="sm:hidden">{formatAmount(lineItem, true)}</span>
-           <span className="hidden sm:inline">
-             {formatAmount(lineItem)}
-             {currency === 'sats' && ' sats'}
-           </span>
-         </div>
+        {/* Amount + Edit Pencil */}
+        <div className="flex items-center gap-1.5">
+          <div
+            className={cn(
+              'text-right font-semibold tabular-nums text-sm flex-shrink-0',
+              isIncome && 'text-success'
+            )}
+          >
+            {/* Show compact on very small screens */}
+            <span className="sm:hidden">{formatAmount(lineItem, true)}</span>
+            <span className="hidden sm:inline">
+              {formatAmount(lineItem)}
+              {currency === 'sats' && ' sats'}
+            </span>
+          </div>
+
+          {/* Edit pencil — always visible on mobile, hover-visible on desktop */}
+          <Button
+            size="icon"
+            variant="ghost"
+            className={cn(
+              'h-7 w-7 flex-shrink-0 text-muted-foreground hover:text-foreground',
+              'sm:opacity-0 sm:group-hover:opacity-100 transition-opacity'
+            )}
+            onClick={() => handleStartEdit()}
+            title="Edit line item"
+          >
+            <Edit2 className="h-3.5 w-3.5" />
+          </Button>
+        </div>
 
         {/* Receipt icon - always visible when there are transactions (mobile + desktop) */}
         {onViewTransactions && spent > 0 && (
@@ -344,30 +350,19 @@ export function LineItemRow({
           </Button>
         )}
 
-        {/* Other action buttons - only on hover/desktop */}
-         <div className="hidden sm:flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-           <Button
-             size="icon"
-             variant="ghost"
-             className="h-7 w-7"
-             onClick={(e) => {
-               e.stopPropagation();
-               handleStartEdit();
-             }}
-           >
-             <Edit2 className="h-3.5 w-3.5" />
-           </Button>
-           <Button
-             size="icon"
-             variant="ghost"
-             className="h-7 w-7 text-destructive hover:text-destructive"
-             onClick={(e) => {
-               e.stopPropagation();
-               setShowDeleteConfirm(true);
-             }}
-           >
-             <Trash2 className="h-3.5 w-3.5" />
-           </Button>
+        {/* Trash button — hidden on mobile, hover-visible on desktop */}
+          <div className="hidden sm:flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-7 w-7 text-destructive hover:text-destructive"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowDeleteConfirm(true);
+              }}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
         </div>
       </div>
 
