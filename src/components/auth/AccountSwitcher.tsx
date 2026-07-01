@@ -179,7 +179,8 @@ export function AccountSwitcher({
             ))}
             <DropdownMenuSeparator />
 
-          {/* Budget Partners */}
+          {/* Budget Partners — temporarily hidden */}
+          {false && (
           <DropdownMenuItem onClick={() => onBudgetPartnersClick?.()}>
             <UserIcon className="h-4 w-4 mr-2" />
             Budget Partners
@@ -191,9 +192,10 @@ export function AccountSwitcher({
               </span>
             )}
           </DropdownMenuItem>
+          )}
 
-          {/* Budget Key (Build Key) — for working with budget partners */}
-          {onShowBudgetKey && (
+          {/* Budget Key (Build Key) — temporarily hidden */}
+          {false && onShowBudgetKey && (
             <DropdownMenuItem onClick={() => onShowBudgetKey()}>
               <QrCode className="h-4 w-4 mr-2" />
               Budget Key (QR)
@@ -227,11 +229,14 @@ export function AccountSwitcher({
             <Copy className="h-4 w-4 mr-2" />
             Copy Previous Month
           </DropdownMenuItem>
+          {/* Reset This Month's Budget — temporarily hidden */}
+          {false && (
           <DropdownMenuItem onClick={() => onResetBudgetMonth?.()} className="text-destructive focus:text-destructive">
             <AlertTriangle className="h-4 w-4 mr-2" />
             Reset This Month's Budget
             <span className="ml-auto text-[10px] text-muted-foreground/60">this month only</span>
           </DropdownMenuItem>
+          )}
 
           <DropdownMenuSeparator />
 
@@ -264,10 +269,13 @@ export function AccountSwitcher({
             <Heart className="h-4 w-4 mr-2 text-pink-500" />
             Support Sat Sorter
           </DropdownMenuItem>
+          {/* Support Bitcoin Projects — temporarily hidden */}
+          {false && (
           <DropdownMenuItem onClick={() => onSupportBitcoinProjects?.()}>
             <Heart className="h-4 w-4 mr-2" />
             Support Bitcoin Projects
           </DropdownMenuItem>
+          )}
 
           <DropdownMenuSeparator />
 
@@ -290,15 +298,20 @@ export function AccountSwitcher({
             <span className="ml-auto text-[10px] text-muted-foreground/60">get latest version</span>
           </DropdownMenuItem>
 
+          {/* Force refresh from server — temporarily hidden */}
+          {false && (
           <DropdownMenuItem onClick={() => handleHardReset?.()}>
             <RotateCw className="h-4 w-4 mr-2" />
             Force refresh from server
             <span className="ml-auto text-[10px] text-muted-foreground/60">bypass cache</span>
           </DropdownMenuItem>
+          )}
 
           <DropdownMenuSeparator />
 
-          {/* Total Reset — the ONLY one that can delete budget data */}
+          {/* Total Reset — temporarily hidden */}
+          {false && (
+          <>
           <DropdownMenuItem
             onClick={() => handleTotalReset?.()}
             className="text-destructive focus:text-destructive font-medium"
@@ -313,6 +326,8 @@ export function AccountSwitcher({
             ⚠️ Only safe if logged in with Nostr + active cloud backup.<br />
             Guest mode = all data is lost forever.
           </div>
+          </>
+          )}
           <DropdownMenuItem onClick={() => onOpenBackup?.()}>
             <Cloud className="h-4 w-4 mr-2" />
             Backup & Sync

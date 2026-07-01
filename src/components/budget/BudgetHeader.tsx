@@ -370,10 +370,13 @@ export function BudgetHeader({
                       <Heart className="h-4 w-4 mr-2 text-pink-500" />
                       Support Sat Sorter
                     </DropdownMenuItem>
+                    {/* Support Bitcoin Projects — temporarily hidden */}
+                    {false && (
                     <DropdownMenuItem onClick={() => setShowDonate(true)}>
                       <Heart className="h-4 w-4 mr-2" />
                       Support Bitcoin Projects
                     </DropdownMenuItem>
+                    )}
 
                     <DropdownMenuSeparator />
 
@@ -395,16 +398,20 @@ export function BudgetHeader({
                       <span className="ml-auto text-[10px] text-muted-foreground/60">get latest version</span>
                     </DropdownMenuItem>
 
-                    {/* Hard Reset — force fresh code (still safe) */}
+                    {/* Hard Reset — temporarily hidden */}
+                    {false && (
                     <DropdownMenuItem onClick={handleHardReset}>
                       <RotateCw className="h-4 w-4 mr-2" />
                       Force refresh from server
                       <span className="ml-auto text-[10px] text-muted-foreground/60">bypass cache</span>
                     </DropdownMenuItem>
+                    )}
 
                     <DropdownMenuSeparator />
 
-                    {/* Total Reset — the ONLY button that can delete local budget data */}
+                    {/* Total Reset — temporarily hidden */}
+                    {false && (
+                    <>
                     <DropdownMenuItem
                       onClick={handleTotalReset}
                       className="text-destructive focus:text-destructive font-medium"
@@ -419,6 +426,8 @@ export function BudgetHeader({
                       ⚠️ Safe ONLY if logged in with Nostr + active cloud backup.<br />
                       Guest mode = all data is lost forever.
                     </div>
+                    </>
+                    )}
 
                     <div className="px-2 pt-2 text-[10px] text-muted-foreground/60 text-center tabular-nums">
                       v{APP_VERSION}
