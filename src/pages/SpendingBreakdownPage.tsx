@@ -189,8 +189,8 @@ export default function SpendingBreakdownPage() {
               </div>
             </section>
 
-            {/* Maple Insights — only visible when API key is configured */}
-            <MapleInsightsCard />
+            {/* Maple Insights — temporarily hidden */}
+            {false && <MapleInsightsCard />}
 
             {/* Categories list */}
             <section>
