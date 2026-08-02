@@ -371,28 +371,34 @@ export function BucketCard({
                    Cancel
                  </Button>
                </div>
-             ) : (
-               <div className="flex gap-2 mt-2 px-4 pb-1">
-                 <Button
-                   variant="ghost"
-                   size="sm"
-                   className="text-muted-foreground hover:text-foreground"
-                   onClick={() => setIsAddingItem(true)}
-                 >
-                   <Plus className="h-4 w-4 mr-1" />
-                   Add Line Item
-                 </Button>
-                 <Button
-                   variant="ghost"
-                   size="sm"
-                   className="text-muted-foreground hover:text-foreground"
-                   onClick={() => setShowTransactionDialog(true)}
-                 >
-                   <Plus className="h-4 w-4 mr-1" />
-                   Add Transaction
-                 </Button>
-               </div>
-             )}
+              ) : (
+                <div className="flex gap-2 mt-3 px-4 pb-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-muted-foreground hover:text-foreground"
+                    onClick={() => setIsAddingItem(true)}
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add Line Item
+                  </Button>
+                </div>
+              )}
+
+              {/* Add Transaction — prominent primary action */}
+              {!isAddingItem && (
+                <div className="px-4 pb-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full justify-center border-dashed hover:border-solid hover:bg-primary/5 hover:text-primary transition-all press-feedback"
+                    onClick={() => setShowTransactionDialog(true)}
+                  >
+                    <Plus className="h-4 w-4 mr-1.5" />
+                    Add Transaction
+                  </Button>
+                </div>
+              )}
 
                {/* Add Transaction Dialog */}
                <AddTransactionDialog
