@@ -2,7 +2,6 @@ import { useState, useRef, useEffect } from 'react';
 import { Trash2, GripVertical, Edit2, Check, X, Receipt } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Progress } from '@/components/ui/progress';
 import { useBitcoinPrice, formatSats, satsToUsd, usdToSats, formatUsd } from '@/hooks/useBitcoinPrice';
 import { calculateSpentForLineItem, getLineItemUsdAmount } from '@/lib/budgetTypes';
 import { lineItemSpentUsd, percentUsed as percentUsedSafe } from '@/lib/budgetSelectors';
@@ -368,51 +367,58 @@ export function LineItemRow({
 
        {/* Progress bar for expenses - separate row */}
        {!isIncome && lineItem.plannedAmount > 0 && (
-         <div className="mt-2 space-y-1.5 pl-0 sm:pl-7">
-           {/* Progress bar */}
-           <div className="flex items-center gap-2">
-             <div className="flex-1">
-               <Progress
-                 value={percentSpent}
-                 className="h-1.5"
-                 style={{
-                   '--progress-background': isOverBudget
-                     ? 'hsl(0 84% 60%)'
-                     : bucketColor,
-                 } as React.CSSProperties}
-               />
-             </div>
-           </div>
-
-           {/* Spent / Remaining info row */}
-           <div className="flex items-center justify-between text-xs tabular-nums">
-              <span className={cn(
-                'whitespace-nowrap',
-                isOverBudget ? 'text-destructive font-medium' : 'text-muted-foreground'
-              )}>
-                <span className="sm:hidden">{formatDisplayAmount(spent, true)}</span>
-                <span className="hidden sm:inline">{formatDisplayAmount(spent)} spent</span>
-              </span>
-              
-              <span className={cn(
-                'whitespace-nowrap',
-                isOverBudget ? 'text-destructive font-medium' : 'text-muted-foreground'
-              )}>
-                {isOverBudget ? (
-                  <>
-                    <span className="sm:hidden">{formatDisplayAmount(Math.abs(remaining), true)} over</span>
-                    <span className="hidden sm:inline">{formatDisplayAmount(Math.abs(remaining))} over</span>
-                  </>
-                ) : (
-                  <>
-                    <span className="sm:hidden">{formatDisplayAmount(remaining, true)}</span>
-                    <span className="hidden sm:inline">{formatDisplayAmount(remaining)} left</span>
-                  </>
+          <div className="mt-2 space-y-1 pl-0 sm:pl-7">
+            {/* Progress bar with gradient based on spending pace */}
+            <div className="w-full bg-muted/60 rounded-full h-1.5 overflow-hidden">
+              <div
+                className={cn(
+                  'h-full rounded-full transition-all duration-500',
+                  isOverBudget
+                    ? 'bg-gradient-to-r from-red-500 to-destructive'
+                    : percentSpent >= 90
+                    ? 'bg-gradient-to-r from-orange-500 to-red-500'
+                    : percentSpent >= 75
+                    ? 'bg-gradient-to-r from-amber-500 to-orange-500'
+                    : 'bg-gradient-to-r from-emerald-500 to-emerald-400'
                 )}
-              </span>
-           </div>
-         </div>
-        )}
+                style={{
+                  width: `${percentSpent}%`,
+                  transitionTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
+                }}
+              />
+            </div>
+
+            {/* Spent / Remaining info row */}
+            <div className="flex items-center justify-between text-xs tabular-nums">
+               <span className={cn(
+                 'whitespace-nowrap',
+                 isOverBudget ? 'text-destructive font-medium' : 'text-muted-foreground'
+               )}>
+                 <span className="sm:hidden">{formatDisplayAmount(spent, true)}</span>
+                 <span className="hidden sm:inline">{formatDisplayAmount(spent)} spent</span>
+               </span>
+               
+               <span className={cn(
+                 'whitespace-nowrap',
+                 isOverBudget ? 'text-destructive font-medium'
+                   : percentSpent >= 90 ? 'text-orange-600 dark:text-orange-400 font-medium'
+                   : 'text-muted-foreground'
+               )}>
+                 {isOverBudget ? (
+                   <>
+                     <span className="sm:hidden">{formatDisplayAmount(Math.abs(remaining), true)} over</span>
+                     <span className="hidden sm:inline">{formatDisplayAmount(Math.abs(remaining))} over</span>
+                   </>
+                 ) : (
+                   <>
+                     <span className="sm:hidden">{formatDisplayAmount(remaining, true)}</span>
+                     <span className="hidden sm:inline">{formatDisplayAmount(remaining)} left</span>
+                   </>
+                 )}
+               </span>
+            </div>
+          </div>
+         )}
       </div>
 
       {/* Deletion confirmation dialog */}
