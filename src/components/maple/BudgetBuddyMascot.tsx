@@ -1,9 +1,7 @@
 /**
- * BudgetBuddyMascot — A custom SVG of a financial advisor character
- * doing the "shh" (finger to lips) gesture to signify privacy.
- *
- * Designed to be clean and readable at small sizes (24-56px).
- * Uses currentColor for strokes so it adapts to light/dark mode.
+ * BudgetBuddyMascot — A speech bubble with a sparkle/star inside.
+ * Communicates "AI chat" instantly: the bubble says "talk" and the
+ * sparkle says "AI". Uses currentColor so it adapts to light/dark mode.
  */
 
 interface MascotProps {
@@ -21,76 +19,19 @@ export function BudgetBuddyMascot({ className, size = 28 }: MascotProps) {
       className={className}
       xmlns="http://www.w3.org/2000/svg"
     >
-      {/* Head — rounded, friendly */}
-      <circle
-        cx="24"
-        cy="20"
-        r="13"
+      {/* Speech bubble — rounded rectangle with a tail */}
+      <path
+        d="M8 10 H40 Q44 10 44 14 V28 Q44 32 40 32 H20 L12 40 V32 H8 Q4 32 4 28 V14 Q4 10 8 10 Z"
         stroke="currentColor"
         strokeWidth="2.5"
+        strokeLinejoin="round"
         fill="none"
       />
 
-      {/* Left eye */}
-      <circle cx="19" cy="18" r="1.8" fill="currentColor" />
-
-      {/* Right eye */}
-      <circle cx="29" cy="18" r="1.8" fill="currentColor" />
-
-      {/* Eyebrows — slight concerned/attentive look */}
+      {/* AI Sparkle — four-pointed star inside the bubble */}
       <path
-        d="M16 14.5 L21.5 14"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-      />
-      <path
-        d="M26.5 14 L32 14.5"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-      />
-
-      {/* The "shh" finger — index finger raised vertically to the lips.
-          Positioned over the mouth area, slightly offset to look natural. */}
-      <path
-        d="M24 24 L24 32"
-        stroke="currentColor"
-        strokeWidth="3"
-        strokeLinecap="round"
-      />
-      {/* Finger tip — rounded top */}
-      <circle
-        cx="24"
-        cy="24"
-        r="1.8"
+        d="M24 14 L26.5 21.5 L34 24 L26.5 26.5 L24 34 L21.5 26.5 L14 24 L21.5 21.5 Z"
         fill="currentColor"
-      />
-
-      {/* Closed lips — small horizontal line below the finger, 
-          slightly curved to suggest "shh" */}
-      <path
-        d="M20.5 26.5 Q24 27.5 27.5 26.5"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-
-      {/* Shoulders — simple suggestion of a body/torso */}
-      <path
-        d="M14 35 Q14 40 24 41 Q34 40 34 35"
-        stroke="currentColor"
-        strokeWidth="2.5"
-        strokeLinecap="round"
-        fill="none"
-      />
-
-      {/* Tie or collar suggestion — minimal professional touch */}
-      <path
-        d="M22 41 L22 45 M26 41 L26 45 M22 43 L26 43"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
       />
     </svg>
   );
