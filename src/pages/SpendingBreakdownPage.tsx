@@ -17,6 +17,9 @@ import {
   Baby,
   Dog,
   Stethoscope,
+  TrendingUp,
+  TrendingDown,
+  Minus,
   type LucideIcon,
 } from 'lucide-react';
 import { BudgetHeader } from '@/components/budget/BudgetHeader';
@@ -27,6 +30,7 @@ import { useBudget } from '@/hooks/useBudget';
 import { deriveBudgetTotals, percentUsed } from '@/lib/budgetSelectors';
 import { formatSats, usdToSats } from '@/hooks/useBitcoinPrice';
 import { useBitcoinPrice } from '@/hooks/useBitcoinPrice';
+import { formatMonth } from '@/lib/budgetTypes';
 
 // Same icon map as BucketCard so the visuals stay consistent across the app.
 const iconMap: Record<string, LucideIcon> = {
@@ -49,7 +53,7 @@ const iconMap: Record<string, LucideIcon> = {
 };
 
 export default function SpendingBreakdownPage() {
-  const { currentBudget, currency, currentMonth, toggleCurrency, setCurrentMonth } = useBudget();
+  const { currentBudget, currency, currentMonth, toggleCurrency, setCurrentMonth, fullState } = useBudget();
   const { data: priceData } = useBitcoinPrice();
   const [showWalletModal, setShowWalletModal] = useState(false);
 
@@ -140,6 +144,36 @@ export default function SpendingBreakdownPage() {
     });
   }, [currentMonth]);
 
+  // Month-over-month trend: compare current month's spending vs previous month
+  const trendData = useMemo(() => {
+    const [year, month] = currentMonth.split('-').map(Number);
+    const prevDate = new Date(year, month - 2);
+    const prevMonth = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
+    const prevBudget = fullState.budgets.find((b) => b.month === prevMonth);
+
+    if (!prevBudget) return null;
+
+    const prevTotals = deriveBudgetTotals(prevBudget, btcPrice);
+    const prevSpent = prevTotals.spentUsd;
+    const currentSpent = totalSpentUsd;
+
+    if (prevSpent === 0) return null;
+
+    const diff = currentSpent - prevSpent;
+    const pctChange = Math.round((diff / prevSpent) * 100);
+
+    return {
+      prevMonth: prevMonth,
+      prevMonthLabel: formatMonth(prevMonth),
+      prevSpent,
+      currentSpent,
+      diff,
+      pctChange,
+      isUp: diff > 0,
+      isFlat: Math.abs(pctChange) < 2,
+    };
+  }, [fullState.budgets, currentMonth, btcPrice, totalSpentUsd]);
+
   return (
     <div className="min-h-screen bg-background">
       <BudgetHeader
@@ -188,6 +222,49 @@ export default function SpendingBreakdownPage() {
                 </SpendingGauge>
               </div>
             </section>
+
+            {/* Month-over-month trend */}
+            {trendData && (
+              <section className="rounded-2xl bg-card border border-border/60 p-5 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                      vs Last Month
+                    </p>
+                    <p className="text-sm text-muted-foreground mt-0.5">
+                      {trendData.prevMonthLabel}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <div className="flex items-center gap-1.5 justify-end">
+                      {trendData.isFlat ? (
+                        <Minus className="h-4 w-4 text-muted-foreground" />
+                      ) : trendData.isUp ? (
+                        <TrendingUp className="h-4 w-4 text-destructive" />
+                      ) : (
+                        <TrendingDown className="h-4 w-4 text-green-500" />
+                      )}
+                      <span
+                        className={`text-lg font-bold tabular-nums ${
+                          trendData.isFlat
+                            ? 'text-muted-foreground'
+                            : trendData.isUp
+                            ? 'text-destructive'
+                            : 'text-green-500'
+                        }`}
+                      >
+                        {trendData.isUp ? '+' : ''}
+                        {trendData.pctChange}%
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground tabular-nums mt-0.5">
+                      {toDisplay(trendData.diff).label}{' '}
+                      {trendData.isUp ? 'more' : 'less'}
+                    </p>
+                  </div>
+                </div>
+              </section>
+            )}
 
             {/* Maple Insights — temporarily hidden */}
             {false && <MapleInsightsCard />}
