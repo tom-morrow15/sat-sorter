@@ -36,7 +36,7 @@ export function MapleInsightsCard() {
     setError(null);
     try {
       const context = buildBudgetContext(currentMonth, currentBudget, btcPrice, evergreenContext);
-      const text = await analyzeMonth(apiKey, proxyUrl, context, model);
+      const text = await analyzeMonth(apiKey, proxyUrl, context, model, zdr);
       if (!text || !text.trim()) {
         const msg = "Maple didn't return any insights for this month. Try again or check your spending data.";
         setInsights(msg);

@@ -1,7 +1,6 @@
 import { useState, useCallback, createContext, useContext, type ReactNode } from 'react';
 import { AddTransactionDialog } from '@/components/budget/AddTransactionDialog';
 import { useBudget } from '@/hooks/useBudget';
-import { useBitcoinPrice } from '@/hooks/useBitcoinPrice';
 
 interface AddTransactionContextValue {
   openAddTransaction: (defaultBucketId?: string) => void;

@@ -3,13 +3,13 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { TestApp } from '@/test/TestApp';
 import { MapleInsightsCard } from './MapleInsightsCard';
-import { useMapleSettings } from '@/hooks/useMapleSettings';
+import { useAISettings } from '@/hooks/useAISettings';
 import { useBudget } from '@/hooks/useBudget';
 import { useBitcoinPrice } from '@/hooks/useBitcoinPrice';
 
 // Mock the hooks
-vi.mock('@/hooks/useMapleSettings', () => ({
-  useMapleSettings: vi.fn(),
+vi.mock('@/hooks/useAISettings', () => ({
+  useAISettings: vi.fn(),
 }));
 
 vi.mock('@/hooks/useBitcoinPrice', () => ({
@@ -50,7 +50,7 @@ describe('MapleInsightsCard', () => {
   });
 
   it('renders nothing when no API key', () => {
-    (useMapleSettings as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+    (useAISettings as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
       apiKey: '',
       evergreenContext: '',
     });
@@ -63,7 +63,7 @@ describe('MapleInsightsCard', () => {
   });
 
   it('shows "Analyze This Month" button when key exists', () => {
-    (useMapleSettings as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+    (useAISettings as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
       apiKey: 'sk-test',
       evergreenContext: '',
       proxyUrl: 'http://localhost:8080/v1',
@@ -86,7 +86,7 @@ describe('MapleInsightsCard', () => {
   });
 
   it('displays insights after clicking analyze', async () => {
-    (useMapleSettings as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+    (useAISettings as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
       apiKey: 'sk-test',
       evergreenContext: '',
       proxyUrl: 'http://localhost:8080/v1',

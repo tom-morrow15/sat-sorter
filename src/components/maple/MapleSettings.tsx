@@ -7,6 +7,7 @@ import {
   AlertCircle,
   Shield,
   Server,
+  FileText,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -43,8 +44,6 @@ export function MapleSettings() {
     modelsLoading,
     zdr,
     setZdr,
-    maple,
-    ppq,
   } = useAISettings();
   const { toast } = useToast();
   const [showKey, setShowKey] = useState(false);

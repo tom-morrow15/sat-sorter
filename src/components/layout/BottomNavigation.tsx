@@ -78,18 +78,17 @@ export function BottomNavigation() {
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80"
+      className="fixed bottom-0 left-0 right-0 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-t"
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
-      <div className="relative flex items-center h-16">
+      {/* Constrain to max-width on desktop for clean centered layout */}
+      <div className="mx-auto max-w-md relative flex items-center h-16">
         {/* Left side: Home + Breakdown */}
-        <div className="flex items-center flex-1 h-full">
-          <NavButton path="/home" icon={Home} label="Home" />
-          <NavButton path="/breakdown" icon={PieChart} label="Breakdown" />
-        </div>
+        <NavButton path="/home" icon={Home} label="Home" />
+        <NavButton path="/breakdown" icon={PieChart} label="Breakdown" />
 
         {/* Center FAB */}
-        <div className="relative flex items-center justify-center w-16">
+        <div className="relative flex items-center justify-center w-16 shrink-0">
           <button
             onClick={handleAddTransaction}
             disabled={!hasBuckets}
@@ -106,64 +105,63 @@ export function BottomNavigation() {
         </div>
 
         {/* Right side: More + Sync */}
-        <div className="flex items-center flex-1 h-full justify-end">
-          {/* More menu */}
-          <div ref={moreRef} className="relative h-full">
-            <button
-              onClick={() => setShowMore(!showMore)}
-              className={cn(
-                'flex flex-col items-center justify-center h-full gap-0.5 px-3 transition-colors',
-                isMoreActive || showMore
-                  ? 'text-primary'
-                  : 'text-muted-foreground hover:text-foreground'
-              )}
-            >
-              <MoreHorizontal className="h-5 w-5" />
-              <span className="text-[10px]">More</span>
-            </button>
+        <button
+          onClick={() => setShowMore(!showMore)}
+          className={cn(
+            'flex flex-col items-center justify-center flex-1 h-full gap-0.5 transition-colors',
+            isMoreActive || showMore
+              ? 'text-primary'
+              : 'text-muted-foreground hover:text-foreground'
+          )}
+        >
+          <MoreHorizontal className="h-5 w-5" />
+          <span className="text-[10px]">More</span>
+        </button>
 
-            {showMore && (
-              <div className="absolute bottom-full right-0 mb-2 w-44 rounded-xl border bg-popover shadow-lg overflow-hidden">
-                {moreItems.map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <button
-                      key={item.path}
-                      onClick={() => navigate(item.path)}
-                      className="flex items-center gap-3 w-full px-4 py-3 text-sm hover:bg-muted transition-colors text-left"
-                    >
-                      <Icon className="h-4 w-4 text-muted-foreground" />
-                      <span>{item.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* Sync indicator — always visible when logged in, greyed out when not */}
-          <button
-            className="flex flex-col items-center justify-center gap-0.5 px-3 shrink-0"
-            title={
-              !user
-                ? 'Log in with Nostr to enable cloud sync'
-                : !canAutoSave
-                ? 'Cloud sync unavailable'
-                : `Cloud sync: ${syncConfig.label}. Your budget saves automatically to Nostr.`
-            }
+        {/* More menu dropdown */}
+        {showMore && (
+          <div
+            ref={moreRef}
+            className="absolute bottom-full right-0 mb-2 w-44 rounded-xl border bg-popover shadow-lg overflow-hidden"
           >
-            <SyncIcon className={cn(
-              'h-4 w-4',
-              !user || !canAutoSave ? 'text-muted-foreground/30' : syncConfig.color
-            )} />
-            <span className={cn(
-              'text-[9px]',
-              !user || !canAutoSave ? 'text-muted-foreground/30' : syncConfig.color
-            )}>
-              {!user ? 'Offline' : !canAutoSave ? 'Offline' : syncConfig.label}
-            </span>
-          </button>
-        </div>
+            {moreItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <button
+                  key={item.path}
+                  onClick={() => navigate(item.path)}
+                  className="flex items-center gap-3 w-full px-4 py-3 text-sm hover:bg-muted transition-colors text-left"
+                >
+                  <Icon className="h-4 w-4 text-muted-foreground" />
+                  <span>{item.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Sync indicator */}
+        <button
+          className="flex flex-col items-center justify-center gap-0.5 px-3 shrink-0"
+          title={
+            !user
+              ? 'Log in with Nostr to enable cloud sync'
+              : !canAutoSave
+              ? 'Cloud sync unavailable'
+              : `Cloud sync: ${syncConfig.label}. Your budget saves automatically to Nostr.`
+          }
+        >
+          <SyncIcon className={cn(
+            'h-4 w-4',
+            !user || !canAutoSave ? 'text-muted-foreground/30' : syncConfig.color
+          )} />
+          <span className={cn(
+            'text-[9px]',
+            !user || !canAutoSave ? 'text-muted-foreground/30' : syncConfig.color
+          )}>
+            {!user ? 'Offline' : !canAutoSave ? 'Offline' : syncConfig.label}
+          </span>
+        </button>
       </div>
     </nav>
   );
