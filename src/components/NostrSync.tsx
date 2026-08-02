@@ -1,8 +1,9 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useMemo } from 'react';
 import { useNostr } from '@nostrify/react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useAppContext } from '@/hooks/useAppContext';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { createEncryptedSerializer, decryptValue } from '@/lib/secureStorage';
 import { SAFE_DEFAULT_BUDGET_STATE } from '@/lib/budgetTypes';
 import type { BudgetState, MonthlyBudget } from '@/lib/budgetTypes';
 import type { WealthTrackerState } from '@/lib/wealthTypes';
@@ -162,12 +163,16 @@ export function NostrSync() {
 
   // Access local budget state — use the same safe default as the main provider
   // so we never get a partial object that is missing accessibleBudgets etc.
-  const [localBudget, setLocalBudget] = useLocalStorage<BudgetState>('sat-sorter-budget', SAFE_DEFAULT_BUDGET_STATE);
+  // Use encrypted serializer to match BudgetProvider's storage format.
+  const budgetSerializer = useMemo(() => createEncryptedSerializer<BudgetState>(), []);
+  const [localBudget, setLocalBudget] = useLocalStorage<BudgetState>('sat-sorter-budget', SAFE_DEFAULT_BUDGET_STATE, budgetSerializer);
 
   // Access local wealth tracker state (same storage key as useWealthTracker).
+  const wealthSerializer = useMemo(() => createEncryptedSerializer<WealthTrackerState>(), []);
   const [, setLocalWealth] = useLocalStorage<WealthTrackerState>(
     WEALTH_STORAGE_KEY,
-    EMPTY_WEALTH_STATE
+    EMPTY_WEALTH_STATE,
+    wealthSerializer,
   );
 
   // Track which pubkeys we've already attempted to sync for in this session
@@ -176,7 +181,8 @@ export function NostrSync() {
   const syncedWealthPubkeys = useRef<Set<string>>(new Set());
 
   // Also store the save-button tracker so we can prime it after download.
-  const [, setSavedBudgetStr] = useLocalStorage<string>(SAVED_BUDGET_KEY, '');
+  const savedBudgetSerializer = useMemo(() => createEncryptedSerializer<string>(), []);
+  const [, setSavedBudgetStr] = useLocalStorage<string>(SAVED_BUDGET_KEY, '', savedBudgetSerializer);
 
   // Sync relays from Nostr (existing functionality)
   useEffect(() => {
@@ -267,10 +273,14 @@ export function NostrSync() {
 
         // Read the latest local state directly from localStorage to avoid
         // any stale-closure issues from the initial render.
+        // Decrypt using the device key (data is now encrypted at rest).
         let freshLocal: BudgetState = localBudget;
         try {
           const raw = localStorage.getItem('sat-sorter-budget');
-          if (raw) freshLocal = JSON.parse(raw);
+          if (raw) {
+            const decrypted = decryptValue(raw);
+            freshLocal = JSON.parse(decrypted);
+          }
         } catch {
           // fall through with closure value
         }
@@ -413,11 +423,13 @@ export function NostrSync() {
 
         // Pull fresh local state directly from localStorage to avoid
         // closure-staleness issues from the initial render.
+        // Decrypt using the device key (data is now encrypted at rest).
         let freshLocal: WealthTrackerState = EMPTY_WEALTH_STATE;
         try {
           const raw = localStorage.getItem(WEALTH_STORAGE_KEY);
           if (raw) {
-            const parsedLocal = JSON.parse(raw);
+            const decrypted = decryptValue(raw);
+            const parsedLocal = JSON.parse(decrypted);
             if (parsedLocal && Array.isArray(parsedLocal.watchedAddresses)) {
               freshLocal = {
                 watchedAddresses: parsedLocal.watchedAddresses,

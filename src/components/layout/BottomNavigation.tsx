@@ -4,6 +4,7 @@ import { Home, PieChart, MapPin, Receipt, Save, Wallet, MessageSquare } from 'lu
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useBudgetSync } from '@/hooks/useBudgetSync';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { createEncryptedSerializer } from '@/lib/secureStorage';
 import { useToast } from '@/hooks/useToast';
 import { useBudget } from '@/hooks/useBudget';
 import { useMapleSettings } from '@/hooks/useMapleSettings';
@@ -22,7 +23,8 @@ export function BottomNavigation() {
   const { currentMonth, currency, fullState } = useBudget();
   const { isMapleEnabled } = useMapleSettings();
   const [saveState, setSaveState] = useState<SaveState>('ready');
-  const [savedBudgetStr, setSavedBudgetStr] = useLocalStorage<string>(SAVED_BUDGET_KEY, '');
+  const savedBudgetSerializer = useMemo(() => createEncryptedSerializer<string>(), []);
+  const [savedBudgetStr, setSavedBudgetStr] = useLocalStorage<string>(SAVED_BUDGET_KEY, '', savedBudgetSerializer);
   const hasInitialized = useRef(false);
   
   const { uploadBudget } = useBudgetSync();

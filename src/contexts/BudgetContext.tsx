@@ -1,5 +1,6 @@
 import { createContext, useContext, useMemo, useEffect, useRef, useCallback, ReactNode } from 'react';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { createEncryptedSerializer } from '@/lib/secureStorage';
 import {
   BudgetState,
   getCurrentMonth,
@@ -27,7 +28,9 @@ const BudgetContext = createContext<BudgetContextValue | null>(null);
 export function BudgetProvider({ children }: { children: ReactNode }) {
   // Use the ultra-safe default. This is the #1 defense against Safari "Clear History"
   // leaving behind a partial object that is missing accessibleBudgets (or other new fields).
-  const [rawState, setRawState] = useLocalStorage<BudgetState>('sat-sorter-budget', SAFE_DEFAULT_BUDGET_STATE);
+  // Encrypted serializer protects budget nsec and other sensitive data at rest.
+  const encryptedSerializer = useMemo(() => createEncryptedSerializer<BudgetState>(), []);
+  const [rawState, setRawState] = useLocalStorage<BudgetState>('sat-sorter-budget', SAFE_DEFAULT_BUDGET_STATE, encryptedSerializer);
 
   // Always normalize on every render / load. This guarantees we never hand a broken
   // object downstream even if localStorage contains legacy or half-written data.

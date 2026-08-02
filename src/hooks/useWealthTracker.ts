@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useLocalStorage } from './useLocalStorage';
+import { createEncryptedSerializer } from '@/lib/secureStorage';
 import { useBitcoinPrice } from './useBitcoinPrice';
 import { useMultipleAddressBalances } from './useAddressBalance';
 import { useWealthSync } from './useWealthSync';
@@ -55,7 +56,9 @@ function persistentFingerprint(state: WealthTrackerState): string {
 }
 
 export function useWealthTracker() {
-  const [state, setState] = useLocalStorage<WealthTrackerState>(WEALTH_TRACKER_KEY, DEFAULT_STATE);
+  // Encrypt wealth data at rest — it contains Bitcoin addresses and balance history
+  const wealthSerializer = useMemo(() => createEncryptedSerializer<WealthTrackerState>(), []);
+  const [state, setState] = useLocalStorage<WealthTrackerState>(WEALTH_TRACKER_KEY, DEFAULT_STATE, wealthSerializer);
   const { data: priceData } = useBitcoinPrice();
   const { user } = useCurrentUser();
   const { uploadWealth, canSync } = useWealthSync();

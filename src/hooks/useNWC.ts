@@ -1,5 +1,6 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { createEncryptedSerializer } from '@/lib/secureStorage';
 import { useToast } from '@/hooks/useToast';
 import { LN } from '@getalby/sdk';
 
@@ -21,7 +22,9 @@ export interface NWCInfo {
 
 export function useNWCInternal() {
   const { toast } = useToast();
-  const [connections, setConnections] = useLocalStorage<NWCConnection[]>('nwc-connections', []);
+  // Encrypt connection strings at rest — they contain wallet authorization secrets
+  const connSerializer = useMemo(() => createEncryptedSerializer<NWCConnection[]>(), []);
+  const [connections, setConnections] = useLocalStorage<NWCConnection[]>('nwc-connections', [], connSerializer);
   const [activeConnection, setActiveConnection] = useLocalStorage<string | null>('nwc-active-connection', null);
   const [connectionInfo, setConnectionInfo] = useState<Record<string, NWCInfo>>({});
 

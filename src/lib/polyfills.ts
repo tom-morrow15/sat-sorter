@@ -11,6 +11,21 @@ if (!globalThis.Buffer) {
 }
 
 /**
+ * In production builds, silence console.log to reduce noise.
+ * console.warn and console.error are always preserved.
+ * Developers can re-enable verbose logging by setting localStorage.debug = 'true'.
+ */
+if (import.meta.env.PROD) {
+  try {
+    if (localStorage.getItem('debug') !== 'true') {
+      console.log = () => {};
+    }
+  } catch {
+    console.log = () => {};
+  }
+}
+
+/**
  * Polyfill for AbortSignal.any()
  * 
  * AbortSignal.any() creates an AbortSignal that will be aborted when any of the
