@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Plus, Bitcoin, Zap, Wallet, Info, Copy, X, Calendar, ChevronRight } from 'lucide-react';
+import { Plus, Bitcoin, Zap, Wallet, Info, Copy, X } from 'lucide-react';
 import { useSeoMeta, useHead } from '@unhead/react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -105,15 +105,6 @@ export default function HomePage() {
       .map(b => ({ month: b.month, budget: b }));
   }, [fullState.budgets, currentMonth]);
 
-  // Check if next month already has a budget (for "Plan Next Month" prompt)
-  const hasNextMonthBudget = useMemo(() => {
-    const [year, month] = currentMonth.split('-').map(Number);
-    const nextDate = new Date(year, month);
-    const nextMonth = `${nextDate.getFullYear()}-${String(nextDate.getMonth() + 1).padStart(2, '0')}`;
-    const next = fullState.budgets.find(b => b.month === nextMonth);
-    return !!(next && next.buckets.length > 0);
-  }, [fullState.budgets, currentMonth]);
-
   // "Plan Next Month" — copies current month's structure to next month
   const handlePlanNextMonth = () => {
     const [year, month] = currentMonth.split('-').map(Number);
@@ -126,7 +117,6 @@ export default function HomePage() {
         title: 'Next month planned!',
         description: `Copied your budget to ${formatMonth(nextMonth)}.`,
       });
-      // Navigate to the new month
       setCurrentMonth(nextMonth);
     } else {
       toast({
@@ -178,6 +168,7 @@ export default function HomePage() {
         availableMonths={[currentMonth]}
         allBudgets={fullState.budgets}
         onCopyPreviousMonth={() => setShowCopyPrompt(true)}
+        onPlanNextMonth={handlePlanNextMonth}
       />
 
       <main className="container mx-auto px-3 sm:px-4 py-6 lg:py-8 max-w-4xl">
@@ -259,29 +250,6 @@ export default function HomePage() {
             currency={currency}
           />
         </div>
-
-        {/* Plan Next Month prompt — shows when current month has data but next doesn't */}
-        {expenseBuckets.length > 0 && !hasNextMonthBudget && (
-          <div className="mb-4 animate-slide-in-up" style={{ animationDelay: '0.05s', animationFillMode: 'both' }}>
-            <button
-              onClick={handlePlanNextMonth}
-              className="w-full flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-primary/10 to-orange-500/5 border border-primary/20 hover:border-primary/40 transition-colors text-left group"
-            >
-              <div className="h-9 w-9 rounded-lg bg-primary/15 flex items-center justify-center shrink-0">
-                <Calendar className="h-4 w-4 text-primary" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-foreground">
-                  Plan next month
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Copy this budget to next month and get ahead
-                </p>
-              </div>
-              <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
-            </button>
-          </div>
-        )}
 
         {/* Main Layout - Budget Categories */}
         <div className="space-y-4">

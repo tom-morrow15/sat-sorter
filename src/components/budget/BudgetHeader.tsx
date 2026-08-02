@@ -75,6 +75,7 @@ interface BudgetHeaderProps {
   availableMonths?: string[];
   allBudgets?: any[];
   onCopyPreviousMonth?: () => void;
+  onPlanNextMonth?: () => void;
   onResetBudgetMonth?: () => void;
   hasPreviousMonthBudget?: boolean;
   getPreviousMonth?: () => string;
@@ -98,6 +99,7 @@ export function BudgetHeader({
   availableMonths = [],
   allBudgets = [],
   onCopyPreviousMonth,
+  onPlanNextMonth,
   onResetBudgetMonth,
   hasPreviousMonthBudget = false,
   getPreviousMonth = () => '',
@@ -354,6 +356,12 @@ export function BudgetHeader({
                       <Copy className="h-4 w-4 mr-2" />
                       Copy Previous Month
                     </DropdownMenuItem>
+                    {onPlanNextMonth && (
+                      <DropdownMenuItem onClick={() => onPlanNextMonth()}>
+                        <Calendar className="h-4 w-4 mr-2" />
+                        Plan Next Month
+                      </DropdownMenuItem>
+                    )}
 
                     <DropdownMenuSeparator />
 
