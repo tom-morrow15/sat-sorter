@@ -43,8 +43,9 @@ import {
 } from '@/components/ui/collapsible';
 import { LineItemRow } from './LineItemRow';
 import { AddTransactionDialog } from './AddTransactionDialog';
-import { useBitcoinPrice, formatSats, satsToUsd, formatUsd } from '@/hooks/useBitcoinPrice';
-import { calculateBucketTotal, calculateBucketTotalSats, calculateBucketTotalUsd, calculateSpentForBucket } from '@/lib/budgetTypes';
+import { useBitcoinPrice, formatSats, satsToUsd, usdToSats, formatUsd } from '@/hooks/useBitcoinPrice';
+import { calculateBucketTotal, calculateBucketTotalSats, calculateBucketTotalUsd } from '@/lib/budgetTypes';
+import { lineItemSpentUsd } from '@/lib/budgetSelectors';
 import type { Bucket, LineItem, Transaction } from '@/lib/budgetTypes';
 import type { BTCMapElement } from '@/hooks/useBTCMap';
 import { cn } from '@/lib/utils';
@@ -137,11 +138,29 @@ export function BucketCard({
         ? calculateBucketTotalSats(bucket, priceData.usdPerBtc)
         : calculateBucketTotal(bucket));
     
-    // Calculate spent - need to convert to USD if in USD mode
-    const spentSats = calculateSpentForBucket(bucket, transactions);
-    const spent = currency === 'usd' && priceData
-      ? satsToUsd(spentSats, priceData.usdPerBtc)
-      : spentSats;
+    // Calculate spent — always USD-anchored, then convert to display currency
+    // This ensures spent amounts never shift with the BTC price (the USD amount
+    // the user entered is the source of truth).
+    let spent: number;
+    if (priceData) {
+      // Sum each line item's USD-anchored spent amount
+      const spentUsd = bucket.lineItems.reduce(
+        (sum, item) => sum + lineItemSpentUsd(item.id, transactions, priceData.usdPerBtc),
+        0
+      );
+      if (currency === 'usd') {
+        spent = spentUsd;
+      } else {
+        // Sats mode: convert the USD-anchored spent to sats at current price
+        spent = usdToSats(spentUsd, priceData.usdPerBtc);
+      }
+    } else {
+      // No price data: fall back to raw sats
+      spent = bucket.lineItems.reduce(
+        (sum, item) => sum + item.plannedAmount,
+        0
+      );
+    }
 
     const formatAmount = (amount: number, compact = false) => {
        if (currency === 'usd') {
