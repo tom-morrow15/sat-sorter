@@ -47,7 +47,7 @@ export function BottomNavigation() {
     if (!user || !canAutoSave) return null;
 
     const config = {
-      idle: { icon: Cloud, color: 'text-muted-foreground/50', label: 'Sync' },
+      idle: { icon: Cloud, color: 'text-muted-foreground/50', label: 'Synced' },
       saving: { icon: RefreshCw, color: 'text-primary animate-spin', label: 'Saving' },
       saved: { icon: Cloud, color: 'text-green-500', label: 'Saved' },
       error: { icon: CloudOff, color: 'text-red-500', label: 'Error' },
@@ -58,8 +58,8 @@ export function BottomNavigation() {
 
     return (
       <button
-        className="flex flex-col items-center justify-center gap-0.5 px-2"
-        title={`Cloud sync: ${config.label}`}
+        className="flex flex-col items-center justify-center gap-0.5 px-2 shrink-0"
+        title={`Cloud sync: ${config.label}. Your budget saves automatically to Nostr.`}
       >
         <Icon className={cn('h-4 w-4', config.color)} />
         <span className={cn('text-[9px]', config.color)}>{config.label}</span>
@@ -155,9 +155,10 @@ export function BottomNavigation() {
                 </div>
               )}
             </div>
-
-            <SaveIndicator />
           </div>
+
+          {/* Sync indicator — always last, dedicated slot */}
+          <SaveIndicator />
         </div>
       </nav>
     </>
