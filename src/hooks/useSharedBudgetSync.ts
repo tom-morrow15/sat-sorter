@@ -126,7 +126,7 @@ export function useSharedBudgetSync(budgetNpub: string, budgetNsec: string) {
     error: null,
   });
 
-  const subscriptionRef = useRef<{ close: () => void } | null>(null);
+  const subscriptionRef = useRef<{ close?: () => void } | null>(null);
   const processedEventsRef = useRef<Set<string>>(new Set());
 
   // Decode the budget nsec to get raw key bytes for signing + encrypting.
@@ -382,7 +382,7 @@ export function useSharedBudgetSync(budgetNpub: string, budgetNsec: string) {
     );
 
     return () => {
-      if (subscriptionRef.current) {
+      if (subscriptionRef.current && typeof subscriptionRef.current.close === 'function') {
         subscriptionRef.current.close();
         subscriptionRef.current = null;
       }

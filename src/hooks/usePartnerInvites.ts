@@ -391,7 +391,7 @@ export function usePartnerInvites() {
   useEffect(() => {
     if (!user?.pubkey) return;
 
-    let sub: { close: () => void } | null = null;
+    let sub: { close?: () => void } | null = null;
     try {
       sub = nostr.req(
         [
@@ -414,7 +414,9 @@ export function usePartnerInvites() {
     }
 
     return () => {
-      if (sub) sub.close();
+      if (sub && typeof sub.close === 'function') {
+        sub.close();
+      }
     };
   }, [user?.pubkey, nostr, queryClient]);
 

@@ -76,7 +76,9 @@ export function usePartnerInviteResponses() {
     );
 
     return () => {
-      sub.close();
+      if (sub && typeof sub.close === 'function') {
+        sub.close();
+      }
     };
   }, [user?.pubkey, user?.signer?.nip04, user?.signer?.nip44, nostr, pendingPartnerPubkeys]);
 }
