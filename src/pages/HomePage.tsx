@@ -8,6 +8,7 @@ import { useToast } from '@/hooks/useToast';
 import { BudgetHeader } from '@/components/budget/BudgetHeader';
 import { BucketCard } from '@/components/budget/BucketCard';
 import { DashboardSummary } from '@/components/budget/DashboardSummary';
+import { BtcTipCard } from '@/components/budget/BtcTipCard';
 import { AddBucketDialog } from '@/components/budget/AddBucketDialog';
 import { CopyMonthPrompt, type AvailableMonth } from '@/components/budget/CopyMonthPrompt';
 import { WalletModalControlled } from '@/components/budget/WalletModalControlled';
@@ -252,6 +253,9 @@ export default function HomePage() {
             currency={currency}
           />
         </div>
+
+        {/* Bitcoin education tip — only shown in USD mode */}
+        <BtcTipCard />
 
         {/* Main Layout - Budget Categories */}
         <div className="space-y-4">
