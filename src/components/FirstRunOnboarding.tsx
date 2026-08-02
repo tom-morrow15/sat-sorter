@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Zap, DollarSign, Bitcoin, ChevronRight, Check, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useBudget } from '@/hooks/useBudget';
@@ -15,11 +14,10 @@ type Step = 'welcome' | 'currency' | 'income' | 'done';
 
 export function FirstRunOnboarding() {
   const { state: onboardingState } = useOnboarding();
-  const { toggleCurrency, currency, addTransaction, currentBudget } = useBudget();
+  const { toggleCurrency, currency, currentBudget } = useBudget();
   const [completed, setCompleted] = useLocalStorage<boolean>(ONBOARDING_KEY, false, serializer);
   const [step, setStep] = useState<Step>('welcome');
   const [incomeAmount, setIncomeAmount] = useState('');
-  const navigate = useNavigate();
 
   // Only show for authenticated or guest users who haven't completed onboarding
   const shouldShow =
