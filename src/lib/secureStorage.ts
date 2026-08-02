@@ -21,7 +21,7 @@ import { randomBytes } from '@noble/hashes/utils';
 import { openDB, type IDBPDatabase } from 'idb';
 
 const DB_NAME = 'satSorter';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE_NAME = 'secure';
 const KEY_NAME = 'device-key';
 
@@ -33,8 +33,16 @@ function getDb(): Promise<IDBPDatabase> {
   if (!dbPromise) {
     dbPromise = openDB(DB_NAME, DB_VERSION, {
       upgrade(db) {
+        // Create ALL stores this app needs — both secure and sessions.
+        // This ensures that whichever module opens the DB first, all
+        // object stores are available. The upgrade only fires once
+        // (when the version bumps from 1 to 2), so we must create
+        // everything here.
         if (!db.objectStoreNames.contains(STORE_NAME)) {
           db.createObjectStore(STORE_NAME);
+        }
+        if (!db.objectStoreNames.contains('sessions')) {
+          db.createObjectStore('sessions');
         }
       },
     });

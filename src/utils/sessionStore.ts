@@ -2,7 +2,7 @@ import { openDB, type IDBPDatabase } from 'idb';
 import { encryptSecretKey, decryptSecretKey } from '@/utils/nostrAuth';
 
 const DB_NAME = 'satSorter';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE_NAME = 'sessions';
 const NCSECRET_KEY = 'ncryptsec';
 const PASSWORD_KEY = 'session_password';
@@ -13,8 +13,13 @@ function getDb(): Promise<IDBPDatabase> {
   if (!dbPromise) {
     dbPromise = openDB(DB_NAME, DB_VERSION, {
       upgrade(db) {
+        // Create ALL stores this app needs — both sessions and secure.
+        // Must match secureStorage.ts upgrade function.
         if (!db.objectStoreNames.contains(STORE_NAME)) {
           db.createObjectStore(STORE_NAME);
+        }
+        if (!db.objectStoreNames.contains('secure')) {
+          db.createObjectStore('secure');
         }
       },
     });
