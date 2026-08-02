@@ -42,7 +42,7 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { LineItemRow } from './LineItemRow';
-import { AddTransactionDialog } from './AddTransactionDialog';
+import { useAddTransaction } from './AddTransactionProvider';
 import { useBitcoinPrice, formatSats, satsToUsd, usdToSats, formatUsd } from '@/hooks/useBitcoinPrice';
 import { calculateBucketTotal, calculateBucketTotalSats, calculateBucketTotalUsd } from '@/lib/budgetTypes';
 import { lineItemSpentUsd } from '@/lib/budgetSelectors';
@@ -121,12 +121,12 @@ export function BucketCard({
   paymentMethods,
 }: BucketCardProps) {
   const { data: priceData } = useBitcoinPrice();
+  const { openAddTransaction } = useAddTransaction() ?? {};
   const [isOpen, setIsOpen] = useState(true);
   const [isAddingItem, setIsAddingItem] = useState(false);
   const [newItemName, setNewItemName] = useState('');
   const [isEditingName, setIsEditingName] = useState(false);
   const [editName, setEditName] = useState(bucket.name);
-  const [showTransactionDialog, setShowTransactionDialog] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const Icon = iconMap[bucket.icon] || Wallet;
@@ -391,45 +391,18 @@ export function BucketCard({
                  </Button>
                </div>
               ) : (
-                <div className="flex gap-2 mt-3 px-4 pb-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-muted-foreground hover:text-foreground"
-                    onClick={() => setIsAddingItem(true)}
-                  >
-                    <Plus className="h-4 w-4 mr-1" />
-                    Add Line Item
-                  </Button>
-                </div>
-              )}
-
-              {/* Add Transaction — prominent primary action */}
-              {!isAddingItem && (
                 <div className="px-4 pb-1">
                   <Button
                     variant="outline"
                     size="sm"
                     className="w-full justify-center border-dashed hover:border-solid hover:bg-primary/5 hover:text-primary transition-all press-feedback"
-                    onClick={() => setShowTransactionDialog(true)}
+                    onClick={() => setIsAddingItem(true)}
                   >
                     <Plus className="h-4 w-4 mr-1.5" />
-                    Add Transaction
+                    Add Line Item
                   </Button>
                 </div>
               )}
-
-               {/* Add Transaction Dialog */}
-               <AddTransactionDialog
-                 open={showTransactionDialog}
-                 onOpenChange={setShowTransactionDialog}
-                 buckets={buckets || []}
-                 defaultBucketId={bucket.id}
-                 currency={currency}
-                 isIncome={bucket.isIncome}
-                 onSave={(transaction) => onAddTransaction?.(transaction)}
-                 paymentMethods={paymentMethods}
-               />
             </CardContent>
          </CollapsibleContent>
        </Collapsible>
