@@ -31,6 +31,7 @@ export interface Transaction {
   merchantName?: string; // Merchant name from Strike or payment processor
   categoryHint?: string; // Auto-detected category hint from merchant data
   paymentMethod?: string; // User-defined payment method (e.g., "Citi Credit Card", "Bitcoin")
+  partnerPubkey?: string; // Pubkey of the partner who logged this transaction (for shared budgets)
 }
 
 export interface LineItem {

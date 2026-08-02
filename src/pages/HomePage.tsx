@@ -176,7 +176,7 @@ export default function HomePage() {
         <div className="space-y-3 mb-4">
           {/* Guest mode banner */}
           {onboardingState === 'guest' && !dismissedGuestBanner && (
-            <Alert className="border-amber-400/40 bg-amber-50 dark:bg-amber-950/20 relative">
+            <Alert className="border-primary/30 bg-primary/5 relative">
               <button
                 onClick={() => setDismissedGuestBanner(true)}
                 className="absolute top-1.5 right-2 text-muted-foreground hover:text-foreground"
@@ -185,14 +185,15 @@ export default function HomePage() {
                 <X className="h-4 w-4" />
               </button>
               <AlertDescription className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pr-6">
-                <span className="text-sm">
-                  Your budget is stored in this browser only. To sync across devices or back up, create a free account.
-                </span>
+                <div>
+                  <span className="text-sm font-medium">Budgeting on a Bitcoin standard.</span>
+                  <span className="text-sm text-muted-foreground"> Create a free Nostr account for cloud sync, budget sharing, and an AI budget buddy — no email required.</span>
+                </div>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => navigate('/create-account')}
-                  className="shrink-0 border-amber-400/60 hover:bg-amber-100 dark:hover:bg-amber-900/30"
+                  className="shrink-0"
                 >
                   Create Account
                 </Button>

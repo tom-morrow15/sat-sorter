@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Plus, Trash2, Shield, Eye, QrCode, Loader2, Bell, CheckCircle, XCircle, UserPlus } from 'lucide-react';
 import { nip19 } from 'nostr-tools';
 import { getPublicKey } from 'nostr-tools/pure';
 import { useAuthor } from '@/hooks/useAuthor';
 import { genUserName } from '@/lib/genUserName';
-import type { BudgetPartnerInvite } from '@/lib/budgetTypes';
+import type { BudgetPartnerInvite, BudgetPartner } from '@/lib/budgetTypes';
 import { formatMonth } from '@/lib/budgetTypes';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -646,92 +646,15 @@ export function ManagePartnersDialog({
               <ScrollArea className="max-h-[300px]">
                 <div className="space-y-2 pr-2">
                   {partners.map((partner) => (
-                    <div
+                    <PartnerRow
                       key={partner.pubkey}
-                      className="p-3 rounded-lg border bg-muted/50 space-y-2"
-                    >
-                      {/* Top row: pubkey and status badges */}
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-sm font-medium truncate flex-1 min-w-0">
-                          {partner.name || formatPubkey(partner.pubkey)}
-                        </span>
-                        {partner.status === 'pending' && (
-                          <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-300 shrink-0">
-                            Pending
-                          </Badge>
-                        )}
-                        {partner.status === 'accepted' && (
-                          <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-300 shrink-0">
-                            Accepted ✓
-                          </Badge>
-                        )}
-                        {partner.status === 'declined' && (
-                          <Badge variant="outline" className="text-xs bg-red-50 text-red-700 border-red-300 shrink-0">
-                            Declined
-                          </Badge>
-                        )}
-                      </div>
-
-                      {partner.lastActive && (
-                        <p className="text-xs text-muted-foreground">
-                          Last active{' '}
-                          {new Date(partner.lastActive * 1000).toLocaleDateString()}
-                        </p>
-                      )}
-
-                      {/* Bottom row: permission controls and remove button */}
-                      {isOwner ? (
-                        <div className="flex items-center gap-2 pt-1">
-                          <Select
-                            value={partner.permission}
-                            onValueChange={(value) =>
-                              changePartnerPermission(
-                                partner.pubkey,
-                                value as 'view' | 'edit'
-                              )
-                            }
-                          >
-                            <SelectTrigger className="h-8 flex-1 text-xs">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="view">
-                                <div className="flex items-center gap-2">
-                                  <Eye className="h-3 w-3" />
-                                  <span>View Only</span>
-                                </div>
-                              </SelectItem>
-                              <SelectItem value="edit">
-                                <div className="flex items-center gap-2">
-                                  <Shield className="h-3 w-3" />
-                                  <span>Can Edit</span>
-                                </div>
-                              </SelectItem>
-                            </SelectContent>
-                          </Select>
-
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-8 w-8 text-destructive hover:text-destructive shrink-0"
-                            onClick={() => handleRemovePartner(partner.pubkey)}
-                            title="Remove partner"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      ) : (
-                        <Badge
-                          variant="secondary"
-                          className="flex items-center gap-1 w-fit"
-                        >
-                          {getPermissionIcon(partner.permission)}
-                          <span className="capitalize text-xs">
-                            {partner.permission === 'edit' ? 'Editor' : 'Viewer'}
-                          </span>
-                        </Badge>
-                      )}
-                    </div>
+                      partner={partner}
+                      isOwner={isOwner}
+                      onRemove={handleRemovePartner}
+                      onChangePermission={changePartnerPermission}
+                      formatPubkey={formatPubkey}
+                      getPermissionIcon={getPermissionIcon}
+                    />
                   ))}
                 </div>
               </ScrollArea>
@@ -795,17 +718,30 @@ function PendingInviteCard({
   onDecline,
 }: PendingInviteCardProps) {
   const inviterProfile = useAuthor(invite.from);
+  const inviterMetadata = inviterProfile.data?.metadata;
   const inviterName =
-    inviterProfile.data?.metadata?.name || genUserName(invite.from);
+    inviterMetadata?.name || inviterMetadata?.display_name || genUserName(invite.from);
+  const inviterPicture = inviterMetadata?.picture;
 
   return (
     <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-blue-500/5">
       <CardContent className="pt-4 pb-4 space-y-3">
         {/* Inviter info */}
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-            <UserPlus className="h-5 w-5 text-primary" />
-          </div>
+          {inviterPicture ? (
+            <img
+              src={inviterPicture}
+              alt={inviterName}
+              className="h-10 w-10 rounded-full object-cover flex-shrink-0 border border-border"
+              onError={(e) => {
+                (e.target as HTMLImageElement).style.display = 'none';
+              }}
+            />
+          ) : (
+            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+              <UserPlus className="h-5 w-5 text-primary" />
+            </div>
+          )}
           <div className="flex-1 min-w-0">
             <p className="font-medium text-sm truncate">{inviterName}</p>
             <p className="text-xs text-muted-foreground">
@@ -892,5 +828,128 @@ function PendingInviteCard({
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * PartnerRow — displays a single partner with their Nostr profile picture.
+ */
+interface PartnerRowProps {
+  partner: BudgetPartner;
+  isOwner: boolean;
+  onRemove: (pubkey: string) => void;
+  onChangePermission: (pubkey: string, permission: 'view' | 'edit') => void;
+  formatPubkey: (pubkey: string) => string;
+  getPermissionIcon: (permission: 'view' | 'edit') => ReactNode;
+}
+
+function PartnerRow({
+  partner,
+  isOwner,
+  onRemove,
+  onChangePermission,
+  formatPubkey,
+  getPermissionIcon,
+}: PartnerRowProps) {
+  const profile = useAuthor(partner.pubkey);
+  const metadata = profile.data?.metadata;
+  const name = partner.name || metadata?.name || metadata?.display_name || formatPubkey(partner.pubkey);
+  const picture = metadata?.picture;
+
+  return (
+    <div className="p-3 rounded-lg border bg-muted/50 space-y-2">
+      {/* Top row: avatar, name, and status badges */}
+      <div className="flex flex-wrap items-center gap-2">
+        {picture ? (
+          <img
+            src={picture}
+            alt={name}
+            className="h-7 w-7 rounded-full object-cover flex-shrink-0 border border-border"
+            onError={(e) => {
+              (e.target as HTMLImageElement).style.display = 'none';
+            }}
+          />
+        ) : (
+          <div className="h-7 w-7 rounded-full bg-muted flex items-center justify-center flex-shrink-0 border border-border">
+            <UserPlus className="h-3.5 w-3.5 text-muted-foreground" />
+          </div>
+        )}
+        <span className="text-sm font-medium truncate flex-1 min-w-0">
+          {name}
+        </span>
+        {partner.status === 'pending' && (
+          <Badge variant="outline" className="text-xs bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-800 shrink-0">
+            Pending
+          </Badge>
+        )}
+        {partner.status === 'accepted' && (
+          <Badge variant="outline" className="text-xs bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-400 border-green-300 dark:border-green-800 shrink-0">
+            Accepted ✓
+          </Badge>
+        )}
+        {partner.status === 'declined' && (
+          <Badge variant="outline" className="text-xs bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400 border-red-300 dark:border-red-800 shrink-0">
+            Declined
+          </Badge>
+        )}
+      </div>
+
+      {partner.lastActive && (
+        <p className="text-xs text-muted-foreground">
+          Last active{' '}
+          {new Date(partner.lastActive * 1000).toLocaleDateString()}
+        </p>
+      )}
+
+      {/* Bottom row: permission controls and remove button */}
+      {isOwner ? (
+        <div className="flex items-center gap-2 pt-1">
+          <Select
+            value={partner.permission}
+            onValueChange={(value) =>
+              onChangePermission(partner.pubkey, value as 'view' | 'edit')
+            }
+          >
+            <SelectTrigger className="h-8 flex-1 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="view">
+                <div className="flex items-center gap-2">
+                  <Eye className="h-3 w-3" />
+                  <span>View Only</span>
+                </div>
+              </SelectItem>
+              <SelectItem value="edit">
+                <div className="flex items-center gap-2">
+                  <Shield className="h-3 w-3" />
+                  <span>Can Edit</span>
+                </div>
+              </SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8 text-destructive hover:text-destructive shrink-0"
+            onClick={() => onRemove(partner.pubkey)}
+            title="Remove partner"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      ) : (
+        <Badge
+          variant="secondary"
+          className="flex items-center gap-1 w-fit"
+        >
+          {getPermissionIcon(partner.permission)}
+          <span className="capitalize text-xs">
+            {partner.permission === 'edit' ? 'Editor' : 'Viewer'}
+          </span>
+        </Badge>
+      )}
+    </div>
   );
 }

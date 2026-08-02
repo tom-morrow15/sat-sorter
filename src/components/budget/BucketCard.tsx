@@ -184,13 +184,13 @@ export function BucketCard({
 
    return (
      <Card
-       className={cn(
-         'overflow-hidden card-interactive border-0 shadow-sm hover:shadow-md transition-all duration-300',
-         'bg-gradient-to-br from-white to-neutral-50',
-         'dark:from-neutral-900/50 dark:to-neutral-950/50',
-         'dark:border-neutral-800/50',
-         bucket.isIncome && 'ring-1 ring-success/20'
-       )}
+        className={cn(
+          'overflow-hidden card-interactive press-feedback border-0 shadow-sm hover:shadow-md transition-all duration-300',
+          'bg-gradient-to-br from-white to-neutral-50',
+          'dark:from-neutral-900/50 dark:to-neutral-950/50',
+          'dark:border-neutral-800/50',
+          bucket.isIncome && 'ring-1 ring-success/20'
+        )}
      >
        <Collapsible open={isOpen} onOpenChange={setIsOpen}>
          <CardHeader className="pb-3 pt-6 px-6">

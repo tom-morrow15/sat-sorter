@@ -258,4 +258,57 @@
     outline-offset: 2px;
     animation: fadeIn 0.2s ease-out;
   }
+
+  /* ===== MICRO-INTERACTIONS ===== */
+
+  /* Subtle press-down feedback for tappable cards and buttons */
+  .press-feedback {
+    transition: transform 0.12s ease-out, box-shadow 0.12s ease-out;
+  }
+  .press-feedback:active {
+    transform: scale(0.97);
+  }
+
+  /* Success checkmark pop animation */
+  @keyframes check-pop {
+    0% { transform: scale(0); opacity: 0; }
+    50% { transform: scale(1.2); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  .animate-check-pop {
+    animation: check-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  /* Slide-in from bottom for sheets and toasts */
+  @keyframes slide-in-up {
+    from {
+      transform: translateY(12px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+  .animate-slide-in-up {
+    animation: slide-in-up 0.3s ease-out;
+  }
+
+  /* Subtle pulse for "live" indicators */
+  @keyframes pulse-soft {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+  }
+  .animate-pulse-soft {
+    animation: pulse-soft 2s ease-in-out infinite;
+  }
+
+  /* Number count-up transition */
+  @keyframes count-up {
+    from { transform: translateY(4px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+  .animate-count-up {
+    animation: count-up 0.25s ease-out;
+  }
 }

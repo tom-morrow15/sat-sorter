@@ -15,6 +15,7 @@ import { TransactionSearchFilter } from './TransactionSearchFilter';
 import { DataSourcesDialog } from './DataSourcesDialog';
 import { DeletionConfirmDialog } from './DeletionConfirmDialog';
 import { SplitEditor } from './SplitEditor';
+import { PartnerAttribution } from './PartnerAttribution';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -357,37 +358,38 @@ export function TransactionsPanel({
                       )}
                     </div>
                      <div className="flex-1 min-w-0">
-                       <p className="text-sm font-medium truncate">
-                         {transaction.description}
-                       </p>
-                       <p className="text-xs text-muted-foreground">
-                         {formatDate(transaction.date)}
-                         {transaction.paymentMethod && <span className="ml-1.5 text-muted-foreground/70">· {transaction.paymentMethod}</span>}
-                       </p>
+                        <p className="text-sm font-medium truncate">
+                          {transaction.description}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatDate(transaction.date)}
+                          {transaction.paymentMethod && <span className="ml-1.5 text-muted-foreground/70">· {transaction.paymentMethod}</span>}
+                          {transaction.partnerPubkey && <PartnerAttribution pubkey={transaction.partnerPubkey} />}
+                        </p>
+                      </div>
+                     <div className="flex items-center gap-2">
+                           <span
+                             className={cn(
+                               'text-sm font-medium tabular-nums',
+                               transaction.isIncome ? 'text-success' : ''
+                             )}
+                           >
+                             {transaction.isIncome ? '+' : '-'}
+                             {formatAmount(transaction.amount, transaction)}
+                           </span>
+                       <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
                      </div>
-                    <div className="flex items-center gap-2">
-                          <span
-                            className={cn(
-                              'text-sm font-medium tabular-nums',
-                              transaction.isIncome ? 'text-success' : ''
-                            )}
-                          >
-                            {transaction.isIncome ? '+' : '-'}
-                            {formatAmount(transaction.amount, transaction)}
-                          </span>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
+                   </button>
+                 ))}
+               </div>
+             </div>
+           )}
 
-          {/* Assigned transactions */}
-          {assigned.length > 0 && !filteredTransactions.length && (
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <CheckCircle2 className="h-4 w-4 text-success" />
+           {/* Assigned transactions */}
+           {assigned.length > 0 && !filteredTransactions.length && (
+             <div>
+               <div className="flex items-center gap-2 mb-2">
+                 <CheckCircle2 className="h-4 w-4 text-success" />
                 <span className="text-sm font-medium">Categorized ({assigned.length})</span>
               </div>
               <div className="w-full">

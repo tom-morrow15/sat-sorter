@@ -312,7 +312,7 @@ function MerchantDetailDialog({ merchant, open, onOpenChange }: MerchantDetailDi
           {/* Payment methods */}
           <div className="flex gap-2">
             {hasLightning && (
-              <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 hover:bg-amber-100">
+              <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/50">
                 <Zap className="h-3 w-3 mr-1" />
                 Lightning
               </Badge>

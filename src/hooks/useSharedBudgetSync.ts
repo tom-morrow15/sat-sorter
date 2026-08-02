@@ -3,6 +3,7 @@ import { nip19 } from 'nostr-tools';
 import { NSecSigner } from '@nostrify/nostrify';
 import { useNostr } from '@nostrify/react';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useBudgetContext } from '@/contexts/BudgetContext';
 import { useToast } from '@/hooks/useToast';
 import { encryptWithBudgetKey, decryptWithBudgetKey } from '@/lib/budgetCrypto';
@@ -89,6 +90,8 @@ interface BudgetSyncEvent {
   };
   timestamp: number;
   version: number;
+  /** Pubkey of the user who made the change (for attribution in shared budgets). */
+  authorPubkey?: string;
 }
 
 /**
@@ -112,6 +115,7 @@ interface BudgetSyncEvent {
  */
 export function useSharedBudgetSync(budgetNpub: string, budgetNsec: string) {
   const { nostr } = useNostr();
+  const { user } = useCurrentUser();
   const { state, setState } = useBudgetContext();
   const { mutateAsync: publish } = useNostrPublish();
   const { toast } = useToast();
@@ -212,6 +216,10 @@ export function useSharedBudgetSync(budgetNpub: string, budgetNsec: string) {
           case 'transaction-added': {
             if (!syncEvent.data.transaction) break;
             const incoming = syncEvent.data.transaction;
+            // Stamp the author pubkey for attribution (if provided)
+            if (syncEvent.authorPubkey && !incoming.partnerPubkey) {
+              incoming.partnerPubkey = syncEvent.authorPubkey;
+            }
 
             stateRef.current.setState((prev) => {
               const existingBudgetIdx = prev.budgets.findIndex(
@@ -251,6 +259,9 @@ export function useSharedBudgetSync(budgetNpub: string, budgetNsec: string) {
           case 'transaction-updated': {
             if (!syncEvent.data.transaction) break;
             const incoming = syncEvent.data.transaction;
+            if (syncEvent.authorPubkey && !incoming.partnerPubkey) {
+              incoming.partnerPubkey = syncEvent.authorPubkey;
+            }
 
             stateRef.current.setState((prev) => {
               const budgetIdx = prev.budgets.findIndex(
@@ -393,6 +404,7 @@ export function useSharedBudgetSync(budgetNpub: string, budgetNsec: string) {
         data: { transaction },
         timestamp: Math.floor(Date.now() / 1000),
         version: 1,
+        authorPubkey: user?.pubkey,
       };
       const encrypted = encryptWithBudgetKey(
         JSON.stringify(syncEvent),
