@@ -2,6 +2,7 @@ import { ReactNode } from 'react';
 import { BottomNavigation } from './BottomNavigation';
 import { PartnerSyncWrapper } from '@/components/budget/PartnerSyncWrapper';
 import { AddTransactionProvider } from '@/components/budget/AddTransactionProvider';
+import { BudgetBuddyFAB } from '@/components/maple/BudgetBuddyFAB';
 
 interface MainLayoutProps {
   children: ReactNode;
@@ -22,6 +23,9 @@ export function MainLayout({ children }: MainLayoutProps) {
           <div style={{ paddingBottom: 'calc(6rem + env(safe-area-inset-bottom))' }}>
             {children}
           </div>
+
+          {/* Floating Budget Buddy button */}
+          <BudgetBuddyFAB />
 
           {/* Bottom Navigation with central FAB */}
           <BottomNavigation />
