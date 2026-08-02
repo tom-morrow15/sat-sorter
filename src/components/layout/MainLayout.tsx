@@ -1,5 +1,6 @@
 import { ReactNode } from 'react';
 import { BottomNavigation } from './BottomNavigation';
+import { PartnerSyncWrapper } from '@/components/budget/PartnerSyncWrapper';
 
 interface MainLayoutProps {
   children: ReactNode;
@@ -14,10 +15,14 @@ export function MainLayout({ children }: MainLayoutProps) {
         style={{ height: 'env(safe-area-inset-top)' }}
       />
 
-      {/* Main content - with padding for fixed bottom nav (+ iOS safe area) */}
-      <div style={{ paddingBottom: 'calc(6rem + env(safe-area-inset-bottom))' }}>
-        {children}
-      </div>
+      {/* PartnerSyncWrapper: real-time budget sync between partners.
+          Mounted globally so sync works on every page, not just the budget page. */}
+      <PartnerSyncWrapper>
+        {/* Main content - with padding for fixed bottom nav (+ iOS safe area) */}
+        <div style={{ paddingBottom: 'calc(6rem + env(safe-area-inset-bottom))' }}>
+          {children}
+        </div>
+      </PartnerSyncWrapper>
 
       {/* Bottom Navigation */}
       <BottomNavigation />
