@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
-import { useMapleSettings } from '@/hooks/useMapleSettings';
+import { useAISettings } from '@/hooks/useAISettings';
 import { useMapleChat } from '@/hooks/useMapleChat';
 import { ChatMessageBubble } from './ChatMessageBubble';
 import { QuickActionChips } from './QuickActionChips';
@@ -24,7 +24,7 @@ import { MAPLE_MODELS_FALLBACK, type MapleModelOption } from '@/services/mapleAi
 import type { Bucket } from '@/lib/budgetTypes';
 
 export function BudgetBuddyScreen() {
-  const { isMapleEnabled, evergreenContext, model, setModel, availableModels } = useMapleSettings();
+  const { isMapleEnabled, evergreenContext, model, setModel, availableModels, provider } = useAISettings();
   const { messages, isLoading, sendMessage, clearHistory, preflightCheck } =
     useMapleChat();
 
@@ -136,8 +136,7 @@ export function BudgetBuddyScreen() {
         <MessageSquare className="h-12 w-12 text-muted-foreground/50 mb-4" />
         <h2 className="text-xl font-semibold mb-2">Budget Buddy</h2>
         <p className="text-muted-foreground text-sm max-w-sm">
-          Budget Buddy is disabled. Add a Maple API key in the app menu and
-          enable it to chat with your AI budget assistant.
+          Your AI budget buddy is ready to help. Add an API key from Maple or PPQ in the app menu to start chatting.
         </p>
       </div>
     );
@@ -158,13 +157,13 @@ export function BudgetBuddyScreen() {
             <TrendingUp className="h-4 w-4 text-primary" />
           </div>
           <div className="min-w-0">
-            <h2 className="text-sm font-semibold leading-tight">Maple</h2>
-            {/* Always-visible model indicator (tap to change) */}
+            <h2 className="text-sm font-semibold leading-tight">Budget Buddy</h2>
+            {/* Provider + model indicator (tap to change) */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="flex items-center gap-1 text-xs font-medium text-primary hover:underline">
                   <Cpu className="h-3 w-3" />
-                  <span>{activeModel.label}</span>
+                  <span>{provider === 'ppq' ? 'PPQ' : 'Maple'} · {activeModel.label}</span>
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-64">

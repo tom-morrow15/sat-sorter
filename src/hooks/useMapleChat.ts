@@ -1,8 +1,5 @@
 import { useCallback, useState, useRef } from 'react';
-import { useMapleSettings } from './useMapleSettings';
-import { useBudget } from './useBudget';
-import { useBitcoinPrice } from './useBitcoinPrice';
-import { useToast } from './useToast';
+import { useAISettings } from './useAISettings';
 import {
   buildBudgetContext,
   chatWithMaple,
@@ -38,7 +35,7 @@ export interface UseMapleChatReturn {
 export function useMapleChat(): UseMapleChatReturn {
   const { currentBudget, currentMonth } = useBudget();
   const { data: priceData } = useBitcoinPrice();
-  const { apiKey, evergreenContext, proxyUrl, model } = useMapleSettings();
+  const { apiKey, evergreenContext, proxyUrl, model, zdr } = useAISettings();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -123,7 +120,7 @@ export function useMapleChat(): UseMapleChatReturn {
         // Trim history to stay within context window limits
         const trimmedHistory = trimHistory(fullHistory);
 
-        const responseText = await chatWithMaple(apiKey, proxyUrl, context, trimmedHistory, model);
+        const responseText = await chatWithMaple(apiKey, proxyUrl, context, trimmedHistory, model, zdr);
 
         const assistantEntry: ChatEntry = {
           id: `${Date.now()}-assistant`,
@@ -139,7 +136,7 @@ export function useMapleChat(): UseMapleChatReturn {
         setIsLoading(false);
       }
     },
-    [apiKey, proxyUrl, model, messages, getContext, setMessages, toast]
+    [apiKey, proxyUrl, model, zdr, messages, getContext, setMessages, toast]
   );
 
   const analyze = useCallback(async () => {
@@ -157,7 +154,7 @@ export function useMapleChat(): UseMapleChatReturn {
 
     try {
       const context = getContext();
-      const text = await analyzeMonth(apiKey, proxyUrl, context, model);
+      const text = await analyzeMonth(apiKey, proxyUrl, context, model, zdr);
       return text;
     } catch (err) {
       const msg = getMapleErrorMessage(err);
@@ -167,7 +164,7 @@ export function useMapleChat(): UseMapleChatReturn {
     } finally {
       setIsLoading(false);
     }
-  }, [apiKey, proxyUrl, model, getContext, toast]);
+  }, [apiKey, proxyUrl, model, zdr, getContext, toast]);
 
   const clearHistory = useCallback(() => {
     setMessages([]);

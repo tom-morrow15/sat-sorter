@@ -609,13 +609,13 @@ export function BudgetHeader({
           onOpenChange={setShowBackup}
         />
 
-        {/* Maple AI Settings Dialog */}
+        {/* Budget Buddy Settings Dialog */}
         <Dialog open={showSettings} onOpenChange={setShowSettings}>
           <DialogContent className="sm:max-w-[480px] max-h-[85vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Maple AI</DialogTitle>
+              <DialogTitle>Budget Buddy</DialogTitle>
               <DialogDescription>
-                Connect your Maple API key and configure Budget Buddy.
+                Choose your AI provider, enter your API key, and set persistent context for your Budget Buddy.
               </DialogDescription>
             </DialogHeader>
             <div className="py-4 space-y-4">

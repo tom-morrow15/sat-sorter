@@ -291,7 +291,8 @@ async function callMaple(
   context: BudgetContext,
   history: ChatMessage[],
   maxTokens = 512,
-  model: string = DEFAULT_MAPLE_MODEL
+  model: string = DEFAULT_MAPLE_MODEL,
+  zdr: boolean = false
 ): Promise<string> {
   // Combine system prompt and context into a single system message
   const systemMessage = `${systemPrompt}\n\nContext:\n${JSON.stringify(context)}`;
@@ -304,13 +305,18 @@ async function callMaple(
     ...history,
   ];
 
-  const requestBody = {
+  const requestBody: Record<string, unknown> = {
     model: model || DEFAULT_MAPLE_MODEL,
     messages: messages,
     temperature: 0.7,
     max_tokens: maxTokens,
     stream: true, // CRITICAL: Maple REQUIRES streaming
   };
+
+  // PPQ zero-data-retention routing (opt-in per request)
+  if (zdr) {
+    requestBody.provider = { zdr: true };
+  }
 
   const url = getChatCompletionsUrl(proxyUrl);
 
@@ -386,9 +392,10 @@ export async function analyzeMonth(
   apiKey: string,
   proxyUrl: string,
   context: BudgetContext,
-  model: string = DEFAULT_MAPLE_MODEL
+  model: string = DEFAULT_MAPLE_MODEL,
+  zdr: boolean = false
 ): Promise<string> {
-  return callMaple(apiKey, proxyUrl, INSIGHTS_SYSTEM_PROMPT, context, [], 400, model);
+  return callMaple(apiKey, proxyUrl, INSIGHTS_SYSTEM_PROMPT, context, [], 400, model, zdr);
 }
 
 export async function chatWithMaple(
@@ -396,11 +403,12 @@ export async function chatWithMaple(
   proxyUrl: string,
   context: BudgetContext,
   history: ChatMessage[],
-  model: string = DEFAULT_MAPLE_MODEL
+  model: string = DEFAULT_MAPLE_MODEL,
+  zdr: boolean = false
 ): Promise<string> {
   // Reduce output tokens when history is long to leave room for the prompt.
   const maxTokens = history.length > 20 ? 400 : 600;
-  return callMaple(apiKey, proxyUrl, CHAT_SYSTEM_PROMPT, context, history, maxTokens, model);
+  return callMaple(apiKey, proxyUrl, CHAT_SYSTEM_PROMPT, context, history, maxTokens, model, zdr);
 }
 
 export async function testKey(

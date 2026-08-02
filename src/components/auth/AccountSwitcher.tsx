@@ -229,10 +229,10 @@ export function AccountSwitcher({
 
         {/* === SETTINGS === */}
         <DropdownMenuLabel className="text-xs text-muted-foreground uppercase tracking-wider">Settings</DropdownMenuLabel>
-        <DropdownMenuItem onClick={() => onOpenMapleSettings?.()}>
-          <span className="h-4 w-4 mr-2 text-center text-sm">🤖</span>
-          Maple AI
-        </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onOpenMapleSettings?.()}>
+            <span className="h-4 w-4 mr-2 text-center text-sm">🤖</span>
+            Budget Buddy
+          </DropdownMenuItem>
         <DropdownMenuItem onClick={() => onOpenPaymentMethods?.()}>
           <span className="h-4 w-4 mr-2 text-center text-sm">💳</span>
           Payment Methods

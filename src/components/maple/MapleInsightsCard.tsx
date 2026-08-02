@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/useToast';
-import { useMapleSettings } from '@/hooks/useMapleSettings';
+import { useAISettings } from '@/hooks/useAISettings';
 import { useBudget } from '@/hooks/useBudget';
 import { useBitcoinPrice } from '@/hooks/useBitcoinPrice';
 import { analyzeMonth, buildBudgetContext, getMapleErrorMessage } from '@/services/mapleAi';
@@ -14,7 +14,7 @@ import { cleanMarkdown } from '@/lib/cleanMarkdown';
 export function MapleInsightsCard() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { apiKey, evergreenContext, proxyUrl, model } = useMapleSettings();
+  const { apiKey, evergreenContext, proxyUrl, model, zdr } = useAISettings();
   const { currentBudget, currentMonth } = useBudget();
   const { data: priceData } = useBitcoinPrice();
 

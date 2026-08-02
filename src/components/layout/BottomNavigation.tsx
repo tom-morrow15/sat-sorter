@@ -3,7 +3,7 @@ import { Home, PieChart, Cloud, CloudOff, RefreshCw, MoreHorizontal, MapPin, Rec
 import { useState, useRef, useEffect } from 'react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useBudget } from '@/hooks/useBudget';
-import { useMapleSettings } from '@/hooks/useMapleSettings';
+import { useAISettings } from '@/hooks/useAISettings';
 import { useBudgetAutoSave } from '@/hooks/useBudgetAutoSave';
 import { useAddTransaction } from '@/components/budget/AddTransactionProvider';
 import { cn } from '@/lib/utils';
@@ -13,7 +13,7 @@ export function BottomNavigation() {
   const navigate = useNavigate();
   const { user } = useCurrentUser();
   const { fullState, currentBudget } = useBudget();
-  const { isMapleEnabled } = useMapleSettings();
+  const { isMapleEnabled } = useAISettings();
   const { openAddTransaction } = useAddTransaction() ?? {};
 
   const { status: autoSaveStatus, canAutoSave } = useBudgetAutoSave(fullState);
@@ -42,15 +42,13 @@ export function BottomNavigation() {
 
   const hasBuckets = currentBudget.buckets.length > 0;
 
-  // Build the "More" menu items — dynamic based on what's available
+  // Build the "More" menu items — Buddy is always visible so users can discover it
   const moreItems = [
     { path: '/transactions', icon: Receipt, label: 'Transactions' },
     { path: '/wealth', icon: Wallet, label: 'Wealth' },
+    { path: '/buddy', icon: MessageSquare, label: 'Budget Buddy' },
     { path: '/local-spend', icon: MapPin, label: 'Local Spend' },
   ];
-  if (isMapleEnabled) {
-    moreItems.push({ path: '/buddy', icon: MessageSquare, label: 'Buddy' });
-  }
 
   const isMoreActive = moreItems.some(item => isActive(item.path));
 
