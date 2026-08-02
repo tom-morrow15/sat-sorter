@@ -1,5 +1,5 @@
-import { useCallback } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useCallback, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
@@ -40,6 +40,7 @@ export function usePartnerInvites() {
   const { nostr } = useNostr();
   const { user } = useCurrentUser();
   const { mutateAsync: publish } = useNostrPublish();
+  const queryClient = useQueryClient();
 
   /**
    * Encrypt a payload for a recipient. Prefers NIP-04 for broad compat.
@@ -380,10 +381,42 @@ export function usePartnerInvites() {
       }
     },
     enabled: !!user?.pubkey && (!!user?.signer?.nip04 || !!user?.signer?.nip44),
-    staleTime: 15000,
-    refetchInterval: 30000, // Check for new invites every 30 seconds
+    staleTime: 30000, // 30 seconds — data is fresh for 30s, then refetch on focus
     refetchOnWindowFocus: true,
   });
+
+  // Real-time subscription: listen for new invite events via Nostr subscription
+  // instead of polling every 30 seconds. Invalidates the query cache when a new
+  // event arrives so TanStack Query refetches once.
+  useEffect(() => {
+    if (!user?.pubkey) return;
+
+    let sub: { close: () => void } | null = null;
+    try {
+      sub = nostr.req(
+        [
+          {
+            kinds: [INVITE_KIND],
+            '#p': [user.pubkey],
+            '#t': ['sat-sorter-invite'],
+            limit: 0, // Only new events — we already have historical via the query
+          },
+        ],
+        {
+          onevent: () => {
+            // Invalidate the query so it refetches with the new event
+            queryClient.invalidateQueries({ queryKey: ['partner-invites', user.pubkey] });
+          },
+        }
+      );
+    } catch {
+      // Subscription failed — the polling fallback (refetchOnWindowFocus) still works
+    }
+
+    return () => {
+      if (sub) sub.close();
+    };
+  }, [user?.pubkey, nostr, queryClient]);
 
   // Filter to only pending invites
   const pendingInvites = receivedInvites.filter((i) => i.status === 'pending');

@@ -7,7 +7,6 @@ import {
   LineItem,
   Transaction,
   BudgetPartner,
-  BudgetPartnerInvite,
   BudgetTemplate,
   createDefaultBuckets,
   getCurrentMonth,
@@ -351,17 +350,7 @@ export function useBudget() {
      });
    }, [setState]);
 
-   // Hook version of addPartner that returns the partner and supports Nostr invites
-   const addPartnerWithNostr = useCallback((pubkey: string, permission: 'view' | 'edit') => {
-     // First add locally
-     addPartner(pubkey, permission);
-     
-     // Then trigger invite via Nostr (caller should handle this with usePartnerInvites)
-     // This function just returns true to indicate the partner was added
-     return true;
-   }, [addPartner]);
-
-  // Remove a partner from the budget
+   // Remove a partner from the budget
   const removePartner = useCallback((pubkey: string) => {
     setState(prev => ({
       ...prev,
@@ -411,46 +400,7 @@ export function useBudget() {
     });
   }, [setState]);
 
-  // Send a budget partner invite (when owner adds a partner, this creates an invite on their side)
-  const sendPartnerInvite = useCallback((toPubkey: string, budgetMonth: string, permission: 'view' | 'edit') => {
-    setState(prev => {
-      // This function is called by the budget owner
-      // It marks the partner as "pending" in the owner's view
-      const partners = prev.partners || [];
-      return {
-        ...prev,
-        partners: partners.map(p =>
-          p.pubkey === toPubkey && p.status !== 'accepted'
-            ? { ...p, status: 'pending' as const }
-            : p
-        ),
-      };
-    });
-  }, [setState]);
-
-  // Simulate receiving an invite (in real app, this comes from Nostr DM)
-  const receivePartnerInvite = useCallback((fromPubkey: string, budgetMonth: string, permission: 'view' | 'edit') => {
-    setState(prev => {
-      const invites = prev.receivedInvites || [];
-      // Check if invite already exists
-      if (invites.some(i => i.fromPubkey === fromPubkey && i.budgetMonth === budgetMonth)) {
-        return prev;
-      }
-
-      const newInvite: BudgetPartnerInvite = {
-        id: generateId(),
-        fromPubkey,
-        budgetMonth,
-        permission,
-        createdAt: Math.floor(Date.now() / 1000),
-        status: 'pending',
-      };
-
-      return { ...prev, receivedInvites: [...invites, newInvite] };
-    });
-  }, [setState]);
-
-  // Set user role
+   // Set user role
   const setUserRole = useCallback((role: 'owner' | 'editor' | 'viewer') => {
     setState(prev => ({ ...prev, userRole: role }));
   }, [setState]);
@@ -640,8 +590,6 @@ export function useBudget() {
     setUserRole,
     acceptPartnerInvite,
     declinePartnerInvite,
-    sendPartnerInvite,
-    receivePartnerInvite,
 
     // Import/export actions
     importBudgetState,

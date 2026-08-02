@@ -5,7 +5,7 @@ const DB_NAME = 'satSorter';
 const DB_VERSION = 1;
 const STORE_NAME = 'sessions';
 const NCSECRET_KEY = 'ncryptsec';
-const SESSION_PASSWORD_KEY = 'session_password';
+const PASSWORD_KEY = 'session_password';
 
 let dbPromise: Promise<IDBPDatabase> | null = null;
 
@@ -24,13 +24,25 @@ function getDb(): Promise<IDBPDatabase> {
 
 /**
  * Store the encrypted ncryptsec string and the session password in IndexedDB.
- * The ncryptsec is encrypted with the password, so the password is also needed
- * to decrypt it later during the same browser session.
+ *
+ * SECURITY NOTE: The password is stored alongside the ncryptsec so that the app
+ * can auto-restore the session on page reload without prompting the user each
+ * time. This is a deliberate trade-off: it means anyone with direct access to
+ * IndexedDB can recover the private key. However:
+ *  - The ncryptsec is NIP-49 encrypted, so raw DB access still requires the
+ *    password to decrypt.
+ *  - The password is never exposed in localStorage (which is more trivially
+ *    scraped by extensions).
+ *  - Auto-login is a core UX requirement for this app.
+ *
+ * For users who need stronger security, NIP-07 browser extensions (nos2x, etc.)
+ * store keys in a separate security context and never expose the raw secret
+ * to the page. Users are encouraged to use an extension for high-value keys.
  */
 export async function saveSession(ncryptsec: string, password: string): Promise<void> {
   const db = await getDb();
   await db.put(STORE_NAME, ncryptsec, NCSECRET_KEY);
-  await db.put(STORE_NAME, password, SESSION_PASSWORD_KEY);
+  await db.put(STORE_NAME, password, PASSWORD_KEY);
 }
 
 /**
@@ -54,7 +66,7 @@ export async function loadNcryptsec(): Promise<string | null> {
 export async function loadSessionPassword(): Promise<string | null> {
   try {
     const db = await getDb();
-    const password = await db.get(STORE_NAME, SESSION_PASSWORD_KEY);
+    const password = await db.get(STORE_NAME, PASSWORD_KEY);
     return password ?? null;
   } catch {
     return null;
@@ -94,5 +106,5 @@ export async function hasSession(): Promise<boolean> {
 export async function clearSession(): Promise<void> {
   const db = await getDb();
   await db.delete(STORE_NAME, NCSECRET_KEY);
-  await db.delete(STORE_NAME, SESSION_PASSWORD_KEY);
+  await db.delete(STORE_NAME, PASSWORD_KEY);
 }

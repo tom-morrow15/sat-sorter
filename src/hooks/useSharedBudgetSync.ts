@@ -481,8 +481,12 @@ export function useSharedBudgetSync(budgetNpub: string, budgetNsec: string) {
   );
 
   return {
-    syncCopiedBudget,
-    hasBudgetKeypair: !!budgetKeypair,
+    syncStatus,
+    publishTransactionAdd,
+    publishTransactionUpdate,
+    publishTransactionDelete,
+    publishBudgetSnapshot,
+    hasBudgetKeypair: !!keyBytesRef.current,
   };
 }
 
