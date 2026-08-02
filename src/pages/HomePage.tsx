@@ -20,6 +20,7 @@ import { useBitcoinPrice } from '@/hooks/useBitcoinPrice';
 import { useSyncCopiedBudget } from '@/hooks/useSharedBudgetSync';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useOnboarding } from '@/contexts/OnboardingContext';
+import { FirstRunOnboarding } from '@/components/FirstRunOnboarding';
 import { formatMonth } from '@/lib/budgetTypes';
 
 export default function HomePage() {
@@ -423,6 +424,9 @@ export default function HomePage() {
           onOpenChange={setShowWalletModal}
         />
       )}
+
+      {/* First-run onboarding overlay */}
+      <FirstRunOnboarding />
     </div>
   );
 }

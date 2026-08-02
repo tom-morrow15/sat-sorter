@@ -1,11 +1,12 @@
 // NOTE: This file is stable and usually should not be modified.
 // It is important that all functionality in this file is preserved, and should only be modified if explicitly requested.
 
-import { ChevronDown, LogOut, UserIcon, Heart, Info, Copy, AlertTriangle, RotateCw, Cloud, LogIn, Sun, Moon, GraduationCap, Wallet, Menu, QrCode } from 'lucide-react';
+import { ChevronDown, LogOut, UserIcon, Heart, Info, Copy, AlertTriangle, RotateCw, Cloud, LogIn, Sun, Moon, GraduationCap, Wallet, Menu, QrCode, Calendar, Users } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu.tsx';
@@ -27,6 +28,7 @@ interface AccountSwitcherProps {
   onOpenMapleSettings?: () => void;
   onOpenPaymentMethods?: () => void;
   onCopyPreviousMonth?: () => void;
+  onPlanNextMonth?: () => void;
   onResetBudgetMonth?: () => void;
   onRefreshApp?: () => void;
   onUpdateApp?: () => void;
@@ -54,6 +56,7 @@ export function AccountSwitcher({
   onOpenMapleSettings,
   onOpenPaymentMethods,
   onCopyPreviousMonth,
+  onPlanNextMonth,
   onResetBudgetMonth,
   onSoftReset,
   onHardReset,
@@ -157,9 +160,10 @@ export function AccountSwitcher({
         {renderTrigger()}
       </DropdownMenuTrigger>
       <DropdownMenuContent className='w-56 p-2 animate-scale-in'>
-        {/* Account switching section (only when logged in) */}
+        {/* === ACCOUNT === */}
         {currentUser && (
           <>
+            <DropdownMenuLabel className="text-xs text-muted-foreground uppercase tracking-wider">Account</DropdownMenuLabel>
             <div className='font-medium text-sm px-2 py-1.5'>Switch Account</div>
             {otherUsers.map((user) => (
               <DropdownMenuItem
@@ -177,162 +181,101 @@ export function AccountSwitcher({
                 {user.id === currentUser.id && <div className='w-2 h-2 rounded-full bg-primary'></div>}
               </DropdownMenuItem>
             ))}
-            <DropdownMenuSeparator />
 
-          {/* Budget Partners — temporarily hidden */}
-          {false && (
-          <DropdownMenuItem onClick={() => onBudgetPartnersClick?.()}>
-            <UserIcon className="h-4 w-4 mr-2" />
-            Budget Partners
-            {(partnersCount > 0 || hasPendingInvites) && (
-              <span className="ml-auto text-xs text-muted-foreground">
-                {partnersCount > 0 && `${partnersCount}`}
-                {partnersCount > 0 && hasPendingInvites && ' / '}
-                {hasPendingInvites && `${pendingInvitesCount} invite${pendingInvitesCount !== 1 ? 's' : ''}`}
-              </span>
-            )}
-          </DropdownMenuItem>
-          )}
-
-          {/* Budget Key (Build Key) — temporarily hidden */}
-          {false && onShowBudgetKey && (
-            <DropdownMenuItem onClick={() => onShowBudgetKey()}>
-              <QrCode className="h-4 w-4 mr-2" />
-              Budget Key (QR)
+            <DropdownMenuItem onClick={() => onBudgetPartnersClick?.()}>
+              <Users className="h-4 w-4 mr-2" />
+              Budget Partners
+              {(partnersCount > 0 || hasPendingInvites) && (
+                <span className="ml-auto text-xs text-muted-foreground">
+                  {partnersCount > 0 && `${partnersCount}`}
+                  {partnersCount > 0 && hasPendingInvites && ' / '}
+                  {hasPendingInvites && `${pendingInvitesCount} invite${pendingInvitesCount !== 1 ? 's' : ''}`}
+                </span>
+              )}
             </DropdownMenuItem>
-          )}
 
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            onClick={() => removeLogin(currentUser!.id)}
-            className='flex items-center gap-2 cursor-pointer p-2 rounded-md text-red-500'
-          >
-            <LogOut className='w-4 h-4' />
-            <span>Log out</span>
-          </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => removeLogin(currentUser!.id)}
+              className='flex items-center gap-2 cursor-pointer p-2 rounded-md text-red-500'
+            >
+              <LogOut className='w-4 h-4' />
+              <span>Log out</span>
+            </DropdownMenuItem>
           </>
         )}
-        {/* When NOT logged in, show login/signup options */}
         {!currentUser && (
-          <>
-            <DropdownMenuItem onClick={onAddAccountClick}>
-              <LogIn className="h-4 w-4 mr-2" />
-              Log In with Nostr
-            </DropdownMenuItem>
-          </>
+          <DropdownMenuItem onClick={onAddAccountClick}>
+            <LogIn className="h-4 w-4 mr-2" />
+            Log In with Nostr
+          </DropdownMenuItem>
         )}
 
-          <DropdownMenuSeparator />
+        <DropdownMenuSeparator />
 
-          {/* Budget Tools */}
-          <DropdownMenuItem onClick={() => onCopyPreviousMonth?.()}>
-            <Copy className="h-4 w-4 mr-2" />
-            Copy Previous Month
+        {/* === BUDGET TOOLS === */}
+        <DropdownMenuLabel className="text-xs text-muted-foreground uppercase tracking-wider">Budget Tools</DropdownMenuLabel>
+        <DropdownMenuItem onClick={() => onCopyPreviousMonth?.()}>
+          <Copy className="h-4 w-4 mr-2" />
+          Copy Previous Month
+        </DropdownMenuItem>
+        {onPlanNextMonth && (
+          <DropdownMenuItem onClick={() => onPlanNextMonth()}>
+            <Calendar className="h-4 w-4 mr-2" />
+            Plan Next Month
           </DropdownMenuItem>
-          {/* Reset This Month's Budget — temporarily hidden */}
-          {false && (
-          <DropdownMenuItem onClick={() => onResetBudgetMonth?.()} className="text-destructive focus:text-destructive">
-            <AlertTriangle className="h-4 w-4 mr-2" />
-            Reset This Month's Budget
-            <span className="ml-auto text-[10px] text-muted-foreground/60">this month only</span>
-          </DropdownMenuItem>
-          )}
+        )}
 
-          <DropdownMenuSeparator />
+        <DropdownMenuSeparator />
 
-          {/* AI & Wallet */}
-          <DropdownMenuItem onClick={() => onOpenMapleSettings?.()}>
-            <span className="h-4 w-4 mr-2 text-center text-sm">🤖</span>
-            Maple AI
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => onOpenPaymentMethods?.()}>
-            <span className="h-4 w-4 mr-2 text-center text-sm">💳</span>
-            Payment Methods
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => onOpenWallet?.()}>
-            <Wallet className="h-4 w-4 mr-2" />
-            Lightning Wallet
-          </DropdownMenuItem>
+        {/* === SETTINGS === */}
+        <DropdownMenuLabel className="text-xs text-muted-foreground uppercase tracking-wider">Settings</DropdownMenuLabel>
+        <DropdownMenuItem onClick={() => onOpenMapleSettings?.()}>
+          <span className="h-4 w-4 mr-2 text-center text-sm">🤖</span>
+          Maple AI
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => onOpenPaymentMethods?.()}>
+          <span className="h-4 w-4 mr-2 text-center text-sm">💳</span>
+          Payment Methods
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => onOpenWallet?.()}>
+          <Wallet className="h-4 w-4 mr-2" />
+          Lightning Wallet
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => onOpenBackup?.()}>
+          <Cloud className="h-4 w-4 mr-2" />
+          Backup & Sync
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={toggleTheme}>
+          {isDark ? <Sun className="h-4 w-4 mr-2" /> : <Moon className="h-4 w-4 mr-2" />}
+          {isDark ? 'Light Mode' : 'Dark Mode'}
+        </DropdownMenuItem>
 
-          <DropdownMenuSeparator />
+        <DropdownMenuSeparator />
 
-          {/* Preferences */}
-          <DropdownMenuItem onClick={toggleTheme}>
-            {isDark ? <Sun className="h-4 w-4 mr-2" /> : <Moon className="h-4 w-4 mr-2" />}
-            {isDark ? 'Light Mode' : 'Dark Mode'}
-          </DropdownMenuItem>
+        {/* === SUPPORT & ABOUT === */}
+        <DropdownMenuLabel className="text-xs text-muted-foreground uppercase tracking-wider">Support & About</DropdownMenuLabel>
+        <DropdownMenuItem onClick={() => onSupportSatSorter?.()}>
+          <Heart className="h-4 w-4 mr-2 text-pink-500" />
+          Support Sat Sorter
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => onAbout?.()}>
+          <Info className="h-4 w-4 mr-2" />
+          About Sat Sorter
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => onLearnAboutBitcoin?.()}>
+          <GraduationCap className="h-4 w-4 mr-2" />
+          Learn About Bitcoin
+        </DropdownMenuItem>
 
-          <DropdownMenuSeparator />
+        <DropdownMenuSeparator />
 
-          {/* Support */}
-          <DropdownMenuItem onClick={() => onSupportSatSorter?.()}>
-            <Heart className="h-4 w-4 mr-2 text-pink-500" />
-            Support Sat Sorter
-          </DropdownMenuItem>
-          {/* Support Bitcoin Projects — temporarily hidden */}
-          {false && (
-          <DropdownMenuItem onClick={() => onSupportBitcoinProjects?.()}>
-            <Heart className="h-4 w-4 mr-2" />
-            Support Bitcoin Projects
-          </DropdownMenuItem>
-          )}
-
-          <DropdownMenuSeparator />
-
-          {/* About & Learn */}
-          <DropdownMenuItem onClick={() => onAbout?.()}>
-            <Info className="h-4 w-4 mr-2" />
-            About Sat Sorter
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => onLearnAboutBitcoin?.()}>
-            <GraduationCap className="h-4 w-4 mr-2" />
-            Learn About Bitcoin
-          </DropdownMenuItem>
-
-          <DropdownMenuSeparator />
-
-          {/* App reload / reset buttons */}
-          <DropdownMenuItem onClick={() => handleSoftReset?.()}>
-            <RotateCw className="h-4 w-4 mr-2" />
-            Refresh the app (recommended)
-            <span className="ml-auto text-[10px] text-muted-foreground/60">get latest version</span>
-          </DropdownMenuItem>
-
-          {/* Force refresh from server — temporarily hidden */}
-          {false && (
-          <DropdownMenuItem onClick={() => handleHardReset?.()}>
-            <RotateCw className="h-4 w-4 mr-2" />
-            Force refresh from server
-            <span className="ml-auto text-[10px] text-muted-foreground/60">bypass cache</span>
-          </DropdownMenuItem>
-          )}
-
-          <DropdownMenuSeparator />
-
-          {/* Total Reset — temporarily hidden */}
-          {false && (
-          <>
-          <DropdownMenuItem
-            onClick={() => handleTotalReset?.()}
-            className="text-destructive focus:text-destructive font-medium"
-          >
-            <RotateCw className="h-4 w-4 mr-2" />
-            Total Reset — Delete all local data
-          </DropdownMenuItem>
-          <div className="px-3 pb-1 text-[9px] leading-tight text-muted-foreground/70">
-            This is the only reset that can delete your budget data.
-          </div>
-          <div className="px-3 pb-1 text-[9px] leading-tight text-destructive/80">
-            ⚠️ Only safe if logged in with Nostr + active cloud backup.<br />
-            Guest mode = all data is lost forever.
-          </div>
-          </>
-          )}
-          <DropdownMenuItem onClick={() => onOpenBackup?.()}>
-            <Cloud className="h-4 w-4 mr-2" />
-            Backup & Sync
-          </DropdownMenuItem>
-        </DropdownMenuContent>
+        {/* === APP === */}
+        <DropdownMenuItem onClick={() => handleSoftReset?.()}>
+          <RotateCw className="h-4 w-4 mr-2" />
+          Refresh the app
+          <span className="ml-auto text-[10px] text-muted-foreground/60">get latest</span>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
       </DropdownMenu>
     </>
   );

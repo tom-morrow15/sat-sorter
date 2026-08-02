@@ -20,6 +20,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
@@ -309,8 +310,9 @@ export function BudgetHeader({
                 onOpenWallet={() => onOpenWallet && onOpenWallet()}
                 onOpenMapleSettings={() => setShowSettings(true)}
                 onOpenPaymentMethods={() => setShowPaymentMethods(true)}
-                onCopyPreviousMonth={() => onCopyPreviousMonth?.()}
-                onResetBudgetMonth={() => setShowResetConfirm(true)}
+                 onCopyPreviousMonth={() => onCopyPreviousMonth?.()}
+                 onPlanNextMonth={onPlanNextMonth}
+                 onResetBudgetMonth={() => setShowResetConfirm(true)}
                 onSoftReset={handleSoftReset}
                 onHardReset={handleHardReset}
                 onTotalReset={handleTotalReset}
@@ -351,7 +353,7 @@ export function BudgetHeader({
 
                     <DropdownMenuSeparator />
 
-                    {/* Budget Tools */}
+                    <DropdownMenuLabel className="text-xs text-muted-foreground uppercase tracking-wider">Budget Tools</DropdownMenuLabel>
                     <DropdownMenuItem onClick={() => onCopyPreviousMonth?.()}>
                       <Copy className="h-4 w-4 mr-2" />
                       Copy Previous Month
@@ -365,7 +367,7 @@ export function BudgetHeader({
 
                     <DropdownMenuSeparator />
 
-                    {/* Preferences */}
+                    <DropdownMenuLabel className="text-xs text-muted-foreground uppercase tracking-wider">Settings</DropdownMenuLabel>
                     <DropdownMenuItem onClick={toggleTheme}>
                       {isDark ? <Sun className="h-4 w-4 mr-2" /> : <Moon className="h-4 w-4 mr-2" />}
                       {isDark ? 'Light Mode' : 'Dark Mode'}
@@ -373,20 +375,11 @@ export function BudgetHeader({
 
                     <DropdownMenuSeparator />
 
-                    {/* Support & About */}
+                    <DropdownMenuLabel className="text-xs text-muted-foreground uppercase tracking-wider">Support & About</DropdownMenuLabel>
                     <DropdownMenuItem onClick={() => setShowDonateSorter(true)}>
                       <Heart className="h-4 w-4 mr-2 text-pink-500" />
                       Support Sat Sorter
                     </DropdownMenuItem>
-                    {/* Support Bitcoin Projects — temporarily hidden */}
-                    {false && (
-                    <DropdownMenuItem onClick={() => setShowDonate(true)}>
-                      <Heart className="h-4 w-4 mr-2" />
-                      Support Bitcoin Projects
-                    </DropdownMenuItem>
-                    )}
-
-                    <DropdownMenuSeparator />
 
                     <DropdownMenuItem onClick={() => setShowAbout(true)}>
                       <Info className="h-4 w-4 mr-2" />
@@ -399,43 +392,11 @@ export function BudgetHeader({
 
                     <DropdownMenuSeparator />
 
-                    {/* Soft Reset — normal PWA update (safe, recommended) */}
                     <DropdownMenuItem onClick={handleSoftReset}>
                       <RotateCw className="h-4 w-4 mr-2" />
-                      Refresh the app (recommended)
-                      <span className="ml-auto text-[10px] text-muted-foreground/60">get latest version</span>
+                      Refresh the app
+                      <span className="ml-auto text-[10px] text-muted-foreground/60">get latest</span>
                     </DropdownMenuItem>
-
-                    {/* Hard Reset — temporarily hidden */}
-                    {false && (
-                    <DropdownMenuItem onClick={handleHardReset}>
-                      <RotateCw className="h-4 w-4 mr-2" />
-                      Force refresh from server
-                      <span className="ml-auto text-[10px] text-muted-foreground/60">bypass cache</span>
-                    </DropdownMenuItem>
-                    )}
-
-                    <DropdownMenuSeparator />
-
-                    {/* Total Reset — temporarily hidden */}
-                    {false && (
-                    <>
-                    <DropdownMenuItem
-                      onClick={handleTotalReset}
-                      className="text-destructive focus:text-destructive font-medium"
-                    >
-                      <RotateCw className="h-4 w-4 mr-2" />
-                      Total Reset — Delete all local data
-                    </DropdownMenuItem>
-                    <div className="px-3 pb-1 text-[9px] leading-tight text-muted-foreground/70">
-                      This is the only reset that can delete your budget data.
-                    </div>
-                    <div className="px-3 pb-1 text-[9px] leading-tight text-destructive/80">
-                      ⚠️ Safe ONLY if logged in with Nostr + active cloud backup.<br />
-                      Guest mode = all data is lost forever.
-                    </div>
-                    </>
-                    )}
 
                     <div className="px-2 pt-2 text-[10px] text-muted-foreground/60 text-center tabular-nums">
                       v{APP_VERSION}
