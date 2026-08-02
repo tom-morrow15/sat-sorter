@@ -1,5 +1,8 @@
 import { useCallback, useState, useRef } from 'react';
 import { useAISettings } from './useAISettings';
+import { useBudget } from './useBudget';
+import { useBitcoinPrice } from './useBitcoinPrice';
+import { useToast } from './useToast';
 import {
   buildBudgetContext,
   chatWithMaple,
