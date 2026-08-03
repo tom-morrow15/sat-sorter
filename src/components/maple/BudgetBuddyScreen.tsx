@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useSeoMeta } from '@unhead/react';
-import { MessageSquare, Send, Trash2, TrendingUp, Cpu } from 'lucide-react';
+import { MessageSquare, Send, Trash2, TrendingUp, Cpu, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -24,7 +25,8 @@ import { MAPLE_MODELS_FALLBACK, type MapleModelOption } from '@/services/mapleAi
 import type { Bucket } from '@/lib/budgetTypes';
 
 export function BudgetBuddyScreen() {
-  const { isMapleEnabled, evergreenContext, model, setModel, availableModels, provider } = useAISettings();
+  const navigate = useNavigate();
+  const { isMapleEnabled, hasKey, disclaimerAccepted, evergreenContext, model, setModel, availableModels, provider } = useAISettings();
   const { messages, isLoading, sendMessage, clearHistory, preflightCheck } =
     useMapleChat();
 
@@ -131,12 +133,36 @@ export function BudgetBuddyScreen() {
   };
 
   if (!isMapleEnabled) {
+    // Determine what the user needs to do
+    const needsKey = !hasKey;
+    const needsDisclaimer = hasKey && !disclaimerAccepted;
+
     return (
       <div className="min-h-screen flex flex-col items-center justify-center px-6 text-center">
-        <MessageSquare className="h-12 w-12 text-muted-foreground/50 mb-4" />
+        <div className="h-16 w-16 rounded-3xl bg-primary/10 flex items-center justify-center mx-auto mb-5">
+          <MessageSquare className="h-8 w-8 text-primary" />
+        </div>
         <h2 className="text-xl font-semibold mb-2">Budget Buddy</h2>
-        <p className="text-muted-foreground text-sm max-w-sm">
-          Your AI budget buddy is ready to help. Add an API key from Maple or PPQ in the app menu to start chatting.
+        <p className="text-muted-foreground text-sm max-w-sm mb-6">
+          {needsKey
+            ? 'Your AI budget buddy can analyze your spending, suggest savings, and answer questions about your budget. Add an API key to get started.'
+            : needsDisclaimer
+            ? 'You\'re almost there! Accept the disclaimer in Budget Buddy settings to start chatting.'
+            : 'Something went wrong. Try adjusting your Budget Buddy settings.'}
+        </p>
+        <Button
+          onClick={() => {
+            // Navigate to home and open the hamburger menu settings
+            // The settings dialog is opened from BudgetHeader, so we go home
+            navigate('/home');
+          }}
+          className="gap-2"
+        >
+          <Settings className="h-4 w-4" />
+          {needsKey ? 'Set Up Budget Buddy' : 'Accept Disclaimer'}
+        </Button>
+        <p className="text-xs text-muted-foreground/60 mt-6 max-w-xs">
+          Budget Buddy is not a certified financial advisor. Use at your own risk.
         </p>
       </div>
     );
@@ -230,8 +256,8 @@ export function BudgetBuddyScreen() {
                   Welcome to Budget Buddy
                 </h3>
                 <p className="text-sm text-muted-foreground mt-1 max-w-xs mx-auto">
-                  Ask Maple anything about your budget, spending, or how to
-                  optimize your sats.
+                  Ask me anything about your budget, spending, or how to
+                  optimize your sats. I have access to your full budget context.
                 </p>
               </div>
             </div>
@@ -261,7 +287,7 @@ export function BudgetBuddyScreen() {
             ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask Maple about your budget..."
+            placeholder="Ask about your budget..."
             disabled={isLoading}
             className="flex-1"
           />
@@ -273,6 +299,10 @@ export function BudgetBuddyScreen() {
             <Send className="h-4 w-4" />
           </Button>
         </form>
+        {/* Persistent disclaimer — subtle but always visible */}
+        <p className="text-[10px] text-muted-foreground/50 text-center leading-tight">
+          Budget Buddy is an AI assistant, not a certified financial advisor. Use at your own risk.
+        </p>
       </div>
 
       {/* Context bottom sheet */}

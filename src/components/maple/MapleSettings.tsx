@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -44,6 +45,8 @@ export function MapleSettings() {
     modelsLoading,
     zdr,
     setZdr,
+    disclaimerAccepted,
+    setDisclaimerAccepted,
   } = useAISettings();
   const { toast } = useToast();
   const [showKey, setShowKey] = useState(false);
@@ -215,11 +218,55 @@ export function MapleSettings() {
         </div>
       </details>
 
+      {/* Disclaimer — must be accepted to use Budget Buddy */}
+      <div className={cn(
+        'p-4 rounded-xl border space-y-3',
+        disclaimerAccepted
+          ? 'border-border bg-muted/30'
+          : 'border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30'
+      )}>
+        <div className="flex items-start gap-2">
+          <AlertCircle className={cn(
+            'h-4 w-4 shrink-0 mt-0.5',
+            disclaimerAccepted ? 'text-muted-foreground' : 'text-amber-600 dark:text-amber-400'
+          )} />
+          <div className="flex-1">
+            <p className="text-xs font-medium text-foreground">
+              Budget Buddy Disclaimer
+            </p>
+            <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+              Budget Buddy is an AI assistant, not a certified financial advisor. It may produce
+              inaccurate information (hallucinations) or suggest actions that are not appropriate
+              for your financial situation. Always use your own judgment before making financial
+              decisions. Sat Sorter is not responsible for advice given by the AI, and any
+              financial decisions you make are your sole responsibility.
+            </p>
+          </div>
+        </div>
+        <label className="flex items-start gap-2.5 cursor-pointer">
+          <Checkbox
+            checked={disclaimerAccepted}
+            onCheckedChange={(v) => setDisclaimerAccepted(Boolean(v))}
+            className="mt-0.5"
+          />
+          <span className="text-xs font-medium">
+            I understand Budget Buddy is not a financial advisor and I use it at my own risk.
+          </span>
+        </label>
+      </div>
+
       {/* Status */}
-      {hasKey ? (
+      {hasKey && disclaimerAccepted ? (
         <Alert className="border-green-500/30 bg-green-50 dark:bg-green-950/30">
           <AlertDescription className="text-xs text-green-700 dark:text-green-400">
             ✓ Budget Buddy is ready. Tap the chat icon to start asking questions about your budget.
+          </AlertDescription>
+        </Alert>
+      ) : hasKey && !disclaimerAccepted ? (
+        <Alert className="border-amber-300 bg-amber-50 dark:bg-amber-950/30">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription className="text-xs text-amber-800 dark:text-amber-200">
+            Accept the disclaimer above to activate Budget Buddy.
           </AlertDescription>
         </Alert>
       ) : (

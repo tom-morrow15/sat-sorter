@@ -65,6 +65,7 @@ const PPQ_CONTEXT_STORAGE = 'sat-sorter:ppq-evergreen-context';
 const PPQ_PROXY_URL_STORAGE = 'sat-sorter:ppq-proxy-url';
 const PPQ_MODEL_STORAGE = 'sat-sorter:ppq-model';
 const PPQ_ZDR_STORAGE = 'sat-sorter:ppq-zdr';
+const DISCLAIMER_ACCEPTED_KEY = 'sat-sorter:ai-disclaimer-accepted';
 const MAPLE_MODEL_MIGRATED_STORAGE = 'sat-sorter:maple-model-migrated-v2';
 
 // Legacy hardcoded secret — only used for one-time migration of old encrypted keys
@@ -110,6 +111,9 @@ export function useAISettings() {
   const [ppqProxyUrl, setPpqProxyUrl] = useLocalStorage<string>(PPQ_PROXY_URL_STORAGE, PROVIDER_DEFAULTS.ppq.proxyUrl);
   const [ppqModel, setPpqModel] = useLocalStorage<string>(PPQ_MODEL_STORAGE, PROVIDER_MODEL_DEFAULTS.ppq);
   const [ppqZdr, setPpqZdr] = useLocalStorage<boolean>(PPQ_ZDR_STORAGE, true);
+
+  // Disclaimer — must be accepted before Budget Buddy works
+  const [disclaimerAccepted, setDisclaimerAccepted] = useLocalStorage<boolean>(DISCLAIMER_ACCEPTED_KEY, false);
 
   // Evergreen context is shared across providers (it's the user's financial goals)
   const [evergreenContext, setEvergreenContext] = useLocalStorage<string>(MAPLE_CONTEXT_STORAGE, '');
@@ -163,8 +167,9 @@ export function useAISettings() {
 
   const hasKey = apiKey.length > 0;
 
-  // Backward compat: isMapleEnabled = has key and (maple enabled flag OR ppq selected)
-  const isMapleEnabled = hasKey && (provider === 'ppq' || mapleEnabled);
+  // Budget Buddy is enabled when: user has a key, accepted the disclaimer,
+  // and either PPQ is selected or Maple's enabled flag is on
+  const isMapleEnabled = hasKey && disclaimerAccepted && (provider === 'ppq' || mapleEnabled);
 
   // Setters that route to the correct provider's storage
   const setApiKey = provider === 'maple' ? setMapleApiKey : setPpqApiKey;
@@ -189,6 +194,8 @@ export function useAISettings() {
     // Status
     hasKey,
     isMapleEnabled, // backward compat for components that check this
+    disclaimerAccepted,
+    setDisclaimerAccepted,
     availableModels,
     modelsLoading,
 
