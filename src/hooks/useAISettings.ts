@@ -167,9 +167,9 @@ export function useAISettings() {
 
   const hasKey = apiKey.length > 0;
 
-  // Budget Buddy is enabled when: user has a key, accepted the disclaimer,
-  // and either PPQ is selected or Maple's enabled flag is on
-  const isMapleEnabled = hasKey && disclaimerAccepted && (provider === 'ppq' || mapleEnabled);
+  // Budget Buddy is enabled when: user has a key AND accepted the disclaimer.
+  // The old mapleEnabled toggle is no longer required — the disclaimer replaces it.
+  const isMapleEnabled = hasKey && disclaimerAccepted;
 
   // Setters that route to the correct provider's storage
   const setApiKey = provider === 'maple' ? setMapleApiKey : setPpqApiKey;
