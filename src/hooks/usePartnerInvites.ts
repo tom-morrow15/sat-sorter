@@ -4,6 +4,7 @@ import { useNostr } from '@nostrify/react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { useBudgetContext } from '@/contexts/BudgetContext';
 import type { BudgetPartnerInvite } from '@/lib/budgetTypes';
 import { generateId } from '@/lib/budgetTypes';
 import { ensureHexPubkey } from '@/lib/budgetCrypto';
@@ -42,21 +43,34 @@ export function usePartnerInvites() {
   const { user } = useCurrentUser();
   const { mutateAsync: publish } = useNostrPublish();
   const queryClient = useQueryClient();
+  const { state: budgetState } = useBudgetContext();
 
   /**
-   * Encrypt a payload for a recipient. Prefers NIP-04 for broad compat.
+   * Encrypt a payload for a recipient. Tries both NIP-44 and NIP-04
+   * to maximize compatibility — the partner's decryption will try both too.
    */
   const encryptForRecipient = useCallback(
     async (recipientPubkey: string, data: string): Promise<string | null> => {
       if (!user?.signer) return null;
       const recipientHex = ensureHexPubkey(recipientPubkey);
       try {
-        if (user.signer.nip04) {
-          return await user.signer.nip04.encrypt(recipientHex, data);
-        } else if (user.signer.nip44) {
+        // Try NIP-44 first (matches encryptBudgetKeyForPartner)
+        if (user.signer.nip44) {
           return await user.signer.nip44.encrypt(recipientHex, data);
         }
+        // Fall back to NIP-04
+        if (user.signer.nip04) {
+          return await user.signer.nip04.encrypt(recipientHex, data);
+        }
       } catch (error) {
+        // If NIP-44 fails, try NIP-04 as fallback
+        try {
+          if (user.signer.nip04) {
+            return await user.signer.nip04.encrypt(recipientHex, data);
+          }
+        } catch (fallbackError) {
+          console.error('[usePartnerInvites] All encryption methods failed:', fallbackError);
+        }
         console.error('[usePartnerInvites] Encryption failed:', error);
       }
       return null;
@@ -436,10 +450,40 @@ export function usePartnerInvites() {
     setProcessedInviteIds(prev => prev.includes(inviteId) ? prev : [...prev, inviteId]);
   }, [setProcessedInviteIds]);
 
-  // Filter to only pending invites that haven't been processed locally
-  const pendingInvites = receivedInvites.filter(
-    (i) => i.status === 'pending' && !processedInviteIds.includes(i.id)
+  // SMART FILTER: Only hide processed invites if the budget keypair still
+  // exists locally. If the keypair is missing (cleared browser data, new
+  // device), re-show the invite as pending so the user can re-accept.
+  // Also deduplicates by budgetNpub — only show the most recent invite
+  // per budget (in case multiple invites were sent over time).
+  const hasBudgetKeypair = !!(budgetState.budgetKeypair?.budgetNsec);
+  const accessibleNpubs = new Set(
+    (budgetState.accessibleBudgets || [])
+      .filter(b => b.budgetNpub && b.budgetNsec)
+      .map(b => b.budgetNpub)
   );
+
+  const pendingInvites = receivedInvites.filter((i) => {
+    // Must be status pending
+    if (i.status !== 'pending') return false;
+
+    // If this invite was processed AND we still have the keypair for this
+    // budget, skip it (already accepted)
+    if (processedInviteIds.includes(i.id)) {
+      // Check if we have the key for THIS specific budget
+      if (i.budgetNpub && (budgetState.budgetKeypair?.budgetNpub === i.budgetNpub
+        || accessibleNpubs.has(i.budgetNpub))) {
+        return false; // Key exists, hide this invite
+      }
+      // Key is missing — re-show the invite so user can re-accept
+    }
+
+    // Deduplicate: only show the most recent invite per budgetNpub
+    // (if multiple invites were sent over time, show only the latest)
+    const isLatestForBudget = !receivedInvites.some(
+      other => other.budgetNpub === i.budgetNpub && other.createdAt > i.createdAt
+    );
+    return isLatestForBudget;
+  });
 
   return {
     sendInvite,
@@ -450,5 +494,6 @@ export function usePartnerInvites() {
     pendingInvitesCount: pendingInvites.length,
     isLoadingInvites,
     refetch,
+    clearProcessedInvites: () => setProcessedInviteIds([]),
   };
 }

@@ -104,21 +104,21 @@ export function generateBudgetKeypair(): BudgetKeypair {
 // ---------------------------------------------------------------------------
 
 /**
- * Signer interface subset we need: nip44 encrypt/decrypt.
+ * Signer interface subset we need: encrypt/decrypt (NIP-44 or NIP-04).
  * Compatible with both NIP-07 browser extensions and NSecSigner.
  */
-interface Nip44Signer {
+interface SignerEncrypt {
   encrypt(pubkey: string, plaintext: string): Promise<string>;
-  decrypt(pubkey: string, ciphertext: string): Promise<string>;
 }
 
 /**
  * Encrypt the budget nsec for a specific partner using the owner's signer.
- * The signer derives the conversation key internally.
+ * Uses NIP-44 encrypt (the signer handles the conversation key internally).
+ * The accept handler tries NIP-44 decryption first, then NIP-04 as fallback.
  */
 export async function encryptBudgetKeyForPartner(
   budgetNsec: string,
-  ownerSigner: Nip44Signer,
+  ownerSigner: SignerEncrypt,
   partnerPub: string
 ): Promise<string> {
   const partnerHex = ensureHexPubkey(partnerPub);
