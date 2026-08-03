@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Plus, Trash2, Check, AlertCircle, Scissors } from 'lucide-react';
+import { Plus, Trash2, Check, AlertCircle, Scissors, Camera } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -18,8 +18,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useBitcoinPrice, satsToUsd, usdToSats, formatSats, formatUsd } from '@/hooks/useBitcoinPrice';
+import { useAISettings } from '@/hooks/useAISettings';
 import { useToast } from '@/hooks/useToast';
 import { createSplit, getTotalFromSplits } from '@/lib/splitUtils';
+import { ReceiptScanner } from './ReceiptScanner';
+import { findCategory } from '@/services/mapleAi';
+import type { ReceiptData } from '@/services/receiptOcr';
 import type { Bucket, Transaction, TransactionSplit } from '@/lib/budgetTypes';
 import { cn } from '@/lib/utils';
 
@@ -70,7 +74,11 @@ export function AddTransactionDialog({
   paymentMethods: passedPaymentMethods,
 }: AddTransactionDialogProps) {
   const { data: priceData } = useBitcoinPrice();
+  const { hasKey: hasAIKey } = useAISettings();
   const { toast } = useToast();
+
+  // --- Receipt scanner state ---
+  const [showScanner, setShowScanner] = useState(false);
 
   // --- Step 1 fields: amount + description ---
   const [description, setDescription] = useState('');
@@ -297,6 +305,64 @@ export function AddTransactionDialog({
     return formatSats(Math.round(amount));
   };
 
+  // --- Receipt scan handler — pre-fills the dialog from OCR data ---
+  const handleScanComplete = (data: ReceiptData) => {
+    // Pre-fill amount (convert to display currency)
+    if (data.total && data.total > 0) {
+      if (currency === 'usd') {
+        setAmountInput(data.total.toFixed(2));
+      } else if (priceData) {
+        setAmountInput(String(usdToSats(data.total, priceData.usdPerBtc)));
+      }
+    }
+
+    // Pre-fill description with merchant name
+    if (data.merchant) {
+      setDescription(data.merchant);
+    }
+
+    // If line items detected, try to auto-match them to budget categories
+    // and pre-fill the assignment rows
+    if (data.lineItems && data.lineItems.length > 0) {
+      // For a single line item, just pre-fill the first assignment amount
+      if (data.lineItems.length === 1) {
+        setAssignments(prev => prev.map((a, i) =>
+          i === 0 ? { ...a, amountInput: data.lineItems[0].price.toFixed(2) } : a
+        ));
+      } else {
+        // Multiple line items — try to auto-match each to a budget category
+        // using the existing findCategory() function
+        const matchedAssignments = data.lineItems.slice(0, 10).map((item) => {
+          const matchedBucket = findCategory(item.name, buckets);
+          return {
+            id: crypto.randomUUID(),
+            bucketId: matchedBucket?.id || '',
+            lineItemId: '',
+            amountInput: item.price.toFixed(2),
+          };
+        });
+
+        // If any matched, replace assignments with the matched rows
+        // Otherwise just keep one row with the total
+        if (matchedAssignments.some(a => a.bucketId)) {
+          setAssignments(matchedAssignments);
+        } else {
+          // No matches — just pre-fill the total on the first row
+          setAssignments(prev => prev.map((a, i) =>
+            i === 0 ? { ...a, amountInput: data.total.toFixed(2) } : a
+          ));
+        }
+      }
+    } else {
+      // No line items detected — just pre-fill the total on the first row
+      if (data.total) {
+        setAssignments(prev => prev.map((a, i) =>
+          i === 0 ? { ...a, amountInput: data.total.toFixed(2) } : a
+        ));
+      }
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[480px] max-h-[90dvh] flex flex-col" onKeyDown={handleKeyDown}>
@@ -310,9 +376,20 @@ export function AddTransactionDialog({
         <div className="flex-1 overflow-y-auto space-y-4 py-2 min-h-0">
           {/* Amount — large, prominent */}
           <div className="space-y-2">
-            <Label htmlFor="amount">
-              Amount {currency === 'usd' ? '(USD)' : '(sats)'}
-            </Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="amount">
+                Amount {currency === 'usd' ? '(USD)' : '(sats)'}
+              </Label>
+              {!isIncome && hasAIKey && (
+                <button
+                  onClick={() => setShowScanner(true)}
+                  className="flex items-center gap-1 text-xs font-medium text-primary hover:underline transition-colors"
+                >
+                  <Camera className="h-3.5 w-3.5" />
+                  Scan Receipt
+                </button>
+              )}
+            </div>
             <div className="relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-lg font-medium text-muted-foreground pointer-events-none">
                 {currency === 'usd' ? '$' : '⚡'}
@@ -531,6 +608,13 @@ export function AddTransactionDialog({
           </Button>
         </div>
       </DialogContent>
+
+      {/* Receipt Scanner — opens camera/file picker, sends to AI vision */}
+      <ReceiptScanner
+        open={showScanner}
+        onOpenChange={setShowScanner}
+        onScanComplete={handleScanComplete}
+      />
     </Dialog>
   );
 }
