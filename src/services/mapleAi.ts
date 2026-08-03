@@ -197,7 +197,22 @@ export const MAPLE_MODELS_FALLBACK: MapleModelOption[] = [
   {
     id: 'gpt-oss-120b',
     label: 'GPT-OSS 120B',
-    description: 'Largest model — deeper analysis, a bit slower.',
+    description: 'Largest open-source model. Deeper analysis, a bit slower.',
+  },
+  {
+    id: 'kimi-k2-6',
+    label: 'Kimi K2',
+    description: 'Strong reasoning and coding. Great for complex budget analysis.',
+  },
+  {
+    id: 'gemma-3-27b',
+    label: 'Gemma 3 27B',
+    description: 'Google open model. Fast and efficient.',
+  },
+  {
+    id: 'qwen-2.5-72b',
+    label: 'Qwen 2.5 72B',
+    description: 'Alibaba open model. Excellent multilingual support.',
   },
   {
     id: 'auto:quick',
@@ -224,20 +239,38 @@ function getModelsUrl(proxyUrl: string): string {
 }
 
 /**
- * Fetch available models from Maple's /v1/models endpoint.
+ * Fetch available models from the provider's /v1/models endpoint.
  * Returns an empty array on failure so the app falls back to the hardcoded list.
+ * Tries a CORS proxy fallback if the direct request fails (cross-origin).
  */
 export async function fetchMapleModels(
   apiKey: string,
   proxyUrl: string
 ): Promise<MapleModelOption[]> {
-  try {
-    const url = getModelsUrl(proxyUrl);
-    const response = await fetch(url, {
+  const url = getModelsUrl(proxyUrl);
+  // CORS proxy fallback — used if the direct request fails due to CORS
+  const corsProxyUrl = `https://proxy.shakespeare.diy/?url=${encodeURIComponent(url)}`;
+
+  const tryFetch = async (fetchUrl: string): Promise<Response> => {
+    return fetch(fetchUrl, {
       headers: {
         'Authorization': `Bearer ${apiKey}`,
       },
     });
+  };
+
+  try {
+    let response = await tryFetch(url);
+
+    // If CORS blocks the direct request, try via the CORS proxy
+    if (!response.ok && response.status === 0) {
+      response = await tryFetch(corsProxyUrl);
+    }
+
+    if (!response.ok) {
+      // Try CORS proxy as a second attempt for any failure
+      response = await tryFetch(corsProxyUrl);
+    }
 
     if (!response.ok) {
       console.warn('[fetchMapleModels] Non-200 response:', response.status);
@@ -246,26 +279,42 @@ export async function fetchMapleModels(
 
     const json = await response.json();
     // OpenAI-compatible format: { object: "list", data: [{ id, owned_by, ... }] }
-    const rawModels: { id: string; owned_by?: string }[] = json.data ?? [];
+    // Also handle Maple/PPQ format with privacyLevel field
+    const rawModels: { id: string; owned_by?: string; privacyLevel?: string }[] = json.data ?? [];
     if (!Array.isArray(rawModels) || rawModels.length === 0) {
       return [];
     }
 
     const models: MapleModelOption[] = rawModels
       .filter((m) => m.id && typeof m.id === 'string')
-      .map((m) => ({
-        id: m.id,
-        label: m.id
-          // Capitalize first letter of each word, replace hyphens/underscores
-          // with spaces; special-case "auto:" prefix
-          .replace(/^auto:/, 'Auto: ')
-          .replace(/[-_]/g, ' ')
-          .replace(/\b\w/g, (c) => c.toUpperCase())
-          .trim(),
-        description: m.owned_by
+      .map((m) => {
+        // Build a privacy badge if available (PPQ models include this)
+        let description = m.owned_by
           ? `Powered by ${m.owned_by}`
-          : '',
-      }))
+          : '';
+        if (m.privacyLevel) {
+          const privacyBadge = m.privacyLevel === 'zdr'
+            ? 'Zero Data Retention'
+            : m.privacyLevel === 'e2e'
+            ? 'End-to-End Encrypted'
+            : m.privacyLevel === 'anon'
+            ? 'Anonymous'
+            : '';
+          if (privacyBadge) {
+            description = description ? `${description} · ${privacyBadge}` : privacyBadge;
+          }
+        }
+        return {
+          id: m.id,
+          label: m.id
+            .replace(/^auto:/, 'Auto: ')
+            .replace(/^private\//, '')
+            .replace(/[-_]/g, ' ')
+            .replace(/\b\w/g, (c) => c.toUpperCase())
+            .trim(),
+          description,
+        };
+      })
       .sort((a, b) => a.id.localeCompare(b.id));
 
     return models;
