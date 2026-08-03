@@ -74,21 +74,20 @@ export function ManagePartnersDialog({
   const handleAcceptInvite = async (invite: BudgetPartnerInvite) => {
     setProcessingInviteId(invite.id);
     try {
-      if (!user?.signer?.nip44) {
+      if (!user?.signer) {
         toast({
           title: 'Cannot accept invite',
-          description: 'Your signer does not support NIP-44 decryption.',
+          description: 'No signer available. Please log in first.',
           variant: 'destructive',
         });
         return;
       }
 
       let budgetNsec: string;
+      const fromHex = ensureHexPubkey(invite.from);
 
-      // Try to extract raw private key bytes for nsec-based logins.
-      // This is required by decryptBudgetKeyFromInvite (which uses nip44.getConversationKey).
+      // Try to extract raw private key bytes for nsec-based logins
       let myPriv: Uint8Array | null = null;
-
       const nsecLogin = logins.find((l: any) => l.type === 'nsec' && l.data?.nsec);
       if (nsecLogin) {
         try {
@@ -101,21 +100,47 @@ export function ManagePartnersDialog({
         }
       }
 
-      // Always ensure invite.from is a hex pubkey for NIP-44 (getConversationKey / signer decrypt)
-      const fromHex = ensureHexPubkey(invite.from);
-
       if (myPriv) {
-        // nsec user: use raw key path
-        budgetNsec = await decryptBudgetKeyFromInvite(
-          invite.encryptedBudgetKey,
-          myPriv,
-          fromHex
-        );
+        // nsec user: use raw key path (NIP-44)
+        try {
+          budgetNsec = await decryptBudgetKeyFromInvite(
+            invite.encryptedBudgetKey,
+            myPriv,
+            fromHex
+          );
+        } catch (nip44Error) {
+          // If NIP-44 fails, try decrypting with the signer's decrypt method
+          // (which may use NIP-04 if that's what the sender used to encrypt)
+          if (user.signer.nip44) {
+            budgetNsec = await user.signer.nip44.decrypt(fromHex, invite.encryptedBudgetKey);
+          } else if (user.signer.nip04) {
+            budgetNsec = await user.signer.nip04.decrypt(fromHex, invite.encryptedBudgetKey);
+          } else {
+            throw nip44Error;
+          }
+        }
+      } else if (user.signer.nip44) {
+        // Extension with NIP-44
+        try {
+          budgetNsec = await user.signer.nip44.decrypt(fromHex, invite.encryptedBudgetKey);
+        } catch (nip44Error) {
+          // Try NIP-04 as fallback
+          if (user.signer.nip04) {
+            budgetNsec = await user.signer.nip04.decrypt(fromHex, invite.encryptedBudgetKey);
+          } else {
+            throw nip44Error;
+          }
+        }
+      } else if (user.signer.nip04) {
+        // Extension with only NIP-04
+        budgetNsec = await user.signer.nip04.decrypt(fromHex, invite.encryptedBudgetKey);
       } else {
-        // Extension / bunker / other NIP-07 signer: use the signer's nip44.decrypt directly.
-        // The invite's encryptedBudgetKey was produced by calling the owner's signer.encrypt
-        // with the partner's pubkey, so we can decrypt it with our signer.
-        budgetNsec = await user.signer.nip44.decrypt(fromHex, invite.encryptedBudgetKey);
+        toast({
+          title: 'Cannot accept invite',
+          description: 'Your signer does not support NIP-44 or NIP-04 decryption.',
+          variant: 'destructive',
+        });
+        return;
       }
 
       // 2. Derive the budget npub from the decrypted nsec and verify it matches the invite
@@ -204,7 +229,7 @@ export function ManagePartnersDialog({
       } else {
         toast({
           title: 'Failed to accept invite',
-          description: 'Please try again.',
+          description: 'error' in result && result.error ? result.error : 'Could not publish the response. Please try again.',
           variant: 'destructive',
         });
       }
@@ -230,9 +255,20 @@ export function ManagePartnersDialog({
           title: 'Invite Declined',
           description: 'The partner has been notified.',
         });
+      } else {
+        toast({
+          title: 'Failed to decline',
+          description: 'Please try again.',
+          variant: 'destructive',
+        });
       }
     } catch (error) {
       console.error('[ManagePartnersDialog] Failed to decline invite:', error);
+      toast({
+        title: 'Error declining invite',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      });
     } finally {
       setProcessingInviteId(null);
     }

@@ -1,8 +1,9 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
+import { useLocalStorage } from '@/hooks/useLocalStorage';
 import type { BudgetPartnerInvite } from '@/lib/budgetTypes';
 import { generateId } from '@/lib/budgetTypes';
 import { ensureHexPubkey } from '@/lib/budgetCrypto';
@@ -224,13 +225,16 @@ export function usePartnerInvites() {
           invite.from.slice(0, 16) + '...'
         );
 
+        // Mark as processed locally so it disappears from pending list
+        markInviteProcessed(invite.id);
+
         return { success: true };
       } catch (error) {
         console.error('[usePartnerInvites] Failed to accept invite:', error);
-        return { success: false };
+        return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
       }
     },
-    [user, publish, encryptForRecipient]
+    [user, publish, encryptForRecipient, markInviteProcessed]
   );
 
   /**
@@ -278,13 +282,17 @@ export function usePartnerInvites() {
           '[usePartnerInvites] Invite declined from',
           invite.from.slice(0, 16) + '...'
         );
+
+        // Mark as processed locally so it disappears from pending list
+        markInviteProcessed(invite.id);
+
         return true;
       } catch (error) {
         console.error('[usePartnerInvites] Failed to decline invite:', error);
         return false;
       }
     },
-    [user, publish, encryptForRecipient]
+    [user, publish, encryptForRecipient, markInviteProcessed]
   );
 
   /**
@@ -420,8 +428,18 @@ export function usePartnerInvites() {
     };
   }, [user?.pubkey, nostr, queryClient]);
 
-  // Filter to only pending invites
-  const pendingInvites = receivedInvites.filter((i) => i.status === 'pending');
+  // Track processed invite IDs locally so accepted/declined invites
+  // disappear from the pending list immediately (not just on next Nostr fetch).
+  const [processedInviteIds, setProcessedInviteIds] = useLocalStorage<string[]>('sat-sorter:processed-invites', []);
+
+  const markInviteProcessed = useCallback((inviteId: string) => {
+    setProcessedInviteIds(prev => prev.includes(inviteId) ? prev : [...prev, inviteId]);
+  }, [setProcessedInviteIds]);
+
+  // Filter to only pending invites that haven't been processed locally
+  const pendingInvites = receivedInvites.filter(
+    (i) => i.status === 'pending' && !processedInviteIds.includes(i.id)
+  );
 
   return {
     sendInvite,
