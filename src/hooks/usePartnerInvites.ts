@@ -45,6 +45,13 @@ export function usePartnerInvites() {
   const queryClient = useQueryClient();
   const { state: budgetState } = useBudgetContext();
 
+  // Track processed invite IDs — must be defined before the callbacks that use it
+  const [processedInviteIds, setProcessedInviteIds] = useLocalStorage<string[]>('sat-sorter:processed-invites', []);
+
+  const markInviteProcessed = useCallback((inviteId: string) => {
+    setProcessedInviteIds(prev => prev.includes(inviteId) ? prev : [...prev, inviteId]);
+  }, [setProcessedInviteIds]);
+
   /**
    * Encrypt a payload for a recipient. Tries both NIP-44 and NIP-04
    * to maximize compatibility — the partner's decryption will try both too.
@@ -441,14 +448,6 @@ export function usePartnerInvites() {
       }
     };
   }, [user?.pubkey, nostr, queryClient]);
-
-  // Track processed invite IDs locally so accepted/declined invites
-  // disappear from the pending list immediately (not just on next Nostr fetch).
-  const [processedInviteIds, setProcessedInviteIds] = useLocalStorage<string[]>('sat-sorter:processed-invites', []);
-
-  const markInviteProcessed = useCallback((inviteId: string) => {
-    setProcessedInviteIds(prev => prev.includes(inviteId) ? prev : [...prev, inviteId]);
-  }, [setProcessedInviteIds]);
 
   // SMART FILTER: Only hide processed invites if the budget keypair still
   // exists locally. If the keypair is missing (cleared browser data, new
