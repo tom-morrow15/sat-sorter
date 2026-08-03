@@ -122,7 +122,7 @@ export function BottomNavigation() {
         {showMore && (
           <div
             ref={moreRef}
-            className="absolute bottom-full right-0 mb-2 w-44 rounded-xl border bg-popover shadow-lg overflow-hidden"
+            className="absolute bottom-full right-0 mb-2 w-44 rounded-xl border bg-popover shadow-lg overflow-hidden z-[60]"
           >
             {moreItems.map((item) => {
               const Icon = item.icon;
