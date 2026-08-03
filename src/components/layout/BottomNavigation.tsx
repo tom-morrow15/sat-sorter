@@ -105,40 +105,41 @@ export function BottomNavigation() {
         </div>
 
         {/* Right side: More + Sync */}
-        <button
-          onClick={() => setShowMore(!showMore)}
-          className={cn(
-            'flex flex-col items-center justify-center flex-1 h-full gap-0.5 transition-colors',
-            isMoreActive || showMore
-              ? 'text-primary'
-              : 'text-muted-foreground hover:text-foreground'
-          )}
-        >
-          <MoreHorizontal className="h-5 w-5" />
-          <span className="text-[10px]">More</span>
-        </button>
-
-        {/* More menu dropdown */}
-        {showMore && (
-          <div
-            ref={moreRef}
-            className="absolute bottom-full right-0 mb-2 w-44 rounded-xl border bg-popover shadow-lg overflow-hidden"
+        <div ref={moreRef} className="contents">
+          <button
+            onClick={() => setShowMore(!showMore)}
+            className={cn(
+              'flex flex-col items-center justify-center flex-1 h-full gap-0.5 transition-colors',
+              isMoreActive || showMore
+                ? 'text-primary'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
           >
-            {moreItems.map((item) => {
-              const Icon = item.icon;
-              return (
-                <button
-                  key={item.path}
-                  onClick={() => navigate(item.path)}
-                  className="flex items-center gap-3 w-full px-4 py-3 text-sm hover:bg-muted transition-colors text-left"
-                >
-                  <Icon className="h-4 w-4 text-muted-foreground" />
-                  <span>{item.label}</span>
-                </button>
-              );
-            })}
-          </div>
-        )}
+            <MoreHorizontal className="h-5 w-5" />
+            <span className="text-[10px]">More</span>
+          </button>
+
+          {/* More menu dropdown */}
+          {showMore && (
+            <div
+              className="absolute bottom-full right-0 mb-2 w-44 rounded-xl border bg-popover shadow-lg overflow-hidden"
+            >
+              {moreItems.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <button
+                    key={item.path}
+                    onClick={() => navigate(item.path)}
+                    className="flex items-center gap-3 w-full px-4 py-3 text-sm hover:bg-muted transition-colors text-left"
+                  >
+                    <Icon className="h-4 w-4 text-muted-foreground" />
+                    <span>{item.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
 
         {/* Sync indicator */}
         <button
