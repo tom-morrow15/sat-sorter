@@ -24,6 +24,10 @@ interface PartnerInvitePayload {
   encryptedBudgetKey?: string;
   /** The budget's npub (only present in type=invite). */
   budgetNpub?: string;
+  /** Full budget state snapshot (only present in type=invite).
+   *  Encrypted alongside the budget key so the partner gets everything
+   *  immediately — no separate seeding step, no relay propagation wait. */
+  snapshot?: string; // JSON-stringified BudgetState
 }
 
 /**
@@ -125,9 +129,9 @@ export function usePartnerInvites() {
   );
 
   /**
-   * Send a partner invite with the encrypted budget nsec (no snapshot).
-   * The recipient will decrypt the budget nsec and use it to subscribe to
-   * budget data from relays under the budget npub.
+   * Send a partner invite with the encrypted budget nsec AND full budget snapshot.
+   * The snapshot is included so the partner gets all data immediately on accept —
+   * no separate seeding step, no waiting for relay propagation.
    */
   const sendInvite = useCallback(
     async (
@@ -136,7 +140,8 @@ export function usePartnerInvites() {
       permission: 'view' | 'edit',
       encryptedBudgetKey: string,
       budgetNpub: string,
-      fromName?: string
+      fromName?: string,
+      budgetSnapshot?: string, // JSON-stringified BudgetState
     ): Promise<boolean> => {
       if (!user?.pubkey) {
         console.error('[usePartnerInvites] User not logged in');
@@ -159,6 +164,7 @@ export function usePartnerInvites() {
           fromName,
           encryptedBudgetKey,
           budgetNpub,
+          snapshot: budgetSnapshot,
         };
 
         const encryptedContent = await encryptForRecipient(
@@ -189,7 +195,8 @@ export function usePartnerInvites() {
           '[usePartnerInvites] Invite sent to',
           toPubkey.slice(0, 16) + '...',
           'for budget npub',
-          budgetNpub.slice(0, 16) + '...'
+          budgetNpub.slice(0, 16) + '...',
+          budgetSnapshot ? `(${Math.round(budgetSnapshot.length / 1024)}KB snapshot included)` : '(no snapshot)'
         );
         return true;
       } catch (error) {
@@ -399,6 +406,7 @@ export function usePartnerInvites() {
                 permission: payload.permission,
                 encryptedBudgetKey: payload.encryptedBudgetKey || '',
                 budgetNpub: payload.budgetNpub || '',
+                snapshot: payload.snapshot, // Full budget state included in invite
                 createdAt: event.created_at,
                 status: 'pending',
               });

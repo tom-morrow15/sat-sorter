@@ -82,6 +82,9 @@ export interface BudgetPartnerInvite {
   encryptedBudgetKey: string;
   /** The budget's npub (unencrypted, so the recipient can verify). */
   budgetNpub: string;
+  /** Full budget state snapshot (JSON-stringified BudgetState). Included in
+   *  the invite so the partner gets all data immediately on accept. */
+  snapshot?: string;
   createdAt: number; // Unix timestamp
   status: 'pending' | 'accepted' | 'declined';
   acceptedAt?: number;

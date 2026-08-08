@@ -183,55 +183,50 @@ export function ManagePartnersDialog({
       if (result.success) {
         const role = invite.permission === 'editor' ? 'editor' as const : 'viewer' as const;
 
-        // 4. Eagerly fetch full snapshots for ALL months from the shared budget keypair.
-        // This ensures the partner immediately sees buckets/line items for current + future months.
-        let seededBudgets: any[] = [];
-        try {
-          seededBudgets = await fetchAllSharedBudgetSnapshots(budgetNsec, nostr);
-          console.log('[ManagePartnersDialog] Fetched', seededBudgets.length, 'month snapshots from shared budget on accept');
-
-          // If empty, the owner's publish may still be propagating to our relay.
-          // Wait a moment and retry once.
-          if (seededBudgets.length === 0) {
-            console.log('[ManagePartnersDialog] No snapshots found on first try, retrying in 2s...');
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            seededBudgets = await fetchAllSharedBudgetSnapshots(budgetNsec, nostr);
-            console.log('[ManagePartnersDialog] Retry fetched', seededBudgets.length, 'month snapshots');
+        // 4. Use the snapshot embedded in the invite payload — the partner gets
+        // all budget data immediately, no relay fetch or propagation wait needed.
+        let snapshotBudgets: any[] = [];
+        if (invite.snapshot) {
+          try {
+            const parsed = JSON.parse(invite.snapshot);
+            if (parsed && Array.isArray(parsed.budgets)) {
+              snapshotBudgets = parsed.budgets;
+              console.log('[ManagePartnersDialog] Using embedded snapshot:', snapshotBudgets.length, 'months');
+            }
+          } catch (e) {
+            console.warn('[ManagePartnersDialog] Failed to parse embedded snapshot, falling back to relay fetch:', e);
           }
-        } catch (e) {
-          console.warn('[ManagePartnersDialog] Could not fetch snapshots on accept (will rely on live sync):', e);
         }
 
-        // 5. Store the budget keypair locally + merge any snapshots we fetched
+        // Fallback: if no embedded snapshot (legacy invite), try fetching from relays
+        if (snapshotBudgets.length === 0) {
+          try {
+            snapshotBudgets = await fetchAllSharedBudgetSnapshots(budgetNsec, nostr);
+            console.log('[ManagePartnersDialog] Fetched', snapshotBudgets.length, 'month snapshots from relay');
+          } catch (e) {
+            console.warn('[ManagePartnersDialog] Could not fetch snapshots (will rely on live sync):', e);
+          }
+        }
+
+        // 5. Store the budget keypair locally + apply the snapshot
         setState(prev => {
-          // Merge fetched snapshots (if any) by month — they contain the buckets structure
           let mergedBudgets = [...(prev.budgets || [])];
-          if (seededBudgets.length > 0) {
-            const incomingMonths = new Set(seededBudgets.map((b: any) => b.month));
+          if (snapshotBudgets.length > 0) {
+            const incomingMonths = new Set(snapshotBudgets.map((b: any) => b.month));
             const withoutIncoming = mergedBudgets.filter((b: any) => !incomingMonths.has(b.month));
-            mergedBudgets = [...withoutIncoming, ...seededBudgets];
+            mergedBudgets = [...withoutIncoming, ...snapshotBudgets];
           }
 
           return {
             ...prev,
             budgets: mergedBudgets,
-            // Always land on real current month after accepting
             currentMonth: new Date().toISOString().slice(0, 7),
             accessibleBudgets: [
               ...prev.accessibleBudgets.filter(b => b.budgetNpub !== budgetNpub),
-              {
-                budgetNpub,
-                budgetNsec: budgetNsec,
-                role,
-              },
+              { budgetNpub, budgetNsec: budgetNsec, role },
             ],
-            budgetKeypair: {
-              budgetNsec: budgetNsec,
-              budgetNpub,
-            },
+            budgetKeypair: { budgetNsec: budgetNsec, budgetNpub },
             userRole: role,
-            // Add the owner as a partner (so sync subscriptions include them)
-            // Use normalized hex for pubkey
             partners: [
               ...(prev.partners || []).filter(p => p.pubkey !== fromHex),
               {
@@ -245,31 +240,11 @@ export function ManagePartnersDialog({
           };
         });
 
-        // Schedule a delayed re-fetch to catch any events that arrive after
-        // the initial fetch (owner's publish may still be propagating to relays).
-        setTimeout(async () => {
-          try {
-            const snapshots = await fetchAllSharedBudgetSnapshots(budgetNsec, nostr);
-            if (snapshots.length > 0) {
-              console.log('[ManagePartnersDialog] Delayed sync fetched', snapshots.length, 'snapshots');
-              setState(prev => {
-                const incomingMonths = new Set(snapshots.map((b: any) => b.month));
-                const withoutIncoming = (prev.budgets || []).filter((b: any) => !incomingMonths.has(b.month));
-                return { ...prev, budgets: [...withoutIncoming, ...snapshots] };
-              });
-            } else {
-              // Still no data — send a sync request to the owner asking them to re-publish
-              console.log('[ManagePartnersDialog] No data after accept, sending sync request to owner...');
-              await publishSyncRequest(budgetNsec, user.pubkey, nostr);
-            }
-          } catch (e) {
-            console.warn('[ManagePartnersDialog] Delayed sync failed:', e);
-          }
-        }, 3000);
-
         toast({
           title: 'Budget Partner Invite Accepted!',
-          description: `You now have ${invite.permission === 'editor' ? 'edit' : 'view-only'} access. Data will sync via the shared budget key. All future months are included automatically.`,
+          description: snapshotBudgets.length > 0
+            ? `You're now synced — ${snapshotBudgets.length} month${snapshotBudgets.length === 1 ? '' : 's'} of budget data loaded.`
+            : `You now have ${invite.permission === 'editor' ? 'edit' : 'view-only'} access. Data will sync as it comes in.`,
         });
       } else {
         toast({
@@ -406,15 +381,20 @@ export function ManagePartnersDialog({
         }
 
         // ALWAYS seed the shared budget snapshots when adding a partner,
-        // regardless of whether it's the first partner. Previous attempts may
-        // have failed silently, or the relay may not have the data.
+        // and await the result so we know the data is on the relay.
+        // This is critical — the partner's ongoing sync subscription reads
+        // from the relay, so the data must be there.
         if (currentBudgetsForSeeding.length > 0) {
           console.log('[ManagePartnersDialog] Seeding', currentBudgetsForSeeding.length, 'budget month(s) to shared keypair...');
-          seedAllBudgetSnapshots(currentBudgetsForSeeding, budgetKeypair.budgetNsec, nostr)
-            .then((count) => {
-              console.log(`[ManagePartnersDialog] Seeded ${count} budget month(s) to shared keypair`);
-            })
-            .catch((e) => console.warn('[ManagePartnersDialog] Seeding snapshots failed (non-fatal):', e));
+          try {
+            const seededCount = await seedAllBudgetSnapshots(currentBudgetsForSeeding, budgetKeypair.budgetNsec, nostr);
+            console.log(`[ManagePartnersDialog] Successfully seeded ${seededCount}/${currentBudgetsForSeeding.length} month(s)`);
+            if (seededCount === 0) {
+              console.warn('[ManagePartnersDialog] WARNING: No snapshots were seeded — relay may have rejected the events');
+            }
+          } catch (e) {
+            console.warn('[ManagePartnersDialog] Seeding snapshots failed (non-fatal):', e);
+          }
         }
 
         // 2. Encrypt the budget nsec for the new partner
@@ -440,14 +420,15 @@ export function ManagePartnersDialog({
           ),
         }));
 
-        // 4. Publish kind 4001 invite with the encrypted budget nsec (no snapshot!)
+        // 4. Publish kind 4001 invite with the encrypted budget nsec AND full snapshot
         const inviteSent = await sendInvite(
           hexPubkey,
           currentMonth,
           newPartnerPermission,
           encryptedKey,
           budgetKeypair.budgetNpub,
-          user?.metadata?.name
+          user?.metadata?.name,
+          JSON.stringify(fullState), // Full budget state embedded in the invite
         );
 
         toast({

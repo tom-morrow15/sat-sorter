@@ -3,7 +3,6 @@ import { useBudget } from '@/hooks/useBudget';
 import { useBudgetContext } from '@/contexts/BudgetContext';
 import { useSharedBudgetSync } from '@/hooks/useSharedBudgetSync';
 import { usePartnerInviteResponses } from '@/hooks/usePartnerInviteResponses';
-import type { Transaction, MonthlyBudget } from '@/lib/budgetTypes';
 
 interface SharedSyncContextValue {
   forceSync: () => Promise<void>;
@@ -18,25 +17,20 @@ export function useSharedSync() {
 }
 
 /**
- * PartnerSyncWrapper — Detects local transaction changes and publishes them
- * to the shared budget keypair (kind 30078).
+ * PartnerSyncWrapper — publishes full-month snapshots to the shared budget
+ * keypair whenever the local state changes (debounced).
  *
- * Also provides forceSync/requestSync via context so any component can
- * trigger a manual sync or ask the owner to re-publish.
+ * Simplified model: no per-transaction change detection, no echo prevention
+ * complexity. Any state change → publish the full month snapshot. The latest
+ * snapshot always wins (replaceable event). Idempotent and self-healing.
  */
 export function PartnerSyncWrapper({ children }: { children: React.ReactNode }) {
   const { fullState } = useBudget();
   const { state } = useBudgetContext();
   const budgetKeypair = state.budgetKeypair;
 
-  // Use the new shared-budget sync hook if we have a keypair
   const {
-    publishTransactionAdd,
-    publishTransactionUpdate,
-    publishTransactionDelete,
     publishBudgetSnapshot,
-    syncedTxIds,
-    syncedStructureHashes,
     forceSync,
     requestSync,
   } = useSharedBudgetSync(
@@ -44,156 +38,54 @@ export function PartnerSyncWrapper({ children }: { children: React.ReactNode }) 
     budgetKeypair?.budgetNsec || ''
   );
 
-  // Listen for invite accept/decline responses to keep partner status in sync
+  // Listen for invite accept/decline responses
   usePartnerInviteResponses();
 
-  // Track previous state for change detection
-  const prevStateRef = useRef<{
-    byMonth: Map<string, Map<string, string>>;
-    structureByMonth: Map<string, string>; // serialized buckets/lineItems (without txs)
-    initialized: boolean;
-  }>({
-    byMonth: new Map(),
-    structureByMonth: new Map(),
-    initialized: false,
-  });
+  // Debounce timer for publishing
+  const publishTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Track the last published fingerprint to avoid redundant publishes
+  const lastPublishedRef = useRef<string>('');
 
-  // Publish local transaction changes (only if we have a budget keypair)
+  // Publish full-month snapshots whenever the budget state changes (debounced)
   useEffect(() => {
     if (!budgetKeypair) return;
 
-    const prev = prevStateRef.current;
+    // Build a fingerprint of the current state to detect real changes
+    const fingerprint = JSON.stringify(
+      fullState.budgets.map(b => ({
+        month: b.month,
+        bucketCount: b.buckets?.length || 0,
+        txCount: b.transactions?.length || 0,
+        txIds: b.transactions?.map(t => t.id).sort(),
+        bucketNames: b.buckets?.map(bk => bk.name).sort(),
+        // Include planned amounts so budget changes are detected
+        plannedAmounts: b.buckets?.map(bk => bk.lineItems?.map(li => li.plannedAmount).join(',')).sort(),
+      }))
+    );
 
-    // Build current state: Map<month, Map<txId, serialized>>
-    const currentByMonth = new Map<string, Map<string, string>>();
-    for (const budget of fullState.budgets) {
-      const monthMap = new Map<string, string>();
-      for (const tx of budget.transactions) {
-        monthMap.set(tx.id, JSON.stringify(tx));
-      }
-      currentByMonth.set(budget.month, monthMap);
-    }
+    if (fingerprint === lastPublishedRef.current) return;
 
-    // On first run, just initialize — don't publish existing transactions.
-    // Existing transactions are considered "already synced" (they may have
-    // come from the initial data load or an earlier session).
-    if (!prev.initialized) {
-      // Also capture structural snapshot (buckets/line items) so future edits publish snapshots
-      const structureByMonth = new Map<string, string>();
+    // Debounce: wait 3s after the last change before publishing
+    if (publishTimer.current) clearTimeout(publishTimer.current);
+    publishTimer.current = setTimeout(async () => {
+      console.log('[PartnerSyncWrapper] Publishing budget snapshots...');
+      let published = 0;
       for (const budget of fullState.budgets) {
-        const structure = JSON.stringify(budget.buckets || []);
-        structureByMonth.set(budget.month, structure);
-      }
-      prevStateRef.current = {
-        byMonth: currentByMonth,
-        structureByMonth,
-        initialized: true,
-      };
-      console.log('[PartnerSyncWrapper] Initialized with', fullState.budgets.length, 'budget(s)');
-      return;
-    }
-
-    // Walk each month and detect changes
-    for (const [month, currentTxs] of currentByMonth) {
-      const prevTxs = prev.byMonth.get(month) || new Map<string, string>();
-
-      // Detect added or updated transactions
-      for (const [txId, currentSerialized] of currentTxs) {
-        const prevSerialized = prevTxs.get(txId);
-
-        // Skip transactions that arrived via sync — publishing them back would
-        // create an echo loop of duplicate events on the relay.
-        if (syncedTxIds.current.has(txId)) {
-          syncedTxIds.current.delete(txId); // Only skip once
-          continue;
-        }
-
-        if (prevSerialized === undefined) {
-          // New transaction — publish under budget npub
-          try {
-            const tx: Transaction = JSON.parse(currentSerialized);
-            console.log('[PartnerSyncWrapper] Publishing new local tx:', txId, 'for month', month);
-            publishTransactionAdd(tx, month).catch((e) => {
-              console.error('[PartnerSyncWrapper] Publish add failed:', e);
-            });
-          } catch (e) {
-            console.error('[PartnerSyncWrapper] Could not parse tx:', e);
-          }
-        } else if (prevSerialized !== currentSerialized) {
-          // Updated transaction
-          try {
-            const tx: Transaction = JSON.parse(currentSerialized);
-            console.log('[PartnerSyncWrapper] Publishing updated local tx:', txId, 'for month', month);
-            publishTransactionUpdate(tx, month).catch((e) => {
-              console.error('[PartnerSyncWrapper] Publish update failed:', e);
-            });
-          } catch (e) {
-            console.error('[PartnerSyncWrapper] Could not parse tx:', e);
-          }
+        if (budget.buckets && budget.buckets.length > 0) {
+          const ok = await publishBudgetSnapshot(budget);
+          if (ok) published++;
         }
       }
-
-      // Detect deleted transactions
-      for (const prevTxId of prevTxs.keys()) {
-        if (!currentTxs.has(prevTxId)) {
-          console.log('[PartnerSyncWrapper] Publishing deletion of local tx:', prevTxId, 'for month', month);
-          publishTransactionDelete(prevTxId, month).catch((e) => {
-            console.error('[PartnerSyncWrapper] Publish delete failed:', e);
-          });
-        }
+      if (published > 0) {
+        console.log(`[PartnerSyncWrapper] Published ${published} month snapshot(s)`);
+        lastPublishedRef.current = fingerprint;
       }
+    }, 3000);
 
-      // Detect structural changes (buckets / line items) — publish full snapshot so partners receive categories immediately
-      const prevStructure = prev.structureByMonth?.get(month) || '';
-      const currentBudgetForMonth = fullState.budgets.find((b) => b.month === month);
-      if (currentBudgetForMonth) {
-        const currentStructure = JSON.stringify(currentBudgetForMonth.buckets || []);
-        if (currentStructure !== prevStructure) {
-          // Skip if this structure arrived via sync (not a local edit)
-          if (syncedStructureHashes.current.get(month) === currentStructure) {
-            syncedStructureHashes.current.delete(month);
-          } else {
-            console.log('[PartnerSyncWrapper] Budget structure changed for', month, '— publishing snapshot');
-            publishBudgetSnapshot(currentBudgetForMonth).catch((e) => {
-              console.error('[PartnerSyncWrapper] Publish budget snapshot failed:', e);
-            });
-          }
-        }
-      }
-    }
-
-    // Also check for fully removed months
-    for (const [month, prevTxs] of prev.byMonth) {
-      if (!currentByMonth.has(month)) {
-        for (const txId of prevTxs.keys()) {
-          console.log('[PartnerSyncWrapper] Month removed, publishing deletion of tx:', txId);
-          publishTransactionDelete(txId, month).catch((e) => {
-            console.error('[PartnerSyncWrapper] Publish delete failed:', e);
-          });
-        }
-      }
-    }
-
-    // Update snapshot (transactions + structure)
-    const newStructureByMonth = new Map<string, string>();
-    for (const budget of fullState.budgets) {
-      newStructureByMonth.set(budget.month, JSON.stringify(budget.buckets || []));
-    }
-    prevStateRef.current = {
-      byMonth: currentByMonth,
-      structureByMonth: newStructureByMonth,
-      initialized: true,
+    return () => {
+      if (publishTimer.current) clearTimeout(publishTimer.current);
     };
-  }, [
-    budgetKeypair,
-    fullState.budgets,
-    publishTransactionAdd,
-    publishTransactionUpdate,
-    publishTransactionDelete,
-    publishBudgetSnapshot,
-    syncedTxIds,
-    syncedStructureHashes,
-  ]);
+  }, [budgetKeypair, fullState.budgets, publishBudgetSnapshot]);
 
   return (
     <SharedSyncContext.Provider value={{
