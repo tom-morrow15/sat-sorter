@@ -34,7 +34,6 @@ function budgetFingerprint(state: BudgetState): string {
     partners: state.partners || [],
     templates: state.templates || [],
     paymentMethods: state.paymentMethods || [],
-    receivedInvites: state.receivedInvites || [],
     defaultTemplateId: state.defaultTemplateId,
     userRole: state.userRole,
   });

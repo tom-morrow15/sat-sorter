@@ -23,7 +23,6 @@ interface BudgetManifestV2 {
   paymentMethods?: string[];
   userRole?: string;
   defaultTemplateId?: string;
-  receivedInvites?: any[];
 }
 
 interface SyncStatus {
@@ -103,7 +102,6 @@ export async function fetchFullBudgetFromNostr(
       paymentMethods: manifest.paymentMethods || [],
       userRole: (manifest.userRole as any) || 'owner',
       defaultTemplateId: manifest.defaultTemplateId,
-      receivedInvites: manifest.receivedInvites || [],
       lastSynced: Math.floor(Date.now() / 1000),
     };
 
@@ -278,7 +276,6 @@ export function useBudgetSync() {
         paymentMethods: budgetState.paymentMethods || [],
         userRole: budgetState.userRole,
         defaultTemplateId: budgetState.defaultTemplateId,
-        receivedInvites: budgetState.receivedInvites || [],
       };
 
       const encryptedManifest = await user.signer.nip44.encrypt(

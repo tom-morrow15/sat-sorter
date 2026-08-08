@@ -116,11 +116,6 @@ function mergeBudgetStates(local: BudgetState, remote: BudgetState): BudgetState
   for (const p of local.partners || []) partnersMap.set(p.pubkey, p);
   for (const p of remote.partners || []) partnersMap.set(p.pubkey, p);
 
-  // Union received invites by id (prefer remote)
-  const invitesMap = new Map<string, NonNullable<BudgetState['receivedInvites']>[number]>();
-  for (const i of local.receivedInvites || []) invitesMap.set(i.id, i);
-  for (const i of remote.receivedInvites || []) invitesMap.set(i.id, i);
-
   // Union payment methods (deduped)
   const paymentMethodsSet = new Set<string>([
     ...(local.paymentMethods || []),
@@ -133,7 +128,6 @@ function mergeBudgetStates(local: BudgetState, remote: BudgetState): BudgetState
     budgets: mergedBudgets,
     templates: Array.from(templatesMap.values()),
     partners: Array.from(partnersMap.values()),
-    receivedInvites: Array.from(invitesMap.values()),
     userRole: remote.userRole || local.userRole,
     defaultTemplateId: remote.defaultTemplateId || local.defaultTemplateId,
     paymentMethods: Array.from(paymentMethodsSet),

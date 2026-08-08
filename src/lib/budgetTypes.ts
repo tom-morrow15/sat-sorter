@@ -73,23 +73,6 @@ export interface BudgetPartner {
   encryptedBudgetKey?: string;
 }
 
-export interface BudgetPartnerInvite {
-  id: string; // Unique invite ID
-  month: string; // YYYY-MM of the budget at invite time
-  from: string; // Sender's hex pubkey
-  permission: 'viewer' | 'editor';
-  /** NIP-44 encrypted budget nsec, decryptable only by the recipient. */
-  encryptedBudgetKey: string;
-  /** The budget's npub (unencrypted, so the recipient can verify). */
-  budgetNpub: string;
-  /** Full budget state snapshot (JSON-stringified BudgetState). Included in
-   *  the invite so the partner gets all data immediately on accept. */
-  snapshot?: string;
-  createdAt: number; // Unix timestamp
-  status: 'pending' | 'accepted' | 'declined';
-  acceptedAt?: number;
-}
-
 export interface BudgetTemplate {
   id: string;
   name: string; // e.g., "Standard Household Budget"
@@ -109,7 +92,6 @@ export interface BudgetState {
   userRole?: 'owner' | 'editor' | 'viewer'; // Current user's role in this budget (defaults to 'owner' for creator)
   templates?: BudgetTemplate[]; // Saved budget templates
   defaultTemplateId?: string; // ID of template to use for new months
-  receivedInvites?: BudgetPartnerInvite[]; // Invites received from other budget owners
   paymentMethods?: string[]; // User-defined payment methods (e.g. "Citi Credit Card", "ACH", "Cash")
 
   /** Shared-budget keypair. Created when the first partner is added.
@@ -185,7 +167,6 @@ export function normalizeBudgetState(input: any): BudgetState {
     partners: Array.isArray(input.partners) ? input.partners : undefined,
     templates: Array.isArray(input.templates) ? input.templates : undefined,
     paymentMethods: Array.isArray(input.paymentMethods) ? input.paymentMethods : undefined,
-    receivedInvites: Array.isArray(input.receivedInvites) ? input.receivedInvites : undefined,
     defaultTemplateId: typeof input.defaultTemplateId === 'string' ? input.defaultTemplateId : undefined,
     userRole: input.userRole === 'owner' || input.userRole === 'editor' || input.userRole === 'viewer'
       ? input.userRole

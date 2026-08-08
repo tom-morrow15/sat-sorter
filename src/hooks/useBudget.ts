@@ -368,38 +368,6 @@ export function useBudget() {
     }));
   }, [setState]);
 
-  // Accept a budget partner invite
-  const acceptPartnerInvite = useCallback((inviteId: string) => {
-    setState(prev => {
-      const invites = prev.receivedInvites || [];
-      const invite = invites.find(i => i.id === inviteId);
-      
-      if (!invite) return prev;
-
-      // Update invite status to accepted
-      const updatedInvites = invites.map(i =>
-        i.id === inviteId
-          ? { ...i, status: 'accepted' as const, acceptedAt: Math.floor(Date.now() / 1000) }
-          : i
-      );
-
-      return { ...prev, receivedInvites: updatedInvites };
-    });
-  }, [setState]);
-
-  // Decline a budget partner invite
-  const declinePartnerInvite = useCallback((inviteId: string) => {
-    setState(prev => {
-      const invites = prev.receivedInvites || [];
-      const updatedInvites = invites.map(i =>
-        i.id === inviteId
-          ? { ...i, status: 'declined' as const }
-          : i
-      );
-      return { ...prev, receivedInvites: updatedInvites };
-    });
-  }, [setState]);
-
    // Set user role
   const setUserRole = useCallback((role: 'owner' | 'editor' | 'viewer') => {
     setState(prev => ({ ...prev, userRole: role }));
@@ -560,7 +528,6 @@ export function useBudget() {
     userRole: state.userRole || 'owner',
     templates: state.templates || [],
     defaultTemplateId: state.defaultTemplateId,
-    receivedInvites: state.receivedInvites || [],
 
     // Month actions
     setCurrentMonth,
@@ -588,8 +555,6 @@ export function useBudget() {
     removePartner,
     changePartnerPermission,
     setUserRole,
-    acceptPartnerInvite,
-    declinePartnerInvite,
 
     // Import/export actions
     importBudgetState,

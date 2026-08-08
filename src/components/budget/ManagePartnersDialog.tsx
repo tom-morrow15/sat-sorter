@@ -44,14 +44,16 @@ export function ManagePartnersDialog({
 
   const [showShareQR, setShowShareQR] = useState(false);
   const [showJoinScanner, setShowJoinScanner] = useState(false);
+  const [showSecurityWarning, setShowSecurityWarning] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState('');
 
   const budgetKeypair = fullState.budgetKeypair;
   const isOwner = !budgetKeypair || userRole === 'owner';
 
-  // Generate QR code when the share dialog opens
-  const ensureKeypairAndShowQR = async () => {
+  // Prepare the keypair (generate if needed, seed relay) then show the
+  // security warning before revealing the QR. Called from the Share button.
+  const handleShareClick = async () => {
     let keypair = budgetKeypair;
 
     // Generate a new keypair if this is the first time sharing
@@ -96,7 +98,14 @@ export function ManagePartnersDialog({
       }
     }
 
-    // Generate QR from the nsec
+    // Show the security warning before revealing the QR
+    setShowSecurityWarning(true);
+  };
+
+  // Called when the user acknowledges the warning — generates and shows the QR
+  const handleAcknowledgeWarning = async () => {
+    setShowSecurityWarning(false);
+    const keypair = fullState.budgetKeypair;
     if (keypair?.budgetNsec) {
       try {
         const url = await QRCode.toDataURL(keypair.budgetNsec, { width: 280, margin: 1, color: { dark: '#000', light: '#fff' } });
@@ -238,7 +247,7 @@ export function ManagePartnersDialog({
                 <Button
                   className="w-full"
                   size="lg"
-                  onClick={ensureKeypairAndShowQR}
+                  onClick={handleShareClick}
                 >
                   <QrCode className="h-5 w-5 mr-2" />
                   Share Budget Key (QR)
@@ -319,6 +328,43 @@ export function ManagePartnersDialog({
                 <li>Both people see the same budget and sync changes automatically</li>
               </ul>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Security Warning — shown before the QR is revealed */}
+      <Dialog open={showSecurityWarning} onOpenChange={setShowSecurityWarning}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Shield className="h-5 w-5 text-amber-500" />
+              Before You Share
+            </DialogTitle>
+            <DialogDescription>
+              Please read carefully before showing the QR code.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-3 text-sm">
+            <div className="p-3 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300">
+              <p className="font-medium mb-1">This QR code contains your budget's secret key.</p>
+              <p className="text-xs">
+                Anyone who scans it gains <strong>full read and write access</strong> to your shared budget — every category, every transaction, past and future months.
+              </p>
+            </div>
+            <ul className="space-y-1.5 text-xs text-muted-foreground list-disc list-inside">
+              <li>Only share in person with someone you trust completely</li>
+              <li>Never screenshot, text, or email the QR code</li>
+              <li>Don't display it where others might see or photograph it</li>
+              <li>To remove a partner later, generate a new key and re-share</li>
+            </ul>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" className="flex-1" onClick={() => setShowSecurityWarning(false)}>
+              Cancel
+            </Button>
+            <Button className="flex-1" onClick={handleAcknowledgeWarning}>
+              I Understand — Show QR Code
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
