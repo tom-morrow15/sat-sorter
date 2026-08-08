@@ -11,10 +11,10 @@ export function BottomNavigation() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useCurrentUser();
-  const { currentBudget } = useBudget();
+  const { currentBudget, fullState } = useBudget();
   const { openAddTransaction } = useAddTransaction() ?? {};
 
-  const { status: autoSaveStatus, canAutoSave } = useBudgetAutoSave(undefined);
+  const { status: autoSaveStatus, canAutoSave } = useBudgetAutoSave(fullState);
 
   const isActive = (path: string) => location.pathname === path;
   const [showMore, setShowMore] = useState(false);
