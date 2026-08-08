@@ -194,11 +194,11 @@ export function BudgetHeader({
 
             {/* Right cluster */}
             <div className="flex items-center gap-2 shrink-0">
-              {/* BTC price — kept as-is, no animation */}
+              {/* BTC price — flat pill, no animation */}
               {priceData && (
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <div className="hidden xs:flex items-center gap-1.5 px-2.5 h-8 rounded-md border border-[hsl(var(--brand-border))] font-mono text-[11px] text-white/85 tabular-nums">
+                    <div className="flex items-center gap-1.5 px-2.5 h-8 rounded-md border border-[hsl(var(--brand-border))] font-mono text-[11px] text-white/85 tabular-nums whitespace-nowrap">
                       <Bitcoin className="h-3.5 w-3.5 text-primary" />
                       {formatUsd(priceData.usdPerBtc)}
                     </div>
