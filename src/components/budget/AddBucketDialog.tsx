@@ -281,26 +281,9 @@ const ICONS: IconOption[] = [
    { id: 'checkmark', Icon: CheckCircle, label: 'Completed', category: 'Other' },
 ];
 
-const COLORS = [
-  '#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899',
-  '#f43f5e', '#f59e0b', '#84cc16', '#14b8a6', '#0ea5e9', '#6366f1', '#d946ef', '#a855f7',
-  '#dc2626', '#ea580c', '#ca8a04', '#16a34a', '#0891b2', '#1d4ed8', '#7c3aed', '#be185d',
-];
+import { CATEGORY_PALETTE, DEFAULT_CATEGORY_COLOR } from '@/lib/categoryPalette';
 
-const CATEGORY_EMOJIS: Record<string, string> = {
-  Home: '🏠',
-  Transport: '🚗',
-  Food: '🍽️',
-  Health: '⚕️',
-  Entertainment: '🎮',
-  Subscriptions: '🔄',
-  Shopping: '🛍️',
-  Family: '👨‍👩‍👧‍👦',
-  Work: '💼',
-  Travel: '✈️',
-  Financial: '💰',
-  Other: '📋',
-};
+const COLORS = CATEGORY_PALETTE.map((c) => c.value);
 
 export function AddBucketDialog({
   open,
@@ -309,7 +292,7 @@ export function AddBucketDialog({
 }: AddBucketDialogProps) {
   const [name, setName] = useState('');
   const [selectedIcon, setSelectedIcon] = useState('wallet');
-  const [selectedColor, setSelectedColor] = useState(COLORS[5]);
+  const [selectedColor, setSelectedColor] = useState(DEFAULT_CATEGORY_COLOR);
   const [searchQuery, setSearchQuery] = useState('');
 
   const handleAdd = () => {
@@ -317,7 +300,7 @@ export function AddBucketDialog({
       onAdd(name.trim(), selectedColor, selectedIcon);
       setName('');
       setSelectedIcon('wallet');
-      setSelectedColor(COLORS[5]);
+      setSelectedColor(DEFAULT_CATEGORY_COLOR);
       setSearchQuery('');
       onOpenChange(false);
     }
@@ -326,7 +309,7 @@ export function AddBucketDialog({
   const handleClose = () => {
     setName('');
     setSelectedIcon('wallet');
-    setSelectedColor(COLORS[5]);
+    setSelectedColor(DEFAULT_CATEGORY_COLOR);
     setSearchQuery('');
     onOpenChange(false);
   };
@@ -367,66 +350,94 @@ export function AddBucketDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[520px] max-h-[90vh] rounded-3xl">
+      <DialogContent className="sm:max-w-[520px] max-h-[90vh]">
         <DialogHeader>
-          <DialogTitle className="text-2xl">
-            ✨ Create Budget Category
-          </DialogTitle>
+          <DialogTitle>Create Category</DialogTitle>
           <DialogDescription>
             Give every dollar a home. Choose a name, icon, and color.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6 py-4 overflow-y-auto max-h-[calc(90vh-200px)]">
+        <div className="space-y-5 py-1 overflow-y-auto max-h-[calc(90vh-200px)]">
           {/* Name input */}
           <div className="space-y-2">
-            <Label htmlFor="bucket-name" className="text-base font-semibold">
-              📝 Category Name
+            <Label htmlFor="bucket-name" className="bh-caption text-muted-foreground">
+              Category Name
             </Label>
             <Input
               id="bucket-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g., Entertainment, Insurance, Coffee..."
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleAdd();
-              }}
+              placeholder="e.g. Entertainment, Insurance, Coffee"
+              onKeyDown={(e) => { if (e.key === 'Enter') handleAdd(); }}
               autoFocus
-              className="text-base"
             />
           </div>
 
+          {/* Live Preview */}
+          <div className="bh-panel p-4 flex items-center gap-3 border-l-4" style={{ borderLeftColor: selectedColor }}>
+            <div
+              className="h-11 w-11 rounded-md flex items-center justify-center border"
+              style={{ backgroundColor: `${selectedColor}1f`, borderColor: `${selectedColor}55` }}
+            >
+              {(() => {
+                const IconComponent = ICONS.find(i => i.id === selectedIcon)?.Icon || Wallet;
+                return <IconComponent className="h-5 w-5" style={{ color: selectedColor }} />;
+              })()}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-serif text-lg leading-tight truncate">{name || 'Category name'}</p>
+              <p className="bh-caption text-muted-foreground mt-1">
+                {selectedIconData?.label || 'Select an icon'}
+              </p>
+            </div>
+          </div>
+
+          {/* Color selection — curated brand palette */}
+          <div className="space-y-2">
+            <Label className="bh-caption text-muted-foreground">Color</Label>
+            <div className="flex flex-wrap gap-2">
+              {COLORS.map(color => (
+                <button
+                  key={color}
+                  type="button"
+                  onClick={() => setSelectedColor(color)}
+                  className={cn(
+                    'h-9 w-9 rounded-md transition-transform hover:scale-105 border touch-target-sm',
+                    selectedColor === color ? 'ring-2 ring-offset-2 ring-foreground scale-105' : 'border-black/10'
+                  )}
+                  style={{ backgroundColor: color }}
+                  title={color}
+                />
+              ))}
+            </div>
+          </div>
+
           {/* Icon selection with search */}
-          <div className="space-y-3">
-            <Label htmlFor="icon-search" className="text-base font-semibold">
-              🎨 Choose Icon ({filteredIcons.length} options)
+          <div className="space-y-2">
+            <Label htmlFor="icon-search" className="bh-caption text-muted-foreground">
+              Icon · {filteredIcons.length} options
             </Label>
             <Input
               id="icon-search"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search icons..."
-              className="text-base"
+              placeholder="Search icons…"
             />
 
-            <div className="space-y-4">
+            <div className="space-y-4 pt-1">
               {categoryOrder.map(
                 category =>
                   groupedIcons[category] && (
                     <div key={category}>
-                      <div className="flex items-center gap-2 mb-3">
-                        <span className="text-xl">
-                          {CATEGORY_EMOJIS[category]}
-                        </span>
-                        <p className="text-sm font-semibold text-muted-foreground">
-                          {category}
-                        </p>
-                        <span className="text-xs bg-muted px-2 py-1 rounded">
+                      <div className="flex items-center gap-2 mb-2.5">
+                        <p className="bh-caption text-muted-foreground">{category}</p>
+                        <span className="font-mono text-[10px] text-muted-foreground">
                           {groupedIcons[category].length}
                         </span>
                         <div className="flex-1 h-px bg-border" />
                       </div>
-                      <div className="grid grid-cols-8 gap-2 mb-1">
+                      <div className="grid grid-cols-8 gap-2">
                         {groupedIcons[category].map(({ id, Icon, label }) => (
                           <button
                             key={id}
@@ -434,32 +445,18 @@ export function AddBucketDialog({
                             onClick={() => setSelectedIcon(id)}
                             title={label}
                             className={cn(
-                              'h-10 w-10 rounded-lg flex items-center justify-center transition-all duration-200 relative group',
-                              selectedIcon === id
-                                ? 'ring-2 ring-offset-2 scale-110'
-                                : 'hover:scale-105 hover:bg-muted'
+                              'h-10 w-10 rounded-md flex items-center justify-center transition-colors border',
+                              selectedIcon === id ? 'border-transparent' : 'border-transparent hover:bg-muted'
                             )}
                             style={{
-                              backgroundColor:
-                                selectedIcon === id
-                                  ? `${selectedColor}20`
-                                  : undefined,
-                              borderColor:
-                                selectedIcon === id ? selectedColor : undefined,
+                              backgroundColor: selectedIcon === id ? `${selectedColor}20` : undefined,
+                              borderColor: selectedIcon === id ? selectedColor : undefined,
                             }}
                           >
                             <Icon
                               className="h-5 w-5"
-                              style={{
-                                color:
-                                  selectedIcon === id
-                                    ? selectedColor
-                                    : undefined,
-                              }}
+                              style={{ color: selectedIcon === id ? selectedColor : undefined }}
                             />
-                            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-black text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
-                              {label}
-                            </div>
                           </button>
                         ))}
                       </div>
@@ -468,77 +465,11 @@ export function AddBucketDialog({
               )}
             </div>
           </div>
-
-          {/* Color selection */}
-          <div className="space-y-3">
-            <Label className="text-base font-semibold">🎯 Choose Color</Label>
-            <div className="grid grid-cols-8 gap-3">
-              {COLORS.map(color => (
-                <button
-                  key={color}
-                  type="button"
-                  onClick={() => setSelectedColor(color)}
-                  className={cn(
-                    'h-10 w-10 rounded-full transition-all duration-200 hover:scale-110',
-                    selectedColor === color && 'ring-2 ring-offset-2 scale-110'
-                  )}
-                  style={{
-                    backgroundColor: color,
-                  }}
-                  title={color}
-                />
-              ))}
-            </div>
-          </div>
-
-          {/* Live Preview */}
-          <div className="p-5 rounded-lg bg-gradient-to-br from-muted/50 to-muted border-2 border-dashed">
-            <p className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wide">
-              👀 Live Preview
-            </p>
-            <div className="flex items-center gap-4">
-              <div
-                className="h-14 w-14 rounded-lg flex items-center justify-center shadow-lg"
-                style={{ backgroundColor: `${selectedColor}20` }}
-              >
-                {(() => {
-                  const IconComponent =
-                    ICONS.find(i => i.id === selectedIcon)?.Icon || Wallet;
-                  return (
-                    <IconComponent
-                      className="h-7 w-7"
-                      style={{ color: selectedColor }}
-                    />
-                  );
-                })()}
-              </div>
-              <div className="flex-1">
-                <p className="font-bold text-lg">
-                  {name || 'Your Category Name'}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {selectedIconData?.label || 'Select an icon'} • 0 items
-                </p>
-              </div>
-            </div>
-          </div>
         </div>
 
-        <DialogFooter className="gap-3">
-          <Button
-            variant="outline"
-            onClick={handleClose}
-            className="hover:bg-muted"
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleAdd}
-            disabled={!name.trim()}
-            className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70"
-          >
-            ✨ Create Category
-          </Button>
+        <DialogFooter className="gap-2">
+          <Button variant="outline" onClick={handleClose}>Cancel</Button>
+          <Button onClick={handleAdd} disabled={!name.trim()}>Create Category</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

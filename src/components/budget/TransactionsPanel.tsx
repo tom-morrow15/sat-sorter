@@ -370,7 +370,7 @@ export function TransactionsPanel({
                      <div className="flex items-center gap-2">
                            <span
                              className={cn(
-                               'text-sm font-medium tabular-nums',
+                               'text-sm font-mono',
                                transaction.isIncome ? 'text-success' : ''
                              )}
                            >
@@ -444,7 +444,7 @@ export function TransactionsPanel({
                          <div className="flex items-center gap-2">
                            <span
                              className={cn(
-                               'text-sm font-medium tabular-nums',
+                               'text-sm font-mono',
                                transaction.isIncome ? 'text-success' : ''
                              )}
                            >
@@ -571,7 +571,7 @@ export function TransactionsPanel({
           {/* Empty state */}
           {transactions.length === 0 && !filteredTransactions.length && (
             <div className="text-center py-12">
-              <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-3">
+              <div className="h-12 w-12 rounded-md bg-primary/10 flex items-center justify-center mx-auto mb-3">
                 <Link2 className="h-6 w-6 text-primary" />
               </div>
               <p className="text-sm font-medium mb-1">No transactions yet</p>
@@ -591,9 +591,9 @@ export function TransactionsPanel({
 
       {/* Add Transaction Dialog */}
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-        <DialogContent className="sm:max-w-[400px] rounded-3xl">
+        <DialogContent className="sm:max-w-[400px]">
           <DialogHeader>
-            <DialogTitle className="text-xl">Add Transaction</DialogTitle>
+            <DialogTitle>Add Transaction</DialogTitle>
             <DialogDescription>
               Record a transaction to track your spending.
             </DialogDescription>
@@ -689,9 +689,9 @@ export function TransactionsPanel({
 
       {/* Assign Transaction Dialog */}
       <Dialog open={showAssignDialog} onOpenChange={setShowAssignDialog}>
-        <DialogContent className="sm:max-w-[400px] rounded-3xl">
+        <DialogContent className="sm:max-w-[400px]">
           <DialogHeader>
-            <DialogTitle className="text-xl">Categorize Transaction</DialogTitle>
+            <DialogTitle>Categorize Transaction</DialogTitle>
             <DialogDescription>
               Assign this transaction to a budget category.
             </DialogDescription>

@@ -365,7 +365,7 @@ export function AddTransactionDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[480px] max-h-[90dvh] flex flex-col rounded-3xl" onKeyDown={handleKeyDown}>
+      <DialogContent className="sm:max-w-[480px] max-h-[90dvh] flex flex-col" onKeyDown={handleKeyDown}>
         <DialogHeader className="shrink-0">
           <DialogTitle className="text-xl">{isIncome ? 'Add Income' : 'Add Transaction'}</DialogTitle>
           <DialogDescription>
@@ -377,7 +377,7 @@ export function AddTransactionDialog({
           {/* Amount — large, prominent */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label htmlFor="amount" className="font-serif-display">
+              <Label htmlFor="amount" className="bh-caption text-muted-foreground">
                 Amount {currency === 'usd' ? '(USD)' : '(sats)'}
               </Label>
               {!isIncome && hasAIKey && (
@@ -403,12 +403,12 @@ export function AddTransactionDialog({
                 step={currency === 'usd' ? '0.01' : '1'}
                 min="0"
                 placeholder={currency === 'usd' ? '0.00' : '0'}
-                className="h-14 pl-10 text-2xl font-serif-display tabular-nums"
+                className="h-14 pl-10 text-2xl font-mono"
                 autoFocus
               />
             </div>
             {conversionDisplay && (
-              <p className="text-xs text-muted-foreground tabular-nums animate-count-up">
+              <p className="font-mono text-xs text-muted-foreground animate-count-up">
                 {conversionDisplay}
               </p>
             )}
@@ -416,10 +416,10 @@ export function AddTransactionDialog({
 
           {/* Description */}
           <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
+            <Label htmlFor="description" className="bh-caption text-muted-foreground">Description</Label>
             <Input
               id="description"
-              placeholder="e.g., Target run, Weekly groceries..."
+              placeholder="e.g. Target run, Weekly groceries"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
             />
@@ -428,7 +428,7 @@ export function AddTransactionDialog({
           {/* Assignment section */}
           <div className="space-y-3 pt-2">
             <div className="flex items-center justify-between">
-              <Label className="font-serif-display">
+              <Label className="bh-caption text-muted-foreground">
                 {assignments.length > 1 ? 'Split into categories' : 'Assign to category'}
               </Label>
               {hasAmount && (
@@ -459,7 +459,7 @@ export function AddTransactionDialog({
                   <div
                     key={assignment.id}
                     className={cn(
-                      'p-3 rounded-xl border space-y-2 transition-colors',
+                      'p-3 rounded-md border space-y-2 transition-colors',
                       assignment.bucketId && assignment.lineItemId
                         ? 'border-primary/20 bg-primary/5'
                         : 'border-border'
