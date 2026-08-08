@@ -56,19 +56,20 @@ export function AddressListItem({
 
   if (isEditing) {
     return (
-      <div className="p-3 rounded-lg bg-muted/50 space-y-3">
+      <div className="p-3 rounded-xl bg-muted/40 space-y-3">
         <Input
           value={editingLabel}
           onChange={(e) => onEditChange(e.target.value)}
           placeholder="Label"
+          className="h-10"
           autoFocus
         />
         <div className="flex gap-2">
-          <Button size="sm" onClick={onEditSave} className="flex-1">
+          <Button size="sm" onClick={onEditSave} className="flex-1 touch-target-sm">
             <Check className="h-4 w-4 mr-1" />
             Save
           </Button>
-          <Button size="sm" variant="ghost" onClick={onEditCancel} className="flex-1">
+          <Button size="sm" variant="ghost" onClick={onEditCancel} className="flex-1 touch-target-sm">
             <X className="h-4 w-4 mr-1" />
             Cancel
           </Button>
@@ -81,7 +82,7 @@ export function AddressListItem({
   const fetchFailed = balanceSats === null;
 
   return (
-    <div className="flex items-center justify-between gap-3 p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors group">
+    <div className="flex items-center justify-between gap-3 p-3 -mx-1 rounded-xl hover:bg-muted/30 transition-colors group">
       <div className="flex-1 min-w-0">
         <p className="font-medium text-sm truncate">{address.label}</p>
         <p className="text-xs text-muted-foreground font-mono truncate">
@@ -103,7 +104,7 @@ export function AddressListItem({
           <span className="text-xs text-destructive">Unavailable</span>
         ) : hasBalance ? (
           <>
-            <p className="text-sm font-semibold tabular-nums">
+            <p className="font-num text-base tabular-nums">
               {formatSats(balanceSats)} sats
             </p>
             <p className="text-xs text-muted-foreground tabular-nums">

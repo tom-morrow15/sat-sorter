@@ -112,16 +112,20 @@ export default function SpendingBreakdownPage() {
         onSelectMonth={setCurrentMonth}
       />
 
-      <main className="max-w-2xl mx-auto px-4 sm:px-6 py-5 sm:py-8">
+      <main className="max-w-2xl mx-auto px-4 sm:px-6 py-5 pb-6">
+        <div className="mb-4">
+          <p className="bh-caption text-muted-foreground mb-1">Analysis</p>
+          <h1 className="font-serif text-3xl leading-none">Breakdown</h1>
+        </div>
+
         {breakdownData.length === 0 ? (
-          <div className="text-center py-20">
-            <h1 className="font-serif-display text-2xl mb-2">Spending Breakdown</h1>
+          <div className="surface-card text-center py-16 px-6 animate-slide-in-up" style={{ animationFillMode: 'both' }}>
             <p className="text-muted-foreground text-sm">No spending data yet for {monthLabel}.</p>
           </div>
         ) : (
-          <div className="space-y-5">
+          <div className="space-y-4">
             {/* Gauge card */}
-            <section className="card-base px-5 pt-6 pb-5 text-center animate-slide-in-up" style={{ animationFillMode: 'both' }}>
+            <section className="surface-card px-5 pt-6 pb-5 text-center animate-slide-in-up" style={{ animationFillMode: 'both' }}>
               <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
                 {monthLabel}
               </p>
@@ -142,7 +146,7 @@ export default function SpendingBreakdownPage() {
 
             {/* Trend card */}
             {trendData && (
-              <section className="card-base p-4 animate-slide-in-up" style={{ animationDelay: '0.1s', animationFillMode: 'both' }}>
+              <section className="surface-card p-4 animate-slide-in-up" style={{ animationDelay: '0.1s', animationFillMode: 'both' }}>
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">vs Last Month</p>
@@ -181,7 +185,7 @@ export default function SpendingBreakdownPage() {
                   {breakdownData.length} {breakdownData.length === 1 ? 'category' : 'categories'}
                 </span>
               </div>
-              <ul className="card-base divide-y divide-border/30 overflow-hidden">
+              <ul className="surface-card divide-y divide-border/40 overflow-hidden">
                 {breakdownData.map((item) => {
                   const Icon = iconMap[item.icon] || Wallet;
                   const spentDisplay = toDisplay(item.spentUsd);

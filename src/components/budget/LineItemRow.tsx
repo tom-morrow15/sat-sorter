@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Trash2, GripVertical, Edit2, Check, X, Receipt } from 'lucide-react';
+import { Trash2, Edit2, Check, X, Receipt } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useBitcoinPrice, formatSats, satsToUsd, usdToSats, formatUsd } from '@/hooks/useBitcoinPrice';
@@ -50,8 +50,7 @@ export function LineItemRow({
   } else {
     spent = spentSats;
     remaining = lineItem.plannedAmount - spentSats;
-    percentSpent = lineItem.plannedAmount > 0
-      ? Math.min((spentSats / lineItem.plannedAmount) * 100, 100) : 0;
+    percentSpent = lineItem.plannedAmount > 0 ? Math.min((spentSats / lineItem.plannedAmount) * 100, 100) : 0;
     isOverBudget = remaining < 0;
   }
 
@@ -139,7 +138,7 @@ export function LineItemRow({
   if (isEditing) {
     return (
       <>
-        <div className="py-3 px-1 rounded-xl bg-muted/30 space-y-3 animate-list-item">
+        <div className="py-3 px-1 border-t border-border first:border-t-0 space-y-3 animate-list-item">
           <div className="flex flex-col sm:flex-row gap-2.5">
             <Input
               ref={nameInputRef}
@@ -147,7 +146,7 @@ export function LineItemRow({
               onChange={(e) => setEditName(e.target.value)}
               onKeyDown={handleKeyDown}
               className="h-10 text-sm flex-1"
-              placeholder="e.g., Groceries, Gas, Rent"
+              placeholder="e.g. Groceries, Gas, Rent"
             />
             <div className="relative h-10 w-full sm:w-36">
               <Input
@@ -156,24 +155,20 @@ export function LineItemRow({
                 value={editAmount}
                 onChange={(e) => setEditAmount(e.target.value)}
                 onKeyDown={handleKeyDown}
-                className="h-10 w-full text-right text-sm tabular-nums"
+                className="h-10 w-full text-right text-sm font-mono"
                 min="0"
                 step={currency === 'usd' ? '0.01' : '1'}
                 placeholder=" "
               />
               {!editAmount && (
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/40 pointer-events-none text-sm tabular-nums">
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/40 pointer-events-none text-sm font-mono">
                   {currency === 'usd' ? '$0.00' : '0'}
                 </span>
               )}
             </div>
           </div>
           <div className="flex justify-between gap-2">
-            <Button
-              size="sm" variant="ghost"
-              className="text-destructive hover:text-destructive hover:bg-destructive/10 touch-target-sm"
-              onClick={() => setShowDeleteConfirm(true)}
-            >
+            <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive hover:bg-destructive/10 touch-target-sm" onClick={() => setShowDeleteConfirm(true)}>
               <Trash2 className="h-4 w-4 mr-1" /> Delete
             </Button>
             <div className="flex gap-2">
@@ -200,15 +195,8 @@ export function LineItemRow({
   // ===== DISPLAY MODE =====
   return (
     <>
-      <div className="group py-2.5 px-1 -mx-1 rounded-xl transition-colors hover:bg-muted/30 animate-list-item">
-        {/* Main row */}
-        <div className="flex items-center gap-2 sm:gap-3">
-          {/* Drag handle — desktop only */}
-          <div className="hidden sm:flex opacity-0 group-hover:opacity-30 cursor-grab items-center w-4">
-            <GripVertical className="h-4 w-4 text-muted-foreground" />
-          </div>
-
-          {/* Name + merchant badge */}
+      <div className="group py-2.5 border-t border-border first:border-t-0 animate-list-item">
+        <div className="flex items-center gap-2.5">
           <div className="flex-1 min-w-0 flex items-center gap-1.5">
             <span className="text-sm font-medium truncate">{lineItem.name}</span>
             {!isIncome && merchants.length > 0 && (
@@ -218,10 +206,9 @@ export function LineItemRow({
             )}
           </div>
 
-          {/* Amount */}
           <div className={cn(
-            'text-right font-serif-display tabular-nums text-sm sm:text-base flex-shrink-0',
-            isIncome && 'text-success'
+            'text-right font-mono text-sm sm:text-base flex-shrink-0',
+            isIncome && 'text-[hsl(var(--success))]'
           )}>
             <span className="sm:hidden">{formatAmount(lineItem, true)}</span>
             <span className="hidden sm:inline">
@@ -229,7 +216,6 @@ export function LineItemRow({
             </span>
           </div>
 
-          {/* Edit button */}
           <Button
             size="icon" variant="ghost"
             className="h-8 w-8 flex-shrink-0 text-muted-foreground hover:text-foreground touch-target-sm sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
@@ -239,7 +225,6 @@ export function LineItemRow({
             <Edit2 className="h-4 w-4" />
           </Button>
 
-          {/* Receipt button */}
           {onViewTransactions && spent > 0 && (
             <Button
               size="icon" variant="ghost"
@@ -251,7 +236,6 @@ export function LineItemRow({
             </Button>
           )}
 
-          {/* Delete — desktop only */}
           <div className="hidden sm:flex opacity-0 group-hover:opacity-100 transition-opacity">
             <Button
               size="icon" variant="ghost"
@@ -263,40 +247,26 @@ export function LineItemRow({
           </div>
         </div>
 
-        {/* Progress bar for expenses */}
+        {/* Flat progress for expenses */}
         {!isIncome && lineItem.plannedAmount > 0 && (
-          <div className="mt-2 space-y-1 pl-0 sm:pl-7">
-            <div className="w-full bg-muted/40 rounded-full h-1.5 overflow-hidden">
+          <div className="mt-2 space-y-1">
+            <div className="w-full h-1 bh-track">
               <div
-                className={cn(
-                  'h-full rounded-full transition-all duration-500',
-                  isOverBudget
-                    ? 'bg-gradient-to-r from-red-500 to-destructive'
-                    : percentSpent >= 90
-                    ? 'bg-gradient-to-r from-orange-500 to-red-500'
-                    : percentSpent >= 75
-                    ? 'bg-gradient-to-r from-amber-500 to-orange-500'
-                    : 'bg-gradient-to-r from-emerald-500 to-emerald-400'
-                )}
+                className="h-full bh-fill"
                 style={{
                   width: `${percentSpent}%`,
-                  transitionTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
+                  backgroundColor: isOverBudget ? 'hsl(var(--destructive))' : percentSpent >= 90 ? 'hsl(var(--mustard))' : bucketColor,
                 }}
               />
             </div>
-            <div className="flex items-center justify-between text-[11px] tabular-nums">
-              <span className={cn(
-                'whitespace-nowrap',
-                isOverBudget ? 'text-destructive font-medium' : 'text-muted-foreground'
-              )}>
+            <div className="flex items-center justify-between font-mono text-[11px]">
+              <span className={cn('whitespace-nowrap', isOverBudget ? 'text-destructive' : 'text-muted-foreground')}>
                 <span className="sm:hidden">{formatDisplayAmount(spent, true)}</span>
                 <span className="hidden sm:inline">{formatDisplayAmount(spent)} spent</span>
               </span>
               <span className={cn(
                 'whitespace-nowrap',
-                isOverBudget ? 'text-destructive font-medium'
-                  : percentSpent >= 90 ? 'text-orange-600 dark:text-orange-400 font-medium'
-                  : 'text-muted-foreground'
+                isOverBudget ? 'text-destructive' : percentSpent >= 90 ? 'text-mustard' : 'text-muted-foreground'
               )}>
                 {isOverBudget ? (
                   <>

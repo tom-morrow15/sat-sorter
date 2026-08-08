@@ -85,16 +85,13 @@ export default function TransactionsPage() {
         }}
       />
 
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-5 sm:py-8">
-        <div className="space-y-4">
-          {/* Title */}
-          <div>
-            <h1 className="font-serif-display text-xl sm:text-2xl tracking-tight">Transactions</h1>
-            <p className="text-muted-foreground text-sm mt-0.5">
-              All transactions for {formatMonth(currentMonth)}
-            </p>
-          </div>
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-5 pb-6">
+        <div className="mb-4">
+          <p className="bh-caption text-muted-foreground mb-1">Activity</p>
+          <h1 className="font-serif text-3xl leading-none">Transactions</h1>
+        </div>
 
+        <div className="space-y-4">
           {/* Active filter banner */}
           {lineItemIdFilter && (() => {
             const filteredLineItem = currentBudget.buckets

@@ -115,17 +115,17 @@ export function SpendingGauge({
         role="img"
         aria-label="Spending breakdown gauge"
       >
-        {/* Track (always a full semi-circle) */}
+        {/* Track (always a full semi-circle) — flat, solid */}
         <path
           d={trackPath}
           fill="none"
           stroke="hsl(var(--muted))"
           strokeWidth={thickness}
-          strokeLinecap="round"
-          opacity={hasData ? 0.4 : 0.25}
+          strokeLinecap="butt"
+          opacity={hasData ? 0.6 : 0.4}
         />
 
-        {/* Colored segments, drawn over the track */}
+        {/* Colored segments, drawn over the track — flat caps */}
         {paths.map((p) => (
           <path
             key={p.id}
@@ -133,7 +133,7 @@ export function SpendingGauge({
             fill="none"
             stroke={p.color}
             strokeWidth={thickness}
-            strokeLinecap="round"
+            strokeLinecap="butt"
           />
         ))}
       </svg>

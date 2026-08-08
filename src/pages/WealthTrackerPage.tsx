@@ -79,36 +79,35 @@ export default function WealthTrackerPage() {
         onNextMonth={handleNextMonth}
         onOpenWallet={() => {}}
         onSelectMonth={setCurrentMonth}
+        showStatStrip={false}
       />
 
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-5 sm:py-8">
-        <div className="space-y-5">
-          {/* Page Title */}
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h1 className="font-serif-display text-xl sm:text-2xl tracking-tight">Wealth Tracker</h1>
-              <p className="text-muted-foreground text-sm mt-0.5">
-                Monitor your Bitcoin holdings across multiple addresses
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-5 pb-6">
+        <div className="mb-4">
+          <p className="bh-caption text-muted-foreground mb-1">Holdings</p>
+          <h1 className="font-serif text-3xl leading-none">Wealth Tracker</h1>
+        </div>
+
+        <div className="space-y-4">
+          {(lastSyncLabel || watchedAddresses.length > 0) && (
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-xs text-muted-foreground">
+                {lastSyncLabel ? `Last synced ${lastSyncLabel}` : 'Monitor your Bitcoin holdings'}
               </p>
-              {lastSyncLabel && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  Last synced {lastSyncLabel}
-                </p>
+              {watchedAddresses.length > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => refetchBalances()}
+                  disabled={isFetchingBalances}
+                  className="gap-2 touch-target-sm"
+                >
+                  <RefreshCw className={`h-4 w-4 ${isFetchingBalances ? 'animate-spin' : ''}`} />
+                  {isFetchingBalances ? 'Refreshing…' : 'Refresh'}
+                </Button>
               )}
             </div>
-            {watchedAddresses.length > 0 && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => refetchBalances()}
-                disabled={isFetchingBalances}
-                className="gap-2"
-              >
-                <RefreshCw className={`h-4 w-4 ${isFetchingBalances ? 'animate-spin' : ''}`} />
-                {isFetchingBalances ? 'Refreshing…' : 'Refresh'}
-              </Button>
-            )}
-          </div>
+          )}
 
           {/* Error alert */}
           {balanceError && watchedAddresses.length > 0 && (
@@ -132,27 +131,27 @@ export default function WealthTrackerPage() {
           )}
 
           {/* Address Manager */}
-          <Card className="card-base border-border/40">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+          <div className="surface-card p-5">
+            <div className="flex flex-row items-center justify-between space-y-0 pb-4">
               <div>
-                <CardTitle className="text-base">Watched Addresses</CardTitle>
-                <p className="text-sm text-muted-foreground mt-1">
+                <h2 className="font-display text-base">Watched Addresses</h2>
+                <p className="text-sm text-muted-foreground mt-0.5">
                   {watchedAddresses.length > 0
                     ? `Tracking ${watchedAddresses.length} address${watchedAddresses.length !== 1 ? 'es' : ''}`
                     : 'No addresses monitored yet'}
                 </p>
               </div>
-              <Button onClick={() => setShowAddAddress(true)} className="gap-2">
+              <Button onClick={() => setShowAddAddress(true)} className="gap-2 touch-target-sm">
                 <Plus className="h-4 w-4" />
                 <span className="hidden sm:inline">Add Address</span>
                 <span className="sm:hidden">Add</span>
               </Button>
-            </CardHeader>
+            </div>
 
-            <CardContent>
+            <div>
               {watchedAddresses.length === 0 ? (
                 <div className="text-center py-12 px-6">
-                  <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
+                  <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-3">
                     <Plus className="h-6 w-6 text-primary" />
                   </div>
                   <p className="text-sm font-medium mb-1">No addresses added yet</p>
@@ -198,24 +197,22 @@ export default function WealthTrackerPage() {
                   })}
                 </div>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
           {/* Info Box */}
-          <Card className="bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
-            <CardContent className="pt-6">
-              <div className="text-sm space-y-2">
-                <p className="font-medium">ℹ️ How it works:</p>
-                <ul className="text-xs space-y-1 ml-4 list-disc">
-                  <li>Add any Bitcoin address (Legacy, SegWit, or Bech32)</li>
-                  <li>Balances are fetched from the blockchain via mempool.space</li>
-                  <li>Historical snapshots track changes over time</li>
-                  <li>Click Refresh to pull the latest balances on demand</li>
-                  <li>Your data is stored locally in your browser</li>
-                </ul>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="surface-card p-5 bg-primary/[0.03]">
+            <div className="text-sm space-y-2">
+              <p className="font-display text-base">How it works</p>
+              <ul className="text-xs space-y-1.5 text-muted-foreground list-disc list-inside">
+                <li>Add any Bitcoin address (Legacy, SegWit, or Bech32)</li>
+                <li>Balances are fetched from the blockchain via mempool.space</li>
+                <li>Historical snapshots track changes over time</li>
+                <li>Click Refresh to pull the latest balances on demand</li>
+                <li>Your data is stored locally in your browser</li>
+              </ul>
+            </div>
+          </div>
         </div>
       </main>
 

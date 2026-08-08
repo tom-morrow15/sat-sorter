@@ -7,10 +7,12 @@ interface SpendingProgressBarProps {
   showLabel?: boolean;
   currency?: 'sats' | 'usd';
   formatAmount?: (amount: number) => string;
+  /** Brand-palette color for the fill. Defaults to burnt orange. */
+  accentColor?: string;
 }
 
 export function SpendingProgressBar({
-  spent, budget, className, showLabel = true, currency = 'usd', formatAmount,
+  spent, budget, className, showLabel = true, currency = 'usd', formatAmount, accentColor,
 }: SpendingProgressBarProps) {
   const percentage = budget > 0 ? Math.min((spent / budget) * 100, 100) : 0;
   const actualPercentage = budget > 0 ? (spent / budget) * 100 : 0;
@@ -26,44 +28,27 @@ export function SpendingProgressBar({
   };
 
   const isOverBudget = spent > budget;
-  const isWarning = remainingPercent <= 20 && remainingPercent > 0;
   const isCritical = remainingPercent <= 10 && remainingPercent > 0;
-  const isNearFull = remainingPercent <= 5 && remainingPercent > 0;
 
-  const barGradient = isOverBudget
-    ? 'bg-gradient-to-r from-red-500 to-destructive'
-    : isNearFull
-    ? 'bg-gradient-to-r from-orange-500 to-red-500'
+  // Flat color only — no gradient, no glow.
+  const fillColor = isOverBudget
+    ? 'hsl(var(--destructive))'
     : isCritical
-    ? 'bg-gradient-to-r from-amber-500 to-orange-500'
-    : isWarning
-    ? 'bg-gradient-to-r from-yellow-400 to-amber-500'
-    : 'bg-gradient-to-r from-primary to-orange-500';
+    ? 'hsl(var(--mustard))'
+    : accentColor || 'hsl(var(--primary))';
 
   return (
     <div className={cn('w-full space-y-1.5', className)}>
-      <div className="w-full bg-muted/40 rounded-full h-2 overflow-hidden">
-        <div
-          className={cn('h-full rounded-full transition-all duration-500 ease-out', barGradient)}
-          style={{
-            width: `${percentage}%`,
-            transitionTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
-          }}
-        />
+      <div className="w-full h-2 bh-track">
+        <div className="h-full bh-fill" style={{ width: `${percentage}%`, backgroundColor: fillColor }} />
       </div>
       {showLabel && (
-        <div className="flex items-center justify-between text-[11px]">
-          <span className="text-muted-foreground font-medium tabular-nums">
-            {actualPercentage.toFixed(0)}% spent
-          </span>
+        <div className="flex items-center justify-between font-mono text-[11px]">
+          <span className="text-muted-foreground">{actualPercentage.toFixed(0)}% spent</span>
           {!isOverBudget && remaining > 0 ? (
-            <span className="text-muted-foreground tabular-nums">
-              {remainingPercent.toFixed(0)}% left
-            </span>
+            <span className="text-muted-foreground">{remainingPercent.toFixed(0)}% left</span>
           ) : isOverBudget ? (
-            <span className="text-destructive font-medium tabular-nums">
-              {formatDisplayAmount(Math.abs(remaining))} over
-            </span>
+            <span className="text-destructive">{formatDisplayAmount(Math.abs(remaining))} over</span>
           ) : null}
         </div>
       )}
