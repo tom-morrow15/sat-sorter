@@ -19,6 +19,7 @@ export function Sidebar() {
   const navigate = useNavigate();
   const { user } = useCurrentUser();
   const { currentBudget, fullState } = useBudget();
+  const { config } = useAppContext();
   const { openAddTransaction } = useAddTransaction() ?? {};
   const { status: autoSaveStatus, canAutoSave } = useBudgetAutoSave(fullState);
 
