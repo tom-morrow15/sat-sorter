@@ -2,7 +2,6 @@ import { useEffect, useRef, createContext, useContext } from 'react';
 import { useBudget } from '@/hooks/useBudget';
 import { useBudgetContext } from '@/contexts/BudgetContext';
 import { useSharedBudgetSync, fingerprintBudgetMonth } from '@/hooks/useSharedBudgetSync';
-import { usePartnerInviteResponses } from '@/hooks/usePartnerInviteResponses';
 import type { MonthlyBudget } from '@/lib/budgetTypes';
 
 interface SharedSyncContextValue {
@@ -44,9 +43,6 @@ export function PartnerSyncWrapper({ children }: { children: React.ReactNode }) 
     budgetKeypair?.budgetNpub || '',
     budgetKeypair?.budgetNsec || ''
   );
-
-  // Listen for invite accept/decline responses
-  usePartnerInviteResponses();
 
   // Debounce timer for publishing
   const publishTimer = useRef<ReturnType<typeof setTimeout> | null>(null);

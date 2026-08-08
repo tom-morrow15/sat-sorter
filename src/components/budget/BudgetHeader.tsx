@@ -39,7 +39,6 @@ import { cn } from '@/lib/utils';
 import { useTheme } from '@/hooks/useTheme';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { usePartners } from '@/hooks/usePartners';
-import { usePartnerInvites } from '@/hooks/usePartnerInvites';
 import { AccountSwitcher } from '@/components/auth/AccountSwitcher';
 import LoginDialog from '@/components/auth/LoginDialog';
 import { useAppContext } from '@/hooks/useAppContext';
@@ -104,7 +103,6 @@ export function BudgetHeader({
   const { needRefresh, softReset, hardReset, totalReset } = useRegisterSW();
   const { isDark, toggle: toggleTheme } = useTheme();
   const { partners: nostrPartners } = usePartners();
-  const { pendingInvitesCount } = usePartnerInvites();
   const { state: onboardingState } = useOnboarding();
   const { fullState } = useBudget();
   const [showMonthPicker, setShowMonthPicker] = useState(false);
@@ -244,7 +242,7 @@ export function BudgetHeader({
                   onAddAccountClick={() => setShowLogin(true)}
                   onBudgetPartnersClick={() => setShowPartners(true)}
                   partnersCount={nostrPartners.length}
-                  pendingInvitesCount={pendingInvitesCount}
+                  pendingInvitesCount={0}
                   onShowBudgetKey={() => setShowBudgetKey(true)}
                   onOpenWallet={() => onOpenWallet && onOpenWallet()}
                   onOpenMapleSettings={() => setShowSettings(true)}
