@@ -403,11 +403,27 @@ export function getTransactionUsdAmount(transaction: Transaction, currentBtcPric
   return transaction.amount / 100_000_000 * currentBtcPrice;
 }
 
-// Calculate spent amount for a line item
+// Calculate spent amount for a line item — includes both legacy single-assignment
+// and split transactions that have a split targeting this line item.
 export function calculateSpentForLineItem(lineItemId: string, transactions: Transaction[]): number {
-  return transactions
-    .filter(t => t.lineItemId === lineItemId && !t.isIncome)
-    .reduce((sum, t) => sum + t.amount, 0);
+  let total = 0;
+  for (const t of transactions) {
+    if (t.isIncome) continue;
+    // Check legacy single-assignment
+    if (t.lineItemId === lineItemId) {
+      total += t.amount;
+      continue;
+    }
+    // Check split assignments
+    if (t.splits) {
+      for (const split of t.splits) {
+        if (split.lineItemId === lineItemId) {
+          total += split.amount;
+        }
+      }
+    }
+  }
+  return total;
 }
 
 // Calculate spent amount for a bucket
@@ -418,9 +434,10 @@ export function calculateSpentForBucket(bucket: Bucket, transactions: Transactio
   );
 }
 
-// Get unassigned transactions
+// Get unassigned transactions — a transaction is "unassigned" if it has
+// no lineItemId AND no splits (split transactions are considered assigned).
 export function getUnassignedTransactions(transactions: Transaction[]): Transaction[] {
-  return transactions.filter(t => t.lineItemId === null);
+  return transactions.filter(t => t.lineItemId === null && !(t.splits && t.splits.length > 0));
 }
 
 // USD-Anchored Math Helpers

@@ -98,16 +98,20 @@ export function TransactionsPanel({
     setFilteredTransactions([]);
   }, [lineItemIdFilter]);
 
-  // Filter by lineItemId if provided
+  // Filter by lineItemId if provided — includes both legacy single-assignment
+  // and split transactions that have a split targeting this line item.
   const transactionsByLineItem = useMemo(() => {
     if (!lineItemIdFilter) return transactions;
-    return transactions.filter(t => t.lineItemId === lineItemIdFilter);
+    return transactions.filter(t =>
+      t.lineItemId === lineItemIdFilter ||
+      (t.splits && t.splits.some(s => s.lineItemId === lineItemIdFilter))
+    );
   }, [transactions, lineItemIdFilter]);
 
   const unassigned = getUnassignedTransactions(transactionsByLineItem);
-  // Sort assigned transactions by date (newest first) so recent additions are visible at the top
+  // Sort assigned transactions by date (newest first) — includes split transactions
   const assigned = transactionsByLineItem
-    .filter(t => t.lineItemId !== null)
+    .filter(t => t.lineItemId !== null || (t.splits && t.splits.length > 0))
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   // Use filtered transactions if filter is active, otherwise show all
