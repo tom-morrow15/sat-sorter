@@ -7,8 +7,7 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useBudgetContext } from '@/contexts/BudgetContext';
 import { useToast } from '@/hooks/useToast';
 import { encryptWithBudgetKey, decryptWithBudgetKey } from '@/lib/budgetCrypto';
-import type { Transaction, MonthlyBudget } from '@/lib/budgetTypes';
-import { generateId } from '@/lib/budgetTypes';
+import type { MonthlyBudget } from '@/lib/budgetTypes';
 
 /**
  * SIMPLIFIED shared budget sync — full-month snapshot model.
