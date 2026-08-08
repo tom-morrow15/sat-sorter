@@ -240,6 +240,12 @@ export function ManagePartnersDialog({
           };
         });
 
+        // Mark the applied snapshot months as "received" so PartnerSyncWrapper
+        // doesn't echo them back to the relay as if they were local edits.
+        for (const snap of snapshotBudgets) {
+          sharedSync?.markReceivedSnapshot(snap.month, snap);
+        }
+
         toast({
           title: 'Budget Partner Invite Accepted!',
           description: snapshotBudgets.length > 0

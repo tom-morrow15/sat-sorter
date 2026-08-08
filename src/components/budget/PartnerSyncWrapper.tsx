@@ -1,13 +1,16 @@
 import { useEffect, useRef, createContext, useContext } from 'react';
 import { useBudget } from '@/hooks/useBudget';
 import { useBudgetContext } from '@/contexts/BudgetContext';
-import { useSharedBudgetSync } from '@/hooks/useSharedBudgetSync';
+import { useSharedBudgetSync, fingerprintBudgetMonth } from '@/hooks/useSharedBudgetSync';
 import { usePartnerInviteResponses } from '@/hooks/usePartnerInviteResponses';
+import type { MonthlyBudget } from '@/lib/budgetTypes';
 
 interface SharedSyncContextValue {
   forceSync: () => Promise<void>;
   requestSync: () => Promise<boolean>;
   hasSharedBudget: boolean;
+  /** Mark a month as received from sync so it isn't echoed back. */
+  markReceivedSnapshot: (month: string, snapshot: MonthlyBudget) => void;
 }
 
 const SharedSyncContext = createContext<SharedSyncContextValue | null>(null);
@@ -33,6 +36,10 @@ export function PartnerSyncWrapper({ children }: { children: React.ReactNode }) 
     publishBudgetSnapshot,
     forceSync,
     requestSync,
+    receivedFingerprints,
+    markLocalChange,
+    lastLocalChange,
+    markReceivedSnapshot,
   } = useSharedBudgetSync(
     budgetKeypair?.budgetNpub || '',
     budgetKeypair?.budgetNsec || ''
@@ -50,27 +57,51 @@ export function PartnerSyncWrapper({ children }: { children: React.ReactNode }) 
   useEffect(() => {
     if (!budgetKeypair) return;
 
-    // Build a fingerprint of the current state to detect real changes
-    const fingerprint = JSON.stringify(
-      fullState.budgets.map(b => ({
-        month: b.month,
-        bucketCount: b.buckets?.length || 0,
-        txCount: b.transactions?.length || 0,
-        txIds: b.transactions?.map(t => t.id).sort(),
-        bucketNames: b.buckets?.map(bk => bk.name).sort(),
-        // Include planned amounts so budget changes are detected
-        plannedAmounts: b.buckets?.map(bk => bk.lineItems?.map(li => li.plannedAmount).join(',')).sort(),
-      }))
-    );
+    // Build a fingerprint of each month using the shared helper so it matches
+    // what useSharedBudgetSync records when a snapshot is received.
+    const currentFingerprints = new Map<string, string>();
+    for (const budget of fullState.budgets) {
+      currentFingerprints.set(budget.month, fingerprintBudgetMonth(budget));
+    }
 
-    if (fingerprint === lastPublishedRef.current) return;
+    // Determine which months actually changed and weren't just received via sync
+    const changedMonths: typeof fullState.budgets = [];
+    for (const budget of fullState.budgets) {
+      const currentFp = currentFingerprints.get(budget.month)!;
+      const receivedFp = receivedFingerprints.current.get(budget.month);
+
+      // If this month matches a recently received snapshot, it wasn't a local
+      // change — skip it and clear the received fingerprint so future local
+      // edits to this month are published normally.
+      if (receivedFp && currentFp === receivedFp) {
+        receivedFingerprints.current.delete(budget.month);
+        continue;
+      }
+
+      changedMonths.push(budget);
+    }
+
+    if (changedMonths.length === 0) return;
+
+    // Record that these months were locally edited (so incoming older
+    // snapshots won't overwrite them)
+    const now = Math.floor(Date.now() / 1000);
+    for (const budget of changedMonths) {
+      lastLocalChange.current.set(budget.month, now);
+    }
+
+    // Build a combined fingerprint for the changed months only
+    const combinedFingerprint = JSON.stringify(
+      changedMonths.map(b => ({ month: b.month, fp: currentFingerprints.get(b.month) })).sort((a, b) => a.month.localeCompare(b.month))
+    );
+    if (combinedFingerprint === lastPublishedRef.current) return;
 
     // Debounce: wait 3s after the last change before publishing
     if (publishTimer.current) clearTimeout(publishTimer.current);
     publishTimer.current = setTimeout(async () => {
       console.log('[PartnerSyncWrapper] Publishing budget snapshots...');
       let published = 0;
-      for (const budget of fullState.budgets) {
+      for (const budget of changedMonths) {
         if (budget.buckets && budget.buckets.length > 0) {
           const ok = await publishBudgetSnapshot(budget);
           if (ok) published++;
@@ -78,20 +109,21 @@ export function PartnerSyncWrapper({ children }: { children: React.ReactNode }) 
       }
       if (published > 0) {
         console.log(`[PartnerSyncWrapper] Published ${published} month snapshot(s)`);
-        lastPublishedRef.current = fingerprint;
+        lastPublishedRef.current = combinedFingerprint;
       }
     }, 3000);
 
     return () => {
       if (publishTimer.current) clearTimeout(publishTimer.current);
     };
-  }, [budgetKeypair, fullState.budgets, publishBudgetSnapshot]);
+  }, [budgetKeypair, fullState.budgets, publishBudgetSnapshot, receivedFingerprints, lastLocalChange]);
 
   return (
     <SharedSyncContext.Provider value={{
       forceSync,
       requestSync,
       hasSharedBudget: !!budgetKeypair,
+      markReceivedSnapshot,
     }}>
       {children}
     </SharedSyncContext.Provider>

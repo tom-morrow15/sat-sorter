@@ -28,6 +28,18 @@ import type { MonthlyBudget } from '@/lib/budgetTypes';
 const BUDGET_KIND = 30078;
 const MONTH_DTAG_PREFIX = 'sat-sorter/budget-data/';
 
+/** Compute a stable fingerprint for a budget month. Used by both the sync
+ *  handler (to record received snapshots) and PartnerSyncWrapper (to detect
+ *  local changes) so the values match exactly. */
+export function fingerprintBudgetMonth(budget: MonthlyBudget): string {
+  return JSON.stringify({
+    buckets: (budget.buckets || [])
+      .map(b => ({ name: b.name, color: b.color, items: b.lineItems?.length }))
+      .sort((a, b) => a.name.localeCompare(b.name)),
+    txIds: (budget.transactions || []).map(t => t.id).sort(),
+  });
+}
+
 interface SyncStatus {
   isSyncing: boolean;
   lastSync: number | null;
@@ -238,6 +250,13 @@ export function useSharedBudgetSync(budgetNpub: string, budgetNsec: string) {
 
   const subscriptionRef = useRef<{ close?: () => void } | null>(null);
   const processedEventsRef = useRef<Set<string>>(new Set());
+  /** Fingerprint of the most recently received snapshot per month.
+   *  PartnerSyncWrapper skips publishing months whose fingerprint matches —
+   *  this prevents the echo where a received snapshot gets re-published. */
+  const receivedFingerprintsRef = useRef<Map<string, string>>(new Map());
+  /** Timestamp of the last local edit per month. Snapshots older than this
+   *  are ignored so we never overwrite a newer local change. */
+  const lastLocalChangeRef = useRef<Map<string, number>>(new Map());
 
   const keyBytes = useMemo(() => {
     if (!budgetNsec) return null;
@@ -307,21 +326,28 @@ export function useSharedBudgetSync(budgetNpub: string, budgetNsec: string) {
         const snapshot = syncEvent.data?.snapshot as MonthlyBudget;
         if (!snapshot?.month) return;
 
+        // Timestamp guard: only apply snapshots newer than the last local edit.
+        // This prevents an older relay event from overwriting a newer local change.
+        const eventTimestamp = rawEvent.created_at || syncEvent.timestamp || 0;
+        const lastLocalChange = lastLocalChangeRef.current.get(snapshot.month) || 0;
+        if (lastLocalChange > 0 && eventTimestamp > 0 && eventTimestamp < lastLocalChange) {
+          console.log(`[SharedBudgetSync] Skipping older snapshot for ${snapshot.month} (local is newer)`);
+          return;
+        }
+
+        // Record the fingerprint so PartnerSyncWrapper doesn't echo this back
+        receivedFingerprintsRef.current.set(snapshot.month, fingerprintBudgetMonth(snapshot));
+
         console.log(`[SharedBudgetSync] Received snapshot for ${snapshot.month}`);
 
+        // Replace the local month entirely with the snapshot — the snapshot is
+        // the source of truth for the shared budget. This ensures deletions
+        // propagate and both partners always converge to the same state.
         stateRef.current.setState((prev) => {
           const existingIdx = prev.budgets.findIndex((b) => b.month === snapshot.month);
           if (existingIdx >= 0) {
-            const local = prev.budgets[existingIdx];
-            const localTxIds = new Set(local.transactions.map((t) => t.id));
-            const snapshotOnlyTxs = (snapshot.transactions || []).filter((t) => !localTxIds.has(t.id));
-            const merged: MonthlyBudget = {
-              ...snapshot,
-              buckets: snapshot.buckets || local.buckets || [],
-              transactions: [...local.transactions, ...snapshotOnlyTxs],
-            };
             const newBudgets = [...prev.budgets];
-            newBudgets[existingIdx] = merged;
+            newBudgets[existingIdx] = snapshot;
             return { ...prev, budgets: newBudgets };
           }
           return { ...prev, budgets: [...prev.budgets, snapshot] };
@@ -408,11 +434,32 @@ export function useSharedBudgetSync(budgetNpub: string, budgetNsec: string) {
     return publishSyncRequest(budgetNsec, user.pubkey, nostr);
   }, [budgetNsec, nostr, user?.pubkey]);
 
+  /** Mark that a local edit happened for a month — used by PartnerSyncWrapper
+   *  so it doesn't treat an incoming snapshot as a local change. */
+  const markLocalChange = useCallback((month: string) => {
+    lastLocalChangeRef.current.set(month, Math.floor(Date.now() / 1000));
+  }, []);
+
+  /** Mark a month as "just received from sync/invite" so PartnerSyncWrapper
+   *  doesn't echo it back. Called by ManagePartnersDialog after applying an
+   *  invite snapshot, and internally when a relay snapshot arrives. */
+  const markReceivedSnapshot = useCallback((month: string, snapshot: MonthlyBudget) => {
+    receivedFingerprintsRef.current.set(month, fingerprintBudgetMonth(snapshot));
+  }, []);
+
   return {
     syncStatus,
     publishBudgetSnapshot,
     hasBudgetKeypair: !!keyBytesRef.current,
     forceSync,
     requestSync,
+    /** Fingerprints of recently received snapshots (per month). */
+    receivedFingerprints: receivedFingerprintsRef,
+    /** Call when a local edit happens so incoming snapshots don't overwrite it. */
+    markLocalChange,
+    /** Call when applying a snapshot from an invite so it isn't echoed back. */
+    markReceivedSnapshot,
+    /** Timestamp of last local edit per month. */
+    lastLocalChange: lastLocalChangeRef,
   };
 }
