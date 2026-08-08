@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { Plus, Trash2, Shield, Eye, QrCode, Loader2, Bell, CheckCircle, XCircle, UserPlus } from 'lucide-react';
+import { Plus, Trash2, Shield, Eye, QrCode, Loader2, Bell, CheckCircle, XCircle, UserPlus, RefreshCw } from 'lucide-react';
 import { nip19 } from 'nostr-tools';
 import { getPublicKey } from 'nostr-tools/pure';
 import { useAuthor } from '@/hooks/useAuthor';
@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/useToast';
 import { usePartners } from '@/hooks/usePartners';
+import { useSharedSync } from './PartnerSyncWrapper';
 import { usePartnerInvites } from '@/hooks/usePartnerInvites';
 import { useBudget } from '@/hooks/useBudget';
 import { useBudgetContext } from '@/contexts/BudgetContext';
@@ -59,6 +60,7 @@ export function ManagePartnersDialog({
   const { user } = useCurrentUser();
   const { logins } = useNostrLogin();
   const { nostr } = useNostr();
+  const sharedSync = useSharedSync();
   
   const [newPartnerPubkey, setNewPartnerPubkey] = useState('');
   const [newPartnerPermission, setNewPartnerPermission] = useState<'view' | 'edit'>('edit');
@@ -575,6 +577,37 @@ export function ManagePartnersDialog({
               </p>
             )}
           </div>
+
+          {/* Manual sync — for partners who accepted but see no data */}
+          {!isOwner && sharedSync?.hasSharedBudget && (
+            <div className="p-3 rounded-md bg-petrol/10 border border-petrol/20">
+              <p className="text-xs text-muted-foreground mb-2">
+                Not seeing budget data? The owner may need to re-publish.
+              </p>
+              <Button
+                size="sm"
+                variant="outline"
+                className="w-full touch-target-sm"
+                onClick={async () => {
+                  const ok = await sharedSync.requestSync();
+                  toast({
+                    title: ok ? 'Sync requested' : 'Sync request failed',
+                    description: ok
+                      ? 'The owner has been asked to re-publish the budget. Data should appear shortly.'
+                      : 'Could not send the sync request. Try again.',
+                    variant: ok ? 'default' : 'destructive',
+                  });
+                  if (ok) {
+                    // Also force a local re-fetch after a short delay
+                    setTimeout(() => sharedSync.forceSync(), 3000);
+                  }
+                }}
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Request Sync from Owner
+              </Button>
+            </div>
+          )}
 
           {/* Pending Invites Section - show when user has received invites */}
           {pendingInvites.length > 0 && (
