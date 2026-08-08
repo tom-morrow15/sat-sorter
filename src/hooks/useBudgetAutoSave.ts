@@ -40,7 +40,7 @@ function budgetFingerprint(state: BudgetState): string {
   });
 }
 
-export function useBudgetAutoSave(fullState: BudgetState) {
+export function useBudgetAutoSave(fullState?: BudgetState) {
   const { user } = useCurrentUser();
   const { uploadBudget, canSync } = useBudgetSync();
   const [status, setStatus] = useState<AutoSaveStatus>('idle');
@@ -58,6 +58,7 @@ export function useBudgetAutoSave(fullState: BudgetState) {
 
   useEffect(() => {
     if (!user?.pubkey || !canSync) return;
+    if (!fullState?.budgets) return;
 
     // Don't push an empty budget — NostrSync may still be downloading,
     // or the user genuinely has no data. Either way, uploading would
@@ -118,6 +119,7 @@ export function useBudgetAutoSave(fullState: BudgetState) {
   // Manual save — user can still trigger an immediate save
   const saveNow = useCallback(async (): Promise<boolean> => {
     if (!user?.pubkey || !canSync) return false;
+    if (!fullState?.budgets) return false;
     if (pushTimer.current) clearTimeout(pushTimer.current);
 
     const hasData =
