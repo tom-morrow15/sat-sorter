@@ -346,16 +346,23 @@ export function ManagePartnersDialog({
           </DialogHeader>
           <div className="space-y-3 py-3 text-sm">
             <div className="p-3 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300">
-              <p className="font-medium mb-1">This QR code contains your budget's secret key.</p>
+              <p className="font-medium mb-1">This QR code contains a shared budget key — not your personal Nostr key.</p>
               <p className="text-xs">
-                Anyone who scans it gains <strong>full read and write access</strong> to your shared budget — every category, every transaction, past and future months.
+                This is a separate, budget-only key generated just for this shared budget.
+                Anyone who scans it gains <strong>full read and write access</strong> to the budget — every category, every transaction, past and future months.
+              </p>
+            </div>
+            <div className="p-3 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-xs">
+              <p className="font-medium mb-1">Your personal Nostr key (nsec) is never shared.</p>
+              <p>
+                This QR contains a budget-specific key only. Your identity, profile, posts, zaps, and all other Nostr apps are completely unaffected. Rotating the budget key has zero impact on your personal account.
               </p>
             </div>
             <ul className="space-y-1.5 text-xs text-muted-foreground list-disc list-inside">
               <li>Only share in person with someone you trust completely</li>
               <li>Never screenshot, text, or email the QR code</li>
               <li>Don't display it where others might see or photograph it</li>
-              <li>To remove a partner later, generate a new key and re-share</li>
+              <li>To remove a partner: generate a new budget key and re-share with the people you want to keep</li>
             </ul>
           </div>
           <div className="flex gap-2">
