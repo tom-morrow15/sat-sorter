@@ -243,6 +243,27 @@ export function ManagePartnersDialog({
           };
         });
 
+        // Schedule a delayed re-fetch to catch any events that arrive after
+        // the initial fetch (owner's publish may still be propagating to relays).
+        // We do this via a simple timeout + direct query rather than relying on
+        // the subscription, which may not deliver events published just before
+        // the subscription started.
+        setTimeout(async () => {
+          try {
+            const snapshots = await fetchAllSharedBudgetSnapshots(budgetNsec, nostr);
+            if (snapshots.length > 0) {
+              console.log('[ManagePartnersDialog] Delayed sync fetched', snapshots.length, 'snapshots');
+              setState(prev => {
+                const incomingMonths = new Set(snapshots.map((b: any) => b.month));
+                const withoutIncoming = (prev.budgets || []).filter((b: any) => !incomingMonths.has(b.month));
+                return { ...prev, budgets: [...withoutIncoming, ...snapshots] };
+              });
+            }
+          } catch (e) {
+            console.warn('[ManagePartnersDialog] Delayed sync failed:', e);
+          }
+        }, 3000);
+
         toast({
           title: 'Budget Partner Invite Accepted!',
           description: `You now have ${invite.permission === 'editor' ? 'edit' : 'view-only'} access. Data will sync via the shared budget key. All future months are included automatically.`,

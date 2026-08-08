@@ -1,5 +1,6 @@
 import { useEffect, useCallback, useRef, useState, useMemo } from 'react';
 import { nip19 } from 'nostr-tools';
+import { getPublicKey } from 'nostr-tools/pure';
 import { NSecSigner } from '@nostrify/nostrify';
 import { useNostr } from '@nostrify/react';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
@@ -24,18 +25,12 @@ export async function fetchAllSharedBudgetSnapshots(
     if (decoded.type !== 'nsec') return [];
     const priv = decoded.data as Uint8Array;
     const signer = new NSecSigner(priv);
-    const budgetPub = signer.pubkey;
+    // Use nostr-tools' getPublicKey for guaranteed x-only hex format
+    const budgetPub = getPublicKey(priv);
 
-    // Query across multiple relays for better reliability — the default pool
-    // only reads from 1 relay, which may not have the owner's data yet.
-    const relayGroup = nostr.group ? nostr.group([
-      'wss://relay.ditto.pub',
-      'wss://relay.nostr.band',
-      'wss://relay.damus.io',
-      'wss://nos.lol',
-    ]) : nostr;
-
-    const events = await relayGroup.query(
+    // NPool already routes queries to all read relays — no need for a
+    // separate relay group. Use the default pool directly.
+    const events = await nostr.query(
       [
         {
           kinds: [BUDGET_KIND],
@@ -152,10 +147,13 @@ export function useSharedBudgetSync(budgetNpub: string, budgetNsec: string) {
     try {
       const decoded = nip19.decode(budgetNsec);
       if (decoded.type === 'nsec') {
-        const signer = new NSecSigner(decoded.data);
+        const priv = decoded.data as Uint8Array;
+        // Use nostr-tools' getPublicKey to guarantee x-only hex format
+        // compatible with nip44.getConversationKey (NSecSigner.pubkey may
+        // return a format that nostr-tools rejects).
         return {
-          budgetPriv: decoded.data as Uint8Array,
-          budgetPub: signer.pubkey,
+          budgetPriv: priv,
+          budgetPub: getPublicKey(priv),
         };
       }
     } catch (e) {
@@ -395,6 +393,8 @@ export function useSharedBudgetSync(budgetNpub: string, budgetNsec: string) {
 
   /**
    * Subscribe to all budget events from the budget npub.
+   * First does an explicit query to load existing events (reliable initial load),
+   * then subscribes for new events going forward.
    */
   useEffect(() => {
     const keys = keyBytes;
@@ -403,24 +403,47 @@ export function useSharedBudgetSync(budgetNpub: string, budgetNsec: string) {
     console.log(`[SharedBudgetSync] Subscribing to budget npub ${budgetNpub.slice(0, 16)}...`);
     setSyncStatus((prev) => ({ ...prev, isSyncing: true }));
 
-    subscriptionRef.current = nostr.req(
-      [
-        {
-          kinds: [BUDGET_KIND],
-          authors: [keys.budgetPub],
-          limit: 200,
-        },
-      ],
-      {
-        onevent: handleIncomingEvent,
-        oneose: () => {
-          console.log('[SharedBudgetSync] Initial events loaded (EOSE)');
-          setSyncStatus((prev) => ({ ...prev, isSyncing: false }));
-        },
+    let cancelled = false;
+
+    // Step 1: Explicitly fetch existing events (more reliable than relying on
+    // the subscription's initial batch, which can be flaky on some relays).
+    (async () => {
+      try {
+        const existing = await nostr.query(
+          [{ kinds: [BUDGET_KIND], authors: [keys.budgetPub], limit: 200 }],
+          { signal: AbortSignal.timeout(10000) }
+        );
+        console.log(`[SharedBudgetSync] Fetched ${existing.length} existing budget events`);
+        for (const ev of existing) {
+          if (!cancelled) await handleIncomingEvent(ev);
+        }
+      } catch (e) {
+        console.warn('[SharedBudgetSync] Initial fetch failed:', e);
       }
-    );
+
+      if (cancelled) return;
+      setSyncStatus((prev) => ({ ...prev, isSyncing: false }));
+
+      // Step 2: Subscribe for new events going forward
+      subscriptionRef.current = nostr.req(
+        [
+          {
+            kinds: [BUDGET_KIND],
+            authors: [keys.budgetPub],
+            limit: 0, // Only new events — we already loaded existing ones above
+          },
+        ],
+        {
+          onevent: handleIncomingEvent,
+          oneose: () => {
+            console.log('[SharedBudgetSync] Live subscription active');
+          },
+        }
+      );
+    })();
 
     return () => {
+      cancelled = true;
       if (subscriptionRef.current && typeof subscriptionRef.current.close === 'function') {
         subscriptionRef.current.close();
         subscriptionRef.current = null;
@@ -531,6 +554,31 @@ export function useSharedBudgetSync(budgetNpub: string, budgetNsec: string) {
     [publishEntry]
   );
 
+  /**
+   * Manually force a re-fetch of all existing budget events from relays.
+   * Useful as a "pull to refresh" or retry after accepting an invite.
+   */
+  const forceSync = useCallback(async () => {
+    const keys = keyBytesRef.current;
+    if (!keys) return;
+
+    setSyncStatus((prev) => ({ ...prev, isSyncing: true }));
+    try {
+      const existing = await nostr.query(
+        [{ kinds: [BUDGET_KIND], authors: [keys.budgetPub], limit: 200 }],
+        { signal: AbortSignal.timeout(10000) }
+      );
+      console.log(`[SharedBudgetSync] Force sync fetched ${existing.length} events`);
+      for (const ev of existing) {
+        await handleIncomingEvent(ev);
+      }
+      setSyncStatus((prev) => ({ ...prev, isSyncing: false, lastSync: Math.floor(Date.now() / 1000) }));
+    } catch (e) {
+      console.error('[SharedBudgetSync] Force sync failed:', e);
+      setSyncStatus((prev) => ({ ...prev, isSyncing: false, error: e instanceof Error ? e.message : 'Sync failed' }));
+    }
+  }, [nostr, handleIncomingEvent]);
+
   return {
     syncStatus,
     publishTransactionAdd,
@@ -542,6 +590,8 @@ export function useSharedBudgetSync(budgetNpub: string, budgetNsec: string) {
     syncedTxIds: syncedTxIdsRef,
     /** Structure hashes (month → serialized buckets) that arrived via sync. */
     syncedStructureHashes: syncedStructureHashesRef,
+    /** Manually re-fetch all existing budget events from relays. */
+    forceSync,
   };
 }
 
@@ -559,7 +609,8 @@ export async function publishBudgetSnapshotToNostr(
     if (decoded.type !== 'nsec') return false;
     const priv = decoded.data as Uint8Array;
     const signer = new NSecSigner(priv);
-    const pub = signer.pubkey;
+    // Use nostr-tools' getPublicKey for guaranteed x-only hex format
+    const pub = getPublicKey(priv);
 
     const dTag = `${MONTH_DTAG_PREFIX}${budget.month}`;
     const syncEvent: BudgetSyncEvent = {
@@ -632,6 +683,8 @@ export function useSyncCopiedBudget() {
         const decoded = nip19.decode(budgetKeypair.budgetNsec);
         if (decoded.type !== 'nsec') return false;
         const signer = new NSecSigner(decoded.data);
+        // Use nostr-tools' getPublicKey for guaranteed x-only hex format
+        const budgetPub = getPublicKey(decoded.data);
 
         const dTag = `${MONTH_DTAG_PREFIX}${budget.month}`;
         const syncEvent: BudgetSyncEvent = {
@@ -645,7 +698,7 @@ export function useSyncCopiedBudget() {
         const encrypted = encryptWithBudgetKey(
           JSON.stringify(syncEvent),
           decoded.data,
-          signer.pubkey
+          budgetPub
         );
 
         const event = await signer.signEvent({
