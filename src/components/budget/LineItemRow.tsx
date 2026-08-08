@@ -203,27 +203,27 @@ export function LineItemRow({
     }
   }, [isEditing]);
 
-   if (isEditing) {
+    if (isEditing) {
       return (
         <>
-          <div className="py-3 px-3 sm:px-4 rounded-lg bg-muted/50 space-y-3">
-            <div className="flex flex-col sm:flex-row gap-2">
+          <div className="py-3.5 px-3 sm:px-4 rounded-xl bg-muted/40 space-y-3 animate-list-item">
+            <div className="flex flex-col sm:flex-row gap-2.5">
               <Input
                 ref={nameInputRef}
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
                 onKeyDown={handleKeyDown}
-                className="h-9 text-sm flex-1"
+                className="h-10 text-sm flex-1"
                 placeholder="e.g., Groceries, Gas, Rent"
               />
-              <div className="relative h-9 w-full sm:w-32">
+              <div className="relative h-10 w-full sm:w-36">
                 <Input
                   ref={inputRef}
                   type="number"
                   value={editAmount}
                   onChange={(e) => setEditAmount(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  className="h-9 w-full text-right text-sm tabular-nums"
+                  className="h-10 w-full text-right text-sm tabular-nums"
                   min="0"
                   step={currency === 'usd' ? '0.01' : '1'}
                   placeholder=" "
@@ -240,18 +240,18 @@ export function LineItemRow({
               <Button
                 size="sm"
                 variant="ghost"
-                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                className="text-destructive hover:text-destructive hover:bg-destructive/10 touch-target-sm"
                 onClick={() => setShowDeleteConfirm(true)}
               >
                 <Trash2 className="h-4 w-4 mr-1" />
                 Delete
               </Button>
               <div className="flex gap-2">
-                <Button size="sm" variant="ghost" onClick={handleCancel}>
+                <Button size="sm" variant="ghost" onClick={handleCancel} className="touch-target-sm">
                   <X className="h-4 w-4 mr-1" />
                   Cancel
                 </Button>
-                <Button size="sm" onClick={handleSave}>
+                <Button size="sm" onClick={handleSave} className="touch-target-sm">
                   <Check className="h-4 w-4 mr-1" />
                   Save
                 </Button>
@@ -275,14 +275,14 @@ export function LineItemRow({
     <>
       <div
         className={cn(
-          'group py-2.5 px-3 sm:px-4 rounded-lg transition-colors',
-          'hover:bg-muted/50 active:bg-muted/70'
+          'group py-3 px-2 sm:px-3 rounded-xl transition-colors animate-list-item',
+          'hover:bg-muted/40 active:bg-muted/60'
         )}
       >
         {/* Main row - always horizontal */}
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex items-center gap-2.5 sm:gap-3">
         {/* Drag handle - hidden on mobile */}
-        <div className="hidden sm:block opacity-0 group-hover:opacity-50 cursor-grab">
+        <div className="hidden sm:block opacity-0 group-hover:opacity-40 cursor-grab">
           <GripVertical className="h-4 w-4 text-muted-foreground" />
         </div>
 
@@ -306,7 +306,7 @@ export function LineItemRow({
         <div className="flex items-center gap-1.5">
           <div
             className={cn(
-              'text-right font-semibold tabular-nums text-sm flex-shrink-0',
+              'text-right font-serif-display tabular-nums text-sm sm:text-base flex-shrink-0',
               isIncome && 'text-success'
             )}
           >
@@ -323,13 +323,13 @@ export function LineItemRow({
             size="icon"
             variant="ghost"
             className={cn(
-              'h-7 w-7 flex-shrink-0 text-muted-foreground hover:text-foreground',
+              'h-8 w-8 flex-shrink-0 text-muted-foreground hover:text-foreground touch-target-sm',
               'sm:opacity-0 sm:group-hover:opacity-100 transition-opacity'
             )}
             onClick={() => handleStartEdit()}
             title="Edit line item"
           >
-            <Edit2 className="h-3.5 w-3.5" />
+            <Edit2 className="h-4 w-4" />
           </Button>
         </div>
 
@@ -338,14 +338,14 @@ export function LineItemRow({
           <Button
             size="icon"
             variant="ghost"
-            className="h-7 w-7 text-primary flex-shrink-0"
+            className="h-8 w-8 text-primary flex-shrink-0 touch-target-sm"
             onClick={(e) => {
               e.stopPropagation();
               onViewTransactions(lineItem.id);
             }}
             title="View transactions for this item"
           >
-            <Receipt className="h-3.5 w-3.5" />
+            <Receipt className="h-4 w-4" />
           </Button>
         )}
 
@@ -354,22 +354,22 @@ export function LineItemRow({
             <Button
               size="icon"
               variant="ghost"
-              className="h-7 w-7 text-destructive hover:text-destructive"
+              className="h-8 w-8 text-destructive hover:text-destructive"
               onClick={(e) => {
                 e.stopPropagation();
                 setShowDeleteConfirm(true);
               }}
             >
-              <Trash2 className="h-3.5 w-3.5" />
+              <Trash2 className="h-4 w-4" />
             </Button>
         </div>
       </div>
 
        {/* Progress bar for expenses - separate row */}
        {!isIncome && lineItem.plannedAmount > 0 && (
-          <div className="mt-2 space-y-1 pl-0 sm:pl-7">
+          <div className="mt-2.5 space-y-1.5 pl-0 sm:pl-7">
             {/* Progress bar with gradient based on spending pace */}
-            <div className="w-full bg-muted/60 rounded-full h-1.5 overflow-hidden">
+            <div className="w-full bg-muted/50 rounded-full h-1.5 overflow-hidden">
               <div
                 className={cn(
                   'h-full rounded-full transition-all duration-500',

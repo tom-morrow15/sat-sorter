@@ -73,8 +73,8 @@ export function BtcTipCard() {
   if (currency !== 'usd') return null;
 
   return (
-    <div className="relative mb-4 animate-slide-in-up" style={{ animationDelay: '0.05s', animationFillMode: 'both' }}>
-      <div className="flex items-start gap-3 p-3 rounded-xl bg-gradient-to-r from-primary/5 to-orange-500/5 dark:from-primary/10 dark:to-orange-500/10 border border-primary/15">
+    <div className="relative mb-5 animate-slide-in-up" style={{ animationDelay: '0.05s', animationFillMode: 'both' }}>
+      <div className="flex items-start gap-3 p-4 rounded-2xl bg-gradient-to-r from-primary/5 to-orange-500/5 dark:from-primary/10 dark:to-orange-500/10 border border-primary/12">
         <div className="h-8 w-8 rounded-lg bg-primary/15 flex items-center justify-center shrink-0">
           <Sparkles className="h-4 w-4 text-primary" />
         </div>
@@ -88,7 +88,7 @@ export function BtcTipCard() {
         </div>
         <button
           onClick={() => setDismissed(true)}
-          className="text-muted-foreground hover:text-foreground transition-colors shrink-0"
+          className="text-muted-foreground hover:text-foreground transition-colors shrink-0 touch-target-sm flex items-center justify-center"
           aria-label="Dismiss"
         >
           <X className="h-4 w-4" />

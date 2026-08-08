@@ -46,34 +46,28 @@ export function WelcomeScreen({ onGuestMode }: WelcomeScreenProps) {
 
   return (
     <div className="min-h-screen flex flex-col">
-      {/* ===== HERO HEADER - matching BudgetHeader's dark gradient + mesh ===== */}
-      <header className="relative w-full bg-header-gradient text-white overflow-hidden">
-        <div className="absolute inset-0 bg-mesh-gradient opacity-40 pointer-events-none" />
-        {/* Floating particles / noise grain decoration */}
-        <div
-          className="absolute inset-0 opacity-20 pointer-events-none"
-          style={{
-            backgroundImage:
-              'radial-gradient(circle at 15% 35%, rgba(247,147,26,0.35) 0%, transparent 35%), radial-gradient(circle at 85% 65%, rgba(247,147,26,0.25) 0%, transparent 30%)',
-          }}
-        />
+      {/* ===== HERO HEADER - deep black with wormhole grid ===== */}
+      <header className="relative w-full text-white overflow-hidden header-base">
+        {/* Wormhole grid background — very subtle */}
+        <div className="wormhole-grid-bg" aria-hidden="true" />
+        <div className="wormhole-glow" aria-hidden="true" />
 
         <div className="relative z-10 container mx-auto px-4 py-10 sm:py-16 text-center">
           {/* Logo */}
           <div className="flex items-center justify-center gap-3 mb-6 animate-slide-in-down">
-            <div className="h-14 w-14 sm:h-16 sm:w-16 rounded-2xl bg-white/15 backdrop-blur-md border border-white/25 flex items-center justify-center shadow-lg bitcoin-glow-hover transition-all duration-500">
+            <div className="h-14 w-14 sm:h-16 sm:w-16 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 flex items-center justify-center shadow-lg bitcoin-glow-hover transition-all duration-500">
               <Zap className="h-7 w-7 sm:h-8 sm:w-8 text-white" />
             </div>
           </div>
 
           {/* Headline */}
-          <h1 className="text-5xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight mb-3 animate-slide-in-up" style={{ animationDelay: '0.1s', animationFillMode: 'both' }}>
+          <h1 className="text-5xl sm:text-6xl lg:text-7xl font-serif-display tracking-tight mb-3 animate-slide-in-up" style={{ animationDelay: '0.1s', animationFillMode: 'both' }}>
             Sat Sorter
           </h1>
-          <p className="text-lg sm:text-xl text-white/80 font-light tracking-wide animate-slide-in-up" style={{ animationDelay: '0.2s', animationFillMode: 'both' }}>
+          <p className="text-lg sm:text-xl text-white/70 font-light tracking-wide animate-slide-in-up" style={{ animationDelay: '0.2s', animationFillMode: 'both' }}>
             Zero-based budgeting on a Bitcoin standard.
           </p>
-          <p className="text-sm text-white/50 mt-2 animate-fade-in" style={{ animationDelay: '0.35s', animationFillMode: 'both' }}>
+          <p className="text-sm text-white/40 mt-2 animate-fade-in" style={{ animationDelay: '0.35s', animationFillMode: 'both' }}>
             Your budget. Your keys. Your freedom.
           </p>
 
@@ -81,7 +75,7 @@ export function WelcomeScreen({ onGuestMode }: WelcomeScreenProps) {
           <div
             className="absolute bottom-0 left-0 right-0 h-16 pointer-events-none"
             style={{
-              background: 'linear-gradient(to bottom, transparent, hsl(220 8% 97% / 1))',
+              background: 'linear-gradient(to bottom, transparent, hsl(30 10% 98% / 1))',
             }}
           />
         </div>
@@ -103,7 +97,7 @@ export function WelcomeScreen({ onGuestMode }: WelcomeScreenProps) {
                       <ArrowRight className="h-5 w-5 text-amber-600 dark:text-amber-300" />
                     </div>
                     <div>
-                      <h3 className="text-sm font-semibold text-amber-900 dark:text-amber-200">
+                      <h3 className="text-sm font-serif-display text-amber-900 dark:text-amber-200">
                         Welcome back!
                       </h3>
                       <p className="text-xs text-amber-800/70 dark:text-amber-300/60 mt-0.5">
@@ -134,22 +128,22 @@ export function WelcomeScreen({ onGuestMode }: WelcomeScreenProps) {
             </div>
           )}
 
-          {/* Three choice cards with staggered animation */}
-          <div className="space-y-3 mb-8">
+              {/* Three choice cards with staggered animation */}
+          <div className="space-y-3.5 mb-8">
             {/* Card 1: Start Fresh — PRIMARY, most visual weight */}
             <Card
-              className="cursor-pointer group overflow-hidden animate-slide-in-up border-transparent shadow-lg shadow-orange-500/5 transition-all duration-300 hover:shadow-xl hover:shadow-orange-500/10 hover:-translate-y-0.5"
+              className="cursor-pointer group overflow-hidden animate-slide-in-up border border-border/40 shadow-lg shadow-orange-500/5 transition-all duration-300 hover:shadow-xl hover:shadow-orange-500/10 hover:-translate-y-0.5 rounded-2xl"
               onClick={() => navigate('/create-account')}
               style={{ animationDelay: '0.15s', animationFillMode: 'both' }}
             >
               {/* Accent stripe */}
-              <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-primary to-orange-500 rounded-l-lg" />
+              <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-primary to-orange-500 rounded-l-2xl" />
               <CardContent className="relative p-5 flex items-center gap-4">
-                <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-primary/20 to-orange-500/10 flex items-center justify-center shrink-0 border border-primary/10 group-hover:scale-110 transition-transform duration-300">
+                <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-primary/15 to-orange-500/8 flex items-center justify-center shrink-0 border border-primary/10 group-hover:scale-110 transition-transform duration-300">
                   <Sparkles className="h-6 w-6 text-primary" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-bold text-sm tracking-tight">START FRESH</h3>
+                  <h3 className="font-serif-display text-sm tracking-tight">START FRESH</h3>
                   <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
                     Create a private Nostr account in 60 seconds. No email. No phone. Just a 12-word backup you control.
                   </p>
@@ -162,7 +156,7 @@ export function WelcomeScreen({ onGuestMode }: WelcomeScreenProps) {
 
             {/* Card 2: Sign In — SECONDARY */}
             <Card
-              className="cursor-pointer group overflow-hidden animate-slide-in-up border transition-all duration-300 hover:border-primary/40 hover:shadow-md hover:-translate-y-0.5"
+              className="cursor-pointer group overflow-hidden animate-slide-in-up border border-border/40 rounded-2xl transition-all duration-300 hover:border-primary/40 hover:shadow-md hover:-translate-y-0.5"
               onClick={() => navigate('/sign-in')}
               style={{ animationDelay: '0.25s', animationFillMode: 'both' }}
             >
@@ -171,7 +165,7 @@ export function WelcomeScreen({ onGuestMode }: WelcomeScreenProps) {
                   <Key className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-sm tracking-tight">SIGN IN</h3>
+                  <h3 className="font-serif-display text-sm tracking-tight">SIGN IN</h3>
                   <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
                     Already set up? Use your 12 words or nsec — they unlock the same account.
                   </p>
@@ -182,7 +176,7 @@ export function WelcomeScreen({ onGuestMode }: WelcomeScreenProps) {
 
             {/* Card 3: Skip — TERTIARY, ghost card */}
             <Card
-              className="cursor-pointer group overflow-hidden animate-slide-in-up border-dashed hover:border-solid transition-all duration-300 hover:shadow-sm hover:-translate-y-0.5"
+              className="cursor-pointer group overflow-hidden animate-slide-in-up border-dashed rounded-2xl hover:border-solid transition-all duration-300 hover:shadow-sm hover:-translate-y-0.5"
               onClick={() => {
                 onGuestMode();
                 navigate('/home', { replace: true });
@@ -194,7 +188,7 @@ export function WelcomeScreen({ onGuestMode }: WelcomeScreenProps) {
                   <Eye className="h-5 w-5 text-muted-foreground" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-sm tracking-tight text-muted-foreground">USE WITHOUT AN ACCOUNT</h3>
+                  <h3 className="font-serif-display text-sm tracking-tight text-muted-foreground">USE WITHOUT AN ACCOUNT</h3>
                   <p className="text-xs text-muted-foreground/70 mt-1 leading-relaxed">
                     Try without an account. Your budget stays in this browser only. You can upgrade anytime.
                   </p>

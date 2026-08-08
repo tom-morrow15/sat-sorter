@@ -142,7 +142,7 @@ export function BudgetBuddyScreen() {
         <div className="h-16 w-16 rounded-3xl bg-primary/10 flex items-center justify-center mx-auto mb-5">
           <MessageSquare className="h-8 w-8 text-primary" />
         </div>
-        <h2 className="text-xl font-semibold mb-2">Budget Buddy</h2>
+        <h2 className="font-serif-display text-xl mb-2">Budget Buddy</h2>
         <p className="text-muted-foreground text-sm max-w-sm mb-6">
           {needsKey
             ? 'Your AI budget buddy can analyze your spending, suggest savings, and answer questions about your budget. Add an API key to get started.'
@@ -183,7 +183,7 @@ export function BudgetBuddyScreen() {
             <TrendingUp className="h-4 w-4 text-primary" />
           </div>
           <div className="min-w-0">
-            <h2 className="text-sm font-semibold leading-tight">Budget Buddy</h2>
+            <h2 className="font-serif-display text-sm leading-tight">Budget Buddy</h2>
             {/* Provider + model indicator (tap to change) */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -252,7 +252,7 @@ export function BudgetBuddyScreen() {
                 <MessageSquare className="h-8 w-8 text-primary" />
               </div>
               <div>
-                <h3 className="font-semibold text-base">
+                <h3 className="font-serif-display text-base">
                   Welcome to Budget Buddy
                 </h3>
                 <p className="text-sm text-muted-foreground mt-1 max-w-xs mx-auto">

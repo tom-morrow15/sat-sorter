@@ -56,7 +56,7 @@ export function BottomNavigation() {
     <button
       onClick={() => navigate(path)}
       className={cn(
-        'flex flex-col items-center justify-center flex-1 h-full gap-0.5 transition-colors',
+        'flex flex-col items-center justify-center flex-1 h-full gap-0.5 transition-colors touch-target',
         isActive(path) ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
       )}
     >
@@ -93,7 +93,7 @@ export function BottomNavigation() {
             onClick={handleAddTransaction}
             disabled={!hasBuckets}
             className={cn(
-              'relative -mt-6 h-14 w-14 rounded-full flex items-center justify-center shadow-lg transition-all press-feedback',
+              'relative -mt-6 h-14 w-14 rounded-full flex items-center justify-center shadow-lg transition-all press-feedback touch-target',
               hasBuckets
                 ? 'bg-primary text-primary-foreground hover:scale-105 active:scale-95'
                 : 'bg-muted text-muted-foreground cursor-not-allowed'
@@ -109,7 +109,7 @@ export function BottomNavigation() {
           <button
             onClick={() => setShowMore(!showMore)}
             className={cn(
-              'flex flex-col items-center justify-center flex-1 h-full gap-0.5 transition-colors',
+              'flex flex-col items-center justify-center flex-1 h-full gap-0.5 transition-colors touch-target',
               isMoreActive || showMore
                 ? 'text-primary'
                 : 'text-muted-foreground hover:text-foreground'
@@ -122,7 +122,7 @@ export function BottomNavigation() {
           {/* More menu dropdown */}
           {showMore && (
             <div
-              className="absolute bottom-full right-0 mb-2 w-44 rounded-xl border bg-popover shadow-lg overflow-hidden"
+              className="absolute bottom-full right-0 mb-2 w-44 rounded-2xl border bg-popover shadow-xl overflow-hidden"
             >
               {moreItems.map((item) => {
                 const Icon = item.icon;
@@ -130,7 +130,7 @@ export function BottomNavigation() {
                   <button
                     key={item.path}
                     onClick={() => navigate(item.path)}
-                    className="flex items-center gap-3 w-full px-4 py-3 text-sm hover:bg-muted transition-colors text-left"
+                    className="flex items-center gap-3 w-full px-4 py-3.5 text-sm hover:bg-muted transition-colors text-left touch-target-sm"
                   >
                     <Icon className="h-4 w-4 text-muted-foreground" />
                     <span>{item.label}</span>
@@ -143,7 +143,7 @@ export function BottomNavigation() {
 
         {/* Sync indicator */}
         <button
-          className="flex flex-col items-center justify-center gap-0.5 px-3 shrink-0"
+          className="flex flex-col items-center justify-center gap-0.5 px-3 shrink-0 touch-target-sm"
           title={
             !user
               ? 'Log in with Nostr to enable cloud sync'

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Bitcoin, DollarSign, ChevronLeft, ChevronRight, Zap, Calendar, Menu, Info, Heart, Shield, GraduationCap, LogIn, Moon, Sun, RotateCw, Copy, AlertTriangle, QrCode } from 'lucide-react';
 
 // Import version directly from package.json.
@@ -129,6 +129,17 @@ export function BudgetHeader({
   const [showGuestUpgrade, setShowGuestUpgrade] = useState(false);
   const [showBudgetKey, setShowBudgetKey] = useState(false);
 
+  // Scroll-based header gradient transition (deep black → softer charcoal)
+  const [isScrolled, setIsScrolled] = useState(false);
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 40);
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll();
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
   // Generate list of months for picker (current month + 11 months back + 6 months forward)
   const getAvailableMonths = () => {
     const months: string[] = [];
@@ -227,16 +238,20 @@ export function BudgetHeader({
     };
 
    return (
-     <header className="sticky top-0 z-50 w-full bg-header-gradient text-white relative overflow-hidden safe-top">
-       {/* Decorative mesh background */}
-       <div className="absolute inset-0 bg-mesh-gradient opacity-30 pointer-events-none" />
+     <header className={cn(
+       "sticky top-0 z-50 w-full text-white relative overflow-hidden safe-top transition-all duration-500",
+       isScrolled ? "header-scrolled" : "header-base"
+     )}>
+       {/* Wormhole grid background — very subtle, slow distortion */}
+       <div className="wormhole-grid-bg" aria-hidden="true" />
+       <div className="wormhole-glow" aria-hidden="true" />
        
-       <div className="container mx-auto px-3 sm:px-4 relative z-10">
+       <div className="container mx-auto px-4 sm:px-6 relative z-10">
          {/* Top bar with logo and actions */}
          <div className="flex h-16 items-center justify-between">
            <div className="flex items-center gap-3 sm:gap-4">
              <div className="relative">
-               <button onClick={toggleLogo} className="h-10 w-10 sm:h-12 sm:w-12 rounded-lg bg-white/20 backdrop-blur-sm hover:bg-white/30 flex items-center justify-center transition-all duration-300 border border-white/30">
+               <button onClick={toggleLogo} className="h-11 w-11 sm:h-12 sm:w-12 rounded-xl bg-white/10 backdrop-blur-sm hover:bg-white/20 flex items-center justify-center transition-all duration-300 border border-white/15 touch-target">
                  {logoStyle === 'bitcoin' ? (
                    <Bitcoin className="h-6 w-6 sm:h-7 sm:w-7 text-white" />
                  ) : (
@@ -245,55 +260,55 @@ export function BudgetHeader({
                </button>
              </div>
              <div>
-               <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">Sat Sorter</h1>
-               <p className="text-xs sm:text-sm text-white/80 hidden sm:block">Zero-based Bitcoin budgeting</p>
+               <h1 className="text-xl sm:text-2xl font-serif-display tracking-tight text-white leading-tight">Sat Sorter</h1>
+               <p className="text-xs sm:text-sm text-white/60 hidden sm:block">Zero-based Bitcoin budgeting</p>
              </div>
            </div>
 
            <div className="flex items-center gap-2 sm:gap-3">
-             {/* Bitcoin Price - Hidden on small mobile */}
-             {priceData && (
-               <Tooltip>
-                 <TooltipTrigger asChild>
-                   <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 font-mono text-sm text-white">
-                     <Bitcoin className="h-4 w-4" />
-                     {formatUsd(priceData.usdPerBtc)}
-                   </div>
-                 </TooltipTrigger>
-                <TooltipContent>
-                  <p>Current Bitcoin price</p>
-                  <p className="text-xs text-muted-foreground">
-                    1 sat = {formatUsd(priceData.usdPerBtc / 100_000_000)}
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            )}
+              {/* Bitcoin Price - Hidden on small mobile — kept exactly as-is */}
+              {priceData && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 font-mono text-sm text-white">
+                      <Bitcoin className="h-4 w-4" />
+                      {formatUsd(priceData.usdPerBtc)}
+                    </div>
+                  </TooltipTrigger>
+                 <TooltipContent>
+                   <p>Current Bitcoin price</p>
+                   <p className="text-xs text-muted-foreground">
+                     1 sat = {formatUsd(priceData.usdPerBtc / 100_000_000)}
+                   </p>
+                 </TooltipContent>
+               </Tooltip>
+             )}
 
-              {/* Currency Toggle — compact labeled segmented control */}
-              <div className="inline-flex rounded-lg border border-white/30 bg-white/10 p-0.5 text-[10px]">
-                <button
-                  onClick={() => currency !== 'usd' && onToggleCurrency()}
-                  disabled={priceLoading}
-                  className={`flex items-center gap-0.5 rounded-md px-2 py-0.5 font-medium transition-all ${
-                    currency === 'usd'
-                      ? 'bg-white text-black shadow-sm'
-                      : 'text-white/80 hover:text-white'
-                  }`}
-                >
-                  <DollarSign className="h-3 w-3" /> USD
-                </button>
-                <button
-                  onClick={() => currency !== 'sats' && onToggleCurrency()}
-                  disabled={priceLoading}
-                  className={`flex items-center gap-0.5 rounded-md px-2 py-0.5 font-medium transition-all ${
-                    currency === 'sats'
-                      ? 'bg-white text-black shadow-sm'
-                      : 'text-white/80 hover:text-white'
-                  }`}
-                >
-                  <Bitcoin className="h-3 w-3" /> BTC
-                </button>
-              </div>
+               {/* Currency Toggle — compact labeled segmented control */}
+               <div className="inline-flex rounded-lg border border-white/15 bg-white/8 p-0.5 text-[10px]">
+                 <button
+                   onClick={() => currency !== 'usd' && onToggleCurrency()}
+                   disabled={priceLoading}
+                   className={`flex items-center gap-0.5 rounded-md px-2.5 py-1 font-medium transition-all touch-target-sm ${
+                     currency === 'usd'
+                       ? 'bg-white text-black shadow-sm'
+                       : 'text-white/70 hover:text-white'
+                   }`}
+                 >
+                   <DollarSign className="h-3 w-3" /> USD
+                 </button>
+                 <button
+                   onClick={() => currency !== 'sats' && onToggleCurrency()}
+                   disabled={priceLoading}
+                   className={`flex items-center gap-0.5 rounded-md px-2.5 py-1 font-medium transition-all touch-target-sm ${
+                     currency === 'sats'
+                       ? 'bg-white text-black shadow-sm'
+                       : 'text-white/70 hover:text-white'
+                   }`}
+                 >
+                   <Bitcoin className="h-3 w-3" /> BTC
+                 </button>
+               </div>
 
 
 
@@ -323,14 +338,14 @@ export function BudgetHeader({
                 onLearnAboutBitcoin={() => setShowBitcoinEdu(true)}
               />
             ) : (
-                /* Guest hamburger menu — limited options until login */
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      size="icon"
-                      className="h-9 w-9 sm:h-10 sm:w-10 bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white border border-white/30 relative"
-                    >
-                      <Menu className="h-4 w-4" />
+                 /* Guest hamburger menu — limited options until login */
+                 <DropdownMenu>
+                   <DropdownMenuTrigger asChild>
+                     <Button
+                       size="icon"
+                       className="h-10 w-10 sm:h-11 sm:w-11 bg-white/10 backdrop-blur-sm hover:bg-white/20 text-white border border-white/15 relative touch-target"
+                     >
+                       <Menu className="h-5 w-5" />
                       {needRefresh && (
                         <span className="absolute top-1 right-1 flex h-2 w-2">
                           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-300 opacity-75"></span>
@@ -408,8 +423,8 @@ export function BudgetHeader({
         </div>
 
         {/* Budget summary bar - More compact */}
-        <div className="py-3 sm:py-4 space-y-3">
-          {/* Bitcoin Price - Mobile only (above month) */}
+        <div className="py-3 sm:py-5 space-y-4">
+          {/* Bitcoin Price - Mobile only (above month) — kept exactly as-is */}
           {priceData && (
             <div className="flex md:hidden justify-center">
               <Badge variant="secondary" className="gap-1 font-mono text-xs">
@@ -420,54 +435,54 @@ export function BudgetHeader({
           )}
 
            {/* Month navigation */}
-           <div className="flex items-center justify-center gap-3 py-6">
-             <Button size="icon" onClick={onPreviousMonth} className="h-10 w-10 bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white border border-white/30">
+           <div className="flex items-center justify-center gap-4 py-4">
+             <Button size="icon" onClick={onPreviousMonth} className="h-11 w-11 bg-white/10 backdrop-blur-sm hover:bg-white/20 text-white border border-white/15 touch-target">
                <ChevronLeft className="h-5 w-5" />
              </Button>
              <button
                onClick={() => setShowMonthPicker(true)}
-               className="flex items-center gap-3 px-6 py-2 rounded-lg hover:bg-white/10 transition-colors"
+               className="flex items-center gap-3 px-6 py-2.5 rounded-xl hover:bg-white/8 transition-colors"
              >
-               <div>
-                 <p className="text-xs text-white/70 uppercase tracking-widest">Current Month</p>
-                 <h2 className="text-3xl font-bold text-white">
+               <div className="text-center">
+                 <p className="text-xs text-white/50 uppercase tracking-widest">Current Month</p>
+                 <h2 className="text-3xl sm:text-4xl font-serif-display text-white leading-tight">
                    {formatMonth(currentMonth)}
                  </h2>
                </div>
-               <Calendar className="h-5 w-5 text-white/60" />
+               <Calendar className="h-5 w-5 text-white/40" />
              </button>
-             <Button size="icon" onClick={onNextMonth} className="h-10 w-10 bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white border border-white/30">
+             <Button size="icon" onClick={onNextMonth} className="h-11 w-11 bg-white/10 backdrop-blur-sm hover:bg-white/20 text-white border border-white/15 touch-target">
                <ChevronRight className="h-5 w-5" />
              </Button>
            </div>
 
              {/* Budget totals - Responsive grid with cards */}
-             <div className="grid grid-cols-3 gap-2 sm:gap-4 pb-6">
+             <div className="grid grid-cols-3 gap-2.5 sm:gap-4 pb-5">
                {/* Income */}
-               <div className="rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 p-2.5 sm:p-4 text-center min-w-0">
-                 <p className="text-xs text-white/70 uppercase tracking-widest mb-0.5">Income</p>
-                 <p className="text-lg sm:text-3xl font-bold text-green-300 tabular-nums whitespace-nowrap">
+               <div className="rounded-xl bg-white/8 backdrop-blur-sm border border-white/10 p-3 sm:p-5 text-center min-w-0">
+                 <p className="text-xs text-white/50 uppercase tracking-widest mb-1">Income</p>
+                 <p className="text-lg sm:text-3xl font-serif-display text-green-300/90 tabular-nums whitespace-nowrap">
                    {formatAmountCompact(totalIncome)}
                  </p>
                </div>
  
                {/* Planned */}
-               <div className="rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 p-2.5 sm:p-4 text-center min-w-0">
-                 <p className="text-xs text-white/70 uppercase tracking-widest mb-0.5">Planned</p>
-                 <p className="text-lg sm:text-3xl font-bold text-white tabular-nums whitespace-nowrap">
+               <div className="rounded-xl bg-white/8 backdrop-blur-sm border border-white/10 p-3 sm:p-5 text-center min-w-0">
+                 <p className="text-xs text-white/50 uppercase tracking-widest mb-1">Planned</p>
+                 <p className="text-lg sm:text-3xl font-serif-display text-white tabular-nums whitespace-nowrap">
                    {formatAmountCompact(totalExpenses)}
                  </p>
                </div>
  
                {/* Remaining */}
-               <div className="rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 p-2.5 sm:p-4 text-center min-w-0">
-                 <p className="text-xs text-white/70 uppercase tracking-widest mb-0.5">Left</p>
+               <div className="rounded-xl bg-white/8 backdrop-blur-sm border border-white/10 p-3 sm:p-5 text-center min-w-0">
+                 <p className="text-xs text-white/50 uppercase tracking-widest mb-1">Left</p>
                  <p
                    className={cn(
-                     'text-lg sm:text-3xl font-bold tabular-nums whitespace-nowrap',
-                     isZeroed && 'text-green-300',
-                     isOver && 'text-red-300',
-                     !isZeroed && !isOver && 'text-blue-300'
+                     'text-lg sm:text-3xl font-serif-display tabular-nums whitespace-nowrap',
+                     isZeroed && 'text-green-300/90',
+                     isOver && 'text-red-300/90',
+                     !isZeroed && !isOver && 'text-blue-300/90'
                    )}
                  >
                    {formatAmountCompact(Math.abs(remaining))}
@@ -504,7 +519,7 @@ export function BudgetHeader({
       <Dialog open={showMonthPicker} onOpenChange={setShowMonthPicker}>
         <DialogContent className="sm:max-w-[340px]">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+            <DialogTitle className="flex items-center gap-2 font-serif-display">
               <Calendar className="h-5 w-5" />
               Select Month
             </DialogTitle>
@@ -536,10 +551,10 @@ export function BudgetHeader({
          {/* Reset Confirmation — first step */}
          <Dialog open={showResetConfirm} onOpenChange={setShowResetConfirm}>
            <DialogContent>
-             <DialogHeader>
-               <DialogTitle className="flex items-center gap-2 text-destructive">
-                 <AlertTriangle className="h-5 w-5" />
-                 Reset This Month?
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-destructive font-serif-display">
+                <AlertTriangle className="h-5 w-5" />
+                Reset This Month?
                </DialogTitle>
                <DialogDescription>
                  This will clear all categories, line items, and transactions for {formatMonth(currentMonth)}. This action cannot be undone.
@@ -565,10 +580,10 @@ export function BudgetHeader({
          {/* Final Reset Confirmation — extra security layer */}
          <Dialog open={showResetFinalConfirm} onOpenChange={setShowResetFinalConfirm}>
            <DialogContent>
-             <DialogHeader>
-               <DialogTitle className="flex items-center gap-2 text-destructive">
-                 <AlertTriangle className="h-5 w-5" />
-                 Final Confirmation — Reset This Month?
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-destructive font-serif-display">
+                <AlertTriangle className="h-5 w-5" />
+                Final Confirmation — Reset This Month?
                </DialogTitle>
                <DialogDescription>
                  This action is irreversible. All categories, line items, and transactions for {formatMonth(currentMonth)} will be permanently deleted.
@@ -613,7 +628,7 @@ export function BudgetHeader({
         <Dialog open={showSettings} onOpenChange={setShowSettings}>
           <DialogContent className="sm:max-w-[480px] max-h-[85vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Budget Buddy</DialogTitle>
+              <DialogTitle className="font-serif-display">Budget Buddy</DialogTitle>
               <DialogDescription>
                 Choose your AI provider, enter your API key, and set persistent context for your Budget Buddy.
               </DialogDescription>
@@ -628,7 +643,7 @@ export function BudgetHeader({
         <Dialog open={showPaymentMethods} onOpenChange={setShowPaymentMethods}>
           <DialogContent className="sm:max-w-[480px] max-h-[85vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Payment Methods</DialogTitle>
+              <DialogTitle className="font-serif-display">Payment Methods</DialogTitle>
               <DialogDescription>
                 Manage the payment methods you use for transactions.
               </DialogDescription>
@@ -655,7 +670,7 @@ export function BudgetHeader({
         <Dialog open={showAbout} onOpenChange={setShowAbout}>
           <DialogContent className="sm:max-w-[500px] max-h-[85vh]">
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
+              <DialogTitle className="flex items-center gap-2 font-serif-display">
                 <Zap className="h-5 w-5 text-primary" />
                 About Sat Sorter
               </DialogTitle>
@@ -695,7 +710,7 @@ export function BudgetHeader({
         <Dialog open={showBitcoinEdu} onOpenChange={setShowBitcoinEdu}>
           <DialogContent className="sm:max-w-[500px] max-h-[85vh]">
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
+              <DialogTitle className="flex items-center gap-2 font-serif-display">
                 <GraduationCap className="h-5 w-5 text-primary" />
                 Learn About Bitcoin
               </DialogTitle>

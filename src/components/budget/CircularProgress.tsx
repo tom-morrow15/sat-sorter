@@ -34,8 +34,8 @@ export function CircularProgress({
   // Color based on usage level
   const getColor = () => {
     if (percentage > 100) return 'hsl(var(--destructive))';
-    if (percentage >= 90) return 'hsl(28 85% 52%)'; // orange warning
-    if (percentage >= 75) return 'hsl(45 90% 50%)'; // amber
+    if (percentage >= 90) return 'hsl(28 80% 52%)'; // orange warning
+    if (percentage >= 75) return 'hsl(45 85% 50%)'; // amber
     return 'hsl(var(--success))'; // green - healthy
   };
 
@@ -58,6 +58,7 @@ export function CircularProgress({
           fill="none"
           stroke="hsl(var(--muted))"
           strokeWidth={strokeWidth}
+          opacity={0.5}
         />
         {/* Progress circle */}
         <circle
@@ -71,7 +72,7 @@ export function CircularProgress({
           strokeDashoffset={offset}
           strokeLinecap="round"
           style={{
-            transition: 'stroke-dashoffset 0.6s cubic-bezier(0.34, 1.56, 0.64, 1), stroke 0.3s ease',
+            transition: 'stroke-dashoffset 0.7s cubic-bezier(0.34, 1.56, 0.64, 1), stroke 0.3s ease',
           }}
         />
       </svg>
@@ -79,7 +80,7 @@ export function CircularProgress({
       {(label || value) && (
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           {value && (
-            <span className="text-sm font-bold leading-none tabular-nums">
+            <span className="font-serif-display text-sm leading-none tabular-nums">
               {value}
             </span>
           )}

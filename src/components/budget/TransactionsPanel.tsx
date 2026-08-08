@@ -301,21 +301,21 @@ export function TransactionsPanel({
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-base">Transactions</CardTitle>
+              <CardTitle className="text-base font-serif-display">Transactions</CardTitle>
               <p className="text-xs text-muted-foreground mt-0.5">
                 {unassigned.length} unassigned
               </p>
             </div>
-            <div className="flex items-center gap-1">
-              <Button size="sm" variant="outline" onClick={() => setShowDataSources(true)}>
-                <Link2 className="h-4 w-4 sm:mr-1" />
-                <span className="hidden sm:inline">Import</span>
-              </Button>
-              <Button size="sm" onClick={() => setShowAddDialog(true)}>
-                <Plus className="h-4 w-4 sm:mr-1" />
-                <span className="hidden sm:inline">Add</span>
-              </Button>
-            </div>
+             <div className="flex items-center gap-1">
+               <Button size="sm" variant="outline" onClick={() => setShowDataSources(true)} className="touch-target-sm">
+                 <Link2 className="h-4 w-4 sm:mr-1" />
+                 <span className="hidden sm:inline">Import</span>
+               </Button>
+               <Button size="sm" onClick={() => setShowAddDialog(true)} className="touch-target-sm">
+                 <Plus className="h-4 w-4 sm:mr-1" />
+                 <span className="hidden sm:inline">Add</span>
+               </Button>
+             </div>
           </div>
         </CardHeader>
         <CardContent className="pt-0">
@@ -341,7 +341,7 @@ export function TransactionsPanel({
                   <button
                     key={transaction.id}
                     onClick={() => handleOpenAssign(transaction)}
-                    className="w-full flex items-center gap-3 p-3 rounded-lg bg-primary/5 border border-primary/20 hover:bg-primary/10 transition-colors text-left group"
+                    className="w-full flex items-center gap-3 p-3.5 rounded-xl bg-primary/5 border border-primary/15 hover:bg-primary/10 transition-colors text-left group touch-target-sm animate-list-item"
                   >
                     <div
                       className={cn(
@@ -392,18 +392,18 @@ export function TransactionsPanel({
                  <CheckCircle2 className="h-4 w-4 text-success" />
                 <span className="text-sm font-medium">Categorized ({assigned.length})</span>
               </div>
-              <div className="w-full">
-                <div className="space-y-1">
-                  {assigned.map((transaction) => {
-                    const bucket = buckets.find(b => b.id === transaction.bucketId);
-                    const lineItem = bucket?.lineItems.find(
-                      l => l.id === transaction.lineItemId
-                    );
-                    return (
-                      <div
-                        key={transaction.id}
-                        className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 group"
-                      >
+               <div className="w-full">
+                 <div className="space-y-0.5">
+                   {assigned.map((transaction) => {
+                     const bucket = buckets.find(b => b.id === transaction.bucketId);
+                     const lineItem = bucket?.lineItems.find(
+                       l => l.id === transaction.lineItemId
+                     );
+                     return (
+                       <div
+                         key={transaction.id}
+                         className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-muted/40 group animate-list-item"
+                       >
                         <div
                           className={cn(
                             'h-7 w-7 rounded-full flex items-center justify-center',
@@ -599,9 +599,9 @@ export function TransactionsPanel({
 
       {/* Add Transaction Dialog */}
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-        <DialogContent className="sm:max-w-[400px]">
+        <DialogContent className="sm:max-w-[400px] rounded-3xl">
           <DialogHeader>
-            <DialogTitle>Add Transaction</DialogTitle>
+            <DialogTitle className="text-xl">Add Transaction</DialogTitle>
             <DialogDescription>
               Record a transaction to track your spending.
             </DialogDescription>
@@ -697,9 +697,9 @@ export function TransactionsPanel({
 
       {/* Assign Transaction Dialog */}
       <Dialog open={showAssignDialog} onOpenChange={setShowAssignDialog}>
-        <DialogContent className="sm:max-w-[400px]">
+        <DialogContent className="sm:max-w-[400px] rounded-3xl">
           <DialogHeader>
-            <DialogTitle>Categorize Transaction</DialogTitle>
+            <DialogTitle className="text-xl">Categorize Transaction</DialogTitle>
             <DialogDescription>
               Assign this transaction to a budget category.
             </DialogDescription>

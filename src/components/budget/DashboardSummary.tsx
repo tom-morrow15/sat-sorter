@@ -55,12 +55,12 @@ export function DashboardSummary({ buckets, transactions, currency }: DashboardS
   }
 
   return (
-    <div className="bg-card rounded-2xl border shadow-sm p-5 sm:p-6">
+    <div className="bg-card rounded-2xl border border-border/40 shadow-sm p-5 sm:p-6">
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-2.5">
           <div className="h-8 w-1 rounded-full bg-gradient-to-b from-blue-500 to-cyan-400" />
           <div>
-            <h2 className="text-lg font-bold tracking-tight">Spending This Month</h2>
+            <h2 className="font-serif-display text-lg tracking-tight">Spending This Month</h2>
             <p className="text-xs text-muted-foreground">
               {isOverspent ? 'You\'ve exceeded your plan' : `${formatAmount(leftToSpend)} left to spend`}
             </p>
@@ -101,14 +101,14 @@ export function DashboardSummary({ buckets, transactions, currency }: DashboardS
         <div className="flex-1 space-y-3">
           {/* Spent */}
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-blue-500/10 flex items-center justify-center flex-shrink-0">
+            <div className="h-10 w-10 rounded-xl bg-blue-500/10 flex items-center justify-center flex-shrink-0">
               <Wallet className="h-5 w-5 text-blue-500" />
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">
                 Spent
               </p>
-              <p className="text-lg font-bold tabular-nums leading-tight">
+              <p className="font-serif-display text-lg tabular-nums leading-tight">
                 {formatAmount(totalSpent)}
               </p>
             </div>
@@ -117,7 +117,7 @@ export function DashboardSummary({ buckets, transactions, currency }: DashboardS
           {/* Left to spend */}
           <div className="flex items-center gap-3">
             <div className={cn(
-              'h-10 w-10 rounded-lg flex items-center justify-center flex-shrink-0',
+              'h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0',
               isOverspent ? 'bg-destructive/10' : 'bg-success/10'
             )}>
               <PiggyBank className={cn(
@@ -130,7 +130,7 @@ export function DashboardSummary({ buckets, transactions, currency }: DashboardS
                 {isOverspent ? 'Over by' : 'Left to spend'}
               </p>
               <p className={cn(
-                'text-lg font-bold tabular-nums leading-tight',
+                'font-serif-display text-lg tabular-nums leading-tight',
                 isOverspent ? 'text-destructive' : 'text-foreground'
               )}>
                 {formatAmount(Math.abs(leftToSpend))}
@@ -142,7 +142,7 @@ export function DashboardSummary({ buckets, transactions, currency }: DashboardS
 
       {/* Over-budget categories warning */}
       {overBudgetCount > 0 && (
-        <div className="mt-4 pt-4 border-t flex items-center gap-2 text-xs text-muted-foreground">
+        <div className="mt-4 pt-4 border-t border-border/40 flex items-center gap-2 text-xs text-muted-foreground">
           <AlertTriangle className="h-3.5 w-3.5 text-orange-500 flex-shrink-0" />
           <span>
             {overBudgetCount} {overBudgetCount === 1 ? 'category is' : 'categories are'} over budget

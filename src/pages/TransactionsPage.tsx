@@ -121,11 +121,11 @@ export default function TransactionsPage() {
         }}
       />
 
-        <main className="container mx-auto px-3 sm:px-4 py-4 lg:py-6">
-          <div className="space-y-4">
+        <main className="container mx-auto px-4 sm:px-6 py-6 lg:py-8">
+          <div className="space-y-5">
             {/* Title */}
             <div>
-              <h1 className="text-2xl sm:text-3xl font-bold">Transactions</h1>
+              <h1 className="font-serif-display text-2xl sm:text-3xl tracking-tight">Transactions</h1>
               <p className="text-muted-foreground text-sm mt-1">
                 All transactions for {formatMonth(currentMonth)}
               </p>

@@ -204,25 +204,23 @@ export function BucketCard({
    return (
      <Card
         className={cn(
-          'overflow-hidden card-interactive press-feedback border-0 shadow-sm hover:shadow-md transition-all duration-300',
-          'bg-gradient-to-br from-white to-neutral-50',
-          'dark:from-neutral-900/50 dark:to-neutral-950/50',
-          'dark:border-neutral-800/50',
-          bucket.isIncome && 'ring-1 ring-success/20'
+          'overflow-hidden card-interactive press-feedback rounded-2xl shadow-sm hover:shadow-md transition-all duration-300',
+          'border border-border/40',
+          bucket.isIncome && 'ring-1 ring-success/15'
         )}
      >
        <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-         <CardHeader className="pb-3 pt-6 px-6">
+         <CardHeader className="pb-3 pt-5 px-5 sm:px-6">
            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-4 flex-1 min-w-0">
+              <div className="flex items-center gap-3.5 flex-1 min-w-0">
                 {/* Icon with refined styling — clicking opens the menu */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <div
-                      className="h-12 w-12 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm transition-transform hover:scale-105 cursor-pointer"
+                      className="h-12 w-12 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm transition-transform hover:scale-105 cursor-pointer touch-target"
                       style={{ 
-                        backgroundColor: `${bucket.color}15`,
-                        border: `2px solid ${bucket.color}30`
+                        backgroundColor: `${bucket.color}12`,
+                        border: `1.5px solid ${bucket.color}25`
                       }}
                     >
                       <Icon className="h-6 w-6" style={{ color: bucket.color }} />
@@ -288,7 +286,7 @@ export function BucketCard({
                   />
                  ) : (
                    <div className="min-w-0 flex-1">
-                     <h3 className="font-semibold text-base sm:text-lg text-foreground break-words leading-tight">{bucket.name}</h3>
+                     <h3 className="font-serif-display text-base sm:text-lg text-foreground break-words leading-tight">{bucket.name}</h3>
                      <p className="text-xs sm:text-sm text-muted-foreground">
                        {bucket.lineItems.length} item{bucket.lineItems.length !== 1 ? 's' : ''} • ${(total || 0).toFixed(2)}
                      </p>
@@ -301,7 +299,7 @@ export function BucketCard({
                  <div className="text-right min-w-0">
                    <p
                      className={cn(
-                       'font-bold tabular-nums text-lg sm:text-2xl leading-tight whitespace-nowrap',
+                       'font-serif-display tabular-nums text-lg sm:text-2xl leading-tight whitespace-nowrap',
                        bucket.isIncome ? 'text-success' : 'text-foreground'
                      )}
                    >
@@ -315,9 +313,9 @@ export function BucketCard({
                     </p>
                  </div>
 
-               {/* Collapse toggle — moved to the rightmost position */}
+               {/* Collapse toggle — touch-friendly */}
                <CollapsibleTrigger asChild>
-                 <Button variant="ghost" size="icon" className="h-8 w-8">
+                 <Button variant="ghost" size="icon" className="h-9 w-9 touch-target-sm">
                    {isOpen ? (
                      <ChevronUp className="h-4 w-4" />
                    ) : (
@@ -329,73 +327,74 @@ export function BucketCard({
           </div>
         </CardHeader>
 
-        <CollapsibleContent>
-          <CardContent className="pt-0 pb-3">
-            {/* Progress bar for expenses */}
-            {!bucket.isIncome && total > 0 && (
-              <div className="mb-4 pb-4 border-b">
-                <SpendingProgressBar spent={spent} budget={total} showLabel={true} />
-              </div>
-            )}
+         <CollapsibleContent>
+           <CardContent className="pt-0 pb-4">
+             {/* Progress bar for expenses */}
+             {!bucket.isIncome && total > 0 && (
+               <div className="mb-4 pb-4 border-b border-border/40">
+                 <SpendingProgressBar spent={spent} budget={total} showLabel={true} />
+               </div>
+             )}
 
-            {/* Line items */}
-            <div className="space-y-1">
-               {bucket.lineItems
-                 .sort((a, b) => a.order - b.order)
-                 .map((lineItem) => (
-                    <LineItemRow
-                      key={lineItem.id}
-                      lineItem={lineItem}
-                      bucketId={bucket.id}
-                      bucketColor={bucket.color}
-                      transactions={transactions}
-                      currency={currency}
-                      isIncome={bucket.isIncome}
-                      merchants={merchants}
-                      onUpdate={onUpdateLineItem}
-                      onDelete={onDeleteLineItem}
-                      onViewTransactions={onViewTransactions}
-                    />
-                 ))}
-            </div>
+             {/* Line items — flush list-style rows */}
+             <div className="space-y-0.5">
+                {bucket.lineItems
+                  .sort((a, b) => a.order - b.order)
+                  .map((lineItem) => (
+                     <LineItemRow
+                       key={lineItem.id}
+                       lineItem={lineItem}
+                       bucketId={bucket.id}
+                       bucketColor={bucket.color}
+                       transactions={transactions}
+                       currency={currency}
+                       isIncome={bucket.isIncome}
+                       merchants={merchants}
+                       onUpdate={onUpdateLineItem}
+                       onDelete={onDeleteLineItem}
+                       onViewTransactions={onViewTransactions}
+                     />
+                  ))}
+             </div>
 
              {/* Add new item / transaction buttons */}
-             {isAddingItem ? (
-               <div className="flex items-center gap-2 mt-3 px-4">
-                 <Input
-                   value={newItemName}
-                   onChange={(e) => setNewItemName(e.target.value)}
-                   onKeyDown={(e) => {
-                     if (e.key === 'Enter') handleAddItem();
-                     if (e.key === 'Escape') {
-                       setNewItemName('');
-                       setIsAddingItem(false);
-                     }
-                   }}
-                   placeholder="Line item name..."
-                   className="h-8 flex-1"
-                   autoFocus
-                 />
-                 <Button size="sm" onClick={handleAddItem}>
-                   Add
-                 </Button>
-                 <Button
-                   size="sm"
-                   variant="ghost"
-                   onClick={() => {
-                     setNewItemName('');
-                     setIsAddingItem(false);
-                   }}
-                 >
-                   Cancel
-                 </Button>
-               </div>
+              {isAddingItem ? (
+                <div className="flex items-center gap-2 mt-3 px-1">
+                  <Input
+                    value={newItemName}
+                    onChange={(e) => setNewItemName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleAddItem();
+                      if (e.key === 'Escape') {
+                        setNewItemName('');
+                        setIsAddingItem(false);
+                      }
+                    }}
+                    placeholder="Line item name..."
+                    className="h-10 flex-1"
+                    autoFocus
+                  />
+                  <Button size="sm" onClick={handleAddItem} className="touch-target-sm">
+                    Add
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      setNewItemName('');
+                      setIsAddingItem(false);
+                    }}
+                    className="touch-target-sm"
+                  >
+                    Cancel
+                  </Button>
+                </div>
               ) : (
-                <div className="px-4 pb-1">
+                <div className="px-1 pb-1 pt-2">
                   <Button
                     variant="outline"
                     size="sm"
-                    className="w-full justify-center border-dashed hover:border-solid hover:bg-primary/5 hover:text-primary transition-all press-feedback"
+                    className="w-full justify-center border-dashed hover:border-solid hover:bg-primary/5 hover:text-primary transition-all press-feedback touch-target-sm"
                     onClick={() => setIsAddingItem(true)}
                   >
                     <Plus className="h-4 w-4 mr-1.5" />

@@ -51,12 +51,12 @@ export default function LocalSpendPage() {
         onSelectMonth={setCurrentMonth}
       />
 
-      <main className="container mx-auto px-3 sm:px-4 py-4 lg:py-6">
+      <main className="container mx-auto px-4 sm:px-6 py-6 lg:py-8">
         <div className="space-y-6">
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-bold">Spend Bitcoin Locally</h1>
+              <h1 className="font-serif-display text-2xl sm:text-3xl tracking-tight">Spend Bitcoin Locally</h1>
               <p className="text-muted-foreground text-sm mt-1">
                 Find Bitcoin-accepting merchants and businesses near you
               </p>
@@ -65,7 +65,7 @@ export default function LocalSpendPage() {
               <Button
                 variant="outline"
                 onClick={() => setShowLocationSetup(true)}
-                className="whitespace-nowrap"
+                className="whitespace-nowrap touch-target-sm"
               >
                 <Settings2 className="h-4 w-4 mr-2" />
                 Change Location

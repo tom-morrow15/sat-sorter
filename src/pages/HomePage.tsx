@@ -157,7 +157,7 @@ export default function HomePage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-muted/30">
+    <div className="min-h-screen bg-background">
       <BudgetHeader
         buckets={currentBudget.buckets}
         currentMonth={currentMonth}
@@ -173,15 +173,15 @@ export default function HomePage() {
         onPlanNextMonth={handlePlanNextMonth}
       />
 
-      <main className="container mx-auto px-3 sm:px-4 py-6 lg:py-8 max-w-4xl">
+      <main className="container mx-auto px-4 sm:px-6 py-6 lg:py-10 max-w-4xl">
         {/* Alerts Section - Full width */}
         <div className="space-y-3 mb-4">
           {/* Guest mode banner */}
           {onboardingState === 'guest' && !dismissedGuestBanner && (
-            <Alert className="border-primary/30 bg-primary/5 relative">
+            <Alert className="border-primary/20 bg-primary/5 relative rounded-2xl">
               <button
                 onClick={() => setDismissedGuestBanner(true)}
-                className="absolute top-1.5 right-2 text-muted-foreground hover:text-foreground"
+                className="absolute top-2 right-2 text-muted-foreground hover:text-foreground touch-target-sm flex items-center justify-center"
                 aria-label="Dismiss"
               >
                 <X className="h-4 w-4" />
@@ -205,7 +205,7 @@ export default function HomePage() {
 
           {/* Login prompt for logged-out users (not guest mode) */}
           {!user && onboardingState !== 'guest' && (
-            <Alert className="border-primary/30 bg-primary/5">
+            <Alert className="border-primary/20 bg-primary/5 rounded-2xl">
               <Info className="h-4 w-4 text-primary" />
               <AlertDescription className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <span className="text-sm">
@@ -217,14 +217,14 @@ export default function HomePage() {
           )}
 
            {/* NWC connection prompt — dismissible so it doesn't live persistently */}
-           {user && !hasNWC && !dismissedNwcPrompt && (
-             <Alert className="border-primary/30 bg-primary/5 relative">
-               <button
-                 onClick={() => setDismissedNwcPrompt(true)}
-                 className="absolute top-1.5 right-2 text-muted-foreground hover:text-foreground"
-                 aria-label="Dismiss"
-               >
-                 <X className="h-4 w-4" />
+            {user && !hasNWC && !dismissedNwcPrompt && (
+              <Alert className="border-primary/20 bg-primary/5 relative rounded-2xl">
+                <button
+                  onClick={() => setDismissedNwcPrompt(true)}
+                  className="absolute top-2 right-2 text-muted-foreground hover:text-foreground touch-target-sm flex items-center justify-center"
+                  aria-label="Dismiss"
+                >
+                  <X className="h-4 w-4" />
                </button>
                <Zap className="h-4 w-4 text-primary" />
                <AlertDescription className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pr-6">
@@ -258,13 +258,13 @@ export default function HomePage() {
         <BtcTipCard />
 
         {/* Main Layout - Budget Categories */}
-        <div className="space-y-4">
+        <div className="space-y-5">
           {/* Income section header */}
           {incomeBucket && (
             <div className="flex items-center gap-2.5 pb-1" style={{ animation: 'fadeIn 0.3s ease-out', animationDelay: '0.1s', animationFillMode: 'both' }}>
               <div className="h-8 w-1 rounded-full bg-gradient-to-b from-success to-emerald-400" />
               <div>
-                <h2 className="text-lg font-bold tracking-tight">Income</h2>
+                <h2 className="font-serif-display text-lg tracking-tight">Income</h2>
                 <p className="text-xs text-muted-foreground">Money coming in this month</p>
               </div>
             </div>
@@ -292,29 +292,29 @@ export default function HomePage() {
            )}
 
            {/* Section header for expenses */}
-           <div className="flex items-center justify-between pt-4 pb-1" style={{ animation: 'fadeIn 0.3s ease-out', animationDelay: '0.2s', animationFillMode: 'both' }}>
-             <div className="flex items-center gap-2.5">
-               <div className="h-8 w-1 rounded-full bg-gradient-to-b from-primary to-orange-500" />
-               <div>
-                 <h2 className="text-lg font-bold tracking-tight">Expense Categories</h2>
-                 <p className="text-xs text-muted-foreground">
-                   {expenseBuckets.length} {expenseBuckets.length === 1 ? 'category' : 'categories'}
-                 </p>
-               </div>
-             </div>
-             <Button
-               size="sm"
-               onClick={() => setShowAddBucket(true)}
-               className="btn-interactive shadow-sm"
-             >
-               <Plus className="h-4 w-4 mr-1.5" />
-               <span className="hidden sm:inline">Add Category</span>
-               <span className="sm:hidden">Add</span>
-             </Button>
-           </div>
+            <div className="flex items-center justify-between pt-5 pb-1" style={{ animation: 'fadeIn 0.3s ease-out', animationDelay: '0.2s', animationFillMode: 'both' }}>
+              <div className="flex items-center gap-2.5">
+                <div className="h-8 w-1 rounded-full bg-gradient-to-b from-primary to-orange-500" />
+                <div>
+                  <h2 className="font-serif-display text-lg tracking-tight">Expense Categories</h2>
+                  <p className="text-xs text-muted-foreground">
+                    {expenseBuckets.length} {expenseBuckets.length === 1 ? 'category' : 'categories'}
+                  </p>
+                </div>
+              </div>
+              <Button
+                size="sm"
+                onClick={() => setShowAddBucket(true)}
+                className="btn-interactive shadow-sm touch-target-sm"
+              >
+                <Plus className="h-4 w-4 mr-1.5" />
+                <span className="hidden sm:inline">Add Category</span>
+                <span className="sm:hidden">Add</span>
+              </Button>
+            </div>
 
-            {/* Expense buckets */}
-            <div className="space-y-3">
+             {/* Expense buckets */}
+             <div className="space-y-4">
                {expenseBuckets.map((bucket, index) => (
                  <div
                    key={bucket.id}
@@ -342,14 +342,14 @@ export default function HomePage() {
 
           {/* Empty state for no expense buckets */}
           {expenseBuckets.length === 0 && (
-            <div className="relative text-center py-12 sm:py-16 px-6 sm:px-8 rounded-2xl bg-gradient-to-br from-card to-muted/40 border shadow-sm overflow-hidden">
+            <div className="relative text-center py-14 sm:py-20 px-6 sm:px-8 rounded-2xl bg-gradient-to-br from-card to-muted/30 border border-border/40 shadow-sm overflow-hidden">
               {/* Decorative background */}
-              <div className="absolute inset-0 bg-mesh-gradient opacity-40 pointer-events-none" />
+              <div className="absolute inset-0 bg-mesh-gradient opacity-30 pointer-events-none" />
               <div className="relative">
-                <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-2xl bg-gradient-to-br from-primary/20 to-orange-500/10 flex items-center justify-center mx-auto mb-5 shadow-sm">
+                <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-2xl bg-gradient-to-br from-primary/15 to-orange-500/8 flex items-center justify-center mx-auto mb-5 shadow-sm">
                   <Bitcoin className="h-8 w-8 sm:h-10 sm:w-10 text-primary" />
                 </div>
-                <h3 className="font-bold text-xl sm:text-2xl mb-2 tracking-tight">
+                <h3 className="font-serif-display text-xl sm:text-2xl mb-2 tracking-tight">
                   Start building your budget
                 </h3>
                 <p className="text-muted-foreground text-sm sm:text-base max-w-md mx-auto mb-6 leading-relaxed">
@@ -360,12 +360,13 @@ export default function HomePage() {
                   <Button
                     variant="outline"
                     onClick={() => setShowCopyPrompt(true)}
+                    className="touch-target-sm"
                   >
                     <Copy className="h-4 w-4 mr-2" />
                     Copy from Previous Month
                   </Button>
                 )}
-                <Button onClick={() => setShowAddBucket(true)} className="shadow-sm">
+                <Button onClick={() => setShowAddBucket(true)} className="shadow-sm touch-target-sm">
                   <Plus className="h-4 w-4 mr-2" />
                   {availableCopyMonths.length > 0 ? 'Start Fresh' : 'Add Your First Category'}
                 </Button>
@@ -376,7 +377,7 @@ export default function HomePage() {
         </div>
 
         {/* Footer */}
-        <footer className="mt-12 lg:mt-16 pt-6 lg:pt-8 border-t text-center space-y-3">
+        <footer className="mt-12 lg:mt-16 pt-8 lg:pt-10 border-t border-border/40 text-center space-y-3">
           {/* Easter egg - Dollar purchasing power */}
           <p className="text-xs text-muted-foreground/70 italic">
             💡 Since 1913, the US dollar has lost over 96% of its purchasing power.

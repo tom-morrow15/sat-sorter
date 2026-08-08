@@ -187,17 +187,17 @@ export default function SpendingBreakdownPage() {
         onSelectMonth={setCurrentMonth}
       />
 
-      <main className="container mx-auto max-w-2xl px-4 py-6 lg:py-10">
+      <main className="container mx-auto max-w-2xl px-4 sm:px-6 py-6 lg:py-10">
         {breakdownData.length === 0 ? (
           <div className="text-center py-24">
-            <h1 className="text-2xl sm:text-3xl font-bold mb-2">Spending Breakdown</h1>
+            <h1 className="font-serif-display text-2xl sm:text-3xl mb-2">Spending Breakdown</h1>
             <p className="text-muted-foreground">No spending data yet for {monthLabel}.</p>
           </div>
         ) : (
           <div className="space-y-8">
             {/* Gauge card */}
-            <section className="rounded-2xl bg-card border border-border/60 px-6 pt-8 pb-6 shadow-sm">
-              <p className="text-center text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            <section className="rounded-2xl bg-card border border-border/40 px-6 pt-8 pb-6 shadow-sm">
+              <p className="text-center text-xs font-medium uppercase tracking-wider text-muted-foreground font-serif-display">
                 {monthLabel}
               </p>
 
@@ -211,7 +211,7 @@ export default function SpendingBreakdownPage() {
                   <p className="text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground">
                     Spent
                   </p>
-                  <p className="text-4xl sm:text-5xl font-bold tabular-nums mt-1 leading-none">
+                  <p className="text-4xl sm:text-5xl font-serif-display tabular-nums mt-1 leading-none">
                     {totalSpentDisplay.label}
                   </p>
                   {totalBudgetUsd > 0 && (
@@ -225,7 +225,7 @@ export default function SpendingBreakdownPage() {
 
             {/* Month-over-month trend */}
             {trendData && (
-              <section className="rounded-2xl bg-card border border-border/60 p-5 shadow-sm">
+              <section className="rounded-2xl bg-card border border-border/40 p-5 shadow-sm">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
@@ -245,7 +245,7 @@ export default function SpendingBreakdownPage() {
                         <TrendingDown className="h-4 w-4 text-green-500" />
                       )}
                       <span
-                        className={`text-lg font-bold tabular-nums ${
+                        className={`font-serif-display text-lg tabular-nums ${
                           trendData.isFlat
                             ? 'text-muted-foreground'
                             : trendData.isUp
@@ -272,7 +272,7 @@ export default function SpendingBreakdownPage() {
             {/* Categories list */}
             <section>
               <div className="flex items-center justify-between mb-3 px-1">
-                <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground font-serif-display">
                   Spending Categories
                 </h2>
                 <span className="text-xs text-muted-foreground">
@@ -280,7 +280,7 @@ export default function SpendingBreakdownPage() {
                 </span>
               </div>
 
-              <ul className="rounded-2xl bg-card border border-border/60 divide-y divide-border/60 overflow-hidden shadow-sm">
+              <ul className="rounded-2xl bg-card border border-border/40 divide-y divide-border/40 overflow-hidden shadow-sm">
                 {breakdownData.map((item) => {
                   const Icon = iconMap[item.icon] || Wallet;
                   const spentDisplay = toDisplay(item.spentUsd);
@@ -290,7 +290,7 @@ export default function SpendingBreakdownPage() {
                   return (
                     <li
                       key={item.id}
-                      className="relative flex items-center gap-3 py-4 pl-5 pr-4"
+                      className="relative flex items-center gap-3 py-4 pl-5 pr-4 animate-list-item"
                     >
                       {/* Colored left accent bar */}
                       <span
@@ -301,8 +301,8 @@ export default function SpendingBreakdownPage() {
 
                       {/* Icon chip */}
                       <div
-                        className="h-10 w-10 rounded-full flex items-center justify-center shrink-0"
-                        style={{ backgroundColor: `${item.color}1f` }} // ~12% alpha
+                        className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0"
+                        style={{ backgroundColor: `${item.color}1a` }}
                       >
                         <Icon className="h-5 w-5" style={{ color: item.color }} />
                       </div>
@@ -320,7 +320,7 @@ export default function SpendingBreakdownPage() {
                       {/* Amount */}
                       <div className="text-right shrink-0">
                         <p
-                          className={`text-sm font-semibold tabular-nums ${
+                          className={`font-serif-display text-sm tabular-nums ${
                             overBudget ? 'text-destructive' : ''
                           }`}
                         >

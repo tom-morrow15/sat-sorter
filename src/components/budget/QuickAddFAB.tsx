@@ -190,7 +190,7 @@ export function QuickAddFAB({ onAddTransaction, currency }: QuickAddFABProps) {
           'h-14 w-14 rounded-full shadow-lg hover:shadow-xl',
           'flex items-center justify-center transition-all duration-200',
           'bg-primary text-primary-foreground hover:bg-primary/90',
-          'active:scale-95'
+          'active:scale-95 touch-target'
         )}
         style={{
           bottom: 'calc(max(1.5rem, env(safe-area-inset-bottom)) + 76px)',
@@ -202,9 +202,9 @@ export function QuickAddFAB({ onAddTransaction, currency }: QuickAddFABProps) {
 
       {/* Dialog */}
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[425px] rounded-3xl">
           <DialogHeader>
-            <DialogTitle>Quick Add Transaction</DialogTitle>
+            <DialogTitle className="text-xl">Quick Add Transaction</DialogTitle>
             <DialogDescription>
               Add a transaction quickly. Assign to categories later.
             </DialogDescription>

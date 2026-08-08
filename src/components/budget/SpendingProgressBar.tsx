@@ -49,7 +49,7 @@ export function SpendingProgressBar({
 
   return (
     <div className={cn('w-full space-y-2', className)}>
-      <div className="w-full bg-muted/70 rounded-full h-2 overflow-hidden shadow-inner">
+      <div className="w-full bg-muted/50 rounded-full h-2 overflow-hidden shadow-inner">
         <div
           className={cn(
             'h-full rounded-full transition-all duration-500 ease-out',

@@ -4,41 +4,46 @@
 
 @layer base {
   :root {
-    /* Refined Professional Theme */
-    --background: 220 8% 97%;
-    --foreground: 220 15% 15%;
+    /* Refined Professional Theme — warmer, more approachable */
+    --background: 30 10% 98%;
+    --foreground: 220 12% 14%;
 
     --card: 0 0% 100%;
-    --card-foreground: 220 15% 15%;
+    --card-foreground: 220 12% 14%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 220 15% 15%;
+    --popover-foreground: 220 12% 14%;
 
-    /* Refined Bitcoin Orange - more muted */
-    --primary: 28 85% 48%;
+    /* Refined Bitcoin Orange — slightly warmer and muted */
+    --primary: 28 80% 50%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 12% 94%;
-    --secondary-foreground: 220 15% 20%;
+    --secondary: 30 8% 94%;
+    --secondary-foreground: 220 12% 20%;
 
-    --muted: 220 12% 93%;
-    --muted-foreground: 220 10% 50%;
+    --muted: 30 8% 94%;
+    --muted-foreground: 220 8% 48%;
 
-    --accent: 28 85% 94%;
-    --accent-foreground: 28 85% 38%;
+    --accent: 28 80% 95%;
+    --accent-foreground: 28 80% 38%;
 
     /* Professional green for income */
-    --success: 142 60% 48%;
+    --success: 142 55% 46%;
     --success-foreground: 0 0% 100%;
 
-    --destructive: 0 72% 56%;
+    --destructive: 0 65% 54%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 12% 90%;
-    --input: 220 12% 90%;
-    --ring: 28 85% 48%;
+    --border: 30 8% 90%;
+    --input: 30 8% 90%;
+    --ring: 28 80% 50%;
 
-    --radius: 0.75rem;
+    --radius: 0.875rem;
+
+    /* Header colors — deep black to charcoal */
+    --header-bg-top: 0 0% 4%;
+    --header-bg-bottom: 220 8% 10%;
+    --header-grid: 28 60% 55%;
 
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 220 10% 26%;
@@ -46,49 +51,54 @@
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 28 100% 96%;
     --sidebar-accent-foreground: 28 100% 35%;
-    --sidebar-border: 220 13% 91%;
+    --sidebar-border: 30 8% 91%;
     --sidebar-ring: 28 100% 50%;
   }
 
   .dark {
-    --background: 220 13% 9%;
-    --foreground: 0 0% 93%;
+    --background: 220 10% 8%;
+    --foreground: 30 8% 92%;
 
-    --card: 220 13% 13%;
-    --card-foreground: 0 0% 93%;
+    --card: 220 10% 11%;
+    --card-foreground: 30 8% 92%;
 
-    --popover: 220 13% 13%;
-    --popover-foreground: 0 0% 93%;
+    --popover: 220 10% 11%;
+    --popover-foreground: 30 8% 92%;
 
-    --primary: 28 85% 52%;
-    --primary-foreground: 220 13% 9%;
+    --primary: 28 80% 54%;
+    --primary-foreground: 220 10% 8%;
 
-    --secondary: 220 12% 20%;
-    --secondary-foreground: 0 0% 93%;
+    --secondary: 220 10% 18%;
+    --secondary-foreground: 30 8% 92%;
 
-    --muted: 220 12% 20%;
-    --muted-foreground: 220 10% 65%;
+    --muted: 220 10% 18%;
+    --muted-foreground: 220 8% 62%;
 
-    --accent: 28 60% 32%;
-    --accent-foreground: 28 85% 60%;
+    --accent: 28 50% 28%;
+    --accent-foreground: 28 80% 62%;
 
-    --success: 142 60% 50%;
+    --success: 142 55% 48%;
     --success-foreground: 0 0% 100%;
 
-    --destructive: 0 72% 52%;
+    --destructive: 0 65% 52%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 12% 22%;
-    --input: 220 12% 22%;
-    --ring: 28 85% 52%;
+    --border: 220 10% 20%;
+    --input: 220 10% 20%;
+    --ring: 28 80% 54%;
 
-    --sidebar-background: 220 20% 8%;
+    /* Header stays deep black in dark mode too */
+    --header-bg-top: 0 0% 3%;
+    --header-bg-bottom: 220 10% 8%;
+    --header-grid: 28 60% 50%;
+
+    --sidebar-background: 220 15% 7%;
     --sidebar-foreground: 220 10% 75%;
     --sidebar-primary: 28 100% 55%;
     --sidebar-primary-foreground: 220 20% 7%;
     --sidebar-accent: 28 50% 15%;
     --sidebar-accent-foreground: 28 100% 65%;
-    --sidebar-border: 220 15% 18%;
+    --sidebar-border: 220 15% 16%;
     --sidebar-ring: 28 100% 55%;
   }
 }
@@ -145,6 +155,13 @@
     border-color: hsl(var(--success));
   }
 
+  /* Serif font utility — Cochin with Garamond fallback */
+  .font-serif-display {
+    font-family: 'Cochin', 'Cormorant Garamond', 'Iowan Old Style', 'Apple Garamond', 'Baskerville', 'Times New Roman', serif;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
   /* Smooth number transitions */
   .tabular-nums {
     font-variant-numeric: tabular-nums;
@@ -173,7 +190,7 @@
 
   /* Budget progress bar animations */
   .progress-bar {
-    transition: width 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    transition: width 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
   }
 
   /* Enhanced card interactions */
@@ -182,8 +199,8 @@
   }
 
   .card-interactive:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.12);
+    transform: translateY(-3px);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(247, 147, 26, 0.06);
   }
 
   /* Subtle hover effects */
@@ -193,7 +210,7 @@
 
   .hover-lift:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
   }
 
   /* Enhanced button interactions */
@@ -204,7 +221,7 @@
   }
 
   .btn-interactive:hover {
-    box-shadow: 0 8px 16px rgba(247, 147, 26, 0.2);
+    box-shadow: 0 6px 16px rgba(247, 147, 26, 0.18);
     transform: translateY(-1px);
   }
 
@@ -214,11 +231,11 @@
 
   /* Bitcoin glow effect */
   .bitcoin-glow {
-    box-shadow: 0 0 20px rgba(247, 147, 26, 0.3);
+    box-shadow: 0 0 20px rgba(247, 147, 26, 0.25);
   }
 
   .bitcoin-glow-hover:hover {
-    box-shadow: 0 0 30px rgba(247, 147, 26, 0.5);
+    box-shadow: 0 0 30px rgba(247, 147, 26, 0.4);
     transition: box-shadow 0.3s ease;
   }
 
@@ -230,7 +247,7 @@
 
   .card-enhanced:hover {
     border-color: hsl(var(--border));
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
   }
 
   /* Loading state pulse */
@@ -257,6 +274,18 @@
     outline: 2px solid hsl(var(--ring));
     outline-offset: 2px;
     animation: fadeIn 0.2s ease-out;
+  }
+
+  /* ===== TOUCH TARGETS ===== */
+  /* Ensure minimum 44x44px tap targets on mobile */
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .touch-target-sm {
+    min-height: 40px;
+    min-width: 40px;
   }
 
   /* ===== MICRO-INTERACTIONS ===== */
@@ -310,5 +339,139 @@
   }
   .animate-count-up {
     animation: count-up 0.25s ease-out;
+  }
+
+  /* ===== WORMHOLE GRID HEADER BACKGROUND ===== */
+  /* Subtle, slow-moving grid that gently distorts like a space-time grid.
+     Very low opacity — barely noticeable, sitting softly behind content. */
+
+  .wormhole-grid-bg {
+    position: absolute;
+    inset: -20% -20% -10% -20%;
+    background-image:
+      linear-gradient(
+        hsl(var(--header-grid) / 0.5) 1px,
+        transparent 1px
+      ),
+      linear-gradient(
+        90deg,
+        hsl(var(--header-grid) / 0.5) 1px,
+        transparent 1px
+      );
+    background-size: 48px 48px;
+    background-position: center;
+    opacity: 0.12;
+    pointer-events: none;
+    animation: wormhole-grid-drift 24s ease-in-out infinite;
+    transform-origin: center bottom;
+  }
+
+  @keyframes wormhole-grid-drift {
+    0% {
+      transform: perspective(800px) rotateX(0deg) translateY(0) scale(1);
+      opacity: 0.10;
+    }
+    25% {
+      transform: perspective(800px) rotateX(1.5deg) translateY(-8px) scale(1.03);
+      opacity: 0.15;
+    }
+    50% {
+      transform: perspective(800px) rotateX(0.5deg) translateY(-14px) scale(1.06);
+      opacity: 0.18;
+    }
+    75% {
+      transform: perspective(800px) rotateX(1deg) translateY(-6px) scale(1.03);
+      opacity: 0.13;
+    }
+    100% {
+      transform: perspective(800px) rotateX(0deg) translateY(0) scale(1);
+      opacity: 0.10;
+    }
+  }
+
+  /* Secondary radial glow that breathes very slowly */
+  .wormhole-glow {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(
+      ellipse 70% 50% at 50% 100%,
+      hsl(var(--header-grid) / 0.08) 0%,
+      transparent 70%
+    );
+    pointer-events: none;
+    animation: wormhole-glow-pulse 16s ease-in-out infinite;
+  }
+
+  @keyframes wormhole-glow-pulse {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
+  }
+
+  /* ===== HEADER SCROLL GRADIENT ===== */
+  /* The header transitions from deep black to softer charcoal as user scrolls */
+  .header-base {
+    background: linear-gradient(
+      180deg,
+      hsl(var(--header-bg-top)) 0%,
+      hsl(var(--header-bg-top)) 30%,
+      hsl(var(--header-bg-bottom)) 100%
+    );
+    transition: background 0.6s ease;
+  }
+
+  .header-scrolled {
+    background: linear-gradient(
+      180deg,
+      hsl(var(--header-bg-bottom)) 0%,
+      hsl(220 8% 12%) 50%,
+      hsl(220 8% 14%) 100%
+    );
+    transition: background 0.6s ease;
+  }
+
+  /* ===== FLOATING PANEL DIALOG ===== */
+  /* Rounded panel with soft drop shadow that slides up smoothly */
+  .dialog-panel {
+    border-radius: 1.5rem;
+    box-shadow:
+      0 24px 60px -12px rgba(0, 0, 0, 0.25),
+      0 8px 24px -8px rgba(0, 0, 0, 0.15),
+      0 0 0 1px rgba(0, 0, 0, 0.04);
+  }
+
+  .dialog-panel-overlay {
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(3px);
+  }
+
+  /* ===== GENTLE PROGRESS RING ===== */
+  .progress-ring-track {
+    stroke: hsl(var(--muted));
+    opacity: 0.5;
+  }
+
+  /* ===== GENEROUS SPACING UTILITIES ===== */
+  /* Extra breathing room for mobile content */
+  .content-spacing {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  @media (min-width: 640px) {
+    .content-spacing {
+      padding-left: 1.5rem;
+      padding-right: 1.5rem;
+    }
+  }
+
+  /* List item spacing — generous tap-friendly rows */
+  .list-row-spacing {
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+  }
+
+  /* Smooth fade-in for list items */
+  .animate-list-item {
+    animation: fade-in-soft 0.35s ease-out forwards;
   }
 }

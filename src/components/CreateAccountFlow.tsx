@@ -114,21 +114,22 @@ export function CreateAccountFlow() {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       {/* Header bar with brand continuity */}
-      <header className="relative w-full bg-header-gradient text-white overflow-hidden shrink-0">
-        <div className="absolute inset-0 bg-mesh-gradient opacity-30 pointer-events-none" />
+      <header className="relative w-full text-white overflow-hidden shrink-0 header-base">
+        <div className="wormhole-grid-bg" aria-hidden="true" />
+        <div className="wormhole-glow" aria-hidden="true" />
         <div className="relative z-10 container mx-auto px-4 py-4 flex items-center justify-between">
           <button
             onClick={() => (step === 1 ? navigate('/') : setStep(step - 1))}
-            className="flex items-center gap-1.5 text-sm text-white/80 hover:text-white transition-colors"
+            className="flex items-center gap-1.5 text-sm text-white/70 hover:text-white transition-colors touch-target-sm"
           >
             <ChevronLeft className="h-4 w-4" />
             Back
           </button>
           <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-white/15 backdrop-blur-sm border border-white/20 flex items-center justify-center">
+            <div className="h-8 w-8 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 flex items-center justify-center">
               <Zap className="h-4 w-4 text-white" />
             </div>
-            <span className="font-bold text-sm tracking-tight">Sat Sorter</span>
+            <span className="font-serif-display text-sm tracking-tight">Sat Sorter</span>
           </div>
           <div className="w-16" />
         </div>
@@ -168,7 +169,7 @@ export function CreateAccountFlow() {
         </div>
         <div className="text-center mt-4">
           <p className="text-xs text-muted-foreground font-medium tracking-wide">{stepSubtitle}</p>
-          <h1 className="text-2xl font-bold tracking-tight mt-0.5">{stepTitle}</h1>
+          <h1 className="text-2xl font-serif-display tracking-tight mt-0.5">{stepTitle}</h1>
         </div>
       </div>
 

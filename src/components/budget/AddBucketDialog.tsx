@@ -367,7 +367,7 @@ export function AddBucketDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[520px] max-h-[90vh]">
+      <DialogContent className="sm:max-w-[520px] max-h-[90vh] rounded-3xl">
         <DialogHeader>
           <DialogTitle className="text-2xl">
             ✨ Create Budget Category

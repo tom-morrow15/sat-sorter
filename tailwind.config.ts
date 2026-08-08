@@ -21,11 +21,13 @@ export default {
 		extend: {
 			fontFamily: {
 				sans: ['Inter Variable', 'Inter', 'system-ui', 'sans-serif'],
+				serif: ['Cochin', 'Cormorant Garamond', 'Iowan Old Style', 'Apple Garamond', 'Baskerville', 'Times New Roman', 'serif'],
 			},
 			backgroundImage: {
 				'gradient-primary': 'linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(28 70% 45%) 100%)',
 				'gradient-primary-subtle': 'linear-gradient(135deg, hsl(var(--primary) / 0.08) 0%, hsl(28 70% 45% / 0.08) 100%)',
-				'header-gradient': 'linear-gradient(135deg, hsl(220 12% 20%), hsl(28 80% 48%) 50%, hsl(220 12% 20%))',
+				'header-gradient': 'linear-gradient(180deg, hsl(0 0% 4%) 0%, hsl(0 0% 6%) 40%, hsl(220 8% 10%) 100%)',
+				'header-gradient-scrolled': 'linear-gradient(180deg, hsl(220 8% 10%) 0%, hsl(220 8% 12%) 50%, hsl(220 8% 14%) 100%)',
 				'mesh-gradient': 'radial-gradient(at 20% 50%, hsl(var(--primary) / 0.12), transparent), radial-gradient(at 80% 80%, hsl(28 80% 48% / 0.08), transparent)',
 			},
 			colors: {
@@ -132,6 +134,48 @@ export default {
 				'50%': {
 					opacity: '0.5'
 				}
+			},
+			'wormhole-grid': {
+				'0%': {
+					transform: 'perspective(600px) rotateX(0deg) translateY(0px) scale(1)',
+					opacity: '0.12'
+				},
+				'50%': {
+					transform: 'perspective(600px) rotateX(2deg) translateY(-10px) scale(1.05)',
+					opacity: '0.18'
+				},
+				'100%': {
+					transform: 'perspective(600px) rotateX(0deg) translateY(0px) scale(1)',
+					opacity: '0.12'
+				}
+			},
+			'wormhole-pulse': {
+				'0%, 100%': {
+					opacity: '0.06'
+				},
+				'50%': {
+					opacity: '0.14'
+				}
+			},
+			'float-up': {
+				'0%': {
+					opacity: '0',
+					transform: 'translateY(24px) scale(0.98)'
+				},
+				'100%': {
+					opacity: '1',
+					transform: 'translateY(0) scale(1)'
+				}
+			},
+			'fade-in-soft': {
+				'0%': {
+					opacity: '0',
+					transform: 'translateY(8px)'
+				},
+				'100%': {
+					opacity: '1',
+					transform: 'translateY(0)'
+				}
 			}
 		},
 		animation: {
@@ -141,7 +185,11 @@ export default {
 			'slide-in-down': 'slide-in-down 0.4s ease-out forwards',
 			'scale-in': 'scale-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
 			'pulse-soft': 'pulse-soft 2s ease-in-out infinite',
-			'fade-in': 'fadeIn 0.3s ease-out forwards'
+			'fade-in': 'fadeIn 0.3s ease-out forwards',
+			'wormhole-grid': 'wormhole-grid 20s ease-in-out infinite',
+			'wormhole-pulse': 'wormhole-pulse 12s ease-in-out infinite',
+			'float-up': 'float-up 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
+			'fade-in-soft': 'fade-in-soft 0.35s ease-out forwards'
 		}
 		}
 	},

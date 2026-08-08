@@ -365,9 +365,9 @@ export function AddTransactionDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[480px] max-h-[90dvh] flex flex-col" onKeyDown={handleKeyDown}>
+      <DialogContent className="sm:max-w-[480px] max-h-[90dvh] flex flex-col rounded-3xl" onKeyDown={handleKeyDown}>
         <DialogHeader className="shrink-0">
-          <DialogTitle>{isIncome ? 'Add Income' : 'Add Transaction'}</DialogTitle>
+          <DialogTitle className="text-xl">{isIncome ? 'Add Income' : 'Add Transaction'}</DialogTitle>
           <DialogDescription>
             {isIncome ? 'Record a new income source' : 'Record a new expense'}
           </DialogDescription>
@@ -377,13 +377,13 @@ export function AddTransactionDialog({
           {/* Amount — large, prominent */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label htmlFor="amount">
+              <Label htmlFor="amount" className="font-serif-display">
                 Amount {currency === 'usd' ? '(USD)' : '(sats)'}
               </Label>
               {!isIncome && hasAIKey && (
                 <button
                   onClick={() => setShowScanner(true)}
-                  className="flex items-center gap-1 text-xs font-medium text-primary hover:underline transition-colors"
+                  className="flex items-center gap-1 text-xs font-medium text-primary hover:underline transition-colors touch-target-sm"
                 >
                   <Camera className="h-3.5 w-3.5" />
                   Scan Receipt
@@ -403,7 +403,7 @@ export function AddTransactionDialog({
                 step={currency === 'usd' ? '0.01' : '1'}
                 min="0"
                 placeholder={currency === 'usd' ? '0.00' : '0'}
-                className="h-14 pl-10 text-2xl font-bold tabular-nums"
+                className="h-14 pl-10 text-2xl font-serif-display tabular-nums"
                 autoFocus
               />
             </div>
@@ -428,7 +428,7 @@ export function AddTransactionDialog({
           {/* Assignment section */}
           <div className="space-y-3 pt-2">
             <div className="flex items-center justify-between">
-              <Label>
+              <Label className="font-serif-display">
                 {assignments.length > 1 ? 'Split into categories' : 'Assign to category'}
               </Label>
               {hasAmount && (
@@ -596,13 +596,13 @@ export function AddTransactionDialog({
 
         {/* Sticky footer */}
         <div className="shrink-0 border-t pt-3 flex justify-end gap-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="touch-target-sm">
             Cancel
           </Button>
           <Button
             onClick={handleSave}
             disabled={!canSave}
-            className="btn-interactive"
+            className="btn-interactive touch-target-sm"
           >
             {assignments.length > 1 ? `Save Split (${assignments.length})` : 'Save'}
           </Button>
