@@ -383,34 +383,36 @@ export function ManagePartnersDialog({
              budgetPrivateKey: generated.budgetPrivateKey,
              budgetPublicKey: generated.budgetPublicKey,
            };
-           // Persist the keypair immediately
-           setState(prev => ({
-             ...prev,
-             budgetKeypair: {
-               budgetNsec: budgetKeypair!.budgetNsec,
-               budgetNpub: budgetKeypair!.budgetNpub,
-             },
-             accessibleBudgets: [
-               ...(prev.accessibleBudgets || []).filter(b => b.budgetNpub !== '' && b.budgetNpub !== budgetKeypair!.budgetNpub),
-               {
-                 budgetNpub: budgetKeypair!.budgetNpub,
-                 budgetNsec: budgetKeypair!.budgetNsec,
-                 role: 'owner' as const,
-               },
-             ],
-           }));
-           console.log('[ManagePartnersDialog] Generated new budget keypair:', budgetKeypair.budgetNpub.slice(0, 16) + '...');
+          // Persist the keypair immediately
+          setState(prev => ({
+            ...prev,
+            budgetKeypair: {
+              budgetNsec: budgetKeypair!.budgetNsec,
+              budgetNpub: budgetKeypair!.budgetNpub,
+            },
+            accessibleBudgets: [
+              ...(prev.accessibleBudgets || []).filter(b => b.budgetNpub !== '' && b.budgetNpub !== budgetKeypair!.budgetNpub),
+              {
+                budgetNpub: budgetKeypair!.budgetNpub,
+                budgetNsec: budgetKeypair!.budgetNsec,
+                role: 'owner' as const,
+              },
+            ],
+          }));
+          console.log('[ManagePartnersDialog] Generated new budget keypair:', budgetKeypair.budgetNpub.slice(0, 16) + '...');
+        }
 
-           // Seed all existing months' full budgets (buckets + line items + tx) to the shared keypair
-           // so the partner will receive the complete budget structure for every month immediately.
-           if (currentBudgetsForSeeding.length > 0) {
-             seedAllBudgetSnapshots(currentBudgetsForSeeding, budgetKeypair.budgetNsec, nostr)
-               .then((count) => {
-                 console.log(`[ManagePartnersDialog] Seeded ${count} budget month(s) to shared keypair`);
-               })
-               .catch((e) => console.warn('[ManagePartnersDialog] Seeding snapshots failed (non-fatal):', e));
-           }
-         }
+        // ALWAYS seed the shared budget snapshots when adding a partner,
+        // regardless of whether it's the first partner. Previous attempts may
+        // have failed silently, or the relay may not have the data.
+        if (currentBudgetsForSeeding.length > 0) {
+          console.log('[ManagePartnersDialog] Seeding', currentBudgetsForSeeding.length, 'budget month(s) to shared keypair...');
+          seedAllBudgetSnapshots(currentBudgetsForSeeding, budgetKeypair.budgetNsec, nostr)
+            .then((count) => {
+              console.log(`[ManagePartnersDialog] Seeded ${count} budget month(s) to shared keypair`);
+            })
+            .catch((e) => console.warn('[ManagePartnersDialog] Seeding snapshots failed (non-fatal):', e));
+        }
 
         // 2. Encrypt the budget nsec for the new partner
         // Pass the full signer (both nip44 and nip04) so the partner can
