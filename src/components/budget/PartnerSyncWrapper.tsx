@@ -30,6 +30,7 @@ export function PartnerSyncWrapper({ children }: { children: React.ReactNode }) 
     publishTransactionDelete,
     publishBudgetSnapshot,
     syncedTxIds,
+    syncedStructureHashes,
   } = useSharedBudgetSync(
     budgetKeypair?.budgetNpub || '',
     budgetKeypair?.budgetNsec || ''
@@ -140,10 +141,15 @@ export function PartnerSyncWrapper({ children }: { children: React.ReactNode }) 
       if (currentBudgetForMonth) {
         const currentStructure = JSON.stringify(currentBudgetForMonth.buckets || []);
         if (currentStructure !== prevStructure) {
-          console.log('[PartnerSyncWrapper] Budget structure changed for', month, '— publishing snapshot');
-          publishBudgetSnapshot(currentBudgetForMonth).catch((e) => {
-            console.error('[PartnerSyncWrapper] Publish budget snapshot failed:', e);
-          });
+          // Skip if this structure arrived via sync (not a local edit)
+          if (syncedStructureHashes.current.get(month) === currentStructure) {
+            syncedStructureHashes.current.delete(month);
+          } else {
+            console.log('[PartnerSyncWrapper] Budget structure changed for', month, '— publishing snapshot');
+            publishBudgetSnapshot(currentBudgetForMonth).catch((e) => {
+              console.error('[PartnerSyncWrapper] Publish budget snapshot failed:', e);
+            });
+          }
         }
       }
     }
@@ -178,6 +184,7 @@ export function PartnerSyncWrapper({ children }: { children: React.ReactNode }) 
     publishTransactionDelete,
     publishBudgetSnapshot,
     syncedTxIds,
+    syncedStructureHashes,
   ]);
 
   return <>{children}</>;

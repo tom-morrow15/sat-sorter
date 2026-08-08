@@ -138,6 +138,12 @@ function mergeBudgetStates(local: BudgetState, remote: BudgetState): BudgetState
     defaultTemplateId: remote.defaultTemplateId || local.defaultTemplateId,
     paymentMethods: Array.from(paymentMethodsSet),
     lastSynced: Math.floor(Date.now() / 1000),
+    // CRITICAL: preserve the shared budget keypair and accessible budgets from
+    // local state. The remote personal budget won't have these — they're only
+    // set locally when the user accepts a partner invite. Without this, the
+    // merge would strip the keypair and break the shared budget sync.
+    budgetKeypair: local.budgetKeypair,
+    accessibleBudgets: local.accessibleBudgets || [],
   };
 }
 

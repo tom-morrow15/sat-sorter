@@ -46,7 +46,7 @@ export async function fetchAllSharedBudgetSnapshots(
       { signal: AbortSignal.timeout(10000) }
     );
 
-    const results: MonthlyBudget[] = [];
+    const results: { snapshot: MonthlyBudget; createdAt: number }[] = [];
     for (const ev of events) {
       const dTag = ev.tags.find((t: string[]) => t[0] === 'd')?.[1];
       if (!dTag || !dTag.startsWith(MONTH_DTAG_PREFIX)) continue;
@@ -57,7 +57,7 @@ export async function fetchAllSharedBudgetSnapshots(
         if (parsed?.type === 'budget-updated' && parsed.data?.snapshot) {
           const snap = parsed.data.snapshot as MonthlyBudget;
           if (snap?.month) {
-            results.push(snap);
+            results.push({ snapshot: snap, createdAt: ev.created_at || 0 });
           }
         }
       } catch {
@@ -65,14 +65,15 @@ export async function fetchAllSharedBudgetSnapshots(
       }
     }
 
-    // Dedup by month, keep newest by created_at if duplicates
-    const byMonth = new Map<string, MonthlyBudget>();
+    // Dedup by month, keep newest by created_at
+    const byMonth = new Map<string, { snapshot: MonthlyBudget; createdAt: number }>();
     for (const r of results) {
-      const existing = byMonth.get(r.month);
-      // crude: last one wins (events were not sorted, but query limit is recent first-ish)
-      byMonth.set(r.month, r);
+      const existing = byMonth.get(r.snapshot.month);
+      if (!existing || r.createdAt >= existing.createdAt) {
+        byMonth.set(r.snapshot.month, r);
+      }
     }
-    return Array.from(byMonth.values());
+    return Array.from(byMonth.values()).map(v => v.snapshot);
   } catch (e) {
     console.warn('[fetchAllSharedBudgetSnapshots] Failed:', e);
     return [];
@@ -140,6 +141,9 @@ export function useSharedBudgetSync(budgetNpub: string, budgetNsec: string) {
   // Track transaction IDs that arrived via sync (not local edits) so
   // PartnerSyncWrapper can skip re-publishing them (prevents echo loops).
   const syncedTxIdsRef = useRef<Set<string>>(new Set());
+  // Track structure hashes (serialized buckets) that arrived via sync so
+  // PartnerSyncWrapper doesn't echo structure snapshots back either.
+  const syncedStructureHashesRef = useRef<Map<string, string>>(new Map());
 
   // Decode the budget nsec to get raw key bytes for signing + encrypting.
   // Use a memo so it re-computes when budgetNsec changes (e.g., after accept).
@@ -338,6 +342,13 @@ export function useSharedBudgetSync(budgetNpub: string, budgetNsec: string) {
                 syncedTxIdsRef.current.add(tx.id);
               }
             }
+            // Mark the structure hash so PartnerSyncWrapper doesn't echo the snapshot back
+            if (snapshot.buckets) {
+              syncedStructureHashesRef.current.set(
+                syncEvent.budgetMonth,
+                JSON.stringify(snapshot.buckets)
+              );
+            }
 
             stateRef.current.setState((prev) => {
               const existingBudgetIdx = prev.budgets.findIndex(
@@ -529,6 +540,8 @@ export function useSharedBudgetSync(budgetNpub: string, budgetNsec: string) {
     hasBudgetKeypair: !!keyBytesRef.current,
     /** Transaction IDs that arrived via sync — PartnerSyncWrapper should skip re-publishing these. */
     syncedTxIds: syncedTxIdsRef,
+    /** Structure hashes (month → serialized buckets) that arrived via sync. */
+    syncedStructureHashes: syncedStructureHashesRef,
   };
 }
 
