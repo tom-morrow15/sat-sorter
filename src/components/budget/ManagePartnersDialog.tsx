@@ -20,6 +20,7 @@ import { useNostr } from '@nostrify/react';
 import { generateBudgetKeypair, encryptBudgetKeyForPartner, decryptBudgetKeyFromInvite, ensureHexPubkey } from '@/lib/budgetCrypto';
 import { seedAllBudgetSnapshots, fetchAllSharedBudgetSnapshots } from '@/hooks/useSharedBudgetSync';
 import { QRScanner } from './QRScanner';
+import { MyNpubQr } from './MyNpubQr';
 import {
   Dialog,
   DialogContent,
@@ -65,6 +66,7 @@ export function ManagePartnersDialog({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [validationError, setValidationError] = useState('');
   const [showQRScanner, setShowQRScanner] = useState(false);
+  const [showMyQr, setShowMyQr] = useState(false);
   const [processingInviteId, setProcessingInviteId] = useState<string | null>(null);
   const { toast } = useToast();
 
@@ -82,6 +84,8 @@ export function ManagePartnersDialog({
         });
         return;
       }
+
+      console.log('[ManagePartnersDialog] Accepting invite from', invite.from, 'budget npub:', invite.budgetNpub);
 
       let budgetNsec: string;
       const fromHex = ensureHexPubkey(invite.from);
@@ -164,7 +168,21 @@ export function ManagePartnersDialog({
       }
 
       // 3. Publish acceptance via acceptInvite (sends kind 4001 response)
-      const result = await acceptInvite(invite);
+      console.log('[ManagePartnersDialog] Publishing acceptance response...');
+      let result;
+      try {
+        result = await acceptInvite(invite);
+      } catch (publishError) {
+        console.error('[ManagePartnersDialog] acceptInvite threw:', publishError);
+        toast({
+          title: 'Could not publish response',
+          description: 'The invite was decrypted but the response failed to publish. Your partner may not see the acceptance.',
+          variant: 'destructive',
+        });
+        // Still proceed with storing the keypair locally — the sync will work
+        // even if the response event doesn't reach the sender
+        result = { success: true };
+      }
 
       if (result.success) {
         const role = invite.permission === 'editor' ? 'editor' as const : 'viewer' as const;
@@ -556,14 +574,24 @@ export function ManagePartnersDialog({
           {isOwner && (
             <>
               {!isAdding ? (
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => setIsAdding(true)}
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Partner
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => setIsAdding(true)}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Partner
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => setShowMyQr(true)}
+                  >
+                    <QrCode className="h-4 w-4 mr-2" />
+                    My QR Code
+                  </Button>
+                </div>
                ) : (
                 <Card>
                    <CardContent className="pt-6 space-y-3">
@@ -733,9 +761,12 @@ export function ManagePartnersDialog({
        title="Scan Partner's npub"
        description="Point your camera at their QR code to get their Nostr address"
      />
+
+     {/* My QR Code — show your npub so your partner can scan it */}
+     <MyNpubQr open={showMyQr} onOpenChange={setShowMyQr} />
     </>
    );
- }
+  }
 
 /**
  * Pending Invite Card - shows a received invite with accept/decline actions

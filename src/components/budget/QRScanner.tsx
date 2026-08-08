@@ -30,6 +30,7 @@ export function QRScanner({
   const [isScanning, setIsScanning] = useState(false);
   const [cameras, setCameras] = useState<{ id: string; label: string }[]>([]);
   const [currentCameraIndex, setCurrentCameraIndex] = useState(0);
+  const [currentFacingMode, setCurrentFacingMode] = useState<'environment' | 'user'>('environment');
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -44,7 +45,7 @@ export function QRScanner({
     setIsScanning(false);
   };
 
-  const startScanner = async (cameraId?: string) => {
+  const startScanner = async (facingMode?: 'environment' | 'user') => {
     if (!containerRef.current) return;
 
     setError(null);
@@ -58,31 +59,47 @@ export function QRScanner({
       }
 
       setCameras(devices);
+      const mode = facingMode || currentFacingMode;
 
       // Create scanner instance
       if (!scannerRef.current) {
         scannerRef.current = new Html5Qrcode('qr-reader');
       }
 
-      const selectedCameraId = cameraId || devices[currentCameraIndex]?.id || devices[0].id;
+      // Use facingMode to prefer the rear camera on mobile.
+      // 'environment' = rear camera, 'user' = front camera.
+      const scanConfig = {
+        fps: 10,
+        qrbox: { width: 250, height: 250 },
+        aspectRatio: 1,
+      };
 
-      await scannerRef.current.start(
-        selectedCameraId,
-        {
-          fps: 10,
-          qrbox: { width: 250, height: 250 },
-          aspectRatio: 1,
-        },
-        (decodedText) => {
-          // Success callback
-          onScan(decodedText);
-          stopScanner();
-          onOpenChange(false);
-        },
-        () => {
-          // Error callback - ignore scan errors (no QR found)
-        }
-      );
+      // Try the current facing mode first, fall back to any available camera
+      try {
+        await scannerRef.current.start(
+          { facingMode: mode },
+          scanConfig,
+          (decodedText) => {
+            onScan(decodedText);
+            stopScanner();
+            onOpenChange(false);
+          },
+          () => {}
+        );
+      } catch {
+        // Preferred camera not available — fall back to any camera
+        const selectedCameraId = devices[currentCameraIndex]?.id || devices[0].id;
+        await scannerRef.current.start(
+          selectedCameraId,
+          scanConfig,
+          (decodedText) => {
+            onScan(decodedText);
+            stopScanner();
+            onOpenChange(false);
+          },
+          () => {}
+        );
+      }
 
       setIsScanning(true);
     } catch (e) {
@@ -98,12 +115,11 @@ export function QRScanner({
   };
 
   const switchCamera = async () => {
-    if (cameras.length <= 1) return;
-
     await stopScanner();
-    const nextIndex = (currentCameraIndex + 1) % cameras.length;
-    setCurrentCameraIndex(nextIndex);
-    await startScanner(cameras[nextIndex].id);
+    // Toggle between front and rear camera using facingMode
+    const nextFacingMode = currentFacingMode === 'environment' ? 'user' : 'environment';
+    setCurrentFacingMode(nextFacingMode);
+    await startScanner(nextFacingMode);
   };
 
   // Start scanner when dialog opens
