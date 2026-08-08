@@ -53,7 +53,7 @@ export default function HomePage() {
 
   useHead({
     link: [
-      { rel: 'icon', type: 'image/svg+xml', href: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">₿</text></svg>' },
+      { rel: 'icon', type: 'image/svg+xml', href: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="80" fill="%23D9662E"/><path d="M290 96L176 256h72l-48 160 138-176h-80l32-144z" fill="white" stroke="white" stroke-width="8" stroke-linejoin="round" stroke-linecap="round"/></svg>' },
     ],
   });
 

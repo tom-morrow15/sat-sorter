@@ -4,8 +4,8 @@
   "description": "Zero-based budgeting on a Bitcoin standard. Give every sat a job.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0f172a",
-  "theme_color": "#f97316",
+  "background_color": "#171412",
+  "theme_color": "#D9662E",
   "orientation": "portrait-primary",
   "categories": ["finance", "productivity"],
   "icons": [
