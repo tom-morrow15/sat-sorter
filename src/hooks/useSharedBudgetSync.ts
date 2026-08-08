@@ -86,7 +86,7 @@ interface SyncStatus {
 }
 
 interface BudgetSyncEvent {
-  type: 'transaction-added' | 'transaction-updated' | 'transaction-deleted' | 'budget-updated';
+  type: 'transaction-added' | 'transaction-updated' | 'transaction-deleted' | 'budget-updated' | 'sync-request';
   budgetMonth: string;
   data: {
     transaction?: Transaction;
@@ -98,6 +98,9 @@ interface BudgetSyncEvent {
   /** Pubkey of the user who made the change (for attribution in shared budgets). */
   authorPubkey?: string;
 }
+
+/** d-tag used for sync request events (not tied to a specific month). */
+const SYNC_REQUEST_DTAG = 'sat-sorter/budget-data/sync-request';
 
 /**
  * useSharedBudgetSync — Real-time budget sync via a shared Nostr keypair.
@@ -170,6 +173,10 @@ export function useSharedBudgetSync(budgetNpub: string, budgetNsec: string) {
   const keyBytesRef = useRef(keyBytes);
   keyBytesRef.current = keyBytes;
 
+  // Store user pubkey in a ref so handleIncomingEvent can check it
+  const userPubkeyRef = useRef(user?.pubkey);
+  userPubkeyRef.current = user?.pubkey;
+
   /**
    * Publish a budget entry as a kind 30078 event signed by the budget keypair.
    */
@@ -233,6 +240,47 @@ export function useSharedBudgetSync(budgetNpub: string, budgetNsec: string) {
         );
 
         switch (syncEvent.type) {
+          case 'sync-request': {
+            // Another partner is asking us to re-publish all data.
+            // Only respond if we actually have budget data to share (i.e. we're the owner
+            // or a partner who already has data). Partners with empty budgets shouldn't
+            // re-publish their empty state.
+            if (syncEvent.authorPubkey === userPubkeyRef.current) break; // Skip our own request
+
+            const currentBudgets = stateRef.current.state.budgets;
+            const hasData = currentBudgets.some(b => b.buckets && b.buckets.length > 0);
+            if (!hasData) {
+              console.log('[SharedBudgetSync] Sync request received but we have no data to share, skipping');
+              break;
+            }
+
+            console.log('[SharedBudgetSync] Sync request received from', syncEvent.authorPubkey?.slice(0, 8), '— re-publishing all budgets');
+            // Re-publish all months with data
+            for (const budget of currentBudgets) {
+              if (budget.buckets && budget.buckets.length > 0) {
+                const dTag = `${MONTH_DTAG_PREFIX}${budget.month}`;
+                const snapshotEvent: BudgetSyncEvent = {
+                  type: 'budget-updated',
+                  budgetMonth: budget.month,
+                  data: { snapshot: budget },
+                  timestamp: Math.floor(Date.now() / 1000),
+                  version: 1,
+                };
+                const encrypted = encryptWithBudgetKey(
+                  JSON.stringify(snapshotEvent),
+                  keys.budgetPriv,
+                  keys.budgetPub
+                );
+                await publishEntry(dTag, encrypted, `Sat Sorter budget snapshot ${budget.month} (encrypted)`);
+              }
+            }
+            toast({
+              title: 'Sync request received',
+              description: 'Re-published all budget data to your partner.',
+            });
+            break;
+          }
+
           case 'transaction-added': {
             if (!syncEvent.data.transaction) break;
             const incoming = syncEvent.data.transaction;
@@ -579,6 +627,31 @@ export function useSharedBudgetSync(budgetNpub: string, budgetNsec: string) {
     }
   }, [nostr, handleIncomingEvent]);
 
+  /**
+   * Publish a sync request to the shared budget. Other partners (especially
+   * the owner) will see this and re-publish all current budget data.
+   * Use this when you accepted an invite but no data appeared.
+   */
+  const requestSync = useCallback(async (): Promise<boolean> => {
+    const keys = keyBytesRef.current;
+    if (!keys) return false;
+
+    const syncEvent: BudgetSyncEvent = {
+      type: 'sync-request',
+      budgetMonth: '',
+      data: {},
+      timestamp: Math.floor(Date.now() / 1000),
+      version: 1,
+      authorPubkey: user?.pubkey,
+    };
+    const encrypted = encryptWithBudgetKey(
+      JSON.stringify(syncEvent),
+      keys.budgetPriv,
+      keys.budgetPub
+    );
+    return publishEntry(SYNC_REQUEST_DTAG, encrypted, 'Sat Sorter sync request');
+  }, [publishEntry, user?.pubkey]);
+
   return {
     syncStatus,
     publishTransactionAdd,
@@ -592,6 +665,8 @@ export function useSharedBudgetSync(budgetNpub: string, budgetNsec: string) {
     syncedStructureHashes: syncedStructureHashesRef,
     /** Manually re-fetch all existing budget events from relays. */
     forceSync,
+    /** Publish a sync request asking the owner to re-publish all data. */
+    requestSync,
   };
 }
 
@@ -663,6 +738,53 @@ export async function seedAllBudgetSnapshots(
     }
   }
   return seeded;
+}
+
+/**
+ * Standalone publisher for a sync request under the shared budget keypair.
+ * Can be called from anywhere given the raw nsec — the owner's app will
+ * see this and re-publish all budget data.
+ */
+export async function publishSyncRequest(
+  budgetNsec: string,
+  requesterPubkey: string,
+  nostr: any
+): Promise<boolean> {
+  try {
+    const decoded = nip19.decode(budgetNsec);
+    if (decoded.type !== 'nsec') return false;
+    const priv = decoded.data as Uint8Array;
+    const pub = getPublicKey(priv);
+    const signer = new NSecSigner(priv);
+
+    const syncEvent: BudgetSyncEvent = {
+      type: 'sync-request',
+      budgetMonth: '',
+      data: {},
+      timestamp: Math.floor(Date.now() / 1000),
+      version: 1,
+      authorPubkey: requesterPubkey,
+    };
+
+    const encrypted = encryptWithBudgetKey(JSON.stringify(syncEvent), priv, pub);
+
+    const event = await signer.signEvent({
+      kind: BUDGET_KIND,
+      content: encrypted,
+      tags: [
+        ['d', SYNC_REQUEST_DTAG],
+        ['alt', 'Sat Sorter sync request'],
+      ],
+      created_at: Math.floor(Date.now() / 1000),
+    });
+
+    await nostr.event(event, { signal: AbortSignal.timeout(5000) });
+    console.log('[publishSyncRequest] Published sync request');
+    return true;
+  } catch (e) {
+    console.error('[publishSyncRequest] Failed:', e);
+    return false;
+  }
 }
 
 /**

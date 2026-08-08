@@ -1,22 +1,28 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, createContext, useContext } from 'react';
 import { useBudget } from '@/hooks/useBudget';
 import { useBudgetContext } from '@/contexts/BudgetContext';
 import { useSharedBudgetSync } from '@/hooks/useSharedBudgetSync';
 import { usePartnerInviteResponses } from '@/hooks/usePartnerInviteResponses';
 import type { Transaction, MonthlyBudget } from '@/lib/budgetTypes';
 
+interface SharedSyncContextValue {
+  forceSync: () => Promise<void>;
+  requestSync: () => Promise<boolean>;
+  hasSharedBudget: boolean;
+}
+
+const SharedSyncContext = createContext<SharedSyncContextValue | null>(null);
+
+export function useSharedSync() {
+  return useContext(SharedSyncContext);
+}
+
 /**
  * PartnerSyncWrapper — Detects local transaction changes and publishes them
  * to the shared budget keypair (kind 30078).
  *
- * OLD BEHAVIOR (removed):
- * - Compared previous vs current state serialized JSON
- * - Published one kind 4002 event per partner
- * - Used RemoteOriginTracker for echo prevention
- *
- * NEW BEHAVIOR:
- * - When local transactions change, publishes a single kind 30078 event
- *   under the budget npub. All partners receive it via their subscription.
+ * Also provides forceSync/requestSync via context so any component can
+ * trigger a manual sync or ask the owner to re-publish.
  */
 export function PartnerSyncWrapper({ children }: { children: React.ReactNode }) {
   const { fullState } = useBudget();
@@ -31,6 +37,8 @@ export function PartnerSyncWrapper({ children }: { children: React.ReactNode }) 
     publishBudgetSnapshot,
     syncedTxIds,
     syncedStructureHashes,
+    forceSync,
+    requestSync,
   } = useSharedBudgetSync(
     budgetKeypair?.budgetNpub || '',
     budgetKeypair?.budgetNsec || ''
@@ -187,5 +195,13 @@ export function PartnerSyncWrapper({ children }: { children: React.ReactNode }) 
     syncedStructureHashes,
   ]);
 
-  return <>{children}</>;
+  return (
+    <SharedSyncContext.Provider value={{
+      forceSync,
+      requestSync,
+      hasSharedBudget: !!budgetKeypair,
+    }}>
+      {children}
+    </SharedSyncContext.Provider>
+  );
 }

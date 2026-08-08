@@ -18,7 +18,7 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrLogin } from '@nostrify/react/login';
 import { useNostr } from '@nostrify/react';
 import { generateBudgetKeypair, encryptBudgetKeyForPartner, decryptBudgetKeyFromInvite, ensureHexPubkey } from '@/lib/budgetCrypto';
-import { seedAllBudgetSnapshots, fetchAllSharedBudgetSnapshots } from '@/hooks/useSharedBudgetSync';
+import { seedAllBudgetSnapshots, fetchAllSharedBudgetSnapshots, publishSyncRequest } from '@/hooks/useSharedBudgetSync';
 import { QRScanner } from './QRScanner';
 import { MyNpubQr } from './MyNpubQr';
 import {
@@ -245,9 +245,6 @@ export function ManagePartnersDialog({
 
         // Schedule a delayed re-fetch to catch any events that arrive after
         // the initial fetch (owner's publish may still be propagating to relays).
-        // We do this via a simple timeout + direct query rather than relying on
-        // the subscription, which may not deliver events published just before
-        // the subscription started.
         setTimeout(async () => {
           try {
             const snapshots = await fetchAllSharedBudgetSnapshots(budgetNsec, nostr);
@@ -258,6 +255,10 @@ export function ManagePartnersDialog({
                 const withoutIncoming = (prev.budgets || []).filter((b: any) => !incomingMonths.has(b.month));
                 return { ...prev, budgets: [...withoutIncoming, ...snapshots] };
               });
+            } else {
+              // Still no data — send a sync request to the owner asking them to re-publish
+              console.log('[ManagePartnersDialog] No data after accept, sending sync request to owner...');
+              await publishSyncRequest(budgetNsec, user.pubkey, nostr);
             }
           } catch (e) {
             console.warn('[ManagePartnersDialog] Delayed sync failed:', e);
