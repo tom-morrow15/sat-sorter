@@ -187,6 +187,15 @@ export function ManagePartnersDialog({
         try {
           seededBudgets = await fetchAllSharedBudgetSnapshots(budgetNsec, nostr);
           console.log('[ManagePartnersDialog] Fetched', seededBudgets.length, 'month snapshots from shared budget on accept');
+
+          // If empty, the owner's publish may still be propagating to our relay.
+          // Wait a moment and retry once.
+          if (seededBudgets.length === 0) {
+            console.log('[ManagePartnersDialog] No snapshots found on first try, retrying in 2s...');
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            seededBudgets = await fetchAllSharedBudgetSnapshots(budgetNsec, nostr);
+            console.log('[ManagePartnersDialog] Retry fetched', seededBudgets.length, 'month snapshots');
+          }
         } catch (e) {
           console.warn('[ManagePartnersDialog] Could not fetch snapshots on accept (will rely on live sync):', e);
         }

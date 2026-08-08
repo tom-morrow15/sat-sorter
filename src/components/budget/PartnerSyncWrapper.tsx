@@ -29,6 +29,7 @@ export function PartnerSyncWrapper({ children }: { children: React.ReactNode }) 
     publishTransactionUpdate,
     publishTransactionDelete,
     publishBudgetSnapshot,
+    syncedTxIds,
   } = useSharedBudgetSync(
     budgetKeypair?.budgetNpub || '',
     budgetKeypair?.budgetNsec || ''
@@ -90,6 +91,13 @@ export function PartnerSyncWrapper({ children }: { children: React.ReactNode }) 
       // Detect added or updated transactions
       for (const [txId, currentSerialized] of currentTxs) {
         const prevSerialized = prevTxs.get(txId);
+
+        // Skip transactions that arrived via sync — publishing them back would
+        // create an echo loop of duplicate events on the relay.
+        if (syncedTxIds.current.has(txId)) {
+          syncedTxIds.current.delete(txId); // Only skip once
+          continue;
+        }
 
         if (prevSerialized === undefined) {
           // New transaction — publish under budget npub
@@ -169,6 +177,7 @@ export function PartnerSyncWrapper({ children }: { children: React.ReactNode }) 
     publishTransactionUpdate,
     publishTransactionDelete,
     publishBudgetSnapshot,
+    syncedTxIds,
   ]);
 
   return <>{children}</>;

@@ -26,7 +26,16 @@ export async function fetchAllSharedBudgetSnapshots(
     const signer = new NSecSigner(priv);
     const budgetPub = signer.pubkey;
 
-    const events = await nostr.query(
+    // Query across multiple relays for better reliability — the default pool
+    // only reads from 1 relay, which may not have the owner's data yet.
+    const relayGroup = nostr.group ? nostr.group([
+      'wss://relay.ditto.pub',
+      'wss://relay.nostr.band',
+      'wss://relay.damus.io',
+      'wss://nos.lol',
+    ]) : nostr;
+
+    const events = await relayGroup.query(
       [
         {
           kinds: [BUDGET_KIND],
@@ -34,7 +43,7 @@ export async function fetchAllSharedBudgetSnapshots(
           limit: 200,
         },
       ],
-      { signal: AbortSignal.timeout(8000) }
+      { signal: AbortSignal.timeout(10000) }
     );
 
     const results: MonthlyBudget[] = [];
@@ -128,6 +137,9 @@ export function useSharedBudgetSync(budgetNpub: string, budgetNsec: string) {
 
   const subscriptionRef = useRef<{ close?: () => void } | null>(null);
   const processedEventsRef = useRef<Set<string>>(new Set());
+  // Track transaction IDs that arrived via sync (not local edits) so
+  // PartnerSyncWrapper can skip re-publishing them (prevents echo loops).
+  const syncedTxIdsRef = useRef<Set<string>>(new Set());
 
   // Decode the budget nsec to get raw key bytes for signing + encrypting.
   // Use a memo so it re-computes when budgetNsec changes (e.g., after accept).
@@ -226,6 +238,8 @@ export function useSharedBudgetSync(budgetNpub: string, budgetNsec: string) {
             if (syncEvent.authorPubkey && !incoming.partnerPubkey) {
               incoming.partnerPubkey = syncEvent.authorPubkey;
             }
+            // Mark as synced so PartnerSyncWrapper doesn't echo it back
+            syncedTxIdsRef.current.add(incoming.id);
 
             stateRef.current.setState((prev) => {
               const existingBudgetIdx = prev.budgets.findIndex(
@@ -268,6 +282,8 @@ export function useSharedBudgetSync(budgetNpub: string, budgetNsec: string) {
             if (syncEvent.authorPubkey && !incoming.partnerPubkey) {
               incoming.partnerPubkey = syncEvent.authorPubkey;
             }
+            // Mark as synced so PartnerSyncWrapper doesn't echo it back
+            syncedTxIdsRef.current.add(incoming.id);
 
             stateRef.current.setState((prev) => {
               const budgetIdx = prev.budgets.findIndex(
@@ -316,6 +332,12 @@ export function useSharedBudgetSync(budgetNpub: string, budgetNsec: string) {
           case 'budget-updated': {
             if (!syncEvent.data.snapshot) break;
             const snapshot = syncEvent.data.snapshot as MonthlyBudget;
+            // Mark all snapshot transactions as synced so PartnerSyncWrapper doesn't echo
+            if (snapshot.transactions) {
+              for (const tx of snapshot.transactions) {
+                syncedTxIdsRef.current.add(tx.id);
+              }
+            }
 
             stateRef.current.setState((prev) => {
               const existingBudgetIdx = prev.budgets.findIndex(
@@ -505,6 +527,8 @@ export function useSharedBudgetSync(budgetNpub: string, budgetNsec: string) {
     publishTransactionDelete,
     publishBudgetSnapshot,
     hasBudgetKeypair: !!keyBytesRef.current,
+    /** Transaction IDs that arrived via sync — PartnerSyncWrapper should skip re-publishing these. */
+    syncedTxIds: syncedTxIdsRef,
   };
 }
 

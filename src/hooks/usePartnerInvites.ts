@@ -48,9 +48,17 @@ export function usePartnerInvites() {
   // Track processed invite IDs — must be defined before the callbacks that use it
   const [processedInviteIds, setProcessedInviteIds] = useLocalStorage<string[]>('sat-sorter:processed-invites', []);
 
+  // Track explicitly declined invite IDs separately — these should NEVER reappear,
+  // unlike accepted ones which may need to reappear if the keypair is lost.
+  const [declinedInviteIds, setDeclinedInviteIds] = useLocalStorage<string[]>('sat-sorter:declined-invites', []);
+
   const markInviteProcessed = useCallback((inviteId: string) => {
     setProcessedInviteIds(prev => prev.includes(inviteId) ? prev : [...prev, inviteId]);
   }, [setProcessedInviteIds]);
+
+  const markInviteDeclined = useCallback((inviteId: string) => {
+    setDeclinedInviteIds(prev => prev.includes(inviteId) ? prev : [...prev, inviteId]);
+  }, [setDeclinedInviteIds]);
 
   /**
    * Encrypt a payload for a recipient. Tries both NIP-44 and NIP-04
@@ -304,8 +312,9 @@ export function usePartnerInvites() {
           invite.from.slice(0, 16) + '...'
         );
 
-        // Mark as processed locally so it disappears from pending list
+        // Mark as processed AND declined so it permanently disappears
         markInviteProcessed(invite.id);
+        markInviteDeclined(invite.id);
 
         return true;
       } catch (error) {
@@ -313,7 +322,7 @@ export function usePartnerInvites() {
         return false;
       }
     },
-    [user, publish, encryptForRecipient, markInviteProcessed]
+    [user, publish, encryptForRecipient, markInviteProcessed, markInviteDeclined]
   );
 
   /**
@@ -465,6 +474,9 @@ export function usePartnerInvites() {
     // Must be status pending
     if (i.status !== 'pending') return false;
 
+    // Permanently hide explicitly declined invites — never re-show them
+    if (declinedInviteIds.includes(i.id)) return false;
+
     // If this invite was processed AND we still have the keypair for this
     // budget, skip it (already accepted)
     if (processedInviteIds.includes(i.id)) {
@@ -494,5 +506,6 @@ export function usePartnerInvites() {
     isLoadingInvites,
     refetch,
     clearProcessedInvites: () => setProcessedInviteIds([]),
+    clearDeclinedInvites: () => setDeclinedInviteIds([]),
   };
 }
