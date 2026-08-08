@@ -398,74 +398,93 @@ export function TransactionsPanel({
               </div>
                <div className="w-full">
                  <div className="space-y-0.5">
-                    {assigned.map((transaction) => {
-                      const bucket = buckets.find(b => b.id === transaction.bucketId);
-                      const lineItem = bucket?.lineItems.find(l => l.id === transaction.lineItemId);
-                      const isSplit = hasSplits(transaction);
-                      return (
+                     {assigned.map((transaction) => {
+                       const bucket = buckets.find(b => b.id === transaction.bucketId);
+                       const lineItem = bucket?.lineItems.find(l => l.id === transaction.lineItemId);
+                       const isSplit = hasSplits(transaction);
+
+                       // When filtering by a line item, find the split portion
+                       // that belongs to this line item so we can show "$50 / $100"
+                       let splitPortionLabel: string | null = null;
+                       if (isSplit && lineItemIdFilter) {
+                         const assignments = getTransactionAssignments(transaction);
+                         const matching = assignments.filter(a => a.lineItemId === lineItemIdFilter);
+                         if (matching.length > 0) {
+                           const splitUsd = matching.reduce((sum, a) => sum + (a.amountUsd || 0), 0);
+                           const totalUsd = getTransactionUsdAmount(transaction, priceData?.usdPerBtc);
+                           if (currency === 'usd') {
+                             splitPortionLabel = `$${splitUsd.toFixed(2)} / $${totalUsd.toFixed(2)}`;
+                           } else {
+                             const splitSats = matching.reduce((sum, a) => sum + a.amountSats, 0);
+                             splitPortionLabel = `${splitSats.toLocaleString()} / ${transaction.amount.toLocaleString()} sats`;
+                           }
+                         }
+                       }
+
+                       return (
                         <div
                           key={transaction.id}
                           className="flex items-center gap-3 p-2.5 -mx-1 rounded-xl hover:bg-muted/30 group animate-list-item"
                         >
-                         <div
-                           className={cn(
-                             'h-7 w-7 rounded-full flex items-center justify-center',
-                             transaction.isIncome
-                               ? 'bg-success/20 text-success'
-                               : 'bg-muted text-muted-foreground'
-                           )}
-                         >
-                           {transaction.isIncome ? (
-                             <ArrowDownLeft className="h-3.5 w-3.5" />
-                           ) : (
-                             <ArrowUpRight className="h-3.5 w-3.5" />
-                           )}
-                         </div>
-                            <div className="flex-1 min-w-0">
-                             <p className="text-sm truncate">
-                               {transaction.description}
-                             </p>
-                             <div className="flex items-center gap-1.5 flex-wrap">
-                               {isSplit ? (
-                                 <Badge
-                                   variant="secondary"
-                                   className="text-xs px-1.5 py-0 bg-petrol/15 text-petrol"
-                                 >
-                                   Split ({getSplitCount(transaction)})
-                                 </Badge>
-                               ) : (
-                                 <Badge
-                                   variant="secondary"
-                                   className="text-xs px-1.5 py-0"
-                                   style={{
-                                     backgroundColor: bucket
-                                       ? `${bucket.color}20`
-                                       : undefined,
-                                     color: bucket?.color,
-                                   }}
-                                 >
-                                   {lineItem?.name || 'Unknown'}
-                                 </Badge>
-                               )}
-                               <span className="text-xs text-muted-foreground">
-                                 {formatDate(transaction.date)}
-                               </span>
-                               {transaction.paymentMethod && (
-                                 <span className="text-xs text-muted-foreground/70 hidden sm:inline">· {transaction.paymentMethod}</span>
-                               )}
-                               {transaction.partnerPubkey && <PartnerAttribution pubkey={transaction.partnerPubkey} />}
-                             </div>
-                           </div>
-                           <div className="flex items-center gap-2 shrink-0">
-                             <span
-                               className={cn(
-                                 'text-sm font-mono',
-                                 transaction.isIncome ? 'text-success' : ''
-                               )}
-                             >
-                              {transaction.isIncome ? '+' : '-'}
-                              {formatAmount(transaction.amount, transaction)}
-                            </span>
+                          <div
+                            className={cn(
+                              'h-7 w-7 rounded-full flex items-center justify-center',
+                              transaction.isIncome
+                                ? 'bg-success/20 text-success'
+                                : 'bg-muted text-muted-foreground'
+                            )}
+                          >
+                            {transaction.isIncome ? (
+                              <ArrowDownLeft className="h-3.5 w-3.5" />
+                            ) : (
+                              <ArrowUpRight className="h-3.5 w-3.5" />
+                            )}
+                          </div>
+                             <div className="flex-1 min-w-0">
+                              <p className="text-sm truncate">
+                                {transaction.description}
+                              </p>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                {isSplit ? (
+                                  <Badge
+                                    variant="secondary"
+                                    className="text-xs px-1.5 py-0 bg-petrol/15 text-petrol"
+                                  >
+                                    Split ({getSplitCount(transaction)})
+                                  </Badge>
+                                ) : (
+                                  <Badge
+                                    variant="secondary"
+                                    className="text-xs px-1.5 py-0"
+                                    style={{
+                                      backgroundColor: bucket
+                                        ? `${bucket.color}20`
+                                        : undefined,
+                                      color: bucket?.color,
+                                    }}
+                                  >
+                                    {lineItem?.name || 'Unknown'}
+                                  </Badge>
+                                )}
+                                <span className="text-xs text-muted-foreground">
+                                  {formatDate(transaction.date)}
+                                </span>
+                                {transaction.paymentMethod && (
+                                  <span className="text-xs text-muted-foreground/70 hidden sm:inline">· {transaction.paymentMethod}</span>
+                                )}
+                                {transaction.partnerPubkey && <PartnerAttribution pubkey={transaction.partnerPubkey} />}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <span
+                                className={cn(
+                                  'text-sm font-mono',
+                                  transaction.isIncome ? 'text-success' : ''
+                                )}
+                              >
+                               {transaction.isIncome ? '+' : '-'}
+                               {splitPortionLabel || formatAmount(transaction.amount, transaction)}
+                             </span>
                            <Button
                              size="icon"
                              variant="ghost"
