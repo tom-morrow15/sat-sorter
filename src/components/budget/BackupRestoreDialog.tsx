@@ -301,7 +301,7 @@ export function BackupRestoreDialog({ open, onOpenChange }: BackupRestoreDialogP
           </div>
 
           <p className="text-xs text-muted-foreground text-center">
-            💡 Tip: Export a backup before making major changes to your budget.
+            Tip: Export a backup before making major changes to your budget.
           </p>
         </div>
       </DialogContent>

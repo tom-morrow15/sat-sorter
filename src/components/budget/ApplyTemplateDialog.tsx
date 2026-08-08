@@ -206,7 +206,7 @@ export function ApplyTemplateDialog({
            {!showConfirmation && (
              <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
                <p className="text-xs text-blue-900 dark:text-blue-100">
-                 <strong>💡 Tip:</strong> The template will only copy your category structure
+                 <strong>Tip:</strong> The template will only copy your category structure
                  and line items. You'll need to set new amounts for each month based on your needs.
                </p>
              </div>

@@ -357,7 +357,7 @@ export function QuickAddFAB({ onAddTransaction, currency }: QuickAddFABProps) {
             </div>
 
             <p className="text-xs text-muted-foreground text-center">
-              💡 Tip: Press Ctrl+Enter to add quickly
+              Tip: Press Ctrl+Enter to add quickly
             </p>
           </div>
         </DialogContent>

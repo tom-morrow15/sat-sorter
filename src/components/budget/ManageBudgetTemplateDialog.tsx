@@ -268,7 +268,7 @@ export function ManageBudgetTemplateDialog({
           {/* Info box */}
           <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
             <p className="text-xs text-blue-900 dark:text-blue-100">
-              <strong>💡 Tip:</strong> Save your budget structure as a template, then use
+              <strong>Tip:</strong> Save your budget structure as a template, then use
               "Apply Template" when creating a new month to quickly set up your categories
               and line items. You can adjust amounts month-to-month as needed.
             </p>

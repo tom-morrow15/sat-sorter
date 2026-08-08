@@ -733,7 +733,7 @@ export function ManagePartnersDialog({
 
             <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
               <p className="text-xs text-amber-900 dark:text-amber-100">
-                <strong>💡 Permissions:</strong> Partners with "Can Edit" permission can add
+                <strong>Permissions:</strong> Partners with "Can Edit" permission can add
                 transactions and modify categories. "View Only" partners can see everything
                 but cannot make changes.
               </p>
@@ -787,7 +787,7 @@ function PendingInviteCard({
   const inviterPicture = inviterMetadata?.picture;
 
   return (
-    <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-blue-500/5">
+    <Card className="border-l-4 border-l-primary bg-primary/[0.04]">
       <CardContent className="pt-4 pb-4 space-y-3">
         {/* Inviter info */}
         <div className="flex items-center gap-3">

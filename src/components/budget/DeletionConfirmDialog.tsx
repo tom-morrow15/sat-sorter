@@ -1,4 +1,4 @@
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Lightbulb } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -59,9 +59,10 @@ export function DeletionConfirmDialog({
           </AlertDialogDescription>
         </AlertDialogHeader>
 
-        <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3 text-sm">
-          <p className="text-amber-900 dark:text-amber-100">
-            <strong>💡 Tip:</strong> This will be tracked in your sync history. You can restore a previous version from the History button if needed.
+        <div className="bg-mustard/10 border-l-4 border-l-mustard rounded-sm p-3 text-sm flex items-start gap-2">
+          <Lightbulb className="h-4 w-4 text-mustard shrink-0 mt-0.5" />
+          <p className="text-foreground/80">
+            <strong className="font-medium">Tip:</strong> This will be tracked in your sync history. You can restore a previous version from the History button if needed.
           </p>
         </div>
 

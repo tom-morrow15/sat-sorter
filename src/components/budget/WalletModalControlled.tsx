@@ -222,7 +222,7 @@ const WalletContent = forwardRef<HTMLDivElement, {
           </div>
 
           <p className="text-xs text-muted-foreground">
-            💡 <strong>Note:</strong> Transaction sync requires your wallet to support the
+<strong>Note:</strong> Transaction sync requires your wallet to support the
             <code className="mx-1 px-1 bg-muted rounded">list_transactions</code>
             method. Not all wallets support this feature.
           </p>
