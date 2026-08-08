@@ -191,7 +191,7 @@ export function BudgetHeader({
             </button>
 
             {/* Right cluster */}
-            <div className="flex items-center gap-2.5 shrink-0">
+            <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
               {/* BTC price — flat pill, no animation */}
               {priceData && (
                 <Tooltip>

@@ -130,9 +130,9 @@ export function AccountSwitcher({
     }
     // Default: avatar variant
     return (
-      <button className='flex items-center gap-3 p-3 rounded-full hover:bg-accent transition-all w-full text-foreground'>
+      <button className={cn('flex items-center gap-1.5 p-1 rounded-full hover:bg-white/10 transition-all text-foreground shrink-0', triggerClassName)}>
         <div className='relative'>
-          <Avatar className='w-10 h-10'>
+          <Avatar className='w-8 h-8'>
             <AvatarImage src={currentUser!.metadata.picture} alt={getDisplayName(currentUser!)} />
             <AvatarFallback>{getDisplayName(currentUser!).charAt(0)}</AvatarFallback>
           </Avatar>
@@ -148,7 +148,7 @@ export function AccountSwitcher({
         <div className='flex-1 text-left hidden md:block truncate'>
           <p className='font-medium text-sm truncate'>{getDisplayName(currentUser!)}</p>
         </div>
-        <ChevronDown className='w-4 h-4 text-muted-foreground' />
+        <ChevronDown className='w-3.5 h-3.5 text-muted-foreground hidden sm:block' />
       </button>
     );
   };
