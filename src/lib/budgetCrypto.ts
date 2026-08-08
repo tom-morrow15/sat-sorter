@@ -113,30 +113,91 @@ interface SignerEncrypt {
 
 /**
  * Encrypt the budget nsec for a specific partner using the owner's signer.
- * Uses NIP-44 encrypt (the signer handles the conversation key internally).
- * The accept handler tries NIP-44 decryption first, then NIP-04 as fallback.
+ * Encrypts with BOTH NIP-44 and NIP-04 when both are available on the
+ * owner's signer, and returns them as a JSON object so the partner can
+ * use whichever method their signer supports.
+ *
+ * If only one method is available, returns a plain string (backward compat).
  */
 export async function encryptBudgetKeyForPartner(
   budgetNsec: string,
-  ownerSigner: SignerEncrypt,
+  ownerSigner: { nip44?: SignerEncrypt; nip04?: SignerEncrypt },
   partnerPub: string
 ): Promise<string> {
   const partnerHex = ensureHexPubkey(partnerPub);
-  return ownerSigner.encrypt(partnerHex, budgetNsec);
+
+  const nip44Encrypted = ownerSigner.nip44
+    ? await ownerSigner.nip44.encrypt(partnerHex, budgetNsec).catch(() => null)
+    : null;
+
+  const nip04Encrypted = ownerSigner.nip04
+    ? await ownerSigner.nip04.encrypt(partnerHex, budgetNsec).catch(() => null)
+    : null;
+
+  // If both methods produced results, return a JSON object with both
+  if (nip44Encrypted && nip04Encrypted) {
+    return JSON.stringify({ nip44: nip44Encrypted, nip04: nip04Encrypted });
+  }
+
+  // Only one method worked — return it as a plain string (backward compat)
+  if (nip44Encrypted) return nip44Encrypted;
+  if (nip04Encrypted) return nip04Encrypted;
+
+  throw new Error('No encryption method available for the budget key');
 }
 
 /**
  * Decrypt the budget nsec received via an invite.
- * Uses the invitee's raw private key bytes + the sender's pubkey.
+ * Handles both formats:
+ * - Plain NIP-44 encrypted string (legacy/backward compat)
+ * - JSON object with { nip44, nip04 } encrypted versions (new format)
+ *
+ * Uses the invitee's raw private key bytes + the sender's pubkey for NIP-44,
+ * or the signer's decrypt method for NIP-04.
  */
 export async function decryptBudgetKeyFromInvite(
   encryptedContent: string,
   myPriv: Uint8Array,
-  senderPub: string
+  senderPub: string,
+  nip04Decrypt?: (pubkey: string, ciphertext: string) => Promise<string>
 ): Promise<string> {
   const senderHex = ensureHexPubkey(senderPub);
-  const conversationKey = nip44.getConversationKey(myPriv, senderHex);
-  return nip44.decrypt(encryptedContent, conversationKey);
+
+  // Check if it's the new dual-encryption format (JSON with nip44/nip04)
+  let nip44Data: string | null = null;
+  let nip04Data: string | null = null;
+
+  try {
+    const parsed = JSON.parse(encryptedContent);
+    if (parsed && typeof parsed === 'object') {
+      nip44Data = parsed.nip44 || null;
+      nip04Data = parsed.nip04 || null;
+    }
+  } catch {
+    // Not JSON — it's a plain encrypted string (legacy format)
+    nip44Data = encryptedContent;
+  }
+
+  // Try NIP-44 first (most common)
+  if (nip44Data) {
+    try {
+      const conversationKey = nip44.getConversationKey(myPriv, senderHex);
+      return nip44.decrypt(nip44Data, conversationKey);
+    } catch {
+      // Fall through to NIP-04
+    }
+  }
+
+  // Fall back to NIP-04 if available
+  if (nip04Data && nip04Decrypt) {
+    return nip04Decrypt(senderHex, nip04Data);
+  }
+
+  // If only the legacy string format and NIP-44 failed
+  if (!nip04Data) {
+    throw new Error('Failed to decrypt budget key: NIP-44 decryption failed and no NIP-04 fallback available');
+  }
+  throw new Error('Failed to decrypt budget key with any available method');
 }
 
 // ---------------------------------------------------------------------------

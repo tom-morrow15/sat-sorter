@@ -104,27 +104,21 @@ export function ManagePartnersDialog({
         }
       }
 
+      // Get the NIP-04 decrypt function if available (for fallback)
+      const nip04Decrypt = user.signer.nip04
+        ? (pubkey: string, ciphertext: string) => user.signer.nip04!.decrypt(pubkey, ciphertext)
+        : undefined;
+
       if (myPriv) {
-        // nsec user: use raw key path (NIP-44)
-        try {
-          budgetNsec = await decryptBudgetKeyFromInvite(
-            invite.encryptedBudgetKey,
-            myPriv,
-            fromHex
-          );
-        } catch (nip44Error) {
-          // If NIP-44 fails, try decrypting with the signer's decrypt method
-          // (which may use NIP-04 if that's what the sender used to encrypt)
-          if (user.signer.nip44) {
-            budgetNsec = await user.signer.nip44.decrypt(fromHex, invite.encryptedBudgetKey);
-          } else if (user.signer.nip04) {
-            budgetNsec = await user.signer.nip04.decrypt(fromHex, invite.encryptedBudgetKey);
-          } else {
-            throw nip44Error;
-          }
-        }
+        // nsec user: use raw key path with dual-format support
+        budgetNsec = await decryptBudgetKeyFromInvite(
+          invite.encryptedBudgetKey,
+          myPriv,
+          fromHex,
+          nip04Decrypt
+        );
       } else if (user.signer.nip44) {
-        // Extension with NIP-44
+        // Extension with NIP-44 — try NIP-44 first
         try {
           budgetNsec = await user.signer.nip44.decrypt(fromHex, invite.encryptedBudgetKey);
         } catch (nip44Error) {
@@ -266,6 +260,7 @@ export function ManagePartnersDialog({
   // Handle declining a partner invite
   const handleDeclineInvite = async (invite: BudgetPartnerInvite) => {
     setProcessingInviteId(invite.id);
+    console.log('[ManagePartnersDialog] Declining invite from', invite.from);
     try {
       const success = await declineInvite(invite);
       if (success) {
@@ -334,8 +329,8 @@ export function ManagePartnersDialog({
        return;
      }
 
-     if (!user?.signer?.nip44) {
-       setValidationError('Your signer does not support NIP-44. Please use a compatible Nostr extension.');
+     if (!user?.signer?.nip44 && !user?.signer?.nip04) {
+       setValidationError('Your signer does not support NIP-44 or NIP-04 encryption. Please use a compatible Nostr extension.');
        return;
      }
 
@@ -388,11 +383,12 @@ export function ManagePartnersDialog({
          }
 
         // 2. Encrypt the budget nsec for the new partner
-        // Explicitly ensure hex before crypto call (defense in depth)
+        // Pass the full signer (both nip44 and nip04) so the partner can
+        // decrypt with whichever method their signer supports.
         const partnerHexForEncrypt = ensureHexPubkey(hexPubkey);
         const encryptedKey = await encryptBudgetKeyForPartner(
           budgetKeypair.budgetNsec,
-          user.signer.nip44,
+          { nip44: user.signer.nip44, nip04: user.signer.nip04 },
           partnerHexForEncrypt
         );
 
