@@ -1,17 +1,11 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 import { useNostrLogin } from '@nostrify/react/login';
-import { getSecretKey, hasSession, saveSession } from '@/utils/sessionStore';
+import { nip19 } from 'nostr-tools';
+import { getSecretKey, hasSession, saveSession, generateSessionPassword } from '@/utils/sessionStore';
 import { encryptSecretKey } from '@/utils/nostrAuth';
+import { useLoginActions } from '@/hooks/useLoginActions';
 import type { KeyPair } from '@/utils/nostrAuth';
 import type { BudgetState } from '@/lib/budgetTypes';
-
-export type OnboardingState = 'loading' | 'welcome' | 'authenticated' | 'guest';
-
-export interface OnboardingKeys extends KeyPair {
-  displayName: string;
-  currency: string;
-  showSats: boolean;
-}
 
 interface OnboardingContextValue {
   state: OnboardingState;
@@ -49,6 +43,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
 
   // Access NostrLoginProvider to check for existing browser extension logins
   const { logins } = useNostrLogin();
+  const loginActions = useLoginActions();
 
   const hasNostrLogin = logins.length > 0;
 
@@ -71,10 +66,18 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
         }
 
         // Priority 3: Check for existing encrypted session (our onboarding flow)
+        // If localStorage was cleared but IndexedDB has the encrypted session,
+        // restore the Nostr login from the encrypted backup.
         const hasExistingSession = await hasSession();
         if (hasExistingSession) {
           const secretKey = await getSecretKey();
           if (secretKey) {
+            // Restore the Nostr login from the encrypted session so the user
+            // has a signer for Nostr operations. The nsec is only kept in
+            // memory (via NostrLoginProvider) for this session — the encrypted
+            // backup in IndexedDB is the persistent copy.
+            const nsec = nip19.nsecEncode(secretKey);
+            loginActions.nsec(nsec);
             setState('authenticated');
             return;
           }
@@ -104,12 +107,14 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     const { clearSession } = await import('@/utils/sessionStore');
-    await clearSession();
+    await clearSession(); // Clear encrypted session from IndexedDB
+    // Clear Nostr login from localStorage (removes the plaintext nsec copy)
+    loginActions.logout();
     localStorage.removeItem(GUEST_KEY);
     localStorage.removeItem('sat-sorter-onboarded');
     setKeys(null);
     setState('welcome');
-  }, []);
+  }, [loginActions]);
 
   /**
    * Upgrade from guest mode to a Nostr account.
@@ -125,11 +130,16 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     const { secretKey, nsec, npub, budgetState, publishBudget } = opts;
 
     // 1. Encrypt and save the session
-    const password = generateBrowserPassword();
+    const password = generateSessionPassword();
     const ncryptsec = encryptSecretKey(secretKey, password);
     await saveSession(ncryptsec, password);
 
-    // 2. Publish existing budget data to relays
+    // 2. Add the nsec login to NostrLoginProvider so the user has a signer
+    // for Nostr operations in this session. The encrypted copy in IndexedDB
+    // (sessionStore) is the persistent backup.
+    loginActions.nsec(nsec);
+
+    // 3. Publish existing budget data to relays
     const success = await publishBudget(budgetState);
 
     // 3. If successful, clean up guest localStorage data
@@ -149,7 +159,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     });
     localStorage.setItem('sat-sorter-onboarded', 'true');
     setState('authenticated');
-  }, []);
+  }, [loginActions]);
 
   return (
     <OnboardingContext.Provider value={{ state, keys, setGuestMode, completeOnboarding, signOut, upgradeGuest }}>

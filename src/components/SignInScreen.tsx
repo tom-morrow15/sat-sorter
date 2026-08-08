@@ -4,15 +4,9 @@ import { ChevronLeft, AlertCircle, Zap, Key, Shield, ExternalLink, Sparkles } fr
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { parseKeyInput, encryptSecretKey } from '@/utils/nostrAuth';
-import { saveSession } from '@/utils/sessionStore';
+import { saveSession, generateSessionPassword } from '@/utils/sessionStore';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { useLoginActions } from '@/hooks/useLoginActions';
-
-function generateBrowserPassword(): string {
-  const array = new Uint8Array(32);
-  crypto.getRandomValues(array);
-  return Array.from(array, (b) => b.toString(16).padStart(2, '0')).join('');
-}
 
 export function SignInScreen() {
   const navigate = useNavigate();
@@ -36,7 +30,7 @@ export function SignInScreen() {
     setIsSubmitting(true);
     try {
       const keys = parseKeyInput(trimmed);
-      const password = generateBrowserPassword();
+      const password = generateSessionPassword();
       const ncryptsec = encryptSecretKey(keys.secretKey, password);
       await saveSession(ncryptsec, password);
 

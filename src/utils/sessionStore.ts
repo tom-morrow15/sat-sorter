@@ -1,6 +1,17 @@
 import { openDB, type IDBPDatabase } from 'idb';
 import { encryptSecretKey, decryptSecretKey } from '@/utils/nostrAuth';
 
+/**
+ * Generate a cryptographically secure random password for encrypting the
+ * session key. Uses the browser's CSPRNG (crypto.getRandomValues()).
+ * Centralized here so all auth flows use the same secure function.
+ */
+export function generateSessionPassword(): string {
+  const array = new Uint8Array(32);
+  crypto.getRandomValues(array);
+  return Array.from(array, (b) => b.toString(16).padStart(2, '0')).join('');
+}
+
 const DB_NAME = 'satSorter';
 const DB_VERSION = 2;
 const STORE_NAME = 'sessions';

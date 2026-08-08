@@ -16,18 +16,12 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { generateMnemonic, keysFromMnemonic, encryptSecretKey } from '@/utils/nostrAuth';
-import { saveSession } from '@/utils/sessionStore';
+import { saveSession, generateSessionPassword } from '@/utils/sessionStore';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { cn } from '@/lib/utils';
 
 const MNEMONIC_WORDS = [4, 9, 12] as const;
 const STEPS = [1, 2, 3] as const;
-
-function generateBrowserPassword(): string {
-  const array = new Uint8Array(32);
-  crypto.getRandomValues(array);
-  return Array.from(array, (b) => b.toString(16).padStart(2, '0')).join('');
-}
 
 export function CreateAccountFlow() {
   const navigate = useNavigate();
@@ -93,7 +87,7 @@ export function CreateAccountFlow() {
   const handleStartBudgeting = async () => {
     setIsSubmitting(true);
     try {
-      const password = generateBrowserPassword();
+      const password = generateSessionPassword();
       const ncryptsec = encryptSecretKey(keys.secretKey, password);
       await saveSession(ncryptsec, password);
 
