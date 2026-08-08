@@ -78,8 +78,11 @@ export function BottomNavigation() {
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
       <div className="mx-auto max-w-md relative flex items-center h-16">
-        <NavButton path="/home" icon={Home} label="Home" />
-        <NavButton path="/breakdown" icon={PieChart} label="Breakdown" />
+        {/* Left group */}
+        <div className="flex flex-1">
+          <NavButton path="/home" icon={Home} label="Home" />
+          <NavButton path="/breakdown" icon={PieChart} label="Breakdown" />
+        </div>
 
         {/* Center FAB */}
         <div className="relative flex items-center justify-center w-16 shrink-0">
@@ -98,56 +101,64 @@ export function BottomNavigation() {
           </button>
         </div>
 
-        {/* More + Sync */}
-        <div ref={moreRef} className="contents">
+        {/* Right group — mirrors left */}
+        <div className="flex flex-1">
+          {/* More */}
+          <div ref={moreRef} className="contents">
+            <button
+              onClick={() => setShowMore(!showMore)}
+              className="flex flex-col items-center justify-center flex-1 h-full gap-1 transition-colors touch-target"
+            >
+              <div className={cn(
+                'flex items-center justify-center h-8 w-12 rounded-full transition-all',
+                (isMoreActive || showMore) ? 'bg-primary/12 text-primary' : 'text-muted-foreground'
+              )}>
+                <MoreHorizontal className="h-[18px] w-[18px]" strokeWidth={(isMoreActive || showMore) ? 2.4 : 2} />
+              </div>
+              <span className={cn('text-[10px] font-medium leading-none', (isMoreActive || showMore) ? 'text-primary' : 'text-muted-foreground')}>
+                More
+              </span>
+            </button>
+
+            {showMore && (
+              <div className="absolute bottom-full right-2 mb-3 w-52 rounded-2xl border border-border/60 bg-popover shadow-[0_16px_48px_-12px_rgba(0,0,0,0.3)] overflow-hidden animate-scale-in origin-bottom-right">
+                {moreItems.map((item) => {
+                  const Icon = item.icon;
+                  const active = isActive(item.path);
+                  return (
+                    <button
+                      key={item.path}
+                      onClick={() => navigate(item.path)}
+                      className={cn(
+                        'flex items-center gap-3 w-full px-4 py-3.5 text-sm transition-colors text-left touch-target-sm',
+                        active ? 'bg-primary/5 text-primary font-medium' : 'hover:bg-muted'
+                      )}
+                    >
+                      <Icon className={cn('h-4 w-4', active ? 'text-primary' : 'text-muted-foreground')} />
+                      <span>{item.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Sync indicator — flex-1 to match More */}
           <button
-            onClick={() => setShowMore(!showMore)}
-            className="flex flex-col items-center justify-center flex-1 h-full gap-1 transition-colors touch-target"
+            className="flex flex-col items-center justify-center flex-1 h-full gap-1 touch-target"
+            title={!user ? 'Log in with Nostr to enable cloud sync' : !canAutoSave ? 'Cloud sync unavailable' : `Cloud sync: ${syncConfig.label}`}
           >
             <div className={cn(
-              'flex items-center justify-center h-8 w-12 rounded-full transition-all',
-              (isMoreActive || showMore) ? 'bg-primary/12 text-primary' : 'text-muted-foreground'
+              'flex items-center justify-center h-8 w-12 rounded-full',
+              !user || !canAutoSave ? 'text-muted-foreground/30' : syncConfig.color
             )}>
-              <MoreHorizontal className="h-[18px] w-[18px]" strokeWidth={(isMoreActive || showMore) ? 2.4 : 2} />
+              <SyncIcon className="h-4 w-4" />
             </div>
-            <span className={cn('text-[10px] font-medium leading-none', (isMoreActive || showMore) ? 'text-primary' : 'text-muted-foreground')}>
-              More
+            <span className={cn('text-[10px] font-medium leading-none', !user || !canAutoSave ? 'text-muted-foreground/30' : syncConfig.color)}>
+              {!user ? 'Offline' : !canAutoSave ? 'Offline' : syncConfig.label}
             </span>
           </button>
-
-          {showMore && (
-            <div className="absolute bottom-full right-2 mb-3 w-52 rounded-2xl border border-border/60 bg-popover shadow-[0_16px_48px_-12px_rgba(0,0,0,0.3)] overflow-hidden animate-scale-in origin-bottom-right">
-              {moreItems.map((item) => {
-                const Icon = item.icon;
-                const active = isActive(item.path);
-                return (
-                  <button
-                    key={item.path}
-                    onClick={() => navigate(item.path)}
-                    className={cn(
-                      'flex items-center gap-3 w-full px-4 py-3.5 text-sm transition-colors text-left touch-target-sm',
-                      active ? 'bg-primary/5 text-primary font-medium' : 'hover:bg-muted'
-                    )}
-                  >
-                    <Icon className={cn('h-4 w-4', active ? 'text-primary' : 'text-muted-foreground')} />
-                    <span>{item.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
         </div>
-
-        {/* Sync indicator */}
-        <button
-          className="flex flex-col items-center justify-center gap-1 px-2.5 shrink-0 touch-target-sm"
-          title={!user ? 'Log in with Nostr to enable cloud sync' : !canAutoSave ? 'Cloud sync unavailable' : `Cloud sync: ${syncConfig.label}`}
-        >
-          <SyncIcon className={cn('h-4 w-4', !user || !canAutoSave ? 'text-muted-foreground/30' : syncConfig.color)} />
-          <span className={cn('text-[9px] leading-none', !user || !canAutoSave ? 'text-muted-foreground/30' : syncConfig.color)}>
-            {!user ? 'Offline' : !canAutoSave ? 'Offline' : syncConfig.label}
-          </span>
-        </button>
       </div>
     </nav>
   );

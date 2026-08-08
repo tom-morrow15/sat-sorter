@@ -177,11 +177,11 @@ export function BudgetHeader({
   return (
     <div className="bh-brand">
       {/* ===== ROW 1: STICKY TOP BAR (~64px) ===== */}
-      <header className="sticky top-0 z-50 bh-brand safe-top border-b border-[hsl(var(--brand-border))]">
+      <header className="sticky top-0 z-50 w-full bh-brand safe-top border-b border-[hsl(var(--brand-border))]">
         <div className="mx-auto max-w-5xl px-4 sm:px-6">
           <div className="flex h-16 items-center justify-between gap-3">
             {/* Logotype */}
-            <button onClick={toggleLogo} className="flex items-center gap-2.5 min-w-0 group">
+            <button onClick={toggleLogo} className="flex items-center gap-2.5 shrink-0 group">
               <div className="h-9 w-9 rounded-md bg-primary flex items-center justify-center shrink-0 group-hover:bg-[hsl(var(--primary-hover))] transition-colors">
                 {logoStyle === 'bitcoin' ? (
                   <Bitcoin className="h-5 w-5 text-primary-foreground" strokeWidth={2.2} />
@@ -189,11 +189,11 @@ export function BudgetHeader({
                   <Zap className="h-5 w-5 text-primary-foreground" strokeWidth={2.2} />
                 )}
               </div>
-              <span className="font-serif text-xl tracking-tight text-white leading-none truncate">Sat Sorter</span>
+              <span className="hidden sm:inline font-serif text-xl tracking-tight text-white leading-none">Sat Sorter</span>
             </button>
 
             {/* Right cluster */}
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-2.5 shrink-0">
               {/* BTC price — flat pill, no animation */}
               {priceData && (
                 <Tooltip>
