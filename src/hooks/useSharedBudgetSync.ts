@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useRef, useState } from 'react';
+import { useEffect, useCallback, useRef, useState, useMemo } from 'react';
 import { nip19 } from 'nostr-tools';
 import { NSecSigner } from '@nostrify/nostrify';
 import { useNostr } from '@nostrify/react';
@@ -130,25 +130,31 @@ export function useSharedBudgetSync(budgetNpub: string, budgetNsec: string) {
   const processedEventsRef = useRef<Set<string>>(new Set());
 
   // Decode the budget nsec to get raw key bytes for signing + encrypting.
-  const keyBytesRef = useRef<{ budgetPriv: Uint8Array; budgetPub: string } | null>(null);
-  if (!keyBytesRef.current && budgetNsec) {
+  // Use a memo so it re-computes when budgetNsec changes (e.g., after accept).
+  const keyBytes = useMemo(() => {
+    if (!budgetNsec) return null;
     try {
       const decoded = nip19.decode(budgetNsec);
       if (decoded.type === 'nsec') {
         const signer = new NSecSigner(decoded.data);
-        keyBytesRef.current = {
-          budgetPriv: decoded.data,
+        return {
+          budgetPriv: decoded.data as Uint8Array,
           budgetPub: signer.pubkey,
         };
       }
     } catch (e) {
       console.error('[SharedBudgetSync] Failed to decode budget nsec:', e);
     }
-  }
+    return null;
+  }, [budgetNsec]);
 
   // Keep latest values in a ref for stable closure
   const stateRef = useRef({ state, setState });
   stateRef.current = { state, setState };
+
+  // Store keyBytes in a ref so callbacks can access it without stale closures
+  const keyBytesRef = useRef(keyBytes);
+  keyBytesRef.current = keyBytes;
 
   /**
    * Publish a budget entry as a kind 30078 event signed by the budget keypair.
@@ -358,7 +364,7 @@ export function useSharedBudgetSync(budgetNpub: string, budgetNsec: string) {
    * Subscribe to all budget events from the budget npub.
    */
   useEffect(() => {
-    const keys = keyBytesRef.current;
+    const keys = keyBytes;
     if (!keys || !budgetNpub) return;
 
     console.log(`[SharedBudgetSync] Subscribing to budget npub ${budgetNpub.slice(0, 16)}...`);
