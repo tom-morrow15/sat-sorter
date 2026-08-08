@@ -11,7 +11,7 @@ interface MainLayoutProps {
 export function MainLayout({ children }: MainLayoutProps) {
   return (
     <div className="min-h-screen bg-background">
-      {/* Fixed opaque top bar to protect Dynamic Island / notch — matches header black */}
+      {/* Fixed opaque top bar to protect Dynamic Island / notch — matches header */}
       <div
         className="fixed top-0 left-0 right-0 z-[60] bg-black"
         style={{ height: 'env(safe-area-inset-top)' }}

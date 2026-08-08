@@ -51,13 +51,13 @@ export default function LocalSpendPage() {
         onSelectMonth={setCurrentMonth}
       />
 
-      <main className="container mx-auto px-4 sm:px-6 py-6 lg:py-8">
-        <div className="space-y-6">
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-5 sm:py-8">
+        <div className="space-y-5">
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h1 className="font-serif-display text-2xl sm:text-3xl tracking-tight">Spend Bitcoin Locally</h1>
-              <p className="text-muted-foreground text-sm mt-1">
+              <h1 className="font-serif-display text-xl sm:text-2xl tracking-tight">Spend Bitcoin Locally</h1>
+              <p className="text-muted-foreground text-sm mt-0.5">
                 Find Bitcoin-accepting merchants and businesses near you
               </p>
             </div>

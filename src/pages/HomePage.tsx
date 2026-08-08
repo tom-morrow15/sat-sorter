@@ -69,28 +69,22 @@ export default function HomePage() {
     ],
   });
 
-  // Month navigation
   const handlePreviousMonth = () => {
     const [year, month] = currentMonth.split('-').map(Number);
     const newDate = new Date(year, month - 2);
-    setCurrentMonth(
-      `${newDate.getFullYear()}-${String(newDate.getMonth() + 1).padStart(2, '0')}`
-    );
+    setCurrentMonth(`${newDate.getFullYear()}-${String(newDate.getMonth() + 1).padStart(2, '0')}`);
   };
 
   const handleNextMonth = () => {
     const [year, month] = currentMonth.split('-').map(Number);
     const newDate = new Date(year, month);
-    setCurrentMonth(
-      `${newDate.getFullYear()}-${String(newDate.getMonth() + 1).padStart(2, '0')}`
-    );
+    setCurrentMonth(`${newDate.getFullYear()}-${String(newDate.getMonth() + 1).padStart(2, '0')}`);
   };
 
   const handleViewTransactions = (lineItemId: string) => {
     navigate(`/transactions?lineItemId=${lineItemId}`);
   };
 
-  // Sort buckets - income first, then by order
   const sortedBuckets = [...currentBudget.buckets].sort((a, b) => {
     if (a.isIncome !== b.isIncome) return a.isIncome ? -1 : 1;
     return a.order - b.order;
@@ -99,7 +93,6 @@ export default function HomePage() {
   const incomeBucket = sortedBuckets.find(b => b.isIncome);
   const expenseBuckets = sortedBuckets.filter(b => !b.isIncome);
 
-  // Build available months list for CopyMonthPrompt
   const availableCopyMonths = useMemo<AvailableMonth[]>(() => {
     return fullState.budgets
       .filter(b => b.month !== currentMonth && b.buckets.length > 0)
@@ -107,7 +100,6 @@ export default function HomePage() {
       .map(b => ({ month: b.month, budget: b }));
   }, [fullState.budgets, currentMonth]);
 
-  // "Plan Next Month" — copies current month's structure to next month
   const handlePlanNextMonth = () => {
     const [year, month] = currentMonth.split('-').map(Number);
     const nextDate = new Date(year, month);
@@ -115,44 +107,25 @@ export default function HomePage() {
     const currentPrice = priceData?.usdPerBtc;
     const result = duplicateFromMonth(currentMonth, nextMonth, currentPrice);
     if (result.success) {
-      toast({
-        title: 'Next month planned!',
-        description: `Copied your budget to ${formatMonth(nextMonth)}.`,
-      });
+      toast({ title: 'Next month planned!', description: `Copied your budget to ${formatMonth(nextMonth)}.` });
       setCurrentMonth(nextMonth);
     } else {
-      toast({
-        title: 'Could not plan next month',
-        description: result.message ?? 'Please try again.',
-        variant: 'destructive',
-      });
+      toast({ title: 'Could not plan next month', description: result.message ?? 'Please try again.', variant: 'destructive' });
     }
   };
 
-  // Unified copy handler
   const handleCopyPreviousMonth = (sourceMonth: string) => {
     const currentPrice = priceData?.usdPerBtc;
     const result = duplicateFromMonth(sourceMonth, currentMonth, currentPrice);
-
     if (result.success) {
-      toast({
-        title: 'Budget copied!',
-        description: result.message,
-      });
+      toast({ title: 'Budget copied!', description: result.message });
       setShowCopyPrompt(false);
-
       const newBudget = fullState.budgets.find(b => b.month === currentMonth);
       if (newBudget && newBudget.buckets.length > 0) {
-        syncCopiedBudget(newBudget).catch(e => {
-          console.error('[HomePage] Failed to sync copied budget:', e);
-        });
+        syncCopiedBudget(newBudget).catch(e => console.error('[HomePage] Failed to sync copied budget:', e));
       }
     } else {
-      toast({
-        title: 'Cannot copy budget',
-        description: result.message ?? 'An unknown error occurred',
-        variant: 'destructive',
-      });
+      toast({ title: 'Cannot copy budget', description: result.message ?? 'An unknown error occurred', variant: 'destructive' });
     }
   };
 
@@ -173,15 +146,14 @@ export default function HomePage() {
         onPlanNextMonth={handlePlanNextMonth}
       />
 
-      <main className="container mx-auto px-4 sm:px-6 py-6 lg:py-10 max-w-4xl">
-        {/* Alerts Section - Full width */}
-        <div className="space-y-3 mb-4">
-          {/* Guest mode banner */}
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-5 sm:py-8">
+        {/* ===== Alerts ===== */}
+        <div className="space-y-3 mb-5">
           {onboardingState === 'guest' && !dismissedGuestBanner && (
-            <Alert className="border-primary/20 bg-primary/5 relative rounded-2xl">
+            <Alert className="border-primary/15 bg-primary/5 rounded-2xl">
               <button
                 onClick={() => setDismissedGuestBanner(true)}
-                className="absolute top-2 right-2 text-muted-foreground hover:text-foreground touch-target-sm flex items-center justify-center"
+                className="absolute top-2.5 right-2.5 text-muted-foreground hover:text-foreground touch-target-sm flex items-center justify-center"
                 aria-label="Dismiss"
               >
                 <X className="h-4 w-4" />
@@ -189,64 +161,48 @@ export default function HomePage() {
               <AlertDescription className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pr-6">
                 <div>
                   <span className="text-sm font-medium">Budgeting on a Bitcoin standard.</span>
-                  <span className="text-sm text-muted-foreground"> Create a free Nostr account for cloud sync, budget sharing, and an AI budget buddy — no email required.</span>
+                  <span className="text-sm text-muted-foreground"> Create a free Nostr account for cloud sync, budget sharing, and an AI budget buddy.</span>
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => navigate('/create-account')}
-                  className="shrink-0"
-                >
+                <Button variant="outline" size="sm" onClick={() => navigate('/create-account')} className="shrink-0 touch-target-sm">
                   Create Account
                 </Button>
               </AlertDescription>
             </Alert>
           )}
 
-          {/* Login prompt for logged-out users (not guest mode) */}
           {!user && onboardingState !== 'guest' && (
-            <Alert className="border-primary/20 bg-primary/5 rounded-2xl">
+            <Alert className="border-primary/15 bg-primary/5 rounded-2xl">
               <Info className="h-4 w-4 text-primary" />
               <AlertDescription className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <span className="text-sm">
-                  Log in with Nostr to sync your budget across devices.
-                </span>
+                <span className="text-sm">Log in with Nostr to sync your budget across devices.</span>
                 <LoginArea className="shrink-0" />
               </AlertDescription>
             </Alert>
           )}
 
-           {/* NWC connection prompt — dismissible so it doesn't live persistently */}
-            {user && !hasNWC && !dismissedNwcPrompt && (
-              <Alert className="border-primary/20 bg-primary/5 relative rounded-2xl">
-                <button
-                  onClick={() => setDismissedNwcPrompt(true)}
-                  className="absolute top-2 right-2 text-muted-foreground hover:text-foreground touch-target-sm flex items-center justify-center"
-                  aria-label="Dismiss"
-                >
-                  <X className="h-4 w-4" />
-               </button>
-               <Zap className="h-4 w-4 text-primary" />
-               <AlertDescription className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pr-6">
-                 <span className="text-sm">
-                   Connect your Lightning wallet to track transactions automatically.
-                 </span>
-                 <Button
-                   variant="outline"
-                   size="sm"
-                   onClick={() => setShowWalletModal(true)}
-                   className="shrink-0"
-                 >
-                   <Wallet className="h-4 w-4 mr-2" />
-                   Connect
-                 </Button>
-               </AlertDescription>
-             </Alert>
-           )}
+          {user && !hasNWC && !dismissedNwcPrompt && (
+            <Alert className="border-primary/15 bg-primary/5 rounded-2xl">
+              <button
+                onClick={() => setDismissedNwcPrompt(true)}
+                className="absolute top-2.5 right-2.5 text-muted-foreground hover:text-foreground touch-target-sm flex items-center justify-center"
+                aria-label="Dismiss"
+              >
+                <X className="h-4 w-4" />
+              </button>
+              <Zap className="h-4 w-4 text-primary" />
+              <AlertDescription className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pr-6">
+                <span className="text-sm">Connect your Lightning wallet to track transactions automatically.</span>
+                <Button variant="outline" size="sm" onClick={() => setShowWalletModal(true)} className="shrink-0 touch-target-sm">
+                  <Wallet className="h-4 w-4 mr-2" />
+                  Connect
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
         </div>
 
-        {/* Dashboard Summary - at-a-glance overview */}
-        <div className="mb-6 animate-slide-in-up" style={{ animationDelay: '0s', animationFillMode: 'both' }}>
+        {/* ===== Dashboard Summary ===== */}
+        <div className="mb-5 animate-slide-in-up" style={{ animationDelay: '0s', animationFillMode: 'both' }}>
           <DashboardSummary
             buckets={currentBudget.buckets}
             transactions={currentBudget.transactions}
@@ -254,99 +210,97 @@ export default function HomePage() {
           />
         </div>
 
-        {/* Bitcoin education tip — only shown in USD mode */}
+        {/* ===== BTC Education Tip ===== */}
         <BtcTipCard />
 
-        {/* Main Layout - Budget Categories */}
-        <div className="space-y-5">
-          {/* Income section header */}
+        {/* ===== Budget Categories ===== */}
+        <div className="space-y-4 mt-6">
+          {/* Income section */}
           {incomeBucket && (
             <div className="flex items-center gap-2.5 pb-1" style={{ animation: 'fadeIn 0.3s ease-out', animationDelay: '0.1s', animationFillMode: 'both' }}>
-              <div className="h-8 w-1 rounded-full bg-gradient-to-b from-success to-emerald-400" />
+              <div className="h-7 w-1 rounded-full bg-gradient-to-b from-success to-emerald-400" />
               <div>
-                <h2 className="font-serif-display text-lg tracking-tight">Income</h2>
+                <h2 className="font-serif-display text-base tracking-tight">Income</h2>
                 <p className="text-xs text-muted-foreground">Money coming in this month</p>
               </div>
             </div>
           )}
 
-          {/* Income bucket - always first */}
-           {incomeBucket && (
-             <div className="animate-slide-in-up" style={{ animationDelay: '0.15s', animationFillMode: 'both' }}>
-               <BucketCard
-                 bucket={incomeBucket}
-                 buckets={currentBudget.buckets}
-                 transactions={currentBudget.transactions}
-                 currency={currency}
-                 merchants={merchants}
-                 onUpdateBucket={updateBucket}
-                 onDeleteBucket={deleteBucket}
-                 onAddLineItem={addLineItem}
-                 onUpdateLineItem={updateLineItem}
-                 onDeleteLineItem={deleteLineItem}
-                 onAddTransaction={addTransaction}
-                 onViewTransactions={handleViewTransactions}
-                 paymentMethods={paymentMethods}
-               />
-             </div>
-           )}
+          {incomeBucket && (
+            <div className="animate-slide-in-up" style={{ animationDelay: '0.12s', animationFillMode: 'both' }}>
+              <BucketCard
+                bucket={incomeBucket}
+                buckets={currentBudget.buckets}
+                transactions={currentBudget.transactions}
+                currency={currency}
+                merchants={merchants}
+                onUpdateBucket={updateBucket}
+                onDeleteBucket={deleteBucket}
+                onAddLineItem={addLineItem}
+                onUpdateLineItem={updateLineItem}
+                onDeleteLineItem={deleteLineItem}
+                onAddTransaction={addTransaction}
+                onViewTransactions={handleViewTransactions}
+                paymentMethods={paymentMethods}
+              />
+            </div>
+          )}
 
-           {/* Section header for expenses */}
-            <div className="flex items-center justify-between pt-5 pb-1" style={{ animation: 'fadeIn 0.3s ease-out', animationDelay: '0.2s', animationFillMode: 'both' }}>
-              <div className="flex items-center gap-2.5">
-                <div className="h-8 w-1 rounded-full bg-gradient-to-b from-primary to-orange-500" />
-                <div>
-                  <h2 className="font-serif-display text-lg tracking-tight">Expense Categories</h2>
-                  <p className="text-xs text-muted-foreground">
-                    {expenseBuckets.length} {expenseBuckets.length === 1 ? 'category' : 'categories'}
-                  </p>
-                </div>
+          {/* Expense section header */}
+          <div className="flex items-center justify-between pt-3 pb-1" style={{ animation: 'fadeIn 0.3s ease-out', animationDelay: '0.18s', animationFillMode: 'both' }}>
+            <div className="flex items-center gap-2.5">
+              <div className="h-7 w-1 rounded-full bg-gradient-to-b from-primary to-orange-500" />
+              <div>
+                <h2 className="font-serif-display text-base tracking-tight">Expense Categories</h2>
+                <p className="text-xs text-muted-foreground">
+                  {expenseBuckets.length} {expenseBuckets.length === 1 ? 'category' : 'categories'}
+                </p>
               </div>
-              <Button
-                size="sm"
-                onClick={() => setShowAddBucket(true)}
-                className="btn-interactive shadow-sm touch-target-sm"
+            </div>
+            <Button
+              size="sm"
+              onClick={() => setShowAddBucket(true)}
+              className="btn-interactive touch-target-sm"
+            >
+              <Plus className="h-4 w-4 mr-1.5" />
+              <span className="hidden sm:inline">Add Category</span>
+              <span className="sm:hidden">Add</span>
+            </Button>
+          </div>
+
+          {/* Expense buckets */}
+          <div className="space-y-3">
+            {expenseBuckets.map((bucket, index) => (
+              <div
+                key={bucket.id}
+                className="animate-slide-in-up"
+                style={{ animationDelay: `${0.18 + index * 0.08}s`, animationFillMode: 'both' }}
               >
-                <Plus className="h-4 w-4 mr-1.5" />
-                <span className="hidden sm:inline">Add Category</span>
-                <span className="sm:hidden">Add</span>
-              </Button>
-            </div>
+                <BucketCard
+                  bucket={bucket}
+                  buckets={currentBudget.buckets}
+                  transactions={currentBudget.transactions}
+                  currency={currency}
+                  merchants={merchants}
+                  onUpdateBucket={updateBucket}
+                  onDeleteBucket={deleteBucket}
+                  onAddLineItem={addLineItem}
+                  onUpdateLineItem={updateLineItem}
+                  onDeleteLineItem={deleteLineItem}
+                  onAddTransaction={addTransaction}
+                  onViewTransactions={handleViewTransactions}
+                  paymentMethods={paymentMethods}
+                />
+              </div>
+            ))}
+          </div>
 
-             {/* Expense buckets */}
-             <div className="space-y-4">
-               {expenseBuckets.map((bucket, index) => (
-                 <div
-                   key={bucket.id}
-                   className="animate-slide-in-up"
-                   style={{ animationDelay: `${0.2 + index * 0.1}s`, animationFillMode: 'both' }}
-                 >
-                  <BucketCard
-                    bucket={bucket}
-                    buckets={currentBudget.buckets}
-                    transactions={currentBudget.transactions}
-                    currency={currency}
-                    merchants={merchants}
-                    onUpdateBucket={updateBucket}
-                    onDeleteBucket={deleteBucket}
-                    onAddLineItem={addLineItem}
-                    onUpdateLineItem={updateLineItem}
-                    onDeleteLineItem={deleteLineItem}
-                    onAddTransaction={addTransaction}
-                    onViewTransactions={handleViewTransactions}
-                    paymentMethods={paymentMethods}
-                  />
-                </div>
-              ))}
-            </div>
-
-          {/* Empty state for no expense buckets */}
+          {/* Empty state */}
           {expenseBuckets.length === 0 && (
-            <div className="relative text-center py-14 sm:py-20 px-6 sm:px-8 rounded-2xl bg-gradient-to-br from-card to-muted/30 border border-border/40 shadow-sm overflow-hidden">
-              {/* Decorative background */}
-              <div className="absolute inset-0 bg-mesh-gradient opacity-30 pointer-events-none" />
+            <div className="relative text-center py-14 sm:py-20 px-6 rounded-2xl card-base overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent pointer-events-none" />
               <div className="relative">
-                <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-2xl bg-gradient-to-br from-primary/15 to-orange-500/8 flex items-center justify-center mx-auto mb-5 shadow-sm">
+                <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-2xl bg-gradient-to-br from-primary/12 to-orange-500/6 flex items-center justify-center mx-auto mb-5">
                   <Bitcoin className="h-8 w-8 sm:h-10 sm:w-10 text-primary" />
                 </div>
                 <h3 className="font-serif-display text-xl sm:text-2xl mb-2 tracking-tight">
@@ -356,44 +310,33 @@ export default function HomePage() {
                   Create expense categories to organize your spending. Give every sat a job and take control of your finances.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                {availableCopyMonths.length > 0 && (
-                  <Button
-                    variant="outline"
-                    onClick={() => setShowCopyPrompt(true)}
-                    className="touch-target-sm"
-                  >
-                    <Copy className="h-4 w-4 mr-2" />
-                    Copy from Previous Month
+                  {availableCopyMonths.length > 0 && (
+                    <Button variant="outline" onClick={() => setShowCopyPrompt(true)} className="touch-target-sm">
+                      <Copy className="h-4 w-4 mr-2" />
+                      Copy from Previous Month
+                    </Button>
+                  )}
+                  <Button onClick={() => setShowAddBucket(true)} className="btn-interactive touch-target-sm">
+                    <Plus className="h-4 w-4 mr-2" />
+                    {availableCopyMonths.length > 0 ? 'Start Fresh' : 'Add Your First Category'}
                   </Button>
-                )}
-                <Button onClick={() => setShowAddBucket(true)} className="shadow-sm touch-target-sm">
-                  <Plus className="h-4 w-4 mr-2" />
-                  {availableCopyMonths.length > 0 ? 'Start Fresh' : 'Add Your First Category'}
-                </Button>
                 </div>
               </div>
             </div>
           )}
         </div>
 
-        {/* Footer */}
-        <footer className="mt-12 lg:mt-16 pt-8 lg:pt-10 border-t border-border/40 text-center space-y-3">
-          {/* Easter egg - Dollar purchasing power */}
+        {/* ===== Footer ===== */}
+        <footer className="mt-12 pt-8 border-t border-border/40 text-center space-y-3">
           <p className="text-xs text-muted-foreground/70 italic">
-            💡 Since 1913, the US dollar has lost over 96% of its purchasing power.
+            Since 1913, the US dollar has lost over 96% of its purchasing power.
             <br className="sm:hidden" />
             <span className="hidden sm:inline"> </span>
             Bitcoin fixes this.
           </p>
-
           <p className="text-sm text-muted-foreground">
             Vibed with{' '}
-            <a
-              href="https://shakespeare.diy"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-primary hover:underline"
-            >
+            <a href="https://shakespeare.diy" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
               Shakespeare
             </a>
           </p>
@@ -407,30 +350,19 @@ export default function HomePage() {
         onAdd={(name, color, icon) => addBucket(name, color, icon)}
       />
 
-      {/* Copy Budget Prompt — unified flow */}
       <CopyMonthPrompt
         open={showCopyPrompt}
         onOpenChange={setShowCopyPrompt}
         currentMonth={currentMonth}
         availableMonths={availableCopyMonths}
-        onStartFresh={() => {
-          toast({
-            title: 'Starting fresh',
-            description: 'Your new month is ready.',
-          });
-        }}
+        onStartFresh={() => toast({ title: 'Starting fresh', description: 'Your new month is ready.' })}
         onCopyPrevious={handleCopyPreviousMonth}
       />
 
-      {/* Wallet / Data Sources modal (opened from the header wallet icon) */}
       {showWalletModal && (
-        <WalletModalControlled
-          open={showWalletModal}
-          onOpenChange={setShowWalletModal}
-        />
+        <WalletModalControlled open={showWalletModal} onOpenChange={setShowWalletModal} />
       )}
 
-      {/* First-run onboarding overlay */}
       <FirstRunOnboarding />
     </div>
   );

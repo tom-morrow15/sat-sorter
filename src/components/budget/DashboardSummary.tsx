@@ -11,20 +11,10 @@ interface DashboardSummaryProps {
   currency: 'sats' | 'usd';
 }
 
-/**
- * Spending tracker dashboard. Focuses on actual spending vs. plan —
- * complementing (not duplicating) the header's Income/Planned/Remaining.
- *
- * The header answers: "Is my budget balanced?"
- * This answers: "How am I tracking against my plan this month?"
- */
 export function DashboardSummary({ buckets, transactions, currency }: DashboardSummaryProps) {
   const { data: priceData } = useBitcoinPrice();
   const btcPrice = priceData?.usdPerBtc ?? 0;
 
-  // Use the SHARED selector so this card's numbers match the Breakdown page,
-  // LineItemRow, and Maple. All figures are USD-anchored; we convert to sats
-  // only for the sats-view label.
   const totals = deriveBudgetTotals({ buckets, transactions } as MonthlyBudget, btcPrice);
   const totalPlannedUsd = totals.plannedUsd;
   const totalSpentUsd = totals.spentUsd;
@@ -34,14 +24,9 @@ export function DashboardSummary({ buckets, transactions, currency }: DashboardS
   const totalSpent = currency === 'usd' ? totalSpentUsd : usdToSats(totalSpentUsd, btcPrice);
   const leftToSpend = currency === 'usd' ? leftToSpendUsd : usdToSats(leftToSpendUsd, btcPrice);
 
-  const spentPercentage = totalPlannedUsd > 0
-    ? Math.round((totalSpentUsd / totalPlannedUsd) * 100)
-    : 0;
-
+  const spentPercentage = totalPlannedUsd > 0 ? Math.round((totalSpentUsd / totalPlannedUsd) * 100) : 0;
   const isOverspent = totalSpentUsd > totalPlannedUsd;
   const isOnTrack = spentPercentage <= 75;
-
-  // Count categories over budget (using the already-derived bucket data)
   const overBudgetCount = totals.expenseBuckets.filter((b) => b.isOverBudget).length;
 
   const formatAmount = (amount: number) => {
@@ -49,88 +34,74 @@ export function DashboardSummary({ buckets, transactions, currency }: DashboardS
     return `${formatSats(Math.round(amount))}`;
   };
 
-  // Don't render if there's no budget to track yet
-  if (totalPlanned === 0) {
-    return null;
-  }
+  if (totalPlanned === 0) return null;
 
   return (
-    <div className="bg-card rounded-2xl border border-border/40 shadow-sm p-5 sm:p-6">
+    <div className="card-base p-5 sm:p-6">
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-2.5">
-          <div className="h-8 w-1 rounded-full bg-gradient-to-b from-blue-500 to-cyan-400" />
+          <div className="h-7 w-1 rounded-full bg-gradient-to-b from-blue-500 to-cyan-400" />
           <div>
-            <h2 className="font-serif-display text-lg tracking-tight">Spending This Month</h2>
+            <h2 className="font-serif-display text-base tracking-tight">Spending This Month</h2>
             <p className="text-xs text-muted-foreground">
-              {isOverspent ? 'You\'ve exceeded your plan' : `${formatAmount(leftToSpend)} left to spend`}
+              {isOverspent ? 'Exceeded your plan' : `${formatAmount(leftToSpend)} left to spend`}
             </p>
           </div>
         </div>
         {/* Status pill */}
         {isOverspent ? (
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-destructive/10 text-destructive text-xs font-medium">
-            <AlertTriangle className="h-3.5 w-3.5" />
-            Overspent
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-destructive/10 text-destructive text-[11px] font-medium">
+            <AlertTriangle className="h-3 w-3" /> Overspent
           </div>
         ) : isOnTrack ? (
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-success/10 text-success text-xs font-medium">
-            <CheckCircle2 className="h-3.5 w-3.5" />
-            On track
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-success/10 text-success text-[11px] font-medium">
+            <CheckCircle2 className="h-3 w-3" /> On track
           </div>
         ) : (
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 text-xs font-medium">
-            <TrendingDown className="h-3.5 w-3.5" />
-            Watch spending
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[11px] font-medium">
+            <TrendingDown className="h-3 w-3" /> Watch spending
           </div>
         )}
       </div>
 
-      <div className="flex items-center gap-6">
-        {/* Circular progress indicator */}
+      <div className="flex items-center gap-5 sm:gap-6">
+        {/* Circular progress */}
         <div className="flex-shrink-0">
           <CircularProgress
             percentage={spentPercentage}
-            size={104}
-            strokeWidth={9}
+            size={96}
+            strokeWidth={8}
             value={`${spentPercentage}%`}
             label="of plan"
           />
         </div>
 
-        {/* Spent vs Left breakdown */}
-        <div className="flex-1 space-y-3">
-          {/* Spent */}
+        {/* Stats */}
+        <div className="flex-1 space-y-3 min-w-0">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-blue-500/10 flex items-center justify-center flex-shrink-0">
-              <Wallet className="h-5 w-5 text-blue-500" />
+            <div className="h-9 w-9 rounded-lg bg-blue-500/10 flex items-center justify-center flex-shrink-0">
+              <Wallet className="h-4 w-4 text-blue-500" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">
-                Spent
-              </p>
-              <p className="font-serif-display text-lg tabular-nums leading-tight">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Spent</p>
+              <p className="font-serif-display text-base tabular-nums leading-tight truncate">
                 {formatAmount(totalSpent)}
               </p>
             </div>
           </div>
-
-          {/* Left to spend */}
           <div className="flex items-center gap-3">
             <div className={cn(
-              'h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0',
+              'h-9 w-9 rounded-lg flex items-center justify-center flex-shrink-0',
               isOverspent ? 'bg-destructive/10' : 'bg-success/10'
             )}>
-              <PiggyBank className={cn(
-                'h-5 w-5',
-                isOverspent ? 'text-destructive' : 'text-success'
-              )} />
+              <PiggyBank className={cn('h-4 w-4', isOverspent ? 'text-destructive' : 'text-success')} />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
                 {isOverspent ? 'Over by' : 'Left to spend'}
               </p>
               <p className={cn(
-                'font-serif-display text-lg tabular-nums leading-tight',
+                'font-serif-display text-base tabular-nums leading-tight truncate',
                 isOverspent ? 'text-destructive' : 'text-foreground'
               )}>
                 {formatAmount(Math.abs(leftToSpend))}
@@ -140,13 +111,10 @@ export function DashboardSummary({ buckets, transactions, currency }: DashboardS
         </div>
       </div>
 
-      {/* Over-budget categories warning */}
       {overBudgetCount > 0 && (
-        <div className="mt-4 pt-4 border-t border-border/40 flex items-center gap-2 text-xs text-muted-foreground">
-          <AlertTriangle className="h-3.5 w-3.5 text-orange-500 flex-shrink-0" />
-          <span>
-            {overBudgetCount} {overBudgetCount === 1 ? 'category is' : 'categories are'} over budget
-          </span>
+        <div className="mt-4 pt-3 border-t border-border/30 flex items-center gap-2 text-[11px] text-muted-foreground">
+          <AlertTriangle className="h-3 w-3 text-orange-500 flex-shrink-0" />
+          <span>{overBudgetCount} {overBudgetCount === 1 ? 'category is' : 'categories are'} over budget</span>
         </div>
       )}
     </div>

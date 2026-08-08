@@ -10,14 +10,8 @@ interface SpendingProgressBarProps {
 }
 
 export function SpendingProgressBar({
-  spent,
-  budget,
-  className,
-  showLabel = true,
-  currency = 'usd',
-  formatAmount,
+  spent, budget, className, showLabel = true, currency = 'usd', formatAmount,
 }: SpendingProgressBarProps) {
-  // Calculate percentage spent
   const percentage = budget > 0 ? Math.min((spent / budget) * 100, 100) : 0;
   const actualPercentage = budget > 0 ? (spent / budget) * 100 : 0;
   const remaining = budget - spent;
@@ -32,11 +26,10 @@ export function SpendingProgressBar({
   };
 
   const isOverBudget = spent > budget;
-  const isWarning = remainingPercent <= 20 && remainingPercent > 0; // < 20% remaining
-  const isCritical = remainingPercent <= 10 && remainingPercent > 0; // < 10% remaining
-  const isNearFull = remainingPercent <= 5 && remainingPercent > 0; // < 5% remaining
+  const isWarning = remainingPercent <= 20 && remainingPercent > 0;
+  const isCritical = remainingPercent <= 10 && remainingPercent > 0;
+  const isNearFull = remainingPercent <= 5 && remainingPercent > 0;
 
-  // Determine gradient based on status for a more polished look
   const barGradient = isOverBudget
     ? 'bg-gradient-to-r from-red-500 to-destructive'
     : isNearFull
@@ -48,13 +41,10 @@ export function SpendingProgressBar({
     : 'bg-gradient-to-r from-primary to-orange-500';
 
   return (
-    <div className={cn('w-full space-y-2', className)}>
-      <div className="w-full bg-muted/50 rounded-full h-2 overflow-hidden shadow-inner">
+    <div className={cn('w-full space-y-1.5', className)}>
+      <div className="w-full bg-muted/40 rounded-full h-2 overflow-hidden">
         <div
-          className={cn(
-            'h-full rounded-full transition-all duration-500 ease-out',
-            barGradient
-          )}
+          className={cn('h-full rounded-full transition-all duration-500 ease-out', barGradient)}
           style={{
             width: `${percentage}%`,
             transitionTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
@@ -62,19 +52,19 @@ export function SpendingProgressBar({
         />
       </div>
       {showLabel && (
-        <div className="flex items-center justify-between text-xs">
+        <div className="flex items-center justify-between text-[11px]">
           <span className="text-muted-foreground font-medium tabular-nums">
             {actualPercentage.toFixed(0)}% spent
           </span>
-           {!isOverBudget && remaining > 0 ? (
-             <span className="text-muted-foreground tabular-nums">
-               {remainingPercent.toFixed(0)}% left
-             </span>
-           ) : isOverBudget ? (
-             <span className="text-destructive font-medium">
-               {formatDisplayAmount(Math.abs(remaining))} over
-             </span>
-           ) : null}
+          {!isOverBudget && remaining > 0 ? (
+            <span className="text-muted-foreground tabular-nums">
+              {remainingPercent.toFixed(0)}% left
+            </span>
+          ) : isOverBudget ? (
+            <span className="text-destructive font-medium tabular-nums">
+              {formatDisplayAmount(Math.abs(remaining))} over
+            </span>
+          ) : null}
         </div>
       )}
     </div>

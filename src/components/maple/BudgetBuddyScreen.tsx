@@ -138,8 +138,8 @@ export function BudgetBuddyScreen() {
     const needsDisclaimer = hasKey && !disclaimerAccepted;
 
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center px-6 text-center">
-        <div className="h-16 w-16 rounded-3xl bg-primary/10 flex items-center justify-center mx-auto mb-5">
+      <div className="min-h-screen flex flex-col items-center justify-center px-6 text-center bg-background">
+        <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-5">
           <MessageSquare className="h-8 w-8 text-primary" />
         </div>
         <h2 className="font-serif-display text-xl mb-2">Budget Buddy</h2>
@@ -175,11 +175,11 @@ export function BudgetBuddyScreen() {
     >
       {/* Chat header */}
       <div
-        className="flex items-center justify-between px-4 py-3 border-b bg-background shrink-0"
+        className="flex items-center justify-between px-4 py-3 border-b border-border/40 bg-card/80 backdrop-blur-sm shrink-0"
         style={{ paddingTop: 'calc(0.75rem + env(safe-area-inset-top))' }}
       >
         <div className="flex items-center gap-2 min-w-0">
-          <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+          <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
             <TrendingUp className="h-4 w-4 text-primary" />
           </div>
           <div className="min-w-0">
@@ -248,7 +248,7 @@ export function BudgetBuddyScreen() {
         <div className="px-4 py-4 space-y-4">
           {messages.length === 0 ? (
             <div className="text-center py-12 space-y-4">
-              <div className="h-16 w-16 rounded-3xl bg-primary/10 flex items-center justify-center mx-auto">
+              <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto">
                 <MessageSquare className="h-8 w-8 text-primary" />
               </div>
               <div>
@@ -277,7 +277,7 @@ export function BudgetBuddyScreen() {
       </ScrollArea>
 
       {/* Input area */}
-      <div className="shrink-0 border-t bg-background px-4 pt-3 pb-6 space-y-3">
+      <div className="shrink-0 border-t border-border/40 bg-card/80 backdrop-blur-sm px-4 pt-3 pb-6 space-y-3">
         <QuickActionChips onSelect={handleQuickAction} />
         <form
           onSubmit={handleSubmit}

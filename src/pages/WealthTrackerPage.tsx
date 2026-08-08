@@ -81,13 +81,13 @@ export default function WealthTrackerPage() {
         onSelectMonth={setCurrentMonth}
       />
 
-      <main className="container mx-auto px-4 sm:px-6 py-6 lg:py-8">
-        <div className="space-y-6">
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-5 sm:py-8">
+        <div className="space-y-5">
           {/* Page Title */}
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h1 className="font-serif-display text-2xl sm:text-3xl tracking-tight">Wealth Tracker</h1>
-              <p className="text-muted-foreground text-sm mt-1">
+              <h1 className="font-serif-display text-xl sm:text-2xl tracking-tight">Wealth Tracker</h1>
+              <p className="text-muted-foreground text-sm mt-0.5">
                 Monitor your Bitcoin holdings across multiple addresses
               </p>
               {lastSyncLabel && (
@@ -132,10 +132,10 @@ export default function WealthTrackerPage() {
           )}
 
           {/* Address Manager */}
-          <Card>
+          <Card className="card-base border-border/40">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
               <div>
-                <CardTitle className="font-serif-display">Watched Addresses</CardTitle>
+                <CardTitle className="text-base">Watched Addresses</CardTitle>
                 <p className="text-sm text-muted-foreground mt-1">
                   {watchedAddresses.length > 0
                     ? `Tracking ${watchedAddresses.length} address${watchedAddresses.length !== 1 ? 'es' : ''}`

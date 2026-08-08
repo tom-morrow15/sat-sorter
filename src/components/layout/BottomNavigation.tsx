@@ -12,11 +12,11 @@ export function BottomNavigation() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useCurrentUser();
-  const { fullState, currentBudget } = useBudget();
+  const { currentBudget } = useBudget();
   const { isMapleEnabled } = useAISettings();
   const { openAddTransaction } = useAddTransaction() ?? {};
 
-  const { status: autoSaveStatus, canAutoSave } = useBudgetAutoSave(fullState);
+  const { status: autoSaveStatus, canAutoSave } = useBudgetAutoSave(undefined);
 
   const isActive = (path: string) => location.pathname === path;
   const [showMore, setShowMore] = useState(false);
@@ -42,7 +42,6 @@ export function BottomNavigation() {
 
   const hasBuckets = currentBudget.buckets.length > 0;
 
-  // Build the "More" menu items — Buddy is always visible so users can discover it
   const moreItems = [
     { path: '/transactions', icon: Receipt, label: 'Transactions' },
     { path: '/wealth', icon: Wallet, label: 'Wealth' },
@@ -61,11 +60,10 @@ export function BottomNavigation() {
       )}
     >
       <Icon className="h-5 w-5" />
-      <span className="text-[10px]">{label}</span>
+      <span className="text-[10px] font-medium">{label}</span>
     </button>
   );
 
-  // Sync indicator config
   const syncConfig = {
     idle: { icon: Cloud, color: 'text-muted-foreground/50', label: 'Synced' },
     saving: { icon: RefreshCw, color: 'text-primary animate-spin', label: 'Saving' },
@@ -78,10 +76,9 @@ export function BottomNavigation() {
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-t"
+      className="fixed bottom-0 left-0 right-0 z-40 bg-card/95 backdrop-blur-xl border-t border-border/40"
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
-      {/* Constrain to max-width on desktop for clean centered layout */}
       <div className="mx-auto max-w-md relative flex items-center h-16">
         {/* Left side: Home + Breakdown */}
         <NavButton path="/home" icon={Home} label="Home" />
@@ -93,9 +90,9 @@ export function BottomNavigation() {
             onClick={handleAddTransaction}
             disabled={!hasBuckets}
             className={cn(
-              'relative -mt-6 h-14 w-14 rounded-full flex items-center justify-center shadow-lg transition-all press-feedback touch-target',
+              'relative -mt-6 h-14 w-14 rounded-full flex items-center justify-center shadow-xl transition-all press-feedback touch-target',
               hasBuckets
-                ? 'bg-primary text-primary-foreground hover:scale-105 active:scale-95'
+                ? 'bg-primary text-primary-foreground hover:scale-105 active:scale-95 shadow-primary/25'
                 : 'bg-muted text-muted-foreground cursor-not-allowed'
             )}
             title="Add Transaction"
@@ -116,23 +113,24 @@ export function BottomNavigation() {
             )}
           >
             <MoreHorizontal className="h-5 w-5" />
-            <span className="text-[10px]">More</span>
+            <span className="text-[10px] font-medium">More</span>
           </button>
 
           {/* More menu dropdown */}
           {showMore && (
-            <div
-              className="absolute bottom-full right-0 mb-2 w-44 rounded-2xl border bg-popover shadow-xl overflow-hidden"
-            >
+            <div className="absolute bottom-full right-0 mb-2 w-48 rounded-2xl border border-border/50 bg-popover shadow-xl overflow-hidden">
               {moreItems.map((item) => {
                 const Icon = item.icon;
                 return (
                   <button
                     key={item.path}
                     onClick={() => navigate(item.path)}
-                    className="flex items-center gap-3 w-full px-4 py-3.5 text-sm hover:bg-muted transition-colors text-left touch-target-sm"
+                    className={cn(
+                      'flex items-center gap-3 w-full px-4 py-3.5 text-sm hover:bg-muted transition-colors text-left touch-target-sm',
+                      isActive(item.path) && 'text-primary font-medium'
+                    )}
                   >
-                    <Icon className="h-4 w-4 text-muted-foreground" />
+                    <Icon className={cn('h-4 w-4', isActive(item.path) ? 'text-primary' : 'text-muted-foreground')} />
                     <span>{item.label}</span>
                   </button>
                 );
@@ -143,13 +141,13 @@ export function BottomNavigation() {
 
         {/* Sync indicator */}
         <button
-          className="flex flex-col items-center justify-center gap-0.5 px-3 shrink-0 touch-target-sm"
+          className="flex flex-col items-center justify-center gap-0.5 px-2 shrink-0 touch-target-sm"
           title={
             !user
               ? 'Log in with Nostr to enable cloud sync'
               : !canAutoSave
               ? 'Cloud sync unavailable'
-              : `Cloud sync: ${syncConfig.label}. Your budget saves automatically to Nostr.`
+              : `Cloud sync: ${syncConfig.label}`
           }
         >
           <SyncIcon className={cn(

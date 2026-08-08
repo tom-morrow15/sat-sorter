@@ -43,7 +43,7 @@ import {
 } from '@/components/ui/collapsible';
 import { LineItemRow } from './LineItemRow';
 import { useAddTransaction } from './AddTransactionProvider';
-import { useBitcoinPrice, formatSats, satsToUsd, usdToSats, formatUsd } from '@/hooks/useBitcoinPrice';
+import { useBitcoinPrice, formatSats, usdToSats, formatUsd } from '@/hooks/useBitcoinPrice';
 import { calculateBucketTotal, calculateBucketTotalSats, calculateBucketTotalUsd } from '@/lib/budgetTypes';
 import { lineItemSpentUsd } from '@/lib/budgetSelectors';
 import type { Bucket, LineItem, Transaction } from '@/lib/budgetTypes';
@@ -51,22 +51,10 @@ import type { BTCMapElement } from '@/hooks/useBTCMap';
 import { cn } from '@/lib/utils';
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
-  home: Home,
-  car: Car,
-  utensils: Utensils,
-  heart: Heart,
-  'piggy-bank': PiggyBank,
-  wallet: Wallet,
-  'shopping-bag': ShoppingBag,
-  briefcase: Briefcase,
-  'graduation-cap': GraduationCap,
-  plane: Plane,
-  gift: Gift,
-  music: Music,
-  dumbbell: Dumbbell,
-  baby: Baby,
-  dog: Dog,
-  stethoscope: Stethoscope,
+  home: Home, car: Car, utensils: Utensils, heart: Heart, 'piggy-bank': PiggyBank,
+  wallet: Wallet, 'shopping-bag': ShoppingBag, briefcase: Briefcase,
+  'graduation-cap': GraduationCap, plane: Plane, gift: Gift, music: Music,
+  dumbbell: Dumbbell, baby: Baby, dog: Dog, stethoscope: Stethoscope,
 };
 
 interface BucketCardProps {
@@ -81,47 +69,24 @@ interface BucketCardProps {
   onUpdateLineItem: (bucketId: string, lineItemId: string, updates: Partial<LineItem>) => void;
   onDeleteLineItem: (bucketId: string, lineItemId: string) => void;
   onAddTransaction?: (transaction: {
-     date: string;
-     description: string;
-     amount: number;
-     isIncome: boolean;
-     bucketId: string | null;
-     lineItemId: string | null;
-   }) => void;
+    date: string; description: string; amount: number; isIncome: boolean;
+    bucketId: string | null; lineItemId: string | null;
+  }) => void;
   onViewTransactions?: (lineItemId: string) => void;
   paymentMethods?: string[];
 }
 
 const BUCKET_COLORS = [
-  '#22c55e', // green
-  '#3b82f6', // blue
-  '#8b5cf6', // violet
-  '#f59e0b', // amber
-  '#ec4899', // pink
-  '#06b6d4', // cyan
-  '#f97316', // orange
-  '#6366f1', // indigo
-  '#84cc16', // lime
-  '#14b8a6', // teal
+  '#22c55e', '#3b82f6', '#8b5cf6', '#f59e0b', '#ec4899', '#06b6d4',
+  '#f97316', '#6366f1', '#84cc16', '#14b8a6',
 ];
 
 export function BucketCard({
-  bucket,
-  buckets,
-  transactions,
-  currency,
-  merchants = [],
-  onUpdateBucket,
-  onDeleteBucket,
-  onAddLineItem,
-  onUpdateLineItem,
-  onDeleteLineItem,
-  onAddTransaction,
-  onViewTransactions,
-  paymentMethods,
+  bucket, buckets, transactions, currency, merchants = [],
+  onUpdateBucket, onDeleteBucket, onAddLineItem, onUpdateLineItem, onDeleteLineItem,
+  onAddTransaction, onViewTransactions, paymentMethods,
 }: BucketCardProps) {
   const { data: priceData } = useBitcoinPrice();
-  const { openAddTransaction } = useAddTransaction() ?? {};
   const [isOpen, setIsOpen] = useState(true);
   const [isAddingItem, setIsAddingItem] = useState(false);
   const [newItemName, setNewItemName] = useState('');
@@ -130,52 +95,28 @@ export function BucketCard({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const Icon = iconMap[bucket.icon] || Wallet;
-   
-   // Calculate total in display currency
-    const total = currency === 'usd' && priceData
-      ? calculateBucketTotalUsd(bucket, priceData.usdPerBtc)
-      : (priceData
-        ? calculateBucketTotalSats(bucket, priceData.usdPerBtc)
-        : calculateBucketTotal(bucket));
-    
-    // Calculate spent — always USD-anchored, then convert to display currency
-    // This ensures spent amounts never shift with the BTC price (the USD amount
-    // the user entered is the source of truth).
-    let spent: number;
-    if (priceData) {
-      // Sum each line item's USD-anchored spent amount
-      const spentUsd = bucket.lineItems.reduce(
-        (sum, item) => sum + lineItemSpentUsd(item.id, transactions, priceData.usdPerBtc),
-        0
-      );
-      if (currency === 'usd') {
-        spent = spentUsd;
-      } else {
-        // Sats mode: convert the USD-anchored spent to sats at current price
-        spent = usdToSats(spentUsd, priceData.usdPerBtc);
-      }
-    } else {
-      // No price data: fall back to raw sats
-      spent = bucket.lineItems.reduce(
-        (sum, item) => sum + item.plannedAmount,
-        0
-      );
-    }
 
-    const formatAmount = (amount: number, compact = false) => {
-       if (currency === 'usd') {
-         // In USD mode, always display USD format (never use compact notation like M/K)
-         return formatUsd(amount);
-       }
-       const sats = Math.round(amount);
-       if (compact && sats >= 1_000_000) {
-         return `${(sats / 1_000_000).toFixed(1)}M`;
-       }
-       if (compact && sats >= 10_000) {
-         return `${(sats / 1_000).toFixed(0)}K`;
-       }
-       return `${formatSats(sats)} sats`;
-    };
+  const total = currency === 'usd' && priceData
+    ? calculateBucketTotalUsd(bucket, priceData.usdPerBtc)
+    : (priceData ? calculateBucketTotalSats(bucket, priceData.usdPerBtc) : calculateBucketTotal(bucket));
+
+  let spent: number;
+  if (priceData) {
+    const spentUsd = bucket.lineItems.reduce(
+      (sum, item) => sum + lineItemSpentUsd(item.id, transactions, priceData.usdPerBtc), 0
+    );
+    spent = currency === 'usd' ? spentUsd : usdToSats(spentUsd, priceData.usdPerBtc);
+  } else {
+    spent = bucket.lineItems.reduce((sum, item) => sum + item.plannedAmount, 0);
+  }
+
+  const formatAmount = (amount: number, compact = false) => {
+    if (currency === 'usd') return formatUsd(amount);
+    const sats = Math.round(amount);
+    if (compact && sats >= 1_000_000) return `${(sats / 1_000_000).toFixed(1)}M`;
+    if (compact && sats >= 10_000) return `${(sats / 1_000).toFixed(0)}K`;
+    return `${formatSats(sats)} sats`;
+  };
 
   const handleAddItem = () => {
     if (newItemName.trim()) {
@@ -192,228 +133,196 @@ export function BucketCard({
     setIsEditingName(false);
   };
 
-  const handleColorChange = (color: string) => {
-    onUpdateBucket(bucket.id, { color });
-  };
-
   const handleDeleteConfirmed = () => {
     onDeleteBucket(bucket.id);
     setShowDeleteConfirm(false);
   };
 
-   return (
-     <Card
-        className={cn(
-          'overflow-hidden card-interactive press-feedback rounded-2xl shadow-sm hover:shadow-md transition-all duration-300',
-          'border border-border/40',
-          bucket.isIncome && 'ring-1 ring-success/15'
-        )}
-     >
-       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-         <CardHeader className="pb-3 pt-5 px-5 sm:px-6">
-           <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3.5 flex-1 min-w-0">
-                {/* Icon with refined styling — clicking opens the menu */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <div
-                      className="h-12 w-12 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm transition-transform hover:scale-105 cursor-pointer touch-target"
-                      style={{ 
-                        backgroundColor: `${bucket.color}12`,
-                        border: `1.5px solid ${bucket.color}25`
-                      }}
-                    >
-                      <Icon className="h-6 w-6" style={{ color: bucket.color }} />
-                    </div>
-                  </DropdownMenuTrigger>
-                  {!bucket.isIncome && (
-                    <DropdownMenuContent align="start">
-                      <DropdownMenuItem onClick={() => setIsEditingName(true)}>
-                        <Edit2 className="h-4 w-4 mr-2" />
-                        Rename
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
-                        <div className="flex flex-col gap-2 p-2">
-                          <span className="flex items-center text-sm">
-                            <Palette className="h-4 w-4 mr-2" />
-                            Color
-                          </span>
-                          <div className="flex flex-wrap gap-1.5">
-                            {BUCKET_COLORS.map((color) => (
-                              <button
-                                key={color}
-                                className={cn(
-                                  'h-5 w-5 rounded-full transition-transform hover:scale-110',
-                                  bucket.color === color && 'ring-2 ring-offset-2 ring-primary'
-                                )}
-                                style={{ backgroundColor: color }}
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  handleColorChange(color);
-                                }}
-                              />
-                            ))}
-                          </div>
-                        </div>
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        className="text-destructive focus:text-destructive"
-                        onClick={() => setShowDeleteConfirm(true)}
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Delete Bucket
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  )}
-                </DropdownMenu>
-
-                {/* Bucket name and info */}
-                {isEditingName ? (
-                  <Input
-                    value={editName}
-                    onChange={(e) => setEditName(e.target.value)}
-                    onBlur={handleSaveName}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleSaveName();
-                      if (e.key === 'Escape') {
-                        setEditName(bucket.name);
-                        setIsEditingName(false);
-                      }
+  return (
+    <Card className={cn(
+      'overflow-hidden card-interactive press-feedback border-border/40',
+      bucket.isIncome && 'ring-1 ring-success/15'
+    )}>
+      <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+        <CardHeader className="pb-3 pt-4 px-4 sm:px-5">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+              {/* Icon — opens settings menu */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <div
+                    className="h-11 w-11 rounded-xl flex items-center justify-center flex-shrink-0 transition-transform hover:scale-105 cursor-pointer touch-target-sm"
+                    style={{
+                      backgroundColor: `${bucket.color}10`,
+                      border: `1.5px solid ${bucket.color}25`,
                     }}
-                    className="h-9 px-3 font-semibold"
-                    autoFocus
-                  />
-                 ) : (
-                   <div className="min-w-0 flex-1">
-                     <h3 className="font-serif-display text-base sm:text-lg text-foreground break-words leading-tight">{bucket.name}</h3>
-                     <p className="text-xs sm:text-sm text-muted-foreground">
-                       {bucket.lineItems.length} item{bucket.lineItems.length !== 1 ? 's' : ''} • ${(total || 0).toFixed(2)}
-                     </p>
-                   </div>
-                 )}
+                  >
+                    <Icon className="h-5 w-5" style={{ color: bucket.color }} />
+                  </div>
+                </DropdownMenuTrigger>
+                {!bucket.isIncome && (
+                  <DropdownMenuContent align="start" className="rounded-2xl">
+                    <DropdownMenuItem onClick={() => setIsEditingName(true)}>
+                      <Edit2 className="h-4 w-4 mr-2" />
+                      Rename
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <div className="flex flex-col gap-2 p-2">
+                        <span className="flex items-center text-sm">
+                          <Palette className="h-4 w-4 mr-2" />
+                          Color
+                        </span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {BUCKET_COLORS.map((color) => (
+                            <button
+                              key={color}
+                              className={cn(
+                                'h-5 w-5 rounded-full transition-transform hover:scale-110 touch-target-sm',
+                                bucket.color === color && 'ring-2 ring-offset-2 ring-primary'
+                              )}
+                              style={{ backgroundColor: color }}
+                              onClick={(e) => { e.preventDefault(); onUpdateBucket(bucket.id, { color }); }}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      className="text-destructive focus:text-destructive"
+                      onClick={() => setShowDeleteConfirm(true)}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete Bucket
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                )}
+              </DropdownMenu>
+
+              {/* Name + info */}
+              {isEditingName ? (
+                <Input
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  onBlur={handleSaveName}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleSaveName();
+                    if (e.key === 'Escape') { setEditName(bucket.name); setIsEditingName(false); }
+                  }}
+                  className="h-9 px-3"
+                  autoFocus
+                />
+              ) : (
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-serif-display text-base sm:text-lg text-foreground break-words leading-tight">
+                    {bucket.name}
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {bucket.lineItems.length} item{bucket.lineItems.length !== 1 ? 's' : ''}
+                    {total > 0 && ` · ${formatAmount(total, true)}`}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Total + collapse */}
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <div className="text-right">
+                <p className={cn(
+                  'font-serif-display tabular-nums text-base sm:text-xl leading-tight whitespace-nowrap',
+                  bucket.isIncome ? 'text-success' : 'text-foreground'
+                )}>
+                  {formatAmount(total, true)}
+                </p>
+                {!bucket.isIncome && total > 0 && (
+                  <p className={cn(
+                    'text-[10px] font-medium whitespace-nowrap',
+                    spent > total ? 'text-destructive' : spent > total * 0.8 ? 'text-orange-600 dark:text-orange-400' : 'text-muted-foreground'
+                  )}>
+                    {spent > total ? '⚠ Over' : `${Math.round((spent / total) * 100)}% used`}
+                  </p>
+                )}
               </div>
-
-               <div className="flex items-center gap-2 flex-shrink-0">
-                 {/* Total - right aligned, prominent, never truncated */}
-                 <div className="text-right min-w-0">
-                   <p
-                     className={cn(
-                       'font-serif-display tabular-nums text-lg sm:text-2xl leading-tight whitespace-nowrap',
-                       bucket.isIncome ? 'text-success' : 'text-foreground'
-                     )}
-                   >
-                     {formatAmount(total, true)}
-                   </p>
-                    <p className={cn(
-                      'text-xs font-medium whitespace-nowrap',
-                      spent > total * 0.8 ? 'text-orange-600 dark:text-orange-400' : 'text-muted-foreground'
-                    )}>
-                      {spent > total ? '⚠ Over' : `${Math.round((spent / total) * 100)}% used`}
-                    </p>
-                 </div>
-
-               {/* Collapse toggle — touch-friendly */}
-               <CollapsibleTrigger asChild>
-                 <Button variant="ghost" size="icon" className="h-9 w-9 touch-target-sm">
-                   {isOpen ? (
-                     <ChevronUp className="h-4 w-4" />
-                   ) : (
-                     <ChevronDown className="h-4 w-4" />
-                   )}
-                 </Button>
-               </CollapsibleTrigger>
-             </div>
+              <CollapsibleTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8 touch-target-sm text-muted-foreground">
+                  {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                </Button>
+              </CollapsibleTrigger>
+            </div>
           </div>
         </CardHeader>
 
-         <CollapsibleContent>
-           <CardContent className="pt-0 pb-4">
-             {/* Progress bar for expenses */}
-             {!bucket.isIncome && total > 0 && (
-               <div className="mb-4 pb-4 border-b border-border/40">
-                 <SpendingProgressBar spent={spent} budget={total} showLabel={true} />
-               </div>
-             )}
+        <CollapsibleContent>
+          <CardContent className="pt-0 pb-4 px-4 sm:px-5">
+            {/* Progress bar */}
+            {!bucket.isIncome && total > 0 && (
+              <div className="mb-3 pb-3 border-b border-border/30">
+                <SpendingProgressBar spent={spent} budget={total} showLabel={true} />
+              </div>
+            )}
 
-             {/* Line items — flush list-style rows */}
-             <div className="space-y-0.5">
-                {bucket.lineItems
-                  .sort((a, b) => a.order - b.order)
-                  .map((lineItem) => (
-                     <LineItemRow
-                       key={lineItem.id}
-                       lineItem={lineItem}
-                       bucketId={bucket.id}
-                       bucketColor={bucket.color}
-                       transactions={transactions}
-                       currency={currency}
-                       isIncome={bucket.isIncome}
-                       merchants={merchants}
-                       onUpdate={onUpdateLineItem}
-                       onDelete={onDeleteLineItem}
-                       onViewTransactions={onViewTransactions}
-                     />
-                  ))}
-             </div>
-
-             {/* Add new item / transaction buttons */}
-              {isAddingItem ? (
-                <div className="flex items-center gap-2 mt-3 px-1">
-                  <Input
-                    value={newItemName}
-                    onChange={(e) => setNewItemName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleAddItem();
-                      if (e.key === 'Escape') {
-                        setNewItemName('');
-                        setIsAddingItem(false);
-                      }
-                    }}
-                    placeholder="Line item name..."
-                    className="h-10 flex-1"
-                    autoFocus
+            {/* Line items — flush list */}
+            <div className="space-y-0">
+              {bucket.lineItems
+                .sort((a, b) => a.order - b.order)
+                .map((lineItem) => (
+                  <LineItemRow
+                    key={lineItem.id}
+                    lineItem={lineItem}
+                    bucketId={bucket.id}
+                    bucketColor={bucket.color}
+                    transactions={transactions}
+                    currency={currency}
+                    isIncome={bucket.isIncome}
+                    merchants={merchants}
+                    onUpdate={onUpdateLineItem}
+                    onDelete={onDeleteLineItem}
+                    onViewTransactions={onViewTransactions}
                   />
-                  <Button size="sm" onClick={handleAddItem} className="touch-target-sm">
-                    Add
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => {
-                      setNewItemName('');
-                      setIsAddingItem(false);
-                    }}
-                    className="touch-target-sm"
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              ) : (
-                <div className="px-1 pb-1 pt-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full justify-center border-dashed hover:border-solid hover:bg-primary/5 hover:text-primary transition-all press-feedback touch-target-sm"
-                    onClick={() => setIsAddingItem(true)}
-                  >
-                    <Plus className="h-4 w-4 mr-1.5" />
-                    Add Line Item
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-         </CollapsibleContent>
-       </Collapsible>
+                ))}
+            </div>
 
-       {/* Deletion confirmation dialog */}
-       <DeletionConfirmDialog
-         open={showDeleteConfirm}
-         onOpenChange={setShowDeleteConfirm}
-         itemType="bucket"
-         itemName={bucket.name}
-         onConfirm={handleDeleteConfirmed}
-       />
-     </Card>
-   );
- }
+            {/* Add line item */}
+            {isAddingItem ? (
+              <div className="flex items-center gap-2 mt-2">
+                <Input
+                  value={newItemName}
+                  onChange={(e) => setNewItemName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleAddItem();
+                    if (e.key === 'Escape') { setNewItemName(''); setIsAddingItem(false); }
+                  }}
+                  placeholder="Line item name..."
+                  className="h-10 flex-1"
+                  autoFocus
+                />
+                <Button size="sm" onClick={handleAddItem} className="touch-target-sm">Add</Button>
+                <Button size="sm" variant="ghost" onClick={() => { setNewItemName(''); setIsAddingItem(false); }} className="touch-target-sm">
+                  Cancel
+                </Button>
+              </div>
+            ) : (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full justify-center text-muted-foreground hover:text-primary hover:bg-primary/5 transition-all press-feedback touch-target-sm mt-1"
+                onClick={() => setIsAddingItem(true)}
+              >
+                <Plus className="h-4 w-4 mr-1.5" />
+                Add Line Item
+              </Button>
+            )}
+          </CardContent>
+        </CollapsibleContent>
+      </Collapsible>
+
+      <DeletionConfirmDialog
+        open={showDeleteConfirm}
+        onOpenChange={setShowDeleteConfirm}
+        itemType="bucket"
+        itemName={bucket.name}
+        onConfirm={handleDeleteConfirmed}
+      />
+    </Card>
+  );
+}

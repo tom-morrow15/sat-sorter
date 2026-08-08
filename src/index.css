@@ -2,48 +2,56 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ========================================================================
+   SAT SORTER — Complete Design System
+   Professional, trustworthy, approachable. Bitcoin orange as accent.
+   Cochin serif for display, Inter for body.
+   ======================================================================== */
+
 @layer base {
   :root {
-    /* Refined Professional Theme — warmer, more approachable */
-    --background: 30 10% 98%;
-    --foreground: 220 12% 14%;
+    /* Surface — warm off-white, not cold gray */
+    --background: 40 12% 97%;
+    --foreground: 220 14% 12%;
 
     --card: 0 0% 100%;
-    --card-foreground: 220 12% 14%;
+    --card-foreground: 220 14% 12%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 220 12% 14%;
+    --popover-foreground: 220 14% 12%;
 
-    /* Refined Bitcoin Orange — slightly warmer and muted */
-    --primary: 28 80% 50%;
+    /* Bitcoin Orange — refined, not neon */
+    --primary: 28 82% 50%;
     --primary-foreground: 0 0% 100%;
+    --primary-soft: 28 82% 96%;
 
-    --secondary: 30 8% 94%;
-    --secondary-foreground: 220 12% 20%;
+    --secondary: 40 10% 93%;
+    --secondary-foreground: 220 14% 18%;
 
-    --muted: 30 8% 94%;
-    --muted-foreground: 220 8% 48%;
+    --muted: 40 10% 93%;
+    --muted-foreground: 220 8% 46%;
 
-    --accent: 28 80% 95%;
-    --accent-foreground: 28 80% 38%;
+    --accent: 28 82% 95%;
+    --accent-foreground: 28 82% 36%;
 
-    /* Professional green for income */
-    --success: 142 55% 46%;
+    /* Income green — professional, muted */
+    --success: 152 52% 42%;
     --success-foreground: 0 0% 100%;
+    --success-soft: 152 52% 95%;
 
-    --destructive: 0 65% 54%;
+    --destructive: 0 62% 52%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 30 8% 90%;
-    --input: 30 8% 90%;
-    --ring: 28 80% 50%;
+    --border: 40 10% 90%;
+    --input: 40 10% 90%;
+    --ring: 28 82% 50%;
 
     --radius: 0.875rem;
 
-    /* Header colors — deep black to charcoal */
-    --header-bg-top: 0 0% 4%;
-    --header-bg-bottom: 220 8% 10%;
-    --header-grid: 28 60% 55%;
+    /* Header — deep space black */
+    --header-bg-top: 0 0% 5%;
+    --header-bg-bottom: 220 10% 11%;
+    --header-grid: 28 55% 52%;
 
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 220 10% 26%;
@@ -51,54 +59,55 @@
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 28 100% 96%;
     --sidebar-accent-foreground: 28 100% 35%;
-    --sidebar-border: 30 8% 91%;
+    --sidebar-border: 40 10% 91%;
     --sidebar-ring: 28 100% 50%;
   }
 
   .dark {
-    --background: 220 10% 8%;
-    --foreground: 30 8% 92%;
+    --background: 220 12% 7%;
+    --foreground: 40 8% 93%;
 
-    --card: 220 10% 11%;
-    --card-foreground: 30 8% 92%;
+    --card: 220 12% 10%;
+    --card-foreground: 40 8% 93%;
 
-    --popover: 220 10% 11%;
-    --popover-foreground: 30 8% 92%;
+    --popover: 220 12% 10%;
+    --popover-foreground: 40 8% 93%;
 
-    --primary: 28 80% 54%;
-    --primary-foreground: 220 10% 8%;
+    --primary: 28 82% 54%;
+    --primary-foreground: 220 12% 7%;
+    --primary-soft: 28 40% 16%;
 
-    --secondary: 220 10% 18%;
-    --secondary-foreground: 30 8% 92%;
+    --secondary: 220 12% 17%;
+    --secondary-foreground: 40 8% 93%;
 
-    --muted: 220 10% 18%;
-    --muted-foreground: 220 8% 62%;
+    --muted: 220 12% 16%;
+    --muted-foreground: 220 8% 60%;
 
-    --accent: 28 50% 28%;
-    --accent-foreground: 28 80% 62%;
+    --accent: 28 45% 22%;
+    --accent-foreground: 28 82% 62%;
 
-    --success: 142 55% 48%;
+    --success: 152 52% 46%;
     --success-foreground: 0 0% 100%;
+    --success-soft: 152 30% 14%;
 
-    --destructive: 0 65% 52%;
+    --destructive: 0 62% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 10% 20%;
-    --input: 220 10% 20%;
-    --ring: 28 80% 54%;
+    --border: 220 12% 18%;
+    --input: 220 12% 18%;
+    --ring: 28 82% 54%;
 
-    /* Header stays deep black in dark mode too */
     --header-bg-top: 0 0% 3%;
-    --header-bg-bottom: 220 10% 8%;
-    --header-grid: 28 60% 50%;
+    --header-bg-bottom: 220 12% 8%;
+    --header-grid: 28 55% 48%;
 
-    --sidebar-background: 220 15% 7%;
+    --sidebar-background: 220 16% 6%;
     --sidebar-foreground: 220 10% 75%;
     --sidebar-primary: 28 100% 55%;
     --sidebar-primary-foreground: 220 20% 7%;
-    --sidebar-accent: 28 50% 15%;
+    --sidebar-accent: 28 45% 14%;
     --sidebar-accent-foreground: 28 100% 65%;
-    --sidebar-border: 220 15% 16%;
+    --sidebar-border: 220 16% 16%;
     --sidebar-ring: 28 100% 55%;
   }
 }
@@ -111,13 +120,21 @@
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-family: 'Inter Variable', 'Inter', system-ui, sans-serif;
-    /* Ensure body doesn't overflow on mobile */
     overflow-x: hidden;
-    /* Better scrolling on iOS */
     -webkit-overflow-scrolling: touch;
+    /* Subtle background texture for warmth */
+    background-image:
+      radial-gradient(circle at 100% 0%, hsl(28 82% 50% / 0.03) 0%, transparent 40%),
+      radial-gradient(circle at 0% 100%, hsl(152 52% 42% / 0.02) 0%, transparent 40%);
+    background-attachment: fixed;
   }
 
-  /* Ensure safe area support for iOS devices */
+  .dark body {
+    background-image:
+      radial-gradient(circle at 100% 0%, hsl(28 82% 54% / 0.04) 0%, transparent 40%),
+      radial-gradient(circle at 0% 100%, hsl(152 52% 46% / 0.03) 0%, transparent 40%);
+  }
+
   @supports (padding: max(0px)) {
     body {
       padding-left: env(safe-area-inset-left);
@@ -125,12 +142,10 @@
     }
   }
 
-  /* Prevent zoom on input focus (iOS) */
   input, select, textarea {
     font-size: 16px;
   }
 
-  /* Prevent horizontal overflow */
   html, body {
     max-width: 100vw;
   }
@@ -140,157 +155,117 @@
     max-width: 100vw;
     overflow-x: hidden;
   }
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted-foreground) / 0.2);
+    border-radius: 999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.35);
+  }
 }
 
 @layer utilities {
-  .text-success {
-    color: hsl(var(--success));
-  }
+  /* ===== COLOR HELPERS ===== */
+  .text-success { color: hsl(var(--success)); }
+  .bg-success { background-color: hsl(var(--success)); }
+  .bg-success-soft { background-color: hsl(var(--success-soft)); }
+  .border-success { border-color: hsl(var(--success)); }
+  .bg-primary-soft { background-color: hsl(var(--primary-soft)); }
 
-  .bg-success {
-    background-color: hsl(var(--success));
-  }
-
-  .border-success {
-    border-color: hsl(var(--success));
-  }
-
-  /* Serif font utility — Cochin with Garamond fallback */
+  /* ===== TYPOGRAPHY ===== */
   .font-serif-display {
     font-family: 'Cochin', 'Cormorant Garamond', 'Iowan Old Style', 'Apple Garamond', 'Baskerville', 'Times New Roman', serif;
     font-weight: 600;
-    letter-spacing: -0.01em;
+    letter-spacing: -0.015em;
   }
 
-  /* Smooth number transitions */
+  .font-serif-bold {
+    font-family: 'Cochin', 'Cormorant Garamond', 'Iowan Old Style', 'Apple Garamond', 'Baskerville', 'Times New Roman', serif;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
   .tabular-nums {
     font-variant-numeric: tabular-nums;
   }
 
-  /* ===== ANIMATIONS ===== */
-
-  @keyframes fadeIn {
-    from {
-      opacity: 0;
-    }
-    to {
-      opacity: 1;
-    }
-  }
-
-  @keyframes ripple {
-    to {
-      transform: translate(-50%, -50%) scale(3);
-      opacity: 0;
-    }
-  }
-
-  /* Tailwind animation utilities are defined in tailwind.config.ts */
-  /* Custom utility classes for component enhancements */
-
-  /* Budget progress bar animations */
-  .progress-bar {
-    transition: width 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
-  }
-
-  /* Enhanced card interactions */
-  .card-interactive {
-    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-  }
-
-  .card-interactive:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(247, 147, 26, 0.06);
-  }
-
-  /* Subtle hover effects */
-  .hover-lift {
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-  }
-
-  .hover-lift:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  }
-
-  /* Enhanced button interactions */
-  .btn-interactive {
-    transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
-    position: relative;
-    overflow: hidden;
-  }
-
-  .btn-interactive:hover {
-    box-shadow: 0 6px 16px rgba(247, 147, 26, 0.18);
-    transform: translateY(-1px);
-  }
-
-  .btn-interactive:active {
-    transform: translateY(0) scale(0.98);
-  }
-
-  /* Bitcoin glow effect */
-  .bitcoin-glow {
-    box-shadow: 0 0 20px rgba(247, 147, 26, 0.25);
-  }
-
-  .bitcoin-glow-hover:hover {
-    box-shadow: 0 0 30px rgba(247, 147, 26, 0.4);
-    transition: box-shadow 0.3s ease;
-  }
-
-  /* Enhanced card styling */
-  .card-enhanced {
-    transition: all 0.3s ease;
-    border-color: hsl(var(--border) / 0.5);
-  }
-
-  .card-enhanced:hover {
-    border-color: hsl(var(--border));
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
-  }
-
-  /* Loading state pulse */
-  .loading-pulse {
-    animation: pulse-soft 2s ease-in-out infinite;
-  }
-
-  /* Safe area utilities for mobile */
-  .safe-top {
-    padding-top: env(safe-area-inset-top);
-  }
-
-  .safe-bottom {
-    padding-bottom: env(safe-area-inset-bottom);
-  }
-
-  /* Number animation support */
-  .transition-numbers {
-    transition: all 0.3s ease-out;
-  }
-
-  /* Focus ring animation */
-  .focus-ring-animated:focus-visible {
-    outline: 2px solid hsl(var(--ring));
-    outline-offset: 2px;
-    animation: fadeIn 0.2s ease-out;
-  }
-
   /* ===== TOUCH TARGETS ===== */
-  /* Ensure minimum 44x44px tap targets on mobile */
   .touch-target {
     min-height: 44px;
     min-width: 44px;
   }
-
   .touch-target-sm {
     min-height: 40px;
     min-width: 40px;
   }
 
-  /* ===== MICRO-INTERACTIONS ===== */
+  /* ===== CARD STYLES ===== */
+  .card-base {
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border) / 0.5);
+    border-radius: 1.25rem;
+    box-shadow:
+      0 1px 3px rgba(0, 0, 0, 0.04),
+      0 1px 2px rgba(0, 0, 0, 0.03);
+  }
 
-  /* Subtle press-down feedback for tappable cards and buttons */
+  .card-elevated {
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border) / 0.5);
+    border-radius: 1.25rem;
+    box-shadow:
+      0 4px 6px -1px rgba(0, 0, 0, 0.05),
+      0 2px 4px -2px rgba(0, 0, 0, 0.04);
+  }
+
+  .card-interactive {
+    transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border) / 0.5);
+    border-radius: 1.25rem;
+    box-shadow:
+      0 1px 3px rgba(0, 0, 0, 0.04),
+      0 1px 2px rgba(0, 0, 0, 0.03);
+  }
+
+  .card-interactive:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      0 12px 24px -4px rgba(0, 0, 0, 0.08),
+      0 4px 8px -2px rgba(0, 0, 0, 0.04),
+      0 0 0 1px hsl(var(--primary) / 0.08);
+  }
+
+  /* ===== BUTTON ENHANCEMENTS ===== */
+  .btn-interactive {
+    transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .btn-interactive:hover {
+    box-shadow: 0 6px 16px rgba(247, 147, 26, 0.2);
+    transform: translateY(-1px);
+  }
+  .btn-interactive:active {
+    transform: translateY(0) scale(0.97);
+  }
+
+  .bitcoin-glow {
+    box-shadow: 0 0 20px rgba(247, 147, 26, 0.25);
+  }
+  .bitcoin-glow-hover:hover {
+    box-shadow: 0 0 30px rgba(247, 147, 26, 0.4);
+    transition: box-shadow 0.3s ease;
+  }
+
+  /* ===== MICRO-INTERACTIONS ===== */
   .press-feedback {
     transition: transform 0.12s ease-out, box-shadow 0.12s ease-out;
   }
@@ -298,7 +273,37 @@
     transform: scale(0.97);
   }
 
-  /* Success checkmark pop animation */
+  .hover-lift {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  .hover-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+  }
+
+  /* ===== SAFE AREA ===== */
+  .safe-top { padding-top: env(safe-area-inset-top); }
+  .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+
+  /* ===== ANIMATIONS ===== */
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes ripple {
+    to { transform: translate(-50%, -50%) scale(3); opacity: 0; }
+  }
+
+  .progress-bar {
+    transition: width 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .transition-numbers {
+    transition: all 0.3s ease-out;
+  }
+
+  /* Success checkmark pop */
   @keyframes check-pop {
     0% { transform: scale(0); opacity: 0; }
     50% { transform: scale(1.2); }
@@ -308,22 +313,16 @@
     animation: check-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
   }
 
-  /* Slide-in from bottom for sheets and toasts */
+  /* Slide-in from bottom */
   @keyframes slide-in-up {
-    from {
-      transform: translateY(12px);
-      opacity: 0;
-    }
-    to {
-      transform: translateY(0);
-      opacity: 1;
-    }
+    from { transform: translateY(12px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
   }
   .animate-slide-in-up {
     animation: slide-in-up 0.3s ease-out;
   }
 
-  /* Subtle pulse for "live" indicators */
+  /* Subtle pulse */
   @keyframes pulse-soft {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.6; }
@@ -331,8 +330,11 @@
   .animate-pulse-soft {
     animation: pulse-soft 2s ease-in-out infinite;
   }
+  .loading-pulse {
+    animation: pulse-soft 2s ease-in-out infinite;
+  }
 
-  /* Number count-up transition */
+  /* Number count-up */
   @keyframes count-up {
     from { transform: translateY(4px); opacity: 0; }
     to { transform: translateY(0); opacity: 1; }
@@ -341,26 +343,25 @@
     animation: count-up 0.25s ease-out;
   }
 
-  /* ===== WORMHOLE GRID HEADER BACKGROUND ===== */
-  /* Subtle, slow-moving grid that gently distorts like a space-time grid.
-     Very low opacity — barely noticeable, sitting softly behind content. */
+  /* Smooth list item entry */
+  @keyframes fade-in-soft {
+    0% { opacity: 0; transform: translateY(8px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+  .animate-list-item {
+    animation: fade-in-soft 0.35s ease-out forwards;
+  }
 
+  /* ===== WORMHOLE GRID HEADER BACKGROUND ===== */
   .wormhole-grid-bg {
     position: absolute;
     inset: -20% -20% -10% -20%;
     background-image:
-      linear-gradient(
-        hsl(var(--header-grid) / 0.5) 1px,
-        transparent 1px
-      ),
-      linear-gradient(
-        90deg,
-        hsl(var(--header-grid) / 0.5) 1px,
-        transparent 1px
-      );
-    background-size: 48px 48px;
+      linear-gradient(hsl(var(--header-grid) / 0.5) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(var(--header-grid) / 0.5) 1px, transparent 1px);
+    background-size: 44px 44px;
     background-position: center;
-    opacity: 0.12;
+    opacity: 0.10;
     pointer-events: none;
     animation: wormhole-grid-drift 24s ease-in-out infinite;
     transform-origin: center bottom;
@@ -369,33 +370,32 @@
   @keyframes wormhole-grid-drift {
     0% {
       transform: perspective(800px) rotateX(0deg) translateY(0) scale(1);
-      opacity: 0.10;
+      opacity: 0.08;
     }
     25% {
       transform: perspective(800px) rotateX(1.5deg) translateY(-8px) scale(1.03);
-      opacity: 0.15;
+      opacity: 0.14;
     }
     50% {
       transform: perspective(800px) rotateX(0.5deg) translateY(-14px) scale(1.06);
-      opacity: 0.18;
+      opacity: 0.16;
     }
     75% {
       transform: perspective(800px) rotateX(1deg) translateY(-6px) scale(1.03);
-      opacity: 0.13;
+      opacity: 0.12;
     }
     100% {
       transform: perspective(800px) rotateX(0deg) translateY(0) scale(1);
-      opacity: 0.10;
+      opacity: 0.08;
     }
   }
 
-  /* Secondary radial glow that breathes very slowly */
   .wormhole-glow {
     position: absolute;
     inset: 0;
     background: radial-gradient(
       ellipse 70% 50% at 50% 100%,
-      hsl(var(--header-grid) / 0.08) 0%,
+      hsl(var(--header-grid) / 0.06) 0%,
       transparent 70%
     );
     pointer-events: none;
@@ -407,13 +407,12 @@
     50% { opacity: 1; }
   }
 
-  /* ===== HEADER SCROLL GRADIENT ===== */
-  /* The header transitions from deep black to softer charcoal as user scrolls */
+  /* ===== HEADER GRADIENT ===== */
   .header-base {
     background: linear-gradient(
       180deg,
       hsl(var(--header-bg-top)) 0%,
-      hsl(var(--header-bg-top)) 30%,
+      hsl(var(--header-bg-top)) 40%,
       hsl(var(--header-bg-bottom)) 100%
     );
     transition: background 0.6s ease;
@@ -423,55 +422,30 @@
     background: linear-gradient(
       180deg,
       hsl(var(--header-bg-bottom)) 0%,
-      hsl(220 8% 12%) 50%,
-      hsl(220 8% 14%) 100%
+      hsl(220 10% 13%) 50%,
+      hsl(220 10% 15%) 100%
     );
     transition: background 0.6s ease;
   }
 
-  /* ===== FLOATING PANEL DIALOG ===== */
-  /* Rounded panel with soft drop shadow that slides up smoothly */
+  /* ===== FLOATING DIALOG PANEL ===== */
   .dialog-panel {
     border-radius: 1.5rem;
     box-shadow:
-      0 24px 60px -12px rgba(0, 0, 0, 0.25),
-      0 8px 24px -8px rgba(0, 0, 0, 0.15),
-      0 0 0 1px rgba(0, 0, 0, 0.04);
+      0 24px 60px -12px rgba(0, 0, 0, 0.22),
+      0 8px 24px -8px rgba(0, 0, 0, 0.12),
+      0 0 0 1px rgba(0, 0, 0, 0.03);
   }
 
-  .dialog-panel-overlay {
-    background: rgba(0, 0, 0, 0.55);
-    backdrop-filter: blur(3px);
+  /* ===== DIVIDER ===== */
+  .divider-soft {
+    border-top: 1px solid hsl(var(--border) / 0.4);
   }
 
-  /* ===== GENTLE PROGRESS RING ===== */
-  .progress-ring-track {
-    stroke: hsl(var(--muted));
-    opacity: 0.5;
-  }
-
-  /* ===== GENEROUS SPACING UTILITIES ===== */
-  /* Extra breathing room for mobile content */
-  .content-spacing {
-    padding-left: 1rem;
-    padding-right: 1rem;
-  }
-
-  @media (min-width: 640px) {
-    .content-spacing {
-      padding-left: 1.5rem;
-      padding-right: 1.5rem;
-    }
-  }
-
-  /* List item spacing — generous tap-friendly rows */
-  .list-row-spacing {
-    padding-top: 0.75rem;
-    padding-bottom: 0.75rem;
-  }
-
-  /* Smooth fade-in for list items */
-  .animate-list-item {
-    animation: fade-in-soft 0.35s ease-out forwards;
+  /* ===== FOCUS RING ===== */
+  .focus-ring-animated:focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+    animation: fadeIn 0.2s ease-out;
   }
 }

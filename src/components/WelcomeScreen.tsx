@@ -86,7 +86,7 @@ export function WelcomeScreen({ onGuestMode }: WelcomeScreenProps) {
         {/* Subtle mesh decoration in the body */}
         <div className="absolute inset-0 bg-mesh-gradient opacity-[0.03] pointer-events-none" />
 
-        <div className="relative z-10 container mx-auto px-4 sm:px-6 -mt-4 sm:-mt-6 max-w-xl pb-12">
+        <div className="relative z-10 max-w-xl mx-auto px-4 sm:px-6 -mt-4 sm:-mt-6 pb-12">
           {/* Guest return banner */}
           {hasGuestData && (
             <div className="mb-6 animate-scale-in" style={{ animationDelay: '0.3s' }}>

@@ -297,30 +297,30 @@ export function TransactionsPanel({
 
   return (
     <>
-      <Card>
+      <Card className="card-base border-border/40">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-base font-serif-display">Transactions</CardTitle>
+              <CardTitle className="text-base">Transactions</CardTitle>
               <p className="text-xs text-muted-foreground mt-0.5">
                 {unassigned.length} unassigned
               </p>
             </div>
-             <div className="flex items-center gap-1">
-               <Button size="sm" variant="outline" onClick={() => setShowDataSources(true)} className="touch-target-sm">
-                 <Link2 className="h-4 w-4 sm:mr-1" />
-                 <span className="hidden sm:inline">Import</span>
-               </Button>
-               <Button size="sm" onClick={() => setShowAddDialog(true)} className="touch-target-sm">
-                 <Plus className="h-4 w-4 sm:mr-1" />
-                 <span className="hidden sm:inline">Add</span>
-               </Button>
-             </div>
+            <div className="flex items-center gap-1.5">
+              <Button size="sm" variant="outline" onClick={() => setShowDataSources(true)} className="touch-target-sm">
+                <Link2 className="h-4 w-4 sm:mr-1" />
+                <span className="hidden sm:inline">Import</span>
+              </Button>
+              <Button size="sm" onClick={() => setShowAddDialog(true)} className="touch-target-sm">
+                <Plus className="h-4 w-4 sm:mr-1" />
+                <span className="hidden sm:inline">Add</span>
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="pt-0">
           {/* Search and Filter */}
-          <div className="mb-4 pb-4 border-b">
+          <div className="mb-4 pb-3 border-b border-border/30">
             <TransactionSearchFilter
               transactions={transactionsByLineItem}
               buckets={buckets}
@@ -341,7 +341,7 @@ export function TransactionsPanel({
                   <button
                     key={transaction.id}
                     onClick={() => handleOpenAssign(transaction)}
-                    className="w-full flex items-center gap-3 p-3.5 rounded-xl bg-primary/5 border border-primary/15 hover:bg-primary/10 transition-colors text-left group touch-target-sm animate-list-item"
+                    className="w-full flex items-center gap-3 p-3 rounded-xl bg-primary/5 border border-primary/15 hover:bg-primary/10 transition-colors text-left group touch-target-sm animate-list-item"
                   >
                     <div
                       className={cn(
@@ -396,13 +396,11 @@ export function TransactionsPanel({
                  <div className="space-y-0.5">
                    {assigned.map((transaction) => {
                      const bucket = buckets.find(b => b.id === transaction.bucketId);
-                     const lineItem = bucket?.lineItems.find(
-                       l => l.id === transaction.lineItemId
-                     );
+                     const lineItem = bucket?.lineItems.find(l => l.id === transaction.lineItemId);
                      return (
                        <div
                          key={transaction.id}
-                         className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-muted/40 group animate-list-item"
+                         className="flex items-center gap-3 p-2.5 -mx-1 rounded-xl hover:bg-muted/30 group animate-list-item"
                        >
                         <div
                           className={cn(
@@ -572,24 +570,18 @@ export function TransactionsPanel({
 
           {/* Empty state */}
           {transactions.length === 0 && !filteredTransactions.length && (
-            <div className="text-center py-8">
-              <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
+            <div className="text-center py-12">
+              <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-3">
                 <Link2 className="h-6 w-6 text-primary" />
               </div>
-              <p className="text-sm font-medium mb-1">
-                No transactions yet
-              </p>
-              <p className="text-xs text-muted-foreground mb-4">
-                Import from your wallet or add manually
-              </p>
+              <p className="text-sm font-medium mb-1">No transactions yet</p>
+              <p className="text-xs text-muted-foreground mb-4">Import from your wallet or add manually</p>
               <div className="flex flex-col sm:flex-row gap-2 justify-center">
-                <Button size="sm" onClick={() => setShowDataSources(true)}>
-                  <Link2 className="h-4 w-4 mr-1" />
-                  Connect Data Source
+                <Button size="sm" onClick={() => setShowDataSources(true)} className="touch-target-sm">
+                  <Link2 className="h-4 w-4 mr-1" /> Connect Data Source
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => setShowAddDialog(true)}>
-                  <Plus className="h-4 w-4 mr-1" />
-                  Add Manually
+                <Button size="sm" variant="outline" onClick={() => setShowAddDialog(true)} className="touch-target-sm">
+                  <Plus className="h-4 w-4 mr-1" /> Add Manually
                 </Button>
               </div>
             </div>
