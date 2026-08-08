@@ -61,10 +61,8 @@ export function SignInScreen() {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       {/* Header bar */}
-      <header className="relative w-full text-white overflow-hidden shrink-0 header-base">
-        <div className="wormhole-grid-bg" aria-hidden="true" />
-        <div className="wormhole-glow" aria-hidden="true" />
-        <div className="relative z-10 container mx-auto px-4 py-4 flex items-center justify-between">
+      <header className="relative w-full bh-brand overflow-hidden shrink-0 border-b border-[hsl(var(--brand-border))]">
+        <div className="relative z-10 max-w-2xl mx-auto px-4 py-3.5 flex items-center justify-between">
           <Link
             to="/"
             className="flex items-center gap-1.5 text-sm text-white/70 hover:text-white transition-colors touch-target-sm"
@@ -73,24 +71,24 @@ export function SignInScreen() {
             Back
           </Link>
           <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 flex items-center justify-center">
-              <Zap className="h-4 w-4 text-white" />
+            <div className="h-8 w-8 rounded-md bg-primary flex items-center justify-center">
+              <Zap className="h-4 w-4 text-primary-foreground" />
             </div>
-            <span className="font-serif-display text-sm tracking-tight">Sat Sorter</span>
+            <span className="font-serif text-lg tracking-tight text-white">Sat Sorter</span>
           </div>
           <div className="w-16" />
         </div>
       </header>
 
       {/* Main content */}
-      <main className="flex-1 container mx-auto px-4 py-8 sm:py-12 max-w-lg">
+      <main className="flex-1 mx-auto px-4 py-8 sm:py-12 max-w-lg w-full">
         <div className="animate-slide-in-up" style={{ animationDelay: '0.1s', animationFillMode: 'both' }}>
           {/* Header block */}
           <div className="text-center mb-8">
-            <div className="inline-flex h-12 w-12 rounded-2xl bg-primary/10 border border-primary/10 items-center justify-center mb-4">
+            <div className="inline-flex h-12 w-12 rounded-md bg-primary/10 border border-primary/25 items-center justify-center mb-4">
               <Key className="h-6 w-6 text-primary" />
             </div>
-            <h1 className="text-2xl font-serif-display tracking-tight">
+            <h1 className="text-3xl font-serif tracking-tight">
               Sign in
             </h1>
             <p className="text-sm text-muted-foreground mt-1">

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Sparkles, X } from 'lucide-react';
+import { Lightbulb, X } from 'lucide-react';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useBudget } from '@/hooks/useBudget';
 
@@ -73,10 +73,10 @@ export function BtcTipCard() {
   if (currency !== 'usd') return null;
 
   return (
-    <div className="relative mb-5 animate-slide-in-up" style={{ animationDelay: '0.05s', animationFillMode: 'both' }}>
-      <div className="flex items-start gap-3 p-4 rounded-2xl bg-gradient-to-r from-primary/5 to-orange-500/5 dark:from-primary/10 dark:to-orange-500/10 border border-primary/12">
-        <div className="h-8 w-8 rounded-lg bg-primary/15 flex items-center justify-center shrink-0">
-          <Sparkles className="h-4 w-4 text-primary" />
+    <div className="relative animate-slide-in-up" style={{ animationDelay: '0.05s', animationFillMode: 'both' }}>
+      <div className="flex items-start gap-3 p-4 bh-card border-l-4 border-l-mustard">
+        <div className="h-8 w-8 rounded-md bg-mustard/15 flex items-center justify-center shrink-0">
+          <Lightbulb className="h-4 w-4 text-mustard" />
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-foreground">

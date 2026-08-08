@@ -50,7 +50,7 @@ export function DeletionConfirmDialog({
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle className="flex items-center gap-2 font-serif-display">
+          <AlertDialogTitle className="flex items-center gap-2 font-serif text-xl">
             <AlertCircle className="h-5 w-5 text-destructive" />
             {getLabel()}
           </AlertDialogTitle>

@@ -139,10 +139,10 @@ export function BudgetBuddyScreen() {
 
     return (
       <div className="min-h-screen flex flex-col items-center justify-center px-6 text-center bg-background">
-        <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-5">
+        <div className="h-16 w-16 rounded-md bg-primary/10 border border-primary/25 flex items-center justify-center mx-auto mb-5">
           <MessageSquare className="h-8 w-8 text-primary" />
         </div>
-        <h2 className="font-serif-display text-xl mb-2">Budget Buddy</h2>
+        <h2 className="font-serif text-2xl mb-2">Budget Buddy</h2>
         <p className="text-muted-foreground text-sm max-w-sm mb-6">
           {needsKey
             ? 'Your AI budget buddy can analyze your spending, suggest savings, and answer questions about your budget. Add an API key to get started.'
@@ -175,7 +175,7 @@ export function BudgetBuddyScreen() {
     >
       {/* Chat header */}
       <div
-        className="flex items-center justify-between px-4 py-3 border-b border-border/40 bg-card/80 backdrop-blur-sm shrink-0"
+        className="flex items-center justify-between px-4 py-3 border-b border-border bg-card shrink-0"
         style={{ paddingTop: 'calc(0.75rem + env(safe-area-inset-top))' }}
       >
         <div className="flex items-center gap-2 min-w-0">
@@ -183,7 +183,7 @@ export function BudgetBuddyScreen() {
             <TrendingUp className="h-4 w-4 text-primary" />
           </div>
           <div className="min-w-0">
-            <h2 className="font-serif-display text-sm leading-tight">Budget Buddy</h2>
+            <h2 className="font-serif text-base leading-tight">Budget Buddy</h2>
             {/* Provider + model indicator (tap to change) */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -248,11 +248,11 @@ export function BudgetBuddyScreen() {
         <div className="px-4 py-4 space-y-4">
           {messages.length === 0 ? (
             <div className="text-center py-12 space-y-4">
-              <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto">
+              <div className="h-16 w-16 rounded-md bg-primary/10 border border-primary/25 flex items-center justify-center mx-auto">
                 <MessageSquare className="h-8 w-8 text-primary" />
               </div>
               <div>
-                <h3 className="font-serif-display text-base">
+                <h3 className="font-serif text-lg">
                   Welcome to Budget Buddy
                 </h3>
                 <p className="text-sm text-muted-foreground mt-1 max-w-xs mx-auto">
@@ -277,7 +277,7 @@ export function BudgetBuddyScreen() {
       </ScrollArea>
 
       {/* Input area */}
-      <div className="shrink-0 border-t border-border/40 bg-card/80 backdrop-blur-sm px-4 pt-3 pb-6 space-y-3">
+      <div className="shrink-0 border-t border-border bg-card px-4 pt-3 pb-6 space-y-3">
         <QuickActionChips onSelect={handleQuickAction} />
         <form
           onSubmit={handleSubmit}

@@ -125,18 +125,18 @@ export default function SpendingBreakdownPage() {
         ) : (
           <div className="space-y-4">
             {/* Gauge card */}
-            <section className="surface-card px-5 pt-6 pb-5 text-center animate-slide-in-up" style={{ animationFillMode: 'both' }}>
-              <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+            <section className="bh-card px-5 pt-6 pb-5 text-center animate-slide-in-up" style={{ animationFillMode: 'both' }}>
+              <p className="bh-caption text-muted-foreground">
                 {monthLabel}
               </p>
               <div className="mt-4">
                 <SpendingGauge segments={gaugeSegments} size={320} thickness={24} gap={3}>
-                  <p className="text-[10px] font-medium uppercase tracking-[0.15em] text-muted-foreground">Spent</p>
-                  <p className="text-3xl sm:text-4xl font-serif-display tabular-nums mt-1 leading-none">
+                  <p className="bh-caption text-muted-foreground">Spent</p>
+                  <p className="text-3xl sm:text-4xl font-mono mt-1 leading-none">
                     {totalSpentDisplay.label}
                   </p>
                   {totalBudgetUsd > 0 && (
-                    <p className="text-xs text-muted-foreground mt-2 tabular-nums">
+                    <p className="font-mono text-xs text-muted-foreground mt-2">
                       of {totalBudgetDisplay.label} budget
                     </p>
                   )}
@@ -146,11 +146,11 @@ export default function SpendingBreakdownPage() {
 
             {/* Trend card */}
             {trendData && (
-              <section className="surface-card p-4 animate-slide-in-up" style={{ animationDelay: '0.1s', animationFillMode: 'both' }}>
+              <section className="bh-card p-4 animate-slide-in-up" style={{ animationDelay: '0.1s', animationFillMode: 'both' }}>
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">vs Last Month</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{trendData.prevMonthLabel}</p>
+                    <p className="bh-caption text-muted-foreground">vs Last Month</p>
+                    <p className="text-xs text-muted-foreground mt-1">{trendData.prevMonthLabel}</p>
                   </div>
                   <div className="text-right">
                     <div className="flex items-center gap-1.5 justify-end">
@@ -159,15 +159,15 @@ export default function SpendingBreakdownPage() {
                       ) : trendData.isUp ? (
                         <TrendingUp className="h-4 w-4 text-destructive" />
                       ) : (
-                        <TrendingDown className="h-4 w-4 text-green-500" />
+                        <TrendingDown className="h-4 w-4 text-[hsl(var(--success))]" />
                       )}
-                      <span className={`font-serif-display text-base tabular-nums ${
-                        trendData.isFlat ? 'text-muted-foreground' : trendData.isUp ? 'text-destructive' : 'text-green-500'
+                      <span className={`font-mono text-base ${
+                        trendData.isFlat ? 'text-muted-foreground' : trendData.isUp ? 'text-destructive' : 'text-[hsl(var(--success))]'
                       }`}>
                         {trendData.isUp ? '+' : ''}{trendData.pctChange}%
                       </span>
                     </div>
-                    <p className="text-[11px] text-muted-foreground tabular-nums mt-0.5">
+                    <p className="font-mono text-[11px] text-muted-foreground mt-0.5">
                       {toDisplay(trendData.diff).label} {trendData.isUp ? 'more' : 'less'}
                     </p>
                   </div>
@@ -178,14 +178,14 @@ export default function SpendingBreakdownPage() {
             {/* Category list */}
             <section className="animate-slide-in-up" style={{ animationDelay: '0.15s', animationFillMode: 'both' }}>
               <div className="flex items-center justify-between mb-2.5 px-1">
-                <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <h2 className="bh-caption text-muted-foreground">
                   Spending Categories
                 </h2>
-                <span className="text-[11px] text-muted-foreground">
-                  {breakdownData.length} {breakdownData.length === 1 ? 'category' : 'categories'}
+                <span className="font-mono text-[11px] text-muted-foreground">
+                  {breakdownData.length}
                 </span>
               </div>
-              <ul className="surface-card divide-y divide-border/40 overflow-hidden">
+              <ul className="bh-card divide-y divide-border overflow-hidden">
                 {breakdownData.map((item) => {
                   const Icon = iconMap[item.icon] || Wallet;
                   const spentDisplay = toDisplay(item.spentUsd);
@@ -195,29 +195,29 @@ export default function SpendingBreakdownPage() {
                     <li key={item.id} className="relative flex items-center gap-3 py-3.5 pl-5 pr-4">
                       <span
                         aria-hidden
-                        className="absolute left-0 top-2 bottom-2 w-1 rounded-r-full"
+                        className="absolute left-0 top-0 bottom-0 w-1.5"
                         style={{ backgroundColor: item.color }}
                       />
                       <div
-                        className="h-9 w-9 rounded-lg flex items-center justify-center shrink-0"
-                        style={{ backgroundColor: `${item.color}12` }}
+                        className="h-9 w-9 rounded-md flex items-center justify-center shrink-0 border"
+                        style={{ backgroundColor: `${item.color}1f`, borderColor: `${item.color}55` }}
                       >
                         <Icon className="h-4 w-4" style={{ color: item.color }} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-sm truncate">{item.name}</p>
                         {plannedDisplay && (
-                          <p className="text-[11px] text-muted-foreground tabular-nums mt-0.5">
+                          <p className="font-mono text-[11px] text-muted-foreground mt-0.5">
                             of {plannedDisplay.label} budgeted
                           </p>
                         )}
                       </div>
                       <div className="text-right shrink-0">
-                        <p className={`font-serif-display text-sm tabular-nums ${overBudget ? 'text-destructive' : ''}`}>
+                        <p className={`font-mono text-sm ${overBudget ? 'text-destructive' : ''}`}>
                           {spentDisplay.label}
                         </p>
                         {plannedDisplay && (
-                          <p className="text-[11px] text-muted-foreground tabular-nums mt-0.5">
+                          <p className="font-mono text-[11px] text-muted-foreground mt-0.5">
                             {percentUsed(item.spentUsd, item.plannedUsd)}%
                           </p>
                         )}

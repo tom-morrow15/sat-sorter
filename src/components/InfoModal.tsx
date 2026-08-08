@@ -23,19 +23,19 @@ export function InfoModal({ isOpen, onClose, title, children, onConfirm }: InfoM
     >
       {/* Dark overlay */}
       <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-[hsl(var(--brand)/0.7)]"
         onClick={onClose}
         aria-hidden="true"
       />
 
       {/* Modal card */}
-      <div className="relative z-10 w-full max-w-lg max-h-[85vh] flex flex-col bg-card rounded-2xl shadow-2xl border overflow-hidden">
+      <div className="relative z-10 w-full max-w-lg max-h-[85vh] flex flex-col bg-card rounded-lg border border-border overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b shrink-0">
-          <h2 className="text-lg font-bold tracking-tight">{title}</h2>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
+          <h2 className="text-xl font-serif tracking-tight">{title}</h2>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-muted transition-colors"
+            className="p-1.5 rounded-md hover:bg-muted transition-colors"
             aria-label="Close"
           >
             <X className="h-5 w-5" />
