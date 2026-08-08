@@ -1,34 +1,44 @@
 import { useAuthor } from '@/hooks/useAuthor';
 import { genUserName } from '@/lib/genUserName';
+import { cn } from '@/lib/utils';
+
+interface PartnerAttributionProps {
+  pubkey: string;
+  /** Show the partner's name text (default: true on desktop, false on mobile) */
+  showName?: boolean;
+  className?: string;
+}
 
 /**
- * Shows a small avatar + name indicator for the partner who logged
- * a transaction. Only renders if the transaction has a partnerPubkey
- * (i.e., it came from a shared budget partner).
+ * Shows a small avatar indicator for the partner who logged a transaction.
+ * On mobile: just a 16px avatar circle (no text to save space).
+ * On desktop: avatar + first name.
  */
-export function PartnerAttribution({ pubkey }: { pubkey: string }) {
+export function PartnerAttribution({ pubkey, showName = true, className }: PartnerAttributionProps) {
   const profile = useAuthor(pubkey);
   const metadata = profile.data?.metadata;
   const name = metadata?.name || metadata?.display_name || genUserName(pubkey);
   const picture = metadata?.picture;
-
-  // Use first name only for compactness
   const firstName = name.split(' ')[0].slice(0, 12);
 
   return (
-    <span className="inline-flex items-center gap-1 ml-1.5 text-muted-foreground/70">
-      <span className="text-[10px]">·</span>
+    <span className={cn('inline-flex items-center gap-1 ml-1 shrink-0', className)}>
+      <span className="text-[10px] text-muted-foreground/40">·</span>
       {picture ? (
         <img
           src={picture}
           alt={name}
-          className="h-3 w-3 rounded-full object-cover"
-          onError={(e) => {
-            (e.target as HTMLImageElement).style.display = 'none';
-          }}
+          className="h-3.5 w-3.5 rounded-full object-cover border border-border/40"
+          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
         />
-      ) : null}
-      <span className="text-[10px]">{firstName}</span>
+      ) : (
+        <span className="h-3.5 w-3.5 rounded-full bg-muted flex items-center justify-center text-[8px] text-muted-foreground">
+          {firstName.charAt(0).toUpperCase()}
+        </span>
+      )}
+      {showName && (
+        <span className="text-[10px] text-muted-foreground/70 hidden sm:inline">{firstName}</span>
+      )}
     </span>
   );
 }

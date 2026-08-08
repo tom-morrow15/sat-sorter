@@ -361,14 +361,14 @@ export function TransactionsPanel({
                         <p className="text-sm font-medium truncate">
                           {transaction.description}
                         </p>
-                        <p className="text-xs text-muted-foreground">
-                          {formatDate(transaction.date)}
-                          {transaction.paymentMethod && <span className="ml-1.5 text-muted-foreground/70">· {transaction.paymentMethod}</span>}
-                          {transaction.partnerPubkey && <PartnerAttribution pubkey={transaction.partnerPubkey} />}
-                        </p>
-                      </div>
-                     <div className="flex items-center gap-2">
-                           <span
+                         <p className="text-xs text-muted-foreground">
+                           {formatDate(transaction.date)}
+                           {transaction.paymentMethod && <span className="ml-1.5 text-muted-foreground/70">· {transaction.paymentMethod}</span>}
+                         </p>
+                       </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {transaction.partnerPubkey && <PartnerAttribution pubkey={transaction.partnerPubkey} />}
+                            <span
                              className={cn(
                                'text-sm font-mono',
                                transaction.isIncome ? 'text-success' : ''
@@ -416,38 +416,39 @@ export function TransactionsPanel({
                             <ArrowUpRight className="h-3.5 w-3.5" />
                           )}
                         </div>
-                         <div className="flex-1 min-w-0">
-                           <p className="text-sm truncate">
-                             {transaction.description}
-                           </p>
-                           <div className="flex items-center gap-1.5">
-                             <Badge
-                               variant="secondary"
-                               className="text-xs px-1.5 py-0"
-                               style={{
-                                 backgroundColor: bucket
-                                   ? `${bucket.color}20`
-                                   : undefined,
-                                 color: bucket?.color,
-                               }}
-                             >
-                               {lineItem?.name || 'Unknown'}
-                             </Badge>
-                             <span className="text-xs text-muted-foreground">
-                               {formatDate(transaction.date)}
-                             </span>
-                             {transaction.paymentMethod && (
-                               <span className="text-xs text-muted-foreground/70">· {transaction.paymentMethod}</span>
-                             )}
-                           </div>
-                         </div>
-                         <div className="flex items-center gap-2">
-                           <span
-                             className={cn(
-                               'text-sm font-mono',
-                               transaction.isIncome ? 'text-success' : ''
-                             )}
-                           >
+                           <div className="flex-1 min-w-0">
+                            <p className="text-sm truncate">
+                              {transaction.description}
+                            </p>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <Badge
+                                variant="secondary"
+                                className="text-xs px-1.5 py-0"
+                                style={{
+                                  backgroundColor: bucket
+                                    ? `${bucket.color}20`
+                                    : undefined,
+                                  color: bucket?.color,
+                                }}
+                              >
+                                {lineItem?.name || 'Unknown'}
+                              </Badge>
+                              <span className="text-xs text-muted-foreground">
+                                {formatDate(transaction.date)}
+                              </span>
+                              {transaction.paymentMethod && (
+                                <span className="text-xs text-muted-foreground/70 hidden sm:inline">· {transaction.paymentMethod}</span>
+                              )}
+                              {transaction.partnerPubkey && <PartnerAttribution pubkey={transaction.partnerPubkey} />}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span
+                              className={cn(
+                                'text-sm font-mono',
+                                transaction.isIncome ? 'text-success' : ''
+                              )}
+                            >
                              {transaction.isIncome ? '+' : '-'}
                              {formatAmount(transaction.amount, transaction)}
                            </span>
@@ -506,37 +507,38 @@ export function TransactionsPanel({
                             )}
                           </div>
                            <div className="flex-1 min-w-0">
-                             <p className="text-sm truncate">
-                               {transaction.description}
-                             </p>
-                             <div className="flex items-center gap-1.5">
-                                {hasSplits(transaction) ? (
-                                  <Badge
-                                    variant="secondary"
-                                    className="text-xs px-1.5 py-0 bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200"
-                                  >
-                                    Split ({getSplitCount(transaction)})
-                                  </Badge>
-                                ) : bucket ? (
-                                  <Badge
-                                    variant="secondary"
-                                    className="text-xs px-1.5 py-0"
-                                    style={{
-                                      backgroundColor: `${bucket.color}20`,
-                                      color: bucket.color,
-                                    }}
-                                  >
-                                    {lineItem?.name || 'Unknown'}
-                                  </Badge>
-                                ) : null}
-                                <span className="text-xs text-muted-foreground">
-                                  {formatDate(transaction.date)}
-                                </span>
-                                {transaction.paymentMethod && (
-                                  <span className="text-xs text-muted-foreground/70">· {transaction.paymentMethod}</span>
-                                )}
-                             </div>
-                           </div>
+                              <p className="text-sm truncate">
+                                {transaction.description}
+                              </p>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                 {hasSplits(transaction) ? (
+                                   <Badge
+                                     variant="secondary"
+                                     className="text-xs px-1.5 py-0 bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200"
+                                   >
+                                     Split ({getSplitCount(transaction)})
+                                   </Badge>
+                                 ) : bucket ? (
+                                   <Badge
+                                     variant="secondary"
+                                     className="text-xs px-1.5 py-0"
+                                     style={{
+                                       backgroundColor: `${bucket.color}20`,
+                                       color: bucket.color,
+                                     }}
+                                   >
+                                     {lineItem?.name || 'Unknown'}
+                                   </Badge>
+                                 ) : null}
+                                 <span className="text-xs text-muted-foreground">
+                                   {formatDate(transaction.date)}
+                                 </span>
+                                 {transaction.paymentMethod && (
+                                   <span className="text-xs text-muted-foreground/70 hidden sm:inline">· {transaction.paymentMethod}</span>
+                                 )}
+                                 {transaction.partnerPubkey && <PartnerAttribution pubkey={transaction.partnerPubkey} />}
+                              </div>
+                            </div>
                         </div>
                         <div className="flex items-center gap-2">
                           <span

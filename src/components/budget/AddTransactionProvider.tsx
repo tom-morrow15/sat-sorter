@@ -1,6 +1,7 @@
 import { useState, useCallback, createContext, useContext, type ReactNode } from 'react';
 import { AddTransactionDialog } from '@/components/budget/AddTransactionDialog';
 import { useBudget } from '@/hooks/useBudget';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
 
 interface AddTransactionContextValue {
   openAddTransaction: (defaultBucketId?: string) => void;
@@ -15,6 +16,7 @@ export function useAddTransaction() {
 
 export function AddTransactionProvider({ children }: { children: ReactNode }) {
   const { currentBudget, currency, addTransaction, paymentMethods, fullState } = useBudget();
+  const { user } = useCurrentUser();
   const [open, setOpen] = useState(false);
   const [defaultBucketId, setDefaultBucketId] = useState<string | undefined>(undefined);
 
@@ -32,6 +34,10 @@ export function AddTransactionProvider({ children }: { children: ReactNode }) {
   // Get all buckets (not just the current month's, but we need the current month's buckets for the dialog)
   const buckets = currentBudget.buckets;
 
+  // Stamp the transaction with the current user's pubkey so partners can see
+  // who logged it. Only stamp when a shared budget exists (keypair present).
+  const hasSharedBudget = !!fullState.budgetKeypair;
+
   return (
     <AddTransactionContext.Provider value={{ openAddTransaction }}>
       {children}
@@ -42,7 +48,12 @@ export function AddTransactionProvider({ children }: { children: ReactNode }) {
         defaultBucketId={defaultBucketId}
         currency={currency}
         isIncome={isIncome}
-        onSave={(transaction) => addTransaction(transaction)}
+        onSave={(transaction) => {
+          if (hasSharedBudget && user?.pubkey) {
+            transaction.partnerPubkey = user.pubkey;
+          }
+          addTransaction(transaction);
+        }}
         paymentMethods={paymentMethods}
       />
     </AddTransactionContext.Provider>
