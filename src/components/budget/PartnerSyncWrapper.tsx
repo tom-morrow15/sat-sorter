@@ -95,12 +95,16 @@ export function PartnerSyncWrapper({ children }: { children: React.ReactNode }) 
     // Debounce: wait 3s after the last change before publishing
     if (publishTimer.current) clearTimeout(publishTimer.current);
     publishTimer.current = setTimeout(async () => {
-      console.log('[PartnerSyncWrapper] Publishing budget snapshots...');
+      console.log('[PartnerSyncWrapper] Publishing budget snapshots for', changedMonths.length, 'month(s)...');
       let published = 0;
       for (const budget of changedMonths) {
         if (budget.buckets && budget.buckets.length > 0) {
           const ok = await publishBudgetSnapshot(budget);
-          if (ok) published++;
+          if (ok) {
+            published++;
+          } else {
+            console.warn('[PartnerSyncWrapper] Failed to publish snapshot for', budget.month);
+          }
         }
       }
       if (published > 0) {

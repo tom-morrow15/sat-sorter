@@ -388,8 +388,12 @@ export function useSharedBudgetSync(budgetNpub: string, budgetNsec: string) {
       if (cancelled) return;
       setSyncStatus((prev) => ({ ...prev, isSyncing: false }));
 
+      // Use `since` to only receive NEW events published after the initial fetch.
+      // `limit: 0` is ambiguous — some relays treat it as "return nothing" instead
+      // of "no limit", which silently breaks the live subscription.
+      const now = Math.floor(Date.now() / 1000);
       subscriptionRef.current = nostr.req(
-        [{ kinds: [BUDGET_KIND], authors: [keys.budgetPub], limit: 0 }],
+        [{ kinds: [BUDGET_KIND], authors: [keys.budgetPub], since: now }],
         {
           onevent: handleIncomingEvent,
           oneose: () => { console.log('[SharedBudgetSync] Live subscription active'); },
