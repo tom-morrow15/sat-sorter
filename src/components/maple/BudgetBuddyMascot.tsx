@@ -1,7 +1,8 @@
 /**
- * BudgetBuddyMascot — A speech bubble with a sparkle/star inside.
- * Communicates "AI chat" instantly: the bubble says "talk" and the
- * sparkle says "AI". Uses currentColor so it adapts to light/dark mode.
+ * BudgetBuddyMascot — A clean, Bauhaus-inspired geometric chat icon.
+ * A rounded square with a tail and three dots (ellipsis) inside —
+ * communicates "chat" and "thinking/AI" through simple geometry.
+ * No star that gets cut off; everything stays within bounds.
  */
 
 interface MascotProps {
@@ -19,20 +20,15 @@ export function BudgetBuddyMascot({ className, size = 28 }: MascotProps) {
       className={className}
       xmlns="http://www.w3.org/2000/svg"
     >
-      {/* Speech bubble — rounded rectangle with a tail */}
+      {/* Chat bubble — clean rounded square with tail */}
       <path
-        d="M8 10 H40 Q44 10 44 14 V28 Q44 32 40 32 H20 L12 40 V32 H8 Q4 32 4 28 V14 Q4 10 8 10 Z"
-        stroke="currentColor"
-        strokeWidth="2.5"
-        strokeLinejoin="round"
-        fill="none"
-      />
-
-      {/* AI Sparkle — four-pointed star inside the bubble */}
-      <path
-        d="M24 14 L26.5 21.5 L34 24 L26.5 26.5 L24 34 L21.5 26.5 L14 24 L21.5 21.5 Z"
+        d="M10 8 H38 Q42 8 42 12 V26 Q42 30 38 30 H22 L14 38 V30 H10 Q6 30 6 26 V12 Q6 8 10 8 Z"
         fill="currentColor"
       />
+      {/* Three dots — "thinking" / ellipsis, stays well within bounds */}
+      <circle cx="17" cy="19" r="2.2" fill="hsl(var(--background))" />
+      <circle cx="24" cy="19" r="2.2" fill="hsl(var(--background))" />
+      <circle cx="31" cy="19" r="2.2" fill="hsl(var(--background))" />
     </svg>
   );
 }
