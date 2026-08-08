@@ -81,7 +81,7 @@ export function MapleInsightsCard() {
           {/* Initial state: no insights yet, no error */}
           {!insights && !isLoading && !error && (
             <div className="p-6 text-center space-y-4">
-              <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto">
+              <div className="h-12 w-12 rounded-md bg-primary/10 flex items-center justify-center mx-auto">
                 <Sparkles className="h-6 w-6 text-primary" />
               </div>
               <div className="space-y-1">
@@ -111,7 +111,7 @@ export function MapleInsightsCard() {
           {/* Error state: inline error with retry button */}
           {error && !isLoading && (
             <div className="p-6 text-center space-y-3">
-              <div className="h-12 w-12 rounded-2xl bg-destructive/10 flex items-center justify-center mx-auto">
+              <div className="h-12 w-12 rounded-md bg-destructive/10 flex items-center justify-center mx-auto">
                 <AlertTriangle className="h-6 w-6 text-destructive" />
               </div>
               <div className="space-y-1">

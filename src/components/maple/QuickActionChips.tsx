@@ -19,9 +19,9 @@ export function QuickActionChips({ onSelect }: QuickActionChipsProps) {
           key={action}
           onClick={() => onSelect(action)}
           className={cn(
-            'shrink-0 px-3 py-1.5 rounded-full text-xs font-medium',
+            'shrink-0 px-3 py-1.5 rounded-sm text-xs font-medium',
             'bg-secondary text-secondary-foreground hover:bg-secondary/80',
-            'transition-colors border border-border/50'
+            'transition-colors border border-border'
           )}
         >
           {action}

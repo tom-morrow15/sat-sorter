@@ -229,10 +229,10 @@ function MerchantCard({ merchant, onClick }: MerchantCardProps) {
   return (
     <button
       onClick={onClick}
-      className="flex flex-col p-4 rounded-xl border bg-card hover:bg-accent/50 active:bg-accent transition-all text-left group"
+      className="flex flex-col p-4 rounded-md border border-border bg-card hover:bg-accent/40 active:bg-accent transition-colors text-left group"
     >
       <div className="flex items-start gap-3 mb-2">
-        <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+        <div className="h-10 w-10 rounded-md bg-primary/10 border border-primary/20 flex items-center justify-center flex-shrink-0">
           <CategoryIcon className="h-5 w-5 text-primary" />
         </div>
         <div className="flex-1 min-w-0">
@@ -296,7 +296,7 @@ function MerchantDetailDialog({ merchant, open, onOpenChange }: MerchantDetailDi
       <DialogContent className="sm:max-w-[400px]">
         <DialogHeader>
           <div className="flex items-start gap-3">
-            <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+            <div className="h-12 w-12 rounded-md bg-primary/10 border border-primary/20 flex items-center justify-center flex-shrink-0">
               <CategoryIcon className="h-6 w-6 text-primary" />
             </div>
             <div className="min-w-0">
@@ -511,17 +511,17 @@ export function MerchantGrid() {
                 <button
                   onClick={() => setSelectedCategory('all')}
                   className={cn(
-                    'flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border-2 transition-all',
+                    'flex flex-col items-center justify-center gap-1.5 p-3 rounded-md border transition-colors',
                     selectedCategory === 'all'
                       ? 'border-primary bg-primary/5'
-                      : 'border-muted hover:border-primary/30 hover:bg-muted/50'
+                      : 'border-border hover:border-primary/30 hover:bg-muted/50'
                   )}
                 >
                   <Store className="h-5 w-5 text-primary" />
                   <span className="text-xs font-medium">All</span>
-                  <Badge variant="secondary" className="text-[9px] py-0">
+                  <span className="font-mono text-[10px] text-muted-foreground">
                     {categoryCounts.all}
-                  </Badge>
+                  </span>
                 </button>
 
                 {/* Dynamic category buttons */}
@@ -535,10 +535,10 @@ export function MerchantGrid() {
                       key={category}
                       onClick={() => setSelectedCategory(category)}
                       className={cn(
-                        'flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border-2 transition-all',
+                        'flex flex-col items-center justify-center gap-1.5 p-3 rounded-md border transition-colors',
                         isSelected
                           ? 'border-primary bg-primary/5'
-                          : 'border-muted hover:border-primary/30 hover:bg-muted/50'
+                          : 'border-border hover:border-primary/30 hover:bg-muted/50'
                       )}
                       title={displayName}
                     >
@@ -546,9 +546,9 @@ export function MerchantGrid() {
                       <span className="text-xs font-medium line-clamp-2 text-center leading-tight">
                         {displayName.split(' ')[0]}
                       </span>
-                      <Badge variant="secondary" className="text-[9px] py-0">
+                      <span className="font-mono text-[10px] text-muted-foreground">
                         {count}
-                      </Badge>
+                      </span>
                     </button>
                   );
                 })}
@@ -569,11 +569,11 @@ export function MerchantGrid() {
                   return (
                     <div key={category}>
                       <div className="flex items-center gap-3 mb-4 pb-3 border-b">
-                        <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                        <div className="h-8 w-8 rounded-md bg-primary/10 border border-primary/20 flex items-center justify-center flex-shrink-0">
                           <CategoryIcon className="h-4 w-4 text-primary" />
                         </div>
                         <div className="flex-1">
-                          <h3 className="font-semibold text-base">{displayName}</h3>
+                          <h3 className="font-serif text-lg">{displayName}</h3>
                         </div>
                         <Badge variant="secondary" className="text-xs">
                           {items.length}
@@ -598,11 +598,11 @@ export function MerchantGrid() {
                 {filteredMerchants[selectedCategory]?.length ? (
                   <>
                     <div className="flex items-center gap-3 mb-4 pb-3 border-b">
-                      <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                      <div className="h-8 w-8 rounded-md bg-primary/10 border border-primary/20 flex items-center justify-center flex-shrink-0">
                         <Store className="h-4 w-4 text-primary" />
                       </div>
                       <div className="flex-1">
-                        <h3 className="font-semibold text-base">{getCategoryDisplayName(selectedCategory)}</h3>
+                        <h3 className="font-serif text-lg">{getCategoryDisplayName(selectedCategory)}</h3>
                       </div>
                       <Badge variant="secondary" className="text-xs">
                         {filteredMerchants[selectedCategory].length}

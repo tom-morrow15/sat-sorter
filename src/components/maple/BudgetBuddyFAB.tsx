@@ -27,11 +27,10 @@ export function BudgetBuddyFAB() {
       disabled={!isMapleEnabled}
       className={cn(
         'fixed bottom-24 right-4 z-30 flex items-center justify-center',
-        'h-14 w-14 rounded-full shadow-lg transition-all',
-        'press-feedback',
+        'h-14 w-14 rounded-2xl transition-all press-feedback',
         isMapleEnabled
-          ? 'bg-primary text-primary-foreground hover:scale-105 active:scale-95 cursor-pointer'
-          : 'bg-muted text-muted-foreground/40 border-2 border-dashed border-muted-foreground/30 cursor-not-allowed'
+          ? 'bg-primary text-primary-foreground shadow-[0_8px_24px_-6px_hsl(var(--primary)/0.6)] hover:scale-105 active:scale-95 cursor-pointer'
+          : 'bg-muted text-muted-foreground/40 border border-dashed border-muted-foreground/30 cursor-not-allowed'
       )}
       title={isMapleEnabled ? 'Ask your Budget Buddy' : 'Set up Budget Buddy in the menu and accept the disclaimer'}
       aria-label="Budget Buddy"

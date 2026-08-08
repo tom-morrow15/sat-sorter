@@ -187,7 +187,7 @@ export function QuickAddFAB({ onAddTransaction, currency }: QuickAddFABProps) {
         className={cn(
           'fixed right-6 z-50',
           'sm:right-6',
-          'h-14 w-14 rounded-full shadow-lg hover:shadow-xl',
+          'h-14 w-14 rounded-2xl shadow-[0_8px_24px_-6px_hsl(var(--primary)/0.6)]',
           'flex items-center justify-center transition-all duration-200',
           'bg-primary text-primary-foreground hover:bg-primary/90',
           'active:scale-95 touch-target'
@@ -202,7 +202,7 @@ export function QuickAddFAB({ onAddTransaction, currency }: QuickAddFABProps) {
 
       {/* Dialog */}
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-[425px] rounded-3xl">
+        <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle className="text-xl">Quick Add Transaction</DialogTitle>
             <DialogDescription>

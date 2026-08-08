@@ -67,7 +67,7 @@ function MerchantCard({ merchant, onClick }: MerchantCardProps) {
   return (
     <button
       onClick={onClick}
-      className="flex-shrink-0 w-[180px] sm:w-[200px] p-3 rounded-xl border bg-card hover:bg-accent/50 active:bg-accent transition-all text-left group"
+      className="flex-shrink-0 w-[180px] sm:w-[200px] p-3 rounded-md border border-border bg-card hover:bg-accent/40 active:bg-accent transition-colors text-left group"
     >
       <div className="flex items-start gap-2 sm:gap-3">
         <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
@@ -235,7 +235,7 @@ export function BTCMapBanner() {
   if (!hasLocation) {
     return (
       <>
-        <Card className="overflow-hidden border-primary/20 bg-gradient-to-r from-primary/5 via-orange-500/5 to-amber-500/5">
+        <Card className="overflow-hidden border-l-4 border-l-primary bg-primary/[0.04]">
           <CardContent className="py-5 px-4">
             <div className="flex flex-col sm:flex-row items-center gap-4">
               <div className="flex items-center gap-3 flex-1">
@@ -264,7 +264,7 @@ export function BTCMapBanner() {
   // Loading state
   if (isLoading) {
     return (
-      <Card className="overflow-hidden border-primary/20 bg-gradient-to-r from-primary/5 to-orange-500/5">
+      <Card className="overflow-hidden border-l-4 border-l-primary bg-primary/[0.04]">
         <CardContent className="py-4">
           <div className="flex items-center justify-center gap-3 text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin" />
@@ -279,7 +279,7 @@ export function BTCMapBanner() {
   if (merchants.length === 0) {
     return (
       <>
-        <Card className="overflow-hidden border-primary/20 bg-gradient-to-r from-primary/5 via-orange-500/5 to-amber-500/5">
+        <Card className="overflow-hidden border-l-4 border-l-primary bg-primary/[0.04]">
           <CardContent className="py-4 px-4">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
               <div className="flex items-center gap-3">
@@ -324,7 +324,7 @@ export function BTCMapBanner() {
   // Merchants found - show carousel
   return (
     <>
-      <Card className="overflow-hidden border-primary/20 bg-gradient-to-r from-primary/5 via-orange-500/5 to-amber-500/5">
+      <Card className="overflow-hidden border-l-4 border-l-primary bg-primary/[0.04]">
         <CardContent className="py-3 sm:py-4 px-3 sm:px-4">
           {/* Header */}
           <div className="flex items-center justify-between mb-3 gap-2">

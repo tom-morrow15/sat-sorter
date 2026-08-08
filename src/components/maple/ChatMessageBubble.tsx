@@ -19,10 +19,10 @@ export function ChatMessageBubble({ role, content }: ChatMessageBubbleProps) {
     >
       <div
         className={cn(
-          'max-w-[85%] sm:max-w-[75%] px-4 py-3 rounded-2xl text-sm leading-relaxed break-words whitespace-pre-wrap',
+          'max-w-[85%] sm:max-w-[75%] px-4 py-3 rounded-lg text-sm leading-relaxed break-words whitespace-pre-wrap',
           isUser
-            ? 'bg-primary text-primary-foreground rounded-br-md'
-            : 'bg-muted text-foreground rounded-bl-md border border-border/60'
+            ? 'bg-primary text-primary-foreground rounded-br-sm'
+            : 'bg-muted text-foreground rounded-bl-sm border border-border'
         )}
       >
         {display}

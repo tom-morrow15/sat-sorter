@@ -45,8 +45,8 @@ export function MerchantIndicator({ lineItemName, merchants, className }: Mercha
       <PopoverTrigger asChild>
         <button
           className={cn(
-            'inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full',
-            'bg-gradient-to-r from-primary/10 to-orange-500/10',
+            'inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm',
+            'bg-primary/10',
             'border border-primary/20 hover:border-primary/40',
             'transition-all hover:scale-105 active:scale-95',
             'text-xs font-medium text-primary cursor-pointer',
@@ -63,9 +63,9 @@ export function MerchantIndicator({ lineItemName, merchants, className }: Mercha
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-80 p-0" align="start" onClick={(e) => e.stopPropagation()}>
-        <div className="p-3 border-b bg-gradient-to-r from-primary/5 to-orange-500/5">
+        <div className="p-3 border-b border-border bg-primary/5">
           <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+            <div className="h-8 w-8 rounded-md bg-primary/10 border border-primary/20 flex items-center justify-center">
               <Store className="h-4 w-4 text-primary" />
             </div>
             <div>
@@ -164,8 +164,8 @@ export function MerchantBadge({ lineItemName, merchants, className }: MerchantIn
       <PopoverTrigger asChild>
         <button
           className={cn(
-            'inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full',
-            'bg-gradient-to-r from-primary/10 to-orange-500/10',
+            'inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-sm',
+            'bg-primary/10',
             'border border-primary/20 hover:border-primary/40 active:border-primary/60',
             'transition-all active:scale-95 cursor-pointer',
             className
@@ -180,9 +180,9 @@ export function MerchantBadge({ lineItemName, merchants, className }: MerchantIn
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-72 sm:w-80 p-0" align="start" onClick={(e) => e.stopPropagation()}>
-        <div className="p-3 border-b bg-gradient-to-r from-primary/5 to-orange-500/5">
+        <div className="p-3 border-b border-border bg-primary/5">
           <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+            <div className="h-8 w-8 rounded-md bg-primary/10 border border-primary/20 flex items-center justify-center flex-shrink-0">
               <Store className="h-4 w-4 text-primary" />
             </div>
             <div className="min-w-0">

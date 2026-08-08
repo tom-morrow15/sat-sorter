@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useSeoMeta } from '@unhead/react';
 import { Plus, RefreshCw, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { BudgetHeader } from '@/components/budget/BudgetHeader';
 import { useBudget } from '@/hooks/useBudget';
