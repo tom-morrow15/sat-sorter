@@ -310,7 +310,7 @@ export function ManagePartnersDialog({
                     <Copy className="h-3.5 w-3.5 mr-1" /> Copy key
                   </Button>
                   {isOwner && (
-                    <Button size="sm" variant="outline" onClick={ensureKeypairAndShowQR}>
+                    <Button size="sm" variant="outline" onClick={handleShareClick}>
                       <QrCode className="h-3.5 w-3.5 mr-1" /> Show QR
                     </Button>
                   )}
