@@ -337,15 +337,6 @@ export function useSharedBudgetSync(budgetNpub: string, budgetNsec: string) {
         const snapshot = syncEvent.data?.snapshot as MonthlyBudget;
         if (!snapshot?.month) return;
 
-        // Timestamp guard: only apply snapshots newer than the last local edit.
-        // This prevents an older relay event from overwriting a newer local change.
-        const eventTimestamp = rawEvent.created_at || syncEvent.timestamp || 0;
-        const lastLocalChange = lastLocalChangeRef.current.get(snapshot.month) || 0;
-        if (lastLocalChange > 0 && eventTimestamp > 0 && eventTimestamp < lastLocalChange) {
-          console.log(`[SharedBudgetSync] Skipping older snapshot for ${snapshot.month} (local is newer)`);
-          return;
-        }
-
         // Record the fingerprint so PartnerSyncWrapper doesn't echo this back
         receivedFingerprintsRef.current.set(snapshot.month, fingerprintBudgetMonth(snapshot));
 
@@ -466,9 +457,11 @@ export function useSharedBudgetSync(budgetNpub: string, budgetNsec: string) {
       setSyncStatus((prev) => ({ ...prev, isSyncing: false }));
 
       // Use `since` to only receive NEW events published after the initial fetch.
+      // Subtract 10s as a buffer so events published at the same moment (or with
+      // slight clock skew between the two devices) are not missed.
       const now = Math.floor(Date.now() / 1000);
       subscriptionRef.current = nostr.req(
-        [{ kinds: [BUDGET_KIND], authors: [keys.budgetPub], since: now }],
+        [{ kinds: [BUDGET_KIND], authors: [keys.budgetPub], since: now - 10 }],
         {
           onevent: (ev) => handleIncomingEventRef.current(ev),
           oneose: () => { console.log('[SharedBudgetSync] Live subscription active'); },
