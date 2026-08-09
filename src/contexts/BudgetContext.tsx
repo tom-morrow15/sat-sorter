@@ -36,10 +36,18 @@ const BudgetContext = createContext<BudgetContextValue | null>(null);
   const loadKeypairFromStorage = (): { budgetNsec: string; budgetNpub: string } | null => {
     try {
       const raw = localStorage.getItem(BUDGET_KEYPAIR_KEY);
-      if (!raw) return null;
+      if (!raw) {
+        console.log('[BudgetContext] No keypair in plaintext slot');
+        return null;
+      }
       const parsed = JSON.parse(raw);
-      if (parsed?.budgetNsec && parsed?.budgetNpub) return parsed;
-    } catch { /* ignore */ }
+      if (parsed?.budgetNsec && parsed?.budgetNpub) {
+        console.log('[BudgetContext] Loaded keypair from plaintext slot:', parsed.budgetNpub.slice(0, 16) + '...');
+        return parsed;
+      }
+    } catch (e) {
+      console.warn('[BudgetContext] Failed to load keypair from plaintext slot:', e);
+    }
     return null;
   };
 
@@ -47,10 +55,13 @@ const BudgetContext = createContext<BudgetContextValue | null>(null);
     try {
       if (kp) {
         localStorage.setItem(BUDGET_KEYPAIR_KEY, JSON.stringify(kp));
+        console.log('[BudgetContext] Saved keypair to plaintext slot:', kp.budgetNpub.slice(0, 16) + '...');
       } else {
         localStorage.removeItem(BUDGET_KEYPAIR_KEY);
       }
-    } catch { /* ignore */ }
+    } catch (e) {
+      console.warn('[BudgetContext] Failed to save keypair to plaintext slot:', e);
+    }
   };
 
 export function BudgetProvider({ children }: { children: ReactNode }) {
@@ -69,9 +80,11 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
     if (!normalized.budgetKeypair) {
       const storedKeypair = loadKeypairFromStorage();
       if (storedKeypair) {
+        console.log('[BudgetContext] Merged keypair from plaintext slot into state');
         normalized.budgetKeypair = storedKeypair;
       }
     }
+    console.log('[BudgetContext] State computed — keypair:', !!normalized.budgetKeypair, 'budgets:', normalized.budgets.length);
     return normalized;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rawState]);
