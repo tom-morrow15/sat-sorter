@@ -49,6 +49,11 @@ export function PartnerSyncWrapper({ children }: { children: React.ReactNode }) 
   // Track the last published fingerprint to avoid redundant publishes
   const lastPublishedRef = useRef<string>('');
 
+  // Diagnostic: log whether the shared budget keypair is available
+  useEffect(() => {
+    console.log('[PartnerSyncWrapper] budgetKeypair present:', !!budgetKeypair, 'budgets:', fullState.budgets.length);
+  }, [budgetKeypair, fullState.budgets.length]);
+
   // Publish full-month snapshots whenever the budget state changes (debounced)
   useEffect(() => {
     if (!budgetKeypair) return;

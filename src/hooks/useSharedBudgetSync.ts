@@ -364,7 +364,10 @@ export function useSharedBudgetSync(budgetNpub: string, budgetNsec: string) {
   /** Subscribe to budget events from the budget npub. */
   useEffect(() => {
     const keys = keyBytes;
-    if (!keys || !budgetNpub) return;
+    if (!keys || !budgetNpub) {
+      console.log('[SharedBudgetSync] Not starting subscription — keyBytes:', !!keys, 'budgetNpub:', !!budgetNpub);
+      return;
+    }
 
     console.log(`[SharedBudgetSync] Subscribing to budget npub ${budgetNpub.slice(0, 16)}...`);
     setSyncStatus((prev) => ({ ...prev, isSyncing: true }));

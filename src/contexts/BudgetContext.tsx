@@ -24,6 +24,34 @@ const BudgetContext = createContext<BudgetContextValue | null>(null);
 
   const MIGRATION_KEY = 'sat-sorter-partner-migration-shown';
   const PAYMENT_METHODS_MIGRATION_KEY = 'sat-sorter-payment-methods-migrated';
+  /** Separate plaintext key for the budget keypair. The encrypted state can fail
+   *  to decrypt in sandboxed/PWA environments where IndexedDB produces an
+   *  ephemeral key that changes each session. Storing the keypair separately
+   *  (unencrypted) ensures it survives those reloads. */
+  const BUDGET_KEYPAIR_KEY = 'sat-sorter:budget-keypair';
+
+  // Read the keypair from its own plaintext localStorage slot.
+  // This runs once on mount and merges the keypair into state if the main
+  // encrypted state lost it.
+  const loadKeypairFromStorage = (): { budgetNsec: string; budgetNpub: string } | null => {
+    try {
+      const raw = localStorage.getItem(BUDGET_KEYPAIR_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (parsed?.budgetNsec && parsed?.budgetNpub) return parsed;
+    } catch { /* ignore */ }
+    return null;
+  };
+
+  const saveKeypairToStorage = (kp: { budgetNsec: string; budgetNpub: string } | null) => {
+    try {
+      if (kp) {
+        localStorage.setItem(BUDGET_KEYPAIR_KEY, JSON.stringify(kp));
+      } else {
+        localStorage.removeItem(BUDGET_KEYPAIR_KEY);
+      }
+    } catch { /* ignore */ }
+  };
 
 export function BudgetProvider({ children }: { children: ReactNode }) {
   // Use the ultra-safe default. This is the #1 defense against Safari "Clear History"
@@ -34,15 +62,37 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
 
   // Always normalize on every render / load. This guarantees we never hand a broken
   // object downstream even if localStorage contains legacy or half-written data.
-  const state = normalizeBudgetState(rawState);
+  // Also merges the keypair from its separate plaintext slot if the encrypted
+  // state lost it (e.g. IndexedDB ephemeral key changed in a PWA/sandboxed context).
+  const state = useMemo(() => {
+    const normalized = normalizeBudgetState(rawState);
+    if (!normalized.budgetKeypair) {
+      const storedKeypair = loadKeypairFromStorage();
+      if (storedKeypair) {
+        normalized.budgetKeypair = storedKeypair;
+      }
+    }
+    return normalized;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rawState]);
 
   // setState wrapper that also normalizes the value the caller stores.
   // We still persist the normalized shape so future loads are cleaner.
+  // Also persists the keypair to its own plaintext slot so it survives
+  // encrypted-state decryption failures.
   const setState = useCallback((value: BudgetState | ((prev: BudgetState) => BudgetState)) => {
     setRawState((prevRaw) => {
       const prevNormalized = normalizeBudgetState(prevRaw);
       const next = typeof value === 'function' ? value(prevNormalized) : value;
-      return normalizeBudgetState(next);
+      const normalized = normalizeBudgetState(next);
+
+      // Persist the keypair to its own plaintext slot so it survives
+      // encrypted-state decryption failures on reload.
+      if (normalized.budgetKeypair) {
+        saveKeypairToStorage(normalized.budgetKeypair);
+      }
+
+      return normalized;
     });
   }, [setRawState]);
 
