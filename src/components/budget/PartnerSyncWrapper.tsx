@@ -48,6 +48,12 @@ export function PartnerSyncWrapper({ children }: { children: React.ReactNode }) 
   const publishTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Track the last published fingerprint to avoid redundant publishes
   const lastPublishedRef = useRef<string>('');
+  // Track whether the effect has run once. On the first run (app mount / reload)
+  // we only record the baseline fingerprint — we do NOT publish, because the
+  // state was loaded from storage/relay, not edited by the user. Publishing on
+  // mount would echo the whole budget back to the relay AND could overwrite the
+  // partner's newer data with our stale local state.
+  const initializedRef = useRef(false);
 
   // Diagnostic: log whether the shared budget keypair is available
   useEffect(() => {
@@ -63,6 +69,18 @@ export function PartnerSyncWrapper({ children }: { children: React.ReactNode }) 
     const currentFingerprints = new Map<string, string>();
     for (const budget of fullState.budgets) {
       currentFingerprints.set(budget.month, fingerprintBudgetMonth(budget));
+    }
+
+    // FIRST RUN: just record the baseline and mark initialized. Don't publish.
+    // The initial state came from localStorage/relay, not a user edit.
+    if (!initializedRef.current) {
+      const baseline = JSON.stringify(
+        fullState.budgets.map(b => ({ month: b.month, fp: currentFingerprints.get(b.month) })).sort((a, b) => a.month.localeCompare(b.month))
+      );
+      lastPublishedRef.current = baseline;
+      initializedRef.current = true;
+      console.log('[PartnerSyncWrapper] Initialized baseline, not publishing on mount');
+      return;
     }
 
     // Determine which months actually changed and weren't just received via sync
