@@ -157,8 +157,10 @@ export function AddTransactionDialog({
 
   // Auto-fill the first assignment's amount when there's only one row
   // and the user has entered a total amount (reduces taps for the common case)
+  // Always syncs — so as the user types each digit, the assignment amount
+  // updates to match the full total.
   useEffect(() => {
-    if (assignments.length === 1 && hasAmount && !assignments[0].amountInput) {
+    if (assignments.length === 1 && hasAmount) {
       const singleAmount = currency === 'usd'
         ? amountInput
         : priceData ? satsToUsd(totalSats, priceData.usdPerBtc).toFixed(2) : '';
