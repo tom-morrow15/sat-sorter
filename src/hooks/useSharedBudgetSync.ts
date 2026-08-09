@@ -457,11 +457,11 @@ export function useSharedBudgetSync(budgetNpub: string, budgetNsec: string) {
       setSyncStatus((prev) => ({ ...prev, isSyncing: false }));
 
       // Use `since` to only receive NEW events published after the initial fetch.
-      // Subtract 10s as a buffer so events published at the same moment (or with
-      // slight clock skew between the two devices) are not missed.
+      // Subtract 30s as a buffer so events published at the same moment (or with
+      // clock skew between the two devices) are not missed.
       const now = Math.floor(Date.now() / 1000);
       subscriptionRef.current = nostr.req(
-        [{ kinds: [BUDGET_KIND], authors: [keys.budgetPub], since: now - 10 }],
+        [{ kinds: [BUDGET_KIND], authors: [keys.budgetPub], since: now - 30 }],
         {
           onevent: (ev) => handleIncomingEventRef.current(ev),
           oneose: () => { console.log('[SharedBudgetSync] Live subscription active'); },

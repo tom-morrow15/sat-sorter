@@ -100,7 +100,12 @@ export function PartnerSyncWrapper({ children }: { children: React.ReactNode }) 
       changedMonths.push(budget);
     }
 
-    if (changedMonths.length === 0) return;
+    if (changedMonths.length === 0) {
+      console.log('[PartnerSyncWrapper] No changed months, nothing to publish');
+      return;
+    }
+
+    console.log('[PartnerSyncWrapper] Detected local changes in', changedMonths.length, 'month(s):', changedMonths.map(b => b.month).join(', '));
 
     // Record that these months were locally edited (so incoming older
     // snapshots won't overwrite them)
