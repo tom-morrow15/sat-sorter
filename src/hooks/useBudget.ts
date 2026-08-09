@@ -230,11 +230,14 @@ export function useBudget() {
     saveBudget(updatedBudget);
   }, [currentBudget, saveBudget]);
 
-  // Delete a transaction
+  // Delete a transaction — also records a tombstone in deletedTxIds so the
+  // deletion propagates to the partner's device (without it, the partner's
+  // snapshot would re-add the transaction on next sync).
   const deleteTransaction = useCallback((transactionId: string) => {
     const updatedBudget = {
       ...currentBudget,
       transactions: currentBudget.transactions.filter(t => t.id !== transactionId),
+      deletedTxIds: [...(currentBudget.deletedTxIds || []), transactionId],
     };
     saveBudget(updatedBudget);
   }, [currentBudget, saveBudget]);

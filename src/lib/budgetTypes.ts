@@ -58,6 +58,10 @@ export interface MonthlyBudget {
   month: string; // YYYY-MM format
   buckets: Bucket[];
   transactions: Transaction[];
+  /** IDs of transactions that were explicitly deleted. Tracked so deletions
+   *  propagate to the partner — without this, a deleted transaction would
+   *  reappear when the other partner's snapshot is merged in. */
+  deletedTxIds?: string[];
 }
 
 export interface BudgetPartner {
