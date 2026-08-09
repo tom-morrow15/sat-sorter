@@ -1,7 +1,7 @@
 // NOTE: This file is stable and usually should not be modified.
 // It is important that all functionality in this file is preserved, and should only be modified if explicitly requested.
 
-import { ChevronDown, LogOut, UserIcon, Heart, Info, Copy, AlertTriangle, RotateCw, Cloud, LogIn, Sun, Moon, GraduationCap, Wallet, Menu, QrCode, Calendar, Users } from 'lucide-react';
+import { ChevronDown, LogOut, UserIcon, Heart, Info, Copy, AlertTriangle, RotateCw, Cloud, LogIn, Sun, Moon, GraduationCap, Wallet, Menu, QrCode, Calendar, Users, Bug } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,6 +38,8 @@ interface AccountSwitcherProps {
   onSupportBitcoinProjects?: () => void;
   onAbout?: () => void;
   onLearnAboutBitcoin?: () => void;
+  /** Opens the sync debug log viewer (for troubleshooting partner sync) */
+  onOpenDebugLog?: () => void;
   /** Display variant: "avatar" shows the user avatar (default), "hamburger" shows a Menu icon */
   variant?: 'avatar' | 'hamburger';
   /** Only used for hamburger variant: whether an update is available */
@@ -66,6 +68,7 @@ export function AccountSwitcher({
   onSupportBitcoinProjects,
   onAbout,
   onLearnAboutBitcoin,
+  onOpenDebugLog,
   variant = 'avatar',
   updateAvailable = false,
   triggerClassName,
@@ -275,6 +278,13 @@ export function AccountSwitcher({
           Refresh the app
           <span className="ml-auto text-[10px] text-muted-foreground/60">get latest</span>
         </DropdownMenuItem>
+        {onOpenDebugLog && (
+          <DropdownMenuItem onClick={onOpenDebugLog}>
+            <Bug className="h-4 w-4 mr-2" />
+            Sync Debug Log
+            <span className="ml-auto text-[10px] text-muted-foreground/60">troubleshoot</span>
+          </DropdownMenuItem>
+        )}
       </DropdownMenuContent>
       </DropdownMenu>
     </>

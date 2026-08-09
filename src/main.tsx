@@ -6,10 +6,15 @@ import './lib/polyfills.ts';
 // Initialize secure storage (device encryption key) before app renders
 // so that all useLocalStorage calls with encrypted serializers have the key ready.
 import { initSecureStorage } from './lib/secureStorage';
+import { installDebugLogCapture } from '@/lib/debugLog';
 
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import App from './App.tsx';
 import './index.css';
+
+// Capture sync/partner logs into the in-app debug buffer so users can view
+// them on mobile (where there's no browser console).
+installDebugLogCapture();
 
 // Space Grotesk — all UI text
 import '@fontsource/space-grotesk/400.css';

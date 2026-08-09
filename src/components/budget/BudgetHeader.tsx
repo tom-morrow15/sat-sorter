@@ -48,6 +48,7 @@ import { DonateDialog } from './DonateDialog';
 import { BudgetKeyDialog } from './BudgetKeyDialog';
 import { MapleSettings } from '@/components/maple/MapleSettings';
 import { PaymentMethodsManager } from './PaymentMethodsManager';
+import { DebugLogDialog } from './DebugLogDialog';
 import { useRegisterSW } from '@/hooks/useRegisterSW';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { GuestUpgradeModal } from '@/components/GuestUpgradeModal';
@@ -119,6 +120,7 @@ export function BudgetHeader({
   const [showPaymentMethods, setShowPaymentMethods] = useState(false);
   const [showGuestUpgrade, setShowGuestUpgrade] = useState(false);
   const [showBudgetKey, setShowBudgetKey] = useState(false);
+  const [showDebugLog, setShowDebugLog] = useState(false);
 
   const getAvailableMonths = () => {
     const months: string[] = [];
@@ -248,6 +250,7 @@ export function BudgetHeader({
                   onOpenMapleSettings={() => setShowSettings(true)}
                   onOpenPaymentMethods={() => setShowPaymentMethods(true)}
                   onCopyPreviousMonth={() => onCopyPreviousMonth?.()}
+                  onOpenDebugLog={() => setShowDebugLog(true)}
                   onPlanNextMonth={onPlanNextMonth}
                   onResetBudgetMonth={() => setShowResetConfirm(true)}
                   onSoftReset={handleSoftReset}
@@ -564,6 +567,9 @@ export function BudgetHeader({
         budgetNsec={fullState.budgetKeypair?.budgetNsec}
         budgetNpub={fullState.budgetKeypair?.budgetNpub}
       />
+
+      {/* Sync Debug Log */}
+      <DebugLogDialog open={showDebugLog} onOpenChange={setShowDebugLog} />
     </div>
   );
 }
