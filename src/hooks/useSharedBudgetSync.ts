@@ -361,6 +361,11 @@ export function useSharedBudgetSync(budgetNpub: string, budgetNsec: string) {
     [toast, publishBudgetSnapshot]
   );
 
+  // Ref for the latest handleIncomingEvent so the subscription callback always
+  // calls the current version without needing to re-subscribe on every render.
+  const handleIncomingEventRef = useRef(handleIncomingEvent);
+  handleIncomingEventRef.current = handleIncomingEvent;
+
   /** Subscribe to budget events from the budget npub. */
   useEffect(() => {
     const keys = keyBytes;
@@ -368,6 +373,11 @@ export function useSharedBudgetSync(budgetNpub: string, budgetNsec: string) {
       console.log('[SharedBudgetSync] Not starting subscription — keyBytes:', !!keys, 'budgetNpub:', !!budgetNpub);
       return;
     }
+
+    // Prevent re-subscribing when the effect re-runs due to non-key changes
+    // (e.g. toast/publishBudgetSnapshot reference changes). The subscription
+    // should only re-start when the keypair or relay pool actually changes.
+    if (subscriptionRef.current) return;
 
     console.log(`[SharedBudgetSync] Subscribing to budget npub ${budgetNpub.slice(0, 16)}...`);
     setSyncStatus((prev) => ({ ...prev, isSyncing: true }));
@@ -381,8 +391,13 @@ export function useSharedBudgetSync(budgetNpub: string, budgetNsec: string) {
           { signal: AbortSignal.timeout(10000) }
         );
         console.log(`[SharedBudgetSync] Fetched ${existing.length} existing budget events`);
-        for (const ev of existing) {
-          if (!cancelled) await handleIncomingEvent(ev);
+
+        // Sort by created_at ascending so the newest snapshot for each month
+        // is applied LAST — prevents an older snapshot from overwriting a newer one.
+        const sorted = [...existing].sort((a, b) => (a.created_at || 0) - (b.created_at || 0));
+
+        for (const ev of sorted) {
+          if (!cancelled) await handleIncomingEventRef.current(ev);
         }
       } catch (e) {
         console.warn('[SharedBudgetSync] Initial fetch failed:', e);
@@ -392,13 +407,11 @@ export function useSharedBudgetSync(budgetNpub: string, budgetNsec: string) {
       setSyncStatus((prev) => ({ ...prev, isSyncing: false }));
 
       // Use `since` to only receive NEW events published after the initial fetch.
-      // `limit: 0` is ambiguous — some relays treat it as "return nothing" instead
-      // of "no limit", which silently breaks the live subscription.
       const now = Math.floor(Date.now() / 1000);
       subscriptionRef.current = nostr.req(
         [{ kinds: [BUDGET_KIND], authors: [keys.budgetPub], since: now }],
         {
-          onevent: handleIncomingEvent,
+          onevent: (ev) => handleIncomingEventRef.current(ev),
           oneose: () => { console.log('[SharedBudgetSync] Live subscription active'); },
         }
       );
@@ -411,7 +424,7 @@ export function useSharedBudgetSync(budgetNpub: string, budgetNsec: string) {
         subscriptionRef.current = null;
       }
     };
-  }, [budgetNpub, nostr, handleIncomingEvent, keyBytes]);
+  }, [budgetNpub, keyBytes]);
 
   /** Manually re-fetch all existing budget events from relays. */
   const forceSync = useCallback(async () => {
@@ -425,15 +438,18 @@ export function useSharedBudgetSync(budgetNpub: string, budgetNsec: string) {
         { signal: AbortSignal.timeout(10000) }
       );
       console.log(`[SharedBudgetSync] Force sync fetched ${existing.length} events`);
-      for (const ev of existing) {
-        await handleIncomingEvent(ev);
+
+      // Sort by created_at ascending so the newest snapshot per month is applied last
+      const sorted = [...existing].sort((a, b) => (a.created_at || 0) - (b.created_at || 0));
+      for (const ev of sorted) {
+        await handleIncomingEventRef.current(ev);
       }
       setSyncStatus((prev) => ({ ...prev, isSyncing: false, lastSync: Math.floor(Date.now() / 1000) }));
     } catch (e) {
       console.error('[SharedBudgetSync] Force sync failed:', e);
       setSyncStatus((prev) => ({ ...prev, isSyncing: false, error: e instanceof Error ? e.message : 'Sync failed' }));
     }
-  }, [nostr, handleIncomingEvent]);
+  }, [nostr]);
 
   /** Publish a sync request asking the owner to re-publish all data. */
   const requestSync = useCallback(async (): Promise<boolean> => {
