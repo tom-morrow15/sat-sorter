@@ -94,7 +94,8 @@ function json(data: unknown, status = 200): Response {
 // Initialize D1 database tables
 async function initializeDatabase(db: any): Promise<void> {
   try {
-    await db.exec(`
+    // Create subscriptions table
+    await db.prepare(`
       CREATE TABLE IF NOT EXISTS subscriptions (
         pubkey TEXT PRIMARY KEY,
         tier TEXT NOT NULL DEFAULT 'free',
@@ -104,10 +105,11 @@ async function initializeDatabase(db: any): Promise<void> {
         payment_type TEXT NOT NULL DEFAULT 'none',
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
-      );
-    `);
+      )
+    `).run();
 
-    await db.exec(`
+    // Create invoices table
+    await db.prepare(`
       CREATE TABLE IF NOT EXISTS invoices (
         id TEXT PRIMARY KEY,
         pubkey TEXT NOT NULL,
@@ -119,10 +121,11 @@ async function initializeDatabase(db: any): Promise<void> {
         created_at TEXT NOT NULL,
         expires_at TEXT NOT NULL,
         paid_at TEXT
-      );
-    `);
+      )
+    `).run();
 
-    await db.exec(`
+    // Create zap verification log
+    await db.prepare(`
       CREATE TABLE IF NOT EXISTS zap_verifications (
         id TEXT PRIMARY KEY,
         pubkey TEXT NOT NULL,
@@ -132,8 +135,8 @@ async function initializeDatabase(db: any): Promise<void> {
         status TEXT NOT NULL DEFAULT 'verified',
         verified_at TEXT NOT NULL,
         created_at TEXT NOT NULL
-      );
-    `);
+      )
+    `).run();
 
     console.log("Database tables initialized");
   } catch (error) {
