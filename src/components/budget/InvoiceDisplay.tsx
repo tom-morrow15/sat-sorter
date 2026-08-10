@@ -25,7 +25,7 @@ export function InvoiceDisplay({ invoice, amount }: InvoiceDisplayProps) {
     QRCode.toDataURL(invoice, {
       errorCorrectionLevel: 'M',
       type: 'image/png',
-      width: 300,
+      width: 240,
       margin: 2,
       color: {
         dark: '#000000',
@@ -85,16 +85,16 @@ export function InvoiceDisplay({ invoice, amount }: InvoiceDisplayProps) {
       {/* QR Code */}
       {showQR && (
         <div className="flex justify-center">
-          <div className="bh-panel p-3 rounded-lg">
+          <div className="bh-panel p-2.5 rounded-lg">
             {qrLoading ? (
-              <div className="w-[300px] h-[300px] flex items-center justify-center">
+              <div className="w-[240px] h-[240px] flex items-center justify-center">
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
               </div>
             ) : qrImage ? (
               <img
                 src={qrImage}
                 alt="Lightning invoice QR code"
-                className="w-[300px] h-[300px]"
+                className="w-[240px] h-[240px]"
               />
             ) : null}
           </div>
@@ -133,7 +133,7 @@ export function InvoiceDisplay({ invoice, amount }: InvoiceDisplayProps) {
           How to pay:
         </p>
         <ol className="text-sm text-blue-800 dark:text-blue-200 space-y-1 list-decimal list-inside">
-          <li>Open your Lightning wallet (Alby, Wallet of Satoshi, etc.)</li>
+          <li>Open your Lightning wallet</li>
           <li>Scan the QR code, or paste the invoice</li>
           <li>Confirm and send the payment</li>
           <li>Your buckets will unlock automatically — keep this window open</li>

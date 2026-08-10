@@ -4,12 +4,11 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/useToast';
+import { useBitcoinPrice } from '@/hooks/useBitcoinPrice';
 import { InvoiceDisplay } from './InvoiceDisplay';
 import { useCreateInvoice, useVerifyPayment, type SubscriptionStatus } from '@/hooks/useSubscription';
 
@@ -28,8 +27,6 @@ interface UpgradeTier {
   buckets: number;
   description: string;
 }
-
-const SATS_PER_USD = 50000;
 
 const UPGRADE_TIERS: UpgradeTier[] = [
   {
@@ -84,8 +81,12 @@ export function UpgradeDialog({
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const { showToast } = useToast();
+  const { data: priceData } = useBitcoinPrice();
   const createInvoice = useCreateInvoice();
   const verifyPayment = useVerifyPayment();
+
+  // Real-time sats per USD from Bitcoin price
+  const satsPerUsd = priceData?.satsPerUsd ?? 0;
 
   // Polling ref
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -145,12 +146,19 @@ export function UpgradeDialog({
   }, [state, invoiceData, verifyPayment, showToast, onUpgradeComplete, onOpenChange]);
 
   const handleSelectTier = async (tier: UpgradeTier) => {
+    if (!satsPerUsd) {
+      setErrorMessage('Unable to fetch Bitcoin price. Please try again in a moment.');
+      setState('error');
+      return;
+    }
+
     setSelectedTier(tier);
     setIsLoading(true);
     setErrorMessage('');
 
     try {
-      const satoshis = tier.price * SATS_PER_USD;
+      // Calculate sats from real-time BTC price: $1 = satsPerUsd sats
+      const satoshis = Math.round(tier.price * satsPerUsd);
       const millisatoshis = satoshis * 1000;
 
       const result = await createInvoice(
@@ -201,9 +209,10 @@ export function UpgradeDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[520px]">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+      <DialogContent className="sm:max-w-[480px] max-w-[calc(100vw-1.5rem)] max-h-[85vh] flex flex-col overflow-hidden p-0 [&>button:last-child]:hidden">
+        {/* Header */}
+        <div className="px-5 py-3 border-b border-border/40 shrink-0">
+          <DialogTitle className="flex items-center gap-2 text-base">
             {state === 'success' ? (
               <CheckCircle2 className="h-5 w-5 text-green-600" />
             ) : state === 'error' ? (
@@ -217,14 +226,17 @@ export function UpgradeDialog({
                 ? 'Something Went Wrong'
                 : 'Bucket Limit Reached'}
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="mt-1">
             {state === 'success'
               ? 'Your subscription has been upgraded. You can now add more buckets.'
               : state === 'error'
                 ? errorMessage
                 : `You've reached the limit of ${maxBucketsForFreeTier} free budget buckets. Upgrade this month to add more.`}
           </DialogDescription>
-        </DialogHeader>
+        </div>
+
+        {/* Scrollable content */}
+        <div className="flex-1 overflow-y-auto px-5 py-4">
 
         {/* ─── SUCCESS STATE ─── */}
         {state === 'success' && (
@@ -278,7 +290,7 @@ export function UpgradeDialog({
             {/* QR code + invoice */}
             <InvoiceDisplay
               invoice={invoiceData.pr}
-              amount={selectedTier.price * SATS_PER_USD * 1000}
+              amount={selectedTier && satsPerUsd ? Math.round(selectedTier.price * satsPerUsd) * 1000 : 0}
             />
 
             {/* Waiting indicator */}
@@ -323,7 +335,7 @@ export function UpgradeDialog({
                         ${tier.price}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        ~{(tier.price * SATS_PER_USD).toLocaleString()} sats
+                        {satsPerUsd ? `~${Math.round(tier.price * satsPerUsd).toLocaleString()} sats` : 'Loading price...'}
                       </p>
                     </div>
                   </div>
@@ -351,34 +363,36 @@ export function UpgradeDialog({
             </div>
           </div>
         )}
+        </div>
 
-        <DialogFooter>
+        {/* Footer */}
+        <div className="px-5 py-3 border-t border-border/40 shrink-0">
           {state === 'success' ? (
             <Button onClick={handleClose} className="w-full">
               Done
             </Button>
           ) : state === 'error' ? (
-            <Button variant="outline" onClick={handleClose}>
+            <Button variant="outline" onClick={handleClose} className="w-full">
               Close
             </Button>
           ) : state === 'invoice' ? (
-            <Button variant="outline" onClick={handleClose}>
+            <Button variant="outline" onClick={handleClose} className="w-full">
               Cancel Payment
             </Button>
           ) : (
-            <>
-              <Button variant="outline" onClick={handleClose}>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={handleClose} className="flex-1">
                 Cancel
               </Button>
               {isLoading && (
-                <Button disabled>
+                <Button disabled className="flex-1">
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Creating Invoice...
+                  Creating...
                 </Button>
               )}
-            </>
+            </div>
           )}
-        </DialogFooter>
+        </div>
       </DialogContent>
     </Dialog>
   );
