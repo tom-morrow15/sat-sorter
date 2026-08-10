@@ -46,6 +46,7 @@ import { BackupRestoreDialog } from './BackupRestoreDialog';
 import { ManagePartnersDialog } from './ManagePartnersDialog';
 import { DonateDialog } from './DonateDialog';
 import { BudgetKeyDialog } from './BudgetKeyDialog';
+import { SubscriptionSettings } from './SubscriptionSettings';
 import { MapleSettings } from '@/components/maple/MapleSettings';
 import { PaymentMethodsManager } from './PaymentMethodsManager';
 import { DebugLogDialog } from './DebugLogDialog';
@@ -127,6 +128,7 @@ export function BudgetHeader({
   const [showRelaySettings, setShowRelaySettings] = useState(false);
   const [showAccountDetails, setShowAccountDetails] = useState(false);
   const [showWelcomeTour, setShowWelcomeTour] = useState(false);
+  const [showSubscription, setShowSubscription] = useState(false);
 
   const getAvailableMonths = () => {
     const months: string[] = [];
@@ -322,6 +324,10 @@ export function BudgetHeader({
                       <BookOpen className="h-4 w-4 mr-2" />
                       Welcome Tour
                     </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setShowSubscription(true)}>
+                      <Zap className="h-4 w-4 mr-2 text-amber-500" />
+                      Subscription & Access
+                    </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => setShowDonateSorter(true)}>
                       <Heart className="h-4 w-4 mr-2 text-primary" />
                       Support Sat Sorter
@@ -504,6 +510,18 @@ export function BudgetHeader({
 
       <DonateDialog open={showDonateSorter} onOpenChange={setShowDonateSorter} />
       <DonateDialog open={showDonate} onOpenChange={setShowDonate} />
+
+      <Dialog open={showSubscription} onOpenChange={setShowSubscription}>
+        <DialogContent className="sm:max-w-[520px] max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Subscription & Access</DialogTitle>
+            <DialogDescription>Manage your budget bucket limits and payment status</DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <SubscriptionSettings />
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={showAbout} onOpenChange={setShowAbout}>
         <DialogContent className="sm:max-w-[500px] max-h-[85vh]">

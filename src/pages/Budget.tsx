@@ -10,7 +10,8 @@ import { BudgetHeader } from '@/components/budget/BudgetHeader';
 import { BudgetDashboard } from '@/components/budget/BudgetDashboard';
 import { BucketCard } from '@/components/budget/BucketCard';
 import { AddBucketDialog } from '@/components/budget/AddBucketDialog';
-import { CopyMonthPrompt, type AvailableMonth } from '@/components/budget/CopyMonthPrompt';
+import { type AvailableMonth } from '@/components/budget/CopyMonthPrompt';
+import { CopyMonthWithUpgrade } from '@/components/budget/CopyMonthWithUpgrade';
 import { TransactionsPanel } from '@/components/budget/TransactionsPanel';
 import { BTCMapBanner } from '@/components/budget/BTCMapBanner';
 import { WalletModalControlled } from '@/components/budget/WalletModalControlled';
@@ -424,20 +425,28 @@ export default function Budget() {
           isGuest={!user?.pubkey}
         />
 
-       {/* Copy Budget Prompt — unified flow for all copy triggers */}
-       <CopyMonthPrompt
-         open={showCopyPrompt}
-         onOpenChange={setShowCopyPrompt}
-         currentMonth={currentMonth}
-         availableMonths={availableCopyMonths}
-         onStartFresh={() => {
-           toast({
-             title: 'Starting fresh',
-             description: 'Your new month is ready.',
-           });
-         }}
-         onCopyPrevious={handleCopyPreviousMonth}
-       />
+        {/* Copy Budget Prompt — with upgrade integration for large budgets */}
+        {(() => {
+          const previousMonthBudget = availableCopyMonths[0]?.budget ?? null;
+          return (
+            <CopyMonthWithUpgrade
+              open={showCopyPrompt}
+              onOpenChange={setShowCopyPrompt}
+              currentMonth={currentMonth}
+              availableMonths={availableCopyMonths}
+              previousBudget={previousMonthBudget}
+              currentBudgets={fullState.budgets.filter(b => b.month === currentMonth)}
+              onStartFresh={() => {
+                toast({
+                  title: 'Starting fresh',
+                  description: 'Your new month is ready.',
+                });
+              }}
+              onCopyPrevious={handleCopyPreviousMonth}
+              maxBucketsAllowed={5}
+            />
+          );
+        })()}
 
        {/* Wallet Modal - controlled via state */}
        {showWalletModal && (

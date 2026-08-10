@@ -2,7 +2,7 @@ import { useState } from 'react';
 import {
   Home, Car, Utensils, Heart, PiggyBank, Wallet, Plus, ChevronDown, ChevronUp,
   Trash2, Edit2, Palette, ShoppingBag, Briefcase, GraduationCap, Plane, Gift,
-  Music, Dumbbell, Baby, Dog, Stethoscope,
+  Music, Dumbbell, Baby, Dog, Stethoscope, Zap,
 } from 'lucide-react';
 import { SpendingProgressBar } from './SpendingProgressBar';
 import { DeletionConfirmDialog } from './DeletionConfirmDialog';
@@ -73,9 +73,12 @@ export function BucketCard({
   // Free tier limits
   const MAX_BUCKETS_FREE = 5;
   const MAX_ITEMS_PER_BUCKET_FREE = 4;
+  const UNLIMITED_SENTINEL = 999999;
   
-  // Get max buckets available to user
+  // Get limits from subscription (or defaults for guests)
   const maxBucketsAvailable = isGuest ? MAX_BUCKETS_FREE : (subscription?.buckets ?? MAX_BUCKETS_FREE);
+  const maxItemsPerBucket = isGuest ? MAX_ITEMS_PER_BUCKET_FREE : (subscription?.items_per_bucket ?? MAX_ITEMS_PER_BUCKET_FREE);
+  const isUnlimitedItems = maxItemsPerBucket >= UNLIMITED_SENTINEL;
 
   const Icon = iconMap[bucket.icon] || Wallet;
 
@@ -101,11 +104,18 @@ export function BucketCard({
     return `${formatSats(sats)}`;
   };
 
+  const hasReachedItemLimit = !isUnlimitedItems && bucket.lineItems.length >= maxItemsPerBucket;
+
   const handleAddItem = () => {
     // Check item limit for this bucket
-    const maxItems = subscription?.items_per_bucket ?? MAX_ITEMS_PER_BUCKET_FREE;
-    if (bucket.lineItems.length >= maxItems && subscription?.tier === 'free') {
-      // Would need to add item limit upgrade dialog here
+    if (hasReachedItemLimit) {
+      if (isGuest) {
+        setShowLoginPrompt(true);
+      } else {
+        setShowUpgradeDialog(true);
+      }
+      setIsAddingItem(false);
+      setNewItemName('');
       return;
     }
 
@@ -278,10 +288,34 @@ export function BucketCard({
                 </div>
               ) : (
                 <button
-                  className="w-full flex items-center justify-center gap-1.5 h-10 mt-1 rounded-md border border-dashed border-border text-sm text-muted-foreground hover:text-primary hover:border-primary/50 transition-colors touch-target-sm"
-                  onClick={() => setIsAddingItem(true)}
+                  className={cn(
+                    "w-full flex items-center justify-center gap-1.5 h-10 mt-1 rounded-md border border-dashed text-sm transition-colors touch-target-sm",
+                    hasReachedItemLimit
+                      ? "border-amber-300 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950"
+                      : "border-border text-muted-foreground hover:text-primary hover:border-primary/50"
+                  )}
+                  onClick={() => {
+                    if (hasReachedItemLimit) {
+                      if (isGuest) {
+                        setShowLoginPrompt(true);
+                      } else {
+                        setShowUpgradeDialog(true);
+                      }
+                    } else {
+                      setIsAddingItem(true);
+                    }
+                  }}
                 >
-                  <Plus className="h-4 w-4" /> Add Line Item
+                  {hasReachedItemLimit ? (
+                    <>
+                      <Zap className="h-4 w-4" />
+                      {isGuest ? 'Sign in to add more items' : `Upgrade for more items (${maxItemsPerBucket}/${maxItemsPerBucket})`}
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="h-4 w-4" /> Add Line Item
+                    </>
+                  )}
                 </button>
               )}
             </div>

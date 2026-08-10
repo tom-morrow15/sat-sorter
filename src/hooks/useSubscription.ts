@@ -1,7 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCurrentUser } from './useCurrentUser';
-import { useNostr } from '@nostrify/react';
-import { useEffect } from 'react';
 
 export interface SubscriptionStatus {
   pubkey: string;
@@ -9,18 +7,31 @@ export interface SubscriptionStatus {
   buckets: number;
   items_per_bucket: number;
   expires_at: string | null;
-  payment_type: 'none' | 'monthly' | 'yearly';
+  payment_type: 'none' | 'monthly' | 'yearly' | 'test';
   isGuest: boolean;
+}
+
+interface CreateInvoiceResponse {
+  invoice: {
+    pr: string;
+    verify: string;
+    status: string;
+    successAction?: { message: string; tag: string };
+  };
+  invoiceId: string;
 }
 
 const WORKER_URL = 'https://sat-sorter-worker.satsorter.workers.dev';
 
+/**
+ * Hook to fetch the current user's subscription status.
+ * - Guest users (not logged in) always get free tier with isGuest=true
+ * - Logged-in users fetch from the backend, with periodic refetch
+ */
 export function useSubscription() {
   const { user } = useCurrentUser();
-  const queryClient = useQueryClient();
-  const { nostr } = useNostr();
 
-  const query = useQuery<SubscriptionStatus | null>({
+  return useQuery<SubscriptionStatus | null>({
     queryKey: ['subscription', user?.pubkey],
     queryFn: async () => {
       // Guest users (not logged in) always get free tier
@@ -56,97 +67,113 @@ export function useSubscription() {
         return null;
       }
     },
-    enabled: true, // Always enabled now (handles both guest and logged-in)
-    refetchInterval: user?.pubkey ? 5000 : undefined, // Only refetch for logged-in users
-    staleTime: user?.pubkey ? 2000 : Infinity, // Guest data doesn't go stale
+    enabled: true,
+    // Poll every 10 seconds for logged-in users (catches payment updates)
+    // Guests don't need polling since their status never changes
+    refetchInterval: user?.pubkey ? 10000 : undefined,
+    staleTime: user?.pubkey ? 5000 : Infinity,
   });
-
-  // Listen for incoming zap receipts (kind 9735) to your lightning address
-  useEffect(() => {
-    if (!user?.pubkey || !nostr) return;
-
-    const controller = new AbortController();
-    const signal = controller.signal;
-
-    const listenForZaps = async () => {
-      try {
-        // Query for zap receipts to your pubkey (as recipient)
-        // Your lightning address (devin@getalby.com) should be tied to a specific pubkey
-        // For now, we'll skip this as it requires knowing the Alby provider pubkey
-        // Instead, we rely on periodic polling for now
-
-        // In production, you'd listen for kind 9735 events with your pubkey as recipient
-      } catch (error) {
-        console.error('Error listening for zaps:', error);
-      }
-    };
-
-    listenForZaps();
-
-    return () => {
-      controller.abort();
-    };
-  }, [user?.pubkey, nostr]);
-
-  return query;
 }
 
+/**
+ * Hook to create a Lightning invoice via the backend.
+ * The backend stores the invoice with the user's pubkey for later verification.
+ */
 export function useCreateInvoice() {
-  return async (amount: number, comment?: string) => {
-    try {
-      const response = await fetch(`${WORKER_URL}/api/subscription/create-invoice`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ amount, comment }),
-      });
+  const { user } = useCurrentUser();
 
-      if (!response.ok) {
-        throw new Error(`Failed to create invoice: ${response.statusText}`);
-      }
-
-      return response.json();
-    } catch (error) {
-      console.error('Error creating invoice:', error);
-      throw error;
+  return async (amount: number, comment?: string): Promise<CreateInvoiceResponse> => {
+    if (!user?.pubkey) {
+      throw new Error('You must be logged in to upgrade');
     }
+
+    const response = await fetch(`${WORKER_URL}/api/subscription/create-invoice`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount, comment, pubkey: user.pubkey }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `Failed to create invoice: ${response.statusText}`);
+    }
+
+    return response.json();
   };
 }
 
-export function useApplyPayment() {
-  const queryClient = useQueryClient();
+/**
+ * Hook to verify that a payment has been made.
+ * This calls the backend which independently checks with Alby that the invoice was paid.
+ * Once verified, the backend updates the user's subscription.
+ *
+ * The frontend should poll this every 3-5 seconds while waiting for payment.
+ */
+export function useVerifyPayment() {
   const { user } = useCurrentUser();
+  const queryClient = useQueryClient();
 
-  return async (amountMsat: number, tier: 'monthly' | 'yearly' = 'monthly') => {
-    if (!user?.pubkey) throw new Error('User not logged in');
-
-    try {
-      const response = await fetch(`${WORKER_URL}/api/subscription/apply-payment`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          pubkey: user.pubkey,
-          amountMsat,
-          tier,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to apply payment: ${response.statusText}`);
-      }
-
-      const result = await response.json();
-
-      // Invalidate subscription query to force refetch
-      queryClient.invalidateQueries({ queryKey: ['subscription', user.pubkey] });
-
-      return result;
-    } catch (error) {
-      console.error('Error applying payment:', error);
-      throw error;
+  return async (invoiceId: string): Promise<{
+    success: boolean;
+    paid: boolean;
+    alreadyPaid?: boolean;
+    subscription?: Partial<SubscriptionStatus>;
+    message?: string;
+  }> => {
+    if (!user?.pubkey) {
+      throw new Error('You must be logged in to verify payment');
     }
+
+    const response = await fetch(`${WORKER_URL}/api/subscription/verify-payment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pubkey: user.pubkey, invoiceId }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `Failed to verify payment: ${response.statusText}`);
+    }
+
+    const result = await response.json();
+
+    // If payment was confirmed, invalidate the subscription query so UI updates
+    if (result.success && result.paid) {
+      queryClient.invalidateQueries({ queryKey: ['subscription', user.pubkey] });
+    }
+
+    return result;
+  };
+}
+
+/**
+ * Hook to apply a test code for unlimited access (development only).
+ */
+export function useApplyTestCode() {
+  const { user } = useCurrentUser();
+  const queryClient = useQueryClient();
+
+  return async (testCode: string): Promise<{ success: boolean; message: string }> => {
+    if (!user?.pubkey) {
+      throw new Error('You must be logged in to apply a test code');
+    }
+
+    const response = await fetch(`${WORKER_URL}/api/subscription/apply-test-code`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pubkey: user.pubkey, testCode }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Failed to apply test code');
+    }
+
+    const result = await response.json();
+
+    // Force refetch of subscription status
+    queryClient.invalidateQueries({ queryKey: ['subscription', user.pubkey] });
+
+    return result;
   };
 }

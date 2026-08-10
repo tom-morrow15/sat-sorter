@@ -29,31 +29,21 @@ export function CopyMonthWithUpgrade({
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
   const [pendingSourceMonth, setPendingSourceMonth] = useState<string | null>(null);
 
-  // Calculate total buckets if we copy the previous budget
+  // Check if the previous budget has more buckets than the free tier allows
   const previousBucketCount = previousBudget?.buckets.length ?? 0;
-  const currentBucketCount = currentBudgets[0]?.buckets.length ?? 0;
-  const wouldExceedLimit = previousBucketCount > maxBucketsAllowed && currentBucketCount + previousBucketCount > maxBucketsAllowed;
+  const needsUpgrade = previousBucketCount > maxBucketsAllowed;
 
   const handleCopyPreviousClick = (selectedMonth: string) => {
     const budgetToCopy = availableMonths.find(m => m.month === selectedMonth)?.budget;
-    
+
     if (budgetToCopy && budgetToCopy.buckets.length > maxBucketsAllowed) {
-      // Would exceed limit, show upgrade
+      // Budget has more buckets than allowed — show upgrade dialog
       setPendingSourceMonth(selectedMonth);
       setShowUpgradeDialog(true);
     } else {
-      // Can copy without upgrade
+      // Within limits — copy normally
       onCopyPrevious(selectedMonth);
       onOpenChange(false);
-    }
-  };
-
-  const handleUpgradeComplete = () => {
-    setShowUpgradeDialog(false);
-    if (pendingSourceMonth) {
-      onCopyPrevious(pendingSourceMonth);
-      onOpenChange(false);
-      setPendingSourceMonth(null);
     }
   };
 
@@ -78,6 +68,14 @@ export function CopyMonthWithUpgrade({
         }}
         bucketCount={previousBucketCount}
         maxBucketsForFreeTier={maxBucketsAllowed}
+        onUpgradeComplete={() => {
+          // After successful upgrade, proceed with the copy
+          if (pendingSourceMonth) {
+            onCopyPrevious(pendingSourceMonth);
+            onOpenChange(false);
+            setPendingSourceMonth(null);
+          }
+        }}
       />
     </>
   );
