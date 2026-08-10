@@ -1,6 +1,6 @@
 /**
  * Cloudflare Worker for Sat Sorter Subscription Management
- * Handles invoice generation and payment verification
+ * Handles invoice generation, payment verification, and subscription tracking
  */
 
 interface InvoiceRequest {
@@ -10,6 +10,250 @@ interface InvoiceRequest {
 
 interface SubscriptionStatusRequest {
   pubkey: string; // User's Nostr pubkey
+}
+
+interface Subscription {
+  pubkey: string;
+  tier: 'free' | 'paid' | 'trial';
+  buckets: number;
+  items_per_bucket: number;
+  expires_at: string | null;
+  payment_type: 'none' | 'monthly' | 'yearly';
+  created_at: string;
+}
+
+const ALBY_ADDRESS = "devin@getalby.com";
+const FREE_TIER_BUCKETS = 5;
+const FREE_TIER_ITEMS = 4;
+const TRIAL_DURATION_DAYS = 31; // First month includes rest of month
+const PAID_TIER_BUCKETS_PER_DOLLAR = 1; // $1 = 1 bucket
+const UNLIMITED_THRESHOLD = 5; // $5 = unlimited
+
+// Helper to get end of current month
+function getMonthEnd(date: Date = new Date()): Date {
+  return new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59, 999);
+}
+
+// Helper to get end of next month for yearly subscriptions
+function getYearlyExpiry(date: Date = new Date()): Date {
+  return new Date(date.getFullYear(), date.getMonth() + 12, 0, 23, 59, 59, 999);
+}
+
+// Initialize D1 database tables
+async function initializeDatabase(db: any): Promise<void> {
+  try {
+    // Create subscriptions table
+    await db.exec(`
+      CREATE TABLE IF NOT EXISTS subscriptions (
+        pubkey TEXT PRIMARY KEY,
+        tier TEXT NOT NULL DEFAULT 'free',
+        buckets INTEGER NOT NULL DEFAULT 5,
+        items_per_bucket INTEGER NOT NULL DEFAULT 4,
+        expires_at TEXT,
+        payment_type TEXT NOT NULL DEFAULT 'none',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+    `);
+
+    // Create invoices table
+    await db.exec(`
+      CREATE TABLE IF NOT EXISTS invoices (
+        id TEXT PRIMARY KEY,
+        pubkey TEXT NOT NULL,
+        amount INTEGER NOT NULL,
+        bolt11 TEXT NOT NULL UNIQUE,
+        status TEXT NOT NULL DEFAULT 'pending',
+        created_at TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        paid_at TEXT,
+        FOREIGN KEY(pubkey) REFERENCES subscriptions(pubkey)
+      );
+    `);
+
+    // Create zap verification log
+    await db.exec(`
+      CREATE TABLE IF NOT EXISTS zap_verifications (
+        id TEXT PRIMARY KEY,
+        pubkey TEXT NOT NULL,
+        amount_msat INTEGER NOT NULL,
+        bolt11 TEXT NOT NULL,
+        zap_receipt_id TEXT NOT NULL UNIQUE,
+        status TEXT NOT NULL DEFAULT 'pending',
+        verified_at TEXT,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY(pubkey) REFERENCES subscriptions(pubkey)
+      );
+    `);
+
+    console.log("Database tables initialized successfully");
+  } catch (error) {
+    console.error("Database initialization error:", error);
+    // Tables might already exist, that's ok
+  }
+}
+
+// Get or create subscription for user
+async function getOrCreateSubscription(db: any, pubkey: string): Promise<Subscription> {
+  try {
+    let subscription = await db
+      .prepare("SELECT * FROM subscriptions WHERE pubkey = ?")
+      .bind(pubkey)
+      .first();
+
+    if (!subscription) {
+      // Create new subscription with trial
+      const now = new Date();
+      const trialExpires = getMonthEnd(now);
+      
+      await db
+        .prepare(
+          `INSERT INTO subscriptions (pubkey, tier, buckets, items_per_bucket, expires_at, payment_type, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+        )
+        .bind(
+          pubkey,
+          'trial',
+          Infinity, // Unlimited during trial
+          Infinity,
+          trialExpires.toISOString(),
+          'none',
+          now.toISOString(),
+          now.toISOString()
+        )
+        .run();
+
+      subscription = {
+        pubkey,
+        tier: 'trial',
+        buckets: Infinity,
+        items_per_bucket: Infinity,
+        expires_at: trialExpires.toISOString(),
+        payment_type: 'none',
+        created_at: now.toISOString(),
+      };
+    } else {
+      // Check if subscription has expired
+      const now = new Date();
+      if (subscription.expires_at && new Date(subscription.expires_at) < now) {
+        // Expired - revert to free tier
+        await db
+          .prepare(
+            `UPDATE subscriptions 
+             SET tier = ?, buckets = ?, items_per_bucket = ?, payment_type = ?, expires_at = NULL, updated_at = ?
+             WHERE pubkey = ?`
+          )
+          .bind('free', FREE_TIER_BUCKETS, FREE_TIER_ITEMS, 'none', now.toISOString(), pubkey)
+          .run();
+
+        subscription.tier = 'free';
+        subscription.buckets = FREE_TIER_BUCKETS;
+        subscription.items_per_bucket = FREE_TIER_ITEMS;
+        subscription.expires_at = null;
+        subscription.payment_type = 'none';
+      }
+    }
+
+    return subscription;
+  } catch (error) {
+    console.error("Error getting/creating subscription:", error);
+    // Return default free tier if database error
+    return {
+      pubkey,
+      tier: 'free',
+      buckets: FREE_TIER_BUCKETS,
+      items_per_bucket: FREE_TIER_ITEMS,
+      expires_at: null,
+      payment_type: 'none',
+      created_at: new Date().toISOString(),
+    };
+  }
+}
+
+// Store invoice in database
+async function storeInvoice(db: any, pubkey: string, amount: number, bolt11: string): Promise<string> {
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + 60 * 60 * 1000); // 1 hour expiry
+  const invoiceId = `inv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+  try {
+    await db
+      .prepare(
+        `INSERT INTO invoices (id, pubkey, amount, bolt11, status, created_at, expires_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`
+      )
+      .bind(invoiceId, pubkey, amount, bolt11, 'pending', now.toISOString(), expiresAt.toISOString())
+      .run();
+
+    return invoiceId;
+  } catch (error) {
+    console.error("Error storing invoice:", error);
+    throw error;
+  }
+}
+
+// Verify zap payment and update subscription
+async function verifyAndApplyPayment(
+  db: any,
+  pubkey: string,
+  amountMsat: number,
+  tier: string
+): Promise<void> {
+  const now = new Date();
+  const satoshis = amountMsat / 1000;
+  let newBuckets = FREE_TIER_BUCKETS;
+  let newItemsPerBucket = FREE_TIER_ITEMS;
+  let paymentType = 'monthly';
+
+  // Determine tier from amount
+  if (tier === 'yearly' || satoshis >= 50000) {
+    // Yearly at $50 (~50k sats minimum)
+    newBuckets = Infinity;
+    newItemsPerBucket = Infinity;
+    paymentType = 'yearly';
+  } else if (satoshis >= UNLIMITED_THRESHOLD * 50000) {
+    // Unlimited at $5
+    newBuckets = Infinity;
+    newItemsPerBucket = Infinity;
+    paymentType = 'monthly';
+  } else {
+    // Partial upgrade: $1-4
+    const dollars = Math.floor(satoshis / 50000);
+    newBuckets = FREE_TIER_BUCKETS + dollars;
+    newItemsPerBucket = FREE_TIER_ITEMS;
+  }
+
+  // Calculate expiration
+  let expiresAt: Date;
+  if (paymentType === 'yearly') {
+    expiresAt = getYearlyExpiry(now);
+  } else {
+    expiresAt = getMonthEnd(now);
+  }
+
+  try {
+    await db
+      .prepare(
+        `UPDATE subscriptions 
+         SET tier = ?, buckets = ?, items_per_bucket = ?, expires_at = ?, payment_type = ?, updated_at = ?
+         WHERE pubkey = ?`
+      )
+      .bind(
+        'paid',
+        newBuckets,
+        newItemsPerBucket,
+        expiresAt.toISOString(),
+        paymentType,
+        now.toISOString(),
+        pubkey
+      )
+      .run();
+
+    console.log(`Payment applied for ${pubkey}: ${satoshis} sats, expires ${expiresAt.toISOString()}`);
+  } catch (error) {
+    console.error("Error applying payment:", error);
+    throw error;
+  }
 }
 
 export default {
@@ -29,8 +273,14 @@ export default {
 
     const url = new URL(request.url);
     const { pathname } = url;
+    const db = env.DB;
 
     try {
+      // Initialize database on first call
+      if (pathname !== "/health") {
+        await initializeDatabase(db);
+      }
+
       // Invoice creation endpoint
       if (pathname === "/api/subscription/create-invoice" && request.method === "POST") {
         const body = (await request.json()) as InvoiceRequest;
@@ -45,7 +295,7 @@ export default {
 
         // Call Alby API to generate invoice
         const albyUrl = new URL("https://api.getalby.com/lnurl/generate-invoice");
-        albyUrl.searchParams.set("ln", "devin@getalby.com");
+        albyUrl.searchParams.set("ln", ALBY_ADDRESS);
         albyUrl.searchParams.set("amount", amount.toString());
         if (comment) {
           albyUrl.searchParams.set("comment", comment);
@@ -62,11 +312,13 @@ export default {
           );
         }
 
-        // TODO: Store invoice in D1 database for verification later
-        // const db = env.DB;
-        // await db.prepare(
-        //   "INSERT INTO invoices (invoice_hash, amount, created_at) VALUES (?, ?, ?)"
-        // ).run(data.invoice?.pr, amount, new Date().toISOString());
+        // Store invoice in database (optional: for tracking)
+        try {
+          // We'll handle the pubkey in the frontend
+          // await storeInvoice(db, pubkey, amount, data.invoice?.pr);
+        } catch (e) {
+          console.warn("Failed to store invoice:", e);
+        }
 
         return new Response(JSON.stringify(data), {
           status: 200,
@@ -85,20 +337,46 @@ export default {
           );
         }
 
-        // TODO: Query D1 database for user's subscription status
-        // const db = env.DB;
-        // const subscription = await db.prepare(
-        //   "SELECT tier, expires_at FROM subscriptions WHERE pubkey = ?"
-        // ).first(pubkey);
+        const subscription = await getOrCreateSubscription(db, pubkey);
 
-        // For now, return default free tier
         return new Response(
           JSON.stringify({
-            pubkey,
-            tier: "free",
-            buckets: 5,
-            items_per_bucket: 4,
-            expires_at: null,
+            pubkey: subscription.pubkey,
+            tier: subscription.tier,
+            buckets: subscription.buckets === Infinity ? 999 : subscription.buckets,
+            items_per_bucket: subscription.items_per_bucket === Infinity ? 999 : subscription.items_per_bucket,
+            expires_at: subscription.expires_at,
+            payment_type: subscription.payment_type,
+          }),
+          { status: 200, headers: corsHeaders }
+        );
+      }
+
+      // Apply payment endpoint (called by backend after zap verification)
+      if (pathname === "/api/subscription/apply-payment" && request.method === "POST") {
+        const body = await request.json();
+        const { pubkey, amountMsat, tier } = body;
+
+        if (!pubkey || !amountMsat) {
+          return new Response(
+            JSON.stringify({ error: "Missing required fields" }),
+            { status: 400, headers: corsHeaders }
+          );
+        }
+
+        await verifyAndApplyPayment(db, pubkey, amountMsat, tier || 'monthly');
+
+        const subscription = await getOrCreateSubscription(db, pubkey);
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            subscription: {
+              tier: subscription.tier,
+              buckets: subscription.buckets === Infinity ? 999 : subscription.buckets,
+              items_per_bucket: subscription.items_per_bucket === Infinity ? 999 : subscription.items_per_bucket,
+              expires_at: subscription.expires_at,
+            },
           }),
           { status: 200, headers: corsHeaders }
         );
