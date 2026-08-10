@@ -22,6 +22,8 @@ interface TourStep {
   title: string;
   description: string;
   howTo: string;
+  /** If true, shows a "Nostr account required" badge on this step */
+  needsNostr?: boolean;
 }
 
 const TOUR_STEPS: TourStep[] = [
@@ -45,6 +47,7 @@ const TOUR_STEPS: TourStep[] = [
     title: 'Why Nostr?',
     description: 'Your budget is encrypted and stored on decentralized Nostr relays — not on a company server. Only you can read your data with your private key. No email, no tracking, no lock-in.',
     howTo: 'Your Nostr login (nsec) is your key. Keep it safe — it controls access to your budget and identity.',
+    needsNostr: true,
   },
   {
     icon: Plus,
@@ -101,6 +104,7 @@ const TOUR_STEPS: TourStep[] = [
     title: 'Lightning Wallet',
     description: 'Connect a Lightning wallet (via Nostr Wallet Connect) to automatically track Bitcoin payments. Transactions are imported and categorized automatically.',
     howTo: 'Open the hamburger menu → Budget Tools → Lightning Wallet. Scan your NWC connection QR code from your wallet app.',
+    needsNostr: true,
   },
   {
     icon: TrendingUp,
@@ -122,6 +126,7 @@ const TOUR_STEPS: TourStep[] = [
     title: 'Budget Partners',
     description: 'Share your budget with a partner — like a spouse — so you both see the same categories and transactions. Changes sync automatically across devices.',
     howTo: 'Open the hamburger menu → Budget Partners → Share Budget Key (QR). Your partner scans it to join. Use Force Sync if changes aren\'t appearing.',
+    needsNostr: true,
   },
   {
     icon: MessageSquare,
@@ -129,6 +134,7 @@ const TOUR_STEPS: TourStep[] = [
     title: 'Budget Buddy',
     description: 'Your AI-powered budget assistant. Ask it questions about your spending, get savings suggestions, and analyze your budget — all privately.',
     howTo: 'Tap "More" in the bottom nav → Budget Buddy. Add an AI API key in the settings to get started.',
+    needsNostr: true,
   },
   {
     icon: RotateCw,
@@ -206,6 +212,15 @@ export function WelcomeTour({ open, onOpenChange }: WelcomeTourProps) {
             </div>
 
             <h2 className="font-serif text-xl text-center tracking-tight">{step.title}</h2>
+
+            {step.needsNostr && (
+              <div className="flex justify-center">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-violet-500/10 text-violet-600 dark:text-violet-400 text-[10px] font-medium">
+                  <Shield className="h-3 w-3" />
+                  Nostr account required
+                </span>
+              </div>
+            )}
 
             <p className="text-sm text-muted-foreground text-center leading-relaxed">
               {step.description}

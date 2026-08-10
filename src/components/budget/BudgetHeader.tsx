@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bitcoin, DollarSign, ChevronLeft, ChevronRight, Zap, Calendar, Menu, Info, Heart, Shield, GraduationCap, LogIn, Moon, Sun, RotateCw, Copy, AlertTriangle } from 'lucide-react';
+import { Bitcoin, DollarSign, ChevronLeft, ChevronRight, Zap, Calendar, Menu, Info, Heart, Shield, GraduationCap, LogIn, Moon, Sun, RotateCw, Copy, AlertTriangle, BookOpen } from 'lucide-react';
 
 import pkg from '../../../package.json';
 const APP_VERSION: string = (pkg as any)?.version ?? 'dev';
@@ -318,6 +318,10 @@ export function BudgetHeader({
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuLabel className="bh-caption text-muted-foreground">Support & About</DropdownMenuLabel>
+                    <DropdownMenuItem onClick={() => setShowWelcomeTour(true)}>
+                      <BookOpen className="h-4 w-4 mr-2" />
+                      Welcome Tour
+                    </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => setShowDonateSorter(true)}>
                       <Heart className="h-4 w-4 mr-2 text-primary" />
                       Support Sat Sorter
@@ -330,7 +334,9 @@ export function BudgetHeader({
                       <GraduationCap className="h-4 w-4 mr-2" />
                       Learn About Bitcoin
                     </DropdownMenuItem>
+
                     <DropdownMenuSeparator />
+
                     <DropdownMenuItem onClick={handleSoftReset}>
                       <RotateCw className="h-4 w-4 mr-2" />
                       Refresh the app

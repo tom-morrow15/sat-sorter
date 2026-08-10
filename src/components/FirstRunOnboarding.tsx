@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils';
 const ONBOARDING_KEY = 'sat-sorter-onboarding-completed';
 const serializer = createEncryptedSerializer<boolean>();
 
-type Step = 'welcome' | 'currency' | 'income' | 'done';
+type Step = 'welcome' | 'currency' | 'income' | 'tourPrompt' | 'done';
 
 export function FirstRunOnboarding() {
   const { state: onboardingState } = useOnboarding();
@@ -44,8 +44,7 @@ export function FirstRunOnboarding() {
 
   const handleComplete = () => {
     setCompleted(true);
-    setStep('done');
-    setShowTour(true);
+    setStep('tourPrompt');
   };
 
   const handleSetCurrency = (choice: 'usd' | 'sats') => {
@@ -64,12 +63,23 @@ export function FirstRunOnboarding() {
       }
     }
     setCompleted(true);
-    setStep('done');
+    setStep('tourPrompt');
+  };
+
+  const handleStartTour = () => {
     setShowTour(true);
+    setStep('done');
+  };
+
+  const handleSkipTour = () => {
+    setShowTour(false);
+    setStep('done');
   };
 
   if (step === 'done') {
-    return <WelcomeTour open={showTour} onOpenChange={(open) => { if (!open) setShowTour(false); }} />;
+    return showTour
+      ? <WelcomeTour open={showTour} onOpenChange={(open) => { if (!open) { setShowTour(false); } }} />
+      : null;
   }
 
   return (
@@ -248,7 +258,55 @@ export function FirstRunOnboarding() {
               className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1 mx-auto"
             >
               <BookOpen className="h-3.5 w-3.5" />
-              Skip — Take a full tour instead
+              Skip — I'll set up income later
+            </button>
+          </div>
+        )}
+
+        {step === 'tourPrompt' && (
+          <div className="p-8 space-y-5">
+            <div className="text-center space-y-2">
+              <div className="h-14 w-14 rounded-md bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto">
+                <BookOpen className="h-7 w-7 text-primary" />
+              </div>
+              <h2 className="text-2xl font-serif tracking-tight">Ready to explore?</h2>
+              <p className="text-sm text-muted-foreground">
+                Take a quick tour to learn how to get the most out of Sat Sorter.
+              </p>
+            </div>
+
+            {/* Feature checklist */}
+            <div className="space-y-1.5">
+              {[
+                'Zero-based budgeting basics',
+                'Switching between USD & Bitcoin',
+                'Setting up categories & line items',
+                'Adding transactions & splits',
+                'Budget partners (shared budgets)',
+                'Lightning wallet auto-tracking',
+                'Wealth tracker & local spending',
+                'Budget Buddy AI assistant',
+              ].map((feature, i) => (
+                <div key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <div className="h-1.5 w-1.5 rounded-full bg-primary/50 shrink-0" />
+                  {feature}
+                </div>
+              ))}
+            </div>
+
+            <Button
+              onClick={handleStartTour}
+              className="w-full btn-interactive"
+              size="lg"
+            >
+              <BookOpen className="h-4 w-4 mr-2" />
+              Take the Full Tour
+            </Button>
+            <button
+              onClick={handleSkipTour}
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors w-full text-center"
+            >
+              Skip — I'll figure it out
             </button>
           </div>
         )}
