@@ -1,7 +1,7 @@
 import { useEffect, useCallback, useRef, useState, useMemo } from 'react';
 import { nip19 } from 'nostr-tools';
 import { getPublicKey } from 'nostr-tools/pure';
-import { NSecSigner } from '@nostrify/nostrify';
+import { NSecSigner, NRelay1 } from '@nostrify/nostrify';
 import { useNostr } from '@nostrify/react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useBudgetContext } from '@/contexts/BudgetContext';
@@ -23,10 +23,87 @@ import type { MonthlyBudget } from '@/lib/budgetTypes';
  * The d-tag is `sat-sorter/budget-data/{month}` so each month is independently
  * replaceable. Kind 30078 is NIP-78 addressable — the latest event for a given
  * d-tag replaces older ones on relays.
+ *
+ * CRITICAL: shared budget events are published to AND subscribed from a fixed
+ * set of well-known public relays, NOT the user's personal relay list. This
+ * ensures both partners can always reach each other's events regardless of
+ * their individual relay configurations (e.g., one partner has a local Umbrel
+ * relay that the other can't access).
  */
 
 const BUDGET_KIND = 30078;
 const MONTH_DTAG_PREFIX = 'sat-sorter/budget-data/';
+
+/** Fixed set of well-known public relays for shared budget sync.
+ *  Both partners publish to and subscribe from these, ensuring events
+ *  are always reachable regardless of personal relay configuration. */
+const SHARED_RELAYS = [
+  'wss://relay.damus.io',
+  'wss://relay.nostr.band',
+  'wss://nos.lol',
+  'wss://relay.ditto.pub',
+];
+
+/** Open direct relay connections to the shared relay set.
+ *  Returns an array of NRelay1 instances. */
+function openSharedRelays(): NRelay1[] {
+  return SHARED_RELAYS.map((url) => {
+    try {
+      return new NRelay1(url);
+    } catch {
+      return null;
+    }
+  }).filter((r): r is NRelay1 => r !== null);
+}
+
+/** Publish an event to all shared relays directly (bypassing personal relay list). */
+async function publishToSharedRelays(event: any): Promise<boolean> {
+  const relays = openSharedRelays();
+  if (relays.length === 0) {
+    console.warn('[SharedBudgetSync] Could not open any shared relays for publishing');
+    return false;
+  }
+  let success = false;
+  for (const relay of relays) {
+    try {
+      await relay.event(event, { signal: AbortSignal.timeout(5000) });
+      success = true;
+    } catch (e) {
+      // Try next relay
+    }
+  }
+  // Clean up relay connections
+  for (const relay of relays) {
+    try { relay.close(); } catch {}
+  }
+  return success;
+}
+
+/** Query shared relays directly (bypassing personal relay list). */
+async function querySharedRelays(filter: any, timeoutMs = 10000): Promise<any[]> {
+  const relays = openSharedRelays();
+  if (relays.length === 0) return [];
+  const allEvents: any[] = [];
+  const seenIds = new Set<string>();
+  await Promise.all(relays.map(async (relay) => {
+    try {
+      const events = await relay.query([filter], { signal: AbortSignal.timeout(timeoutMs) });
+      for (const ev of events) {
+        if (!seenIds.has(ev.id)) {
+          seenIds.add(ev.id);
+          allEvents.push(ev);
+        }
+      }
+    } catch {
+      // Try next relay
+    }
+  }));
+  // Clean up
+  for (const relay of relays) {
+    try { relay.close(); } catch {}
+  }
+  return allEvents;
+}
 
 /** Compute a stable fingerprint for a budget month. Used by both the sync
  *  handler (to record received snapshots) and PartnerSyncWrapper (to detect
@@ -71,7 +148,7 @@ interface BudgetSyncEvent {
  */
 export async function fetchAllSharedBudgetSnapshots(
   budgetNsec: string,
-  nostr: any
+  _nostr: any  // kept for API compat, not used — we query shared relays directly
 ): Promise<MonthlyBudget[]> {
   try {
     const decoded = nip19.decode(budgetNsec);
@@ -79,9 +156,9 @@ export async function fetchAllSharedBudgetSnapshots(
     const priv = decoded.data as Uint8Array;
     const budgetPub = getPublicKey(priv);
 
-    const events = await nostr.query(
-      [{ kinds: [BUDGET_KIND], authors: [budgetPub], limit: 200 }],
-      { signal: AbortSignal.timeout(10000) }
+    const events = await querySharedRelays(
+      { kinds: [BUDGET_KIND], authors: [budgetPub], limit: 200 },
+      10000
     );
 
     const results: { snapshot: MonthlyBudget; createdAt: number }[] = [];
@@ -124,7 +201,7 @@ export async function fetchAllSharedBudgetSnapshots(
 export async function publishBudgetSnapshotToNostr(
   budget: MonthlyBudget,
   budgetNsec: string,
-  nostr: any
+  _nostr: any  // kept for API compat, not used — we publish to shared relays directly
 ): Promise<boolean> {
   try {
     const decoded = nip19.decode(budgetNsec);
@@ -154,9 +231,14 @@ export async function publishBudgetSnapshotToNostr(
       created_at: Math.floor(Date.now() / 1000),
     });
 
-    await nostr.event(event, { signal: AbortSignal.timeout(5000) });
-    console.log(`[publishBudgetSnapshotToNostr] Published snapshot for ${budget.month}`);
-    return true;
+    // Publish to shared relays directly (bypassing personal relay list)
+    const ok = await publishToSharedRelays(event);
+    if (ok) {
+      console.log(`[publishBudgetSnapshotToNostr] Published snapshot for ${budget.month} to shared relays`);
+    } else {
+      console.error(`[publishBudgetSnapshotToNostr] Failed to publish snapshot for ${budget.month} to any shared relay`);
+    }
+    return ok;
   } catch (e) {
     console.error('[publishBudgetSnapshotToNostr] Failed to publish snapshot:', e);
     return false;
@@ -188,7 +270,7 @@ export async function seedAllBudgetSnapshots(
 export async function publishSyncRequest(
   budgetNsec: string,
   requesterPubkey: string,
-  nostr: any
+  _nostr: any  // kept for API compat, not used
 ): Promise<boolean> {
   try {
     const decoded = nip19.decode(budgetNsec);
@@ -215,7 +297,7 @@ export async function publishSyncRequest(
       created_at: Math.floor(Date.now() / 1000),
     });
 
-    await nostr.event(event, { signal: AbortSignal.timeout(5000) });
+    await publishToSharedRelays(event);
     return true;
   } catch (e) {
     console.error('[publishSyncRequest] Failed:', e);
@@ -436,11 +518,12 @@ export function useSharedBudgetSync(budgetNpub: string, budgetNsec: string) {
 
     (async () => {
       try {
-        const existing = await nostr.query(
-          [{ kinds: [BUDGET_KIND], authors: [keys.budgetPub], limit: 200 }],
-          { signal: AbortSignal.timeout(10000) }
+        // Query shared relays directly (bypassing personal relay list)
+        const existing = await querySharedRelays(
+          { kinds: [BUDGET_KIND], authors: [keys.budgetPub], limit: 200 },
+          10000
         );
-        console.log(`[SharedBudgetSync] Fetched ${existing.length} existing budget events`);
+        console.log(`[SharedBudgetSync] Fetched ${existing.length} existing budget events from shared relays`);
 
         // Sort by created_at ascending so the newest snapshot for each month
         // is applied LAST — prevents an older snapshot from overwriting a newer one.
@@ -456,17 +539,39 @@ export function useSharedBudgetSync(budgetNpub: string, budgetNsec: string) {
       if (cancelled) return;
       setSyncStatus((prev) => ({ ...prev, isSyncing: false }));
 
-      // Use `since` to only receive NEW events published after the initial fetch.
-      // Subtract 30s as a buffer so events published at the same moment (or with
-      // clock skew between the two devices) are not missed.
+      // Live subscription: open direct relay connections to shared relays
+      // and subscribe for new events. This bypasses the personal relay list
+      // so both partners always receive each other's events.
       const now = Math.floor(Date.now() / 1000);
-      subscriptionRef.current = nostr.req(
-        [{ kinds: [BUDGET_KIND], authors: [keys.budgetPub], since: now - 30 }],
-        {
-          onevent: (ev) => handleIncomingEventRef.current(ev),
-          oneose: () => { console.log('[SharedBudgetSync] Live subscription active'); },
+      const sharedRelays = openSharedRelays();
+      const subscriptions: { close?: () => void }[] = [];
+
+      for (const relay of sharedRelays) {
+        try {
+          const sub = relay.req(
+            [{ kinds: [BUDGET_KIND], authors: [keys.budgetPub], since: now - 30 }],
+            {
+              onevent: (ev: any) => handleIncomingEventRef.current(ev),
+              oneose: () => { console.log(`[SharedBudgetSync] Live subscription active on ${relay.constructor.name}`); },
+            }
+          );
+          subscriptions.push(sub);
+        } catch (e) {
+          console.warn('[SharedBudgetSync] Failed to subscribe on a shared relay:', e);
         }
-      );
+      }
+
+      // Store a combined "subscription" that can close all of them
+      subscriptionRef.current = {
+        close: () => {
+          for (const sub of subscriptions) {
+            try { sub.close?.(); } catch {}
+          }
+          for (const relay of sharedRelays) {
+            try { relay.close(); } catch {}
+          }
+        },
+      };
     })();
 
     return () => {
@@ -485,11 +590,11 @@ export function useSharedBudgetSync(budgetNpub: string, budgetNsec: string) {
 
     setSyncStatus((prev) => ({ ...prev, isSyncing: true }));
     try {
-      const existing = await nostr.query(
-        [{ kinds: [BUDGET_KIND], authors: [keys.budgetPub], limit: 200 }],
-        { signal: AbortSignal.timeout(10000) }
+      const existing = await querySharedRelays(
+        { kinds: [BUDGET_KIND], authors: [keys.budgetPub], limit: 200 },
+        10000
       );
-      console.log(`[SharedBudgetSync] Force sync fetched ${existing.length} events`);
+      console.log(`[SharedBudgetSync] Force sync fetched ${existing.length} events from shared relays`);
 
       // Sort by created_at ascending so the newest snapshot per month is applied last
       const sorted = [...existing].sort((a, b) => (a.created_at || 0) - (b.created_at || 0));
@@ -501,7 +606,7 @@ export function useSharedBudgetSync(budgetNpub: string, budgetNsec: string) {
       console.error('[SharedBudgetSync] Force sync failed:', e);
       setSyncStatus((prev) => ({ ...prev, isSyncing: false, error: e instanceof Error ? e.message : 'Sync failed' }));
     }
-  }, [nostr]);
+  }, []);
 
   /** Publish a sync request asking the owner to re-publish all data. */
   const requestSync = useCallback(async (): Promise<boolean> => {
