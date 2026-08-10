@@ -29,6 +29,9 @@ const TRIAL_DURATION_DAYS = 31; // First month includes rest of month
 const PAID_TIER_BUCKETS_PER_DOLLAR = 1; // $1 = 1 bucket
 const UNLIMITED_THRESHOLD = 5; // $5 = unlimited
 
+// Test codes for development (set via environment variable)
+const VALID_TEST_CODES = ['SATSORTER_TEST', 'DEVIN_DEV', 'TEST_UNLIMITED'];
+
 // Helper to get end of current month
 function getMonthEnd(date: Date = new Date()): Date {
   return new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59, 999);
@@ -380,6 +383,77 @@ export default {
           }),
           { status: 200, headers: corsHeaders }
         );
+      }
+
+      // Apply test code endpoint
+      if (pathname === "/api/subscription/apply-test-code" && request.method === "POST") {
+        const body = await request.json();
+        const { pubkey, testCode } = body;
+
+        if (!pubkey || !testCode) {
+          return new Response(
+            JSON.stringify({ error: "Missing required fields" }),
+            { status: 400, headers: corsHeaders }
+          );
+        }
+
+        if (!VALID_TEST_CODES.includes(testCode)) {
+          return new Response(
+            JSON.stringify({ error: "Invalid test code" }),
+            { status: 401, headers: corsHeaders }
+          );
+        }
+
+        // Apply unlimited access forever for test codes
+        const now = new Date();
+        const farFuture = new Date(2099, 11, 31); // Year 2099
+
+        try {
+          // Create or update subscription with unlimited access
+          let subscription = await db
+            .prepare("SELECT * FROM subscriptions WHERE pubkey = ?")
+            .bind(pubkey)
+            .first();
+
+          if (subscription) {
+            await db
+              .prepare(
+                `UPDATE subscriptions 
+                 SET tier = ?, buckets = ?, items_per_bucket = ?, expires_at = ?, payment_type = ?, updated_at = ?
+                 WHERE pubkey = ?`
+              )
+              .bind('paid', Infinity, Infinity, farFuture.toISOString(), 'test', now.toISOString(), pubkey)
+              .run();
+          } else {
+            await db
+              .prepare(
+                `INSERT INTO subscriptions (pubkey, tier, buckets, items_per_bucket, expires_at, payment_type, created_at, updated_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+              )
+              .bind(pubkey, 'paid', Infinity, Infinity, farFuture.toISOString(), 'test', now.toISOString(), now.toISOString())
+              .run();
+          }
+
+          return new Response(
+            JSON.stringify({
+              success: true,
+              message: "Test code applied successfully",
+              subscription: {
+                tier: 'paid',
+                buckets: 999,
+                items_per_bucket: 999,
+                expires_at: farFuture.toISOString(),
+              },
+            }),
+            { status: 200, headers: corsHeaders }
+          );
+        } catch (error) {
+          console.error("Error applying test code:", error);
+          return new Response(
+            JSON.stringify({ error: "Failed to apply test code" }),
+            { status: 500, headers: corsHeaders }
+          );
+        }
       }
 
       // Health check endpoint
