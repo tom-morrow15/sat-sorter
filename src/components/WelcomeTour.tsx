@@ -9,6 +9,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Dialog,
   DialogContent,
+  DialogTitle,
 } from '@/components/ui/dialog';
 
 interface WelcomeTourProps {
@@ -174,6 +175,7 @@ export function WelcomeTour({ open, onOpenChange }: WelcomeTourProps) {
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-[440px] max-w-[calc(100vw-2rem)] max-h-[85vh] flex flex-col p-0 overflow-hidden">
+        <DialogTitle className="sr-only">Sat Sorter Welcome Tour</DialogTitle>
         {/* Header bar */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-border/40">
           <div className="flex items-center gap-2">
