@@ -7,6 +7,13 @@
  * - Payment verification calls Alby's verify endpoint to confirm payment
  * - Each invoice can only be used once (prevents replay attacks)
  * - The pubkey on the invoice must match the pubkey requesting verification
+ *
+ * Test codes:
+ * - Stored as Cloudflare Worker Secret (VALID_TEST_CODES env variable)
+ * - NOT in the codebase or git repo
+ * - Set via: npx wrangler secret put VALID_TEST_CODES
+ * - Format: comma-separated string like "CODE1,CODE2,CODE3"
+ * - To add/remove codes, update the secret and redeploy
  */
 
 interface CreateInvoiceRequest {
@@ -38,8 +45,13 @@ const UNLIMITED_SENTINEL = 999999; // Used instead of Infinity for SQLite compat
 // Satoshis per dollar (approximate, used for tier calculation)
 const SATS_PER_USD = 50000;
 
-// Test codes for development
-const VALID_TEST_CODES = ['SATSORTER_TEST', 'DEVIN_DEV', 'TEST_UNLIMITED'];
+// Test codes for development — stored securely as Cloudflare Worker Secrets
+// NOT in the codebase. Set via: npx wrangler secret put VALID_TEST_CODES
+// Format: comma-separated string like "CODE1,CODE2,CODE3"
+function getValidTestCodes(env: any): string[] {
+  const raw = env.VALID_TEST_CODES || '';
+  return raw.split(',').map((c: string) => c.trim()).filter(Boolean);
+}
 
 // Tier thresholds in millisatoshis
 const TIER_THRESHOLDS = {
@@ -483,7 +495,7 @@ export default {
           return json({ error: "Missing required fields" }, 400);
         }
 
-        if (!VALID_TEST_CODES.includes(testCode)) {
+        if (!getValidTestCodes(env).includes(testCode)) {
           return json({ error: "Invalid test code" }, 401);
         }
 

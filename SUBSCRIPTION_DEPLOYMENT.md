@@ -92,12 +92,16 @@ Currently relies on 5-second polling. For true real-time:
 
 ## Test Codes (Development Only)
 
-For testing without paying real sats, you can use these test codes in SubscriptionSettings:
-- `SATSORTER_TEST`
-- `DEVIN_DEV`
-- `TEST_UNLIMITED`
+For testing without paying real sats, you can use secret test codes in Subscription Settings.
+**Codes are stored as Cloudflare Worker Secrets, NOT in the codebase.**
 
-These grant unlimited access forever.
+To set codes:
+```bash
+npx wrangler secret put VALID_TEST_CODES
+# Paste: YOUR_CODE_1,YOUR_CODE_2,YOUR_CODE_3
+```
+
+Then enter any valid code in Subscription Settings → Test Access Code.
 
 ## Database Schema
 
@@ -193,7 +197,7 @@ Apply a test code for unlimited access
 ```json
 {
   "pubkey": "...",
-  "testCode": "SATSORTER_TEST"
+  "testCode": "YOUR_SECRET_CODE"
 }
 ```
 

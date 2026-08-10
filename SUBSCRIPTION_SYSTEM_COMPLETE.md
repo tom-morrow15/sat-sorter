@@ -190,18 +190,21 @@ created_at (TEXT, ISO timestamp)
 ## Development & Testing
 
 ### Test Codes (Development Only)
-These grant unlimited access forever:
-- `SATSORTER_TEST`
-- `DEVIN_DEV`
-- `TEST_UNLIMITED`
+These grant unlimited access forever. **Codes are stored as Cloudflare Worker Secrets, NOT in the codebase.**
 
-Available in SubscriptionSettings (development mode only).
+To set codes:
+```bash
+npx wrangler secret put VALID_TEST_CODES
+# Paste: YOUR_CODE_1,YOUR_CODE_2,YOUR_CODE_3
+```
+
+To use: Enter any valid code in Subscription Settings → Test Access Code.
 
 ### Testing the Full Flow
 
 1. **With Test Code (Fastest)**
-   - Go to SubscriptionSettings
-   - Enter: `SATSORTER_TEST`
+   - Go to Subscription Settings
+   - Enter your secret test code
    - Get unlimited access instantly
 
 2. **With Real Payment**
