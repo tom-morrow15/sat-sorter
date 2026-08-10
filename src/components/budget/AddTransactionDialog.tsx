@@ -155,20 +155,11 @@ export function AddTransactionDialog({
   const hasAmount = totalUsd > 0;
   const hasDescription = description.trim().length > 0;
 
-  // Auto-fill the first assignment's amount when there's only one row
-  // and the user has entered a total amount (reduces taps for the common case)
-  // Always syncs — so as the user types each digit, the assignment amount
-  // updates to match the full total.
-  useEffect(() => {
-    if (assignments.length === 1 && hasAmount) {
-      const singleAmount = currency === 'usd'
-        ? amountInput
-        : priceData ? satsToUsd(totalSats, priceData.usdPerBtc).toFixed(2) : '';
-      setAssignments(prev => prev.map((a, i) =>
-        i === 0 ? { ...a, amountInput: singleAmount } : a
-      ));
-    }
-  }, [amountInput, assignments.length, hasAmount, currency, priceData, totalSats]);
+  // Assignment amount fields start blank — the user types the amount
+  // themselves. This ensures the "Split across categories" button is
+  // always visible when a total amount has been entered, because the
+  // transaction is not "fully assigned" until the user fills in the
+  // assignment amount manually.
 
   const getLineItems = (bucketId: string) => {
     const bucket = buckets.find(b => b.id === bucketId);
@@ -193,14 +184,8 @@ export function AddTransactionDialog({
   };
 
   const handleAddAssignment = () => {
-    // Clear the auto-filled amount on the first row when adding a second
-    // so the user can split the total across both
     setAssignments(prev => {
       const newAssignments = [...prev];
-      // If there's only one row and its amount equals the total, clear it
-      if (newAssignments.length === 1 && newAssignments[0].amountInput === amountInput) {
-        newAssignments[0] = { ...newAssignments[0], amountInput: '' };
-      }
       newAssignments.push({
         id: crypto.randomUUID(),
         bucketId: defaultBucketId || '',
@@ -214,15 +199,7 @@ export function AddTransactionDialog({
   const handleRemoveAssignment = (id: string) => {
     setAssignments(prev => {
       if (prev.length <= 1) return prev; // Keep at least one row
-      const filtered = prev.filter(a => a.id !== id);
-      // If only one row remains and we have a total, auto-fill its amount
-      if (filtered.length === 1 && hasAmount) {
-        const singleAmount = currency === 'usd'
-          ? amountInput
-          : priceData ? satsToUsd(totalSats, priceData.usdPerBtc).toFixed(2) : '';
-        filtered[0] = { ...filtered[0], amountInput: singleAmount };
-      }
-      return filtered;
+      return prev.filter(a => a.id !== id);
     });
   };
 
