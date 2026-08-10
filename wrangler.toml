@@ -1,0 +1,21 @@
+# Cloudflare Workers Configuration
+name = "sat-sorter-worker"
+main = "worker.ts"
+type = "javascript"
+compatibility_date = "2024-01-01"
+
+# D1 Database Binding
+# NOTE: Update database_id after running: wrangler d1 create sat-sorter-db
+[[d1_databases]]
+binding = "DB"
+database_name = "sat-sorter-db"
+database_id = "97d81ee8-5d08-4966-b524-450bad1f2614"
+
+# Environment variables
+[env.production]
+name = "sat-sorter-worker-prod"
+
+# Routes
+routes = [
+  { pattern = "satsorter.com/api/*", zone_name = "satsorter.com" }
+]

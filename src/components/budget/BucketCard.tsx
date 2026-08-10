@@ -6,8 +6,10 @@ import {
 } from 'lucide-react';
 import { SpendingProgressBar } from './SpendingProgressBar';
 import { DeletionConfirmDialog } from './DeletionConfirmDialog';
+import { UpgradeDialog } from './UpgradeDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useSubscription } from '@/hooks/useSubscription';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
@@ -53,12 +55,21 @@ export function BucketCard({
   onViewTransactions,
 }: BucketCardProps) {
   const { data: priceData } = useBitcoinPrice();
+  const { data: subscription } = useSubscription();
   const [isOpen, setIsOpen] = useState(true);
   const [isAddingItem, setIsAddingItem] = useState(false);
   const [newItemName, setNewItemName] = useState('');
   const [isEditingName, setIsEditingName] = useState(false);
   const [editName, setEditName] = useState(bucket.name);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
+
+  // Free tier limits
+  const MAX_BUCKETS_FREE = 5;
+  const MAX_ITEMS_PER_BUCKET_FREE = 4;
+  
+  // Get max buckets available to user
+  const maxBucketsAvailable = subscription?.buckets ?? MAX_BUCKETS_FREE;
 
   const Icon = iconMap[bucket.icon] || Wallet;
 
@@ -85,6 +96,13 @@ export function BucketCard({
   };
 
   const handleAddItem = () => {
+    // Check item limit for this bucket
+    const maxItems = subscription?.items_per_bucket ?? MAX_ITEMS_PER_BUCKET_FREE;
+    if (bucket.lineItems.length >= maxItems && subscription?.tier === 'free') {
+      // Would need to add item limit upgrade dialog here
+      return;
+    }
+
     if (newItemName.trim()) {
       onAddLineItem(bucket.id, newItemName.trim());
       setNewItemName('');
@@ -271,6 +289,13 @@ export function BucketCard({
         itemType="bucket"
         itemName={bucket.name}
         onConfirm={handleDeleteConfirmed}
+      />
+
+      <UpgradeDialog
+        open={showUpgradeDialog}
+        onOpenChange={setShowUpgradeDialog}
+        bucketCount={buckets.length}
+        maxBucketsForFreeTier={MAX_BUCKETS_FREE}
       />
     </div>
   );

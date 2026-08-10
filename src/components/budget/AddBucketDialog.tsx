@@ -104,6 +104,9 @@ interface AddBucketDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onAdd: (name: string, color: string, icon: string) => void;
+  currentBucketCount?: number;
+  maxBucketsAllowed?: number;
+  onUpgradeNeeded?: () => void;
 }
 
 interface IconOption {
@@ -289,13 +292,23 @@ export function AddBucketDialog({
   open,
   onOpenChange,
   onAdd,
+  currentBucketCount = 0,
+  maxBucketsAllowed = 5,
+  onUpgradeNeeded,
 }: AddBucketDialogProps) {
   const [name, setName] = useState('');
   const [selectedIcon, setSelectedIcon] = useState('wallet');
   const [selectedColor, setSelectedColor] = useState(DEFAULT_CATEGORY_COLOR);
   const [searchQuery, setSearchQuery] = useState('');
 
+  const canAddBucket = currentBucketCount < maxBucketsAllowed;
+
   const handleAdd = () => {
+    if (!canAddBucket) {
+      onUpgradeNeeded?.();
+      return;
+    }
+
     if (name.trim()) {
       onAdd(name.trim(), selectedColor, selectedIcon);
       setName('');
@@ -469,7 +482,14 @@ export function AddBucketDialog({
 
         <DialogFooter className="gap-2">
           <Button variant="outline" onClick={handleClose}>Cancel</Button>
-          <Button onClick={handleAdd} disabled={!name.trim()}>Create Category</Button>
+          {!canAddBucket && (
+            <Button onClick={handleAdd} className="bg-amber-600 hover:bg-amber-700">
+              Unlock More Buckets
+            </Button>
+          )}
+          {canAddBucket && (
+            <Button onClick={handleAdd} disabled={!name.trim()}>Create Category</Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
