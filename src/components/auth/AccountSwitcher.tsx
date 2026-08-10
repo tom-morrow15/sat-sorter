@@ -40,6 +40,8 @@ interface AccountSwitcherProps {
   onLearnAboutBitcoin?: () => void;
   /** Opens the sync debug log viewer (for troubleshooting partner sync) */
   onOpenDebugLog?: () => void;
+  /** Opens the relay settings dialog */
+  onOpenRelaySettings?: () => void;
   /** Display variant: "avatar" shows the user avatar (default), "hamburger" shows a Menu icon */
   variant?: 'avatar' | 'hamburger';
   /** Only used for hamburger variant: whether an update is available */
@@ -69,6 +71,7 @@ export function AccountSwitcher({
   onAbout,
   onLearnAboutBitcoin,
   onOpenDebugLog,
+  onOpenRelaySettings,
   variant = 'avatar',
   updateAvailable = false,
   triggerClassName,
@@ -283,6 +286,13 @@ export function AccountSwitcher({
             <Bug className="h-4 w-4 mr-2" />
             Sync Debug Log
             <span className="ml-auto text-[10px] text-muted-foreground/60">troubleshoot</span>
+          </DropdownMenuItem>
+        )}
+        {onOpenRelaySettings && (
+          <DropdownMenuItem onClick={onOpenRelaySettings}>
+            <Wifi className="h-4 w-4 mr-2" />
+            Relay Settings
+            <span className="ml-auto text-[10px] text-muted-foreground/60">manage</span>
           </DropdownMenuItem>
         )}
       </DropdownMenuContent>
