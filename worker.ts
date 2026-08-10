@@ -93,54 +93,24 @@ function json(data: unknown, status = 200): Response {
 
 // Initialize D1 database tables
 async function initializeDatabase(db: any): Promise<void> {
-  try {
-    // Create subscriptions table
-    await db.prepare(`
-      CREATE TABLE IF NOT EXISTS subscriptions (
-        pubkey TEXT PRIMARY KEY,
-        tier TEXT NOT NULL DEFAULT 'free',
-        buckets INTEGER NOT NULL DEFAULT 5,
-        items_per_bucket INTEGER NOT NULL DEFAULT 4,
-        expires_at TEXT,
-        payment_type TEXT NOT NULL DEFAULT 'none',
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL
-      )
-    `).run();
+  const statements = [
+    `CREATE TABLE IF NOT EXISTS subscriptions (pubkey TEXT PRIMARY KEY, tier TEXT NOT NULL DEFAULT 'free', buckets INTEGER NOT NULL DEFAULT 5, items_per_bucket INTEGER NOT NULL DEFAULT 4, expires_at TEXT, payment_type TEXT NOT NULL DEFAULT 'none', created_at TEXT NOT NULL, updated_at TEXT NOT NULL)`,
+    `CREATE TABLE IF NOT EXISTS invoices (id TEXT PRIMARY KEY, pubkey TEXT NOT NULL, amount_msat INTEGER NOT NULL, bolt11 TEXT NOT NULL, verify_url TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending', tier_requested TEXT, created_at TEXT NOT NULL, expires_at TEXT NOT NULL, paid_at TEXT)`,
+    `CREATE TABLE IF NOT EXISTS zap_verifications (id TEXT PRIMARY KEY, pubkey TEXT NOT NULL, amount_msat INTEGER NOT NULL, bolt11 TEXT NOT NULL, invoice_id TEXT, status TEXT NOT NULL DEFAULT 'verified', verified_at TEXT NOT NULL, created_at TEXT NOT NULL)`
+  ];
 
-    // Create invoices table
-    await db.prepare(`
-      CREATE TABLE IF NOT EXISTS invoices (
-        id TEXT PRIMARY KEY,
-        pubkey TEXT NOT NULL,
-        amount_msat INTEGER NOT NULL,
-        bolt11 TEXT NOT NULL,
-        verify_url TEXT NOT NULL,
-        status TEXT NOT NULL DEFAULT 'pending',
-        tier_requested TEXT,
-        created_at TEXT NOT NULL,
-        expires_at TEXT NOT NULL,
-        paid_at TEXT
-      )
-    `).run();
-
-    // Create zap verification log
-    await db.prepare(`
-      CREATE TABLE IF NOT EXISTS zap_verifications (
-        id TEXT PRIMARY KEY,
-        pubkey TEXT NOT NULL,
-        amount_msat INTEGER NOT NULL,
-        bolt11 TEXT NOT NULL,
-        invoice_id TEXT,
-        status TEXT NOT NULL DEFAULT 'verified',
-        verified_at TEXT NOT NULL,
-        created_at TEXT NOT NULL
-      )
-    `).run();
-
-    console.log("Database tables initialized");
-  } catch (error) {
-    console.error("Database initialization error:", error);
+  for (const stmt of statements) {
+    try {
+      await db.exec(stmt);
+    } catch (e) {
+      // Table might already exist, or exec might not support DDL
+      // Try prepare as fallback
+      try {
+        await db.prepare(stmt).run();
+      } catch (e2) {
+        console.error("Failed to create table:", stmt.substring(0, 50), e2);
+      }
+    }
   }
 }
 
@@ -307,6 +277,13 @@ export default {
     try {
       if (pathname !== "/health") {
         await initializeDatabase(db);
+      }
+
+      // ─── POST /api/subscription/init-db ─────────────────────────────────
+      // Dedicated endpoint to initialize database tables (for debugging)
+      if (pathname === "/api/subscription/init-db" && request.method === "POST") {
+        await initializeDatabase(db);
+        return json({ success: true, message: "Database initialization attempted" });
       }
 
       // ─── POST /api/subscription/create-invoice ───────────────────────────
