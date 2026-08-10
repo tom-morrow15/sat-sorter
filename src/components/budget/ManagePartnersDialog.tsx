@@ -273,18 +273,18 @@ export function ManagePartnersDialog({
               </Button>
             )}
 
-            {/* Partner: Manual sync */}
-            {!isOwner && sharedSync?.hasSharedBudget && (
+            {/* Force Sync — available to everyone with a shared budget */}
+            {sharedSync?.hasSharedBudget && (
               <div className="p-3 rounded-md bg-petrol/10 border border-petrol/20">
                 <p className="text-xs text-muted-foreground mb-2">
-                  Not seeing data? Force a re-sync.
+                  Not seeing your partner's latest changes? Force a sync.
                 </p>
                 <Button
                   size="sm"
                   variant="outline"
                   className="w-full"
                   onClick={async () => {
-                    toast({ title: 'Syncing...', description: 'Fetching latest data from relay.' });
+                    toast({ title: 'Syncing...', description: 'Fetching latest budget data from shared relays.' });
                     await sharedSync.forceSync();
                     toast({ title: 'Sync complete', description: 'Checked for updates.' });
                   }}
