@@ -10,6 +10,7 @@ export interface SubscriptionStatus {
   items_per_bucket: number;
   expires_at: string | null;
   payment_type: 'none' | 'monthly' | 'yearly';
+  isGuest: boolean;
 }
 
 const WORKER_URL = 'https://sat-sorter-worker.satsorter.workers.dev';
@@ -22,7 +23,18 @@ export function useSubscription() {
   const query = useQuery<SubscriptionStatus | null>({
     queryKey: ['subscription', user?.pubkey],
     queryFn: async () => {
-      if (!user?.pubkey) return null;
+      // Guest users (not logged in) always get free tier
+      if (!user?.pubkey) {
+        return {
+          pubkey: '',
+          tier: 'free',
+          buckets: 5,
+          items_per_bucket: 4,
+          expires_at: null,
+          payment_type: 'none',
+          isGuest: true,
+        };
+      }
 
       try {
         const response = await fetch(
@@ -34,15 +46,19 @@ export function useSubscription() {
           return null;
         }
 
-        return response.json();
+        const data = await response.json();
+        return {
+          ...data,
+          isGuest: false,
+        };
       } catch (error) {
         console.error('Error fetching subscription status:', error);
         return null;
       }
     },
-    enabled: !!user?.pubkey,
-    refetchInterval: 5000, // Refetch every 5 seconds to catch payments quickly
-    staleTime: 2000, // Consider data stale after 2 seconds
+    enabled: true, // Always enabled now (handles both guest and logged-in)
+    refetchInterval: user?.pubkey ? 5000 : undefined, // Only refetch for logged-in users
+    staleTime: user?.pubkey ? 2000 : Infinity, // Guest data doesn't go stale
   });
 
   // Listen for incoming zap receipts (kind 9735) to your lightning address

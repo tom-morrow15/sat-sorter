@@ -284,21 +284,22 @@ export default function Budget() {
              />
 
              {/* Income bucket - always first */}
-              {incomeBucket && (
-                <BucketCard
-                  bucket={incomeBucket}
-                  buckets={currentBudget.buckets}
-                  transactions={currentBudget.transactions}
-                  currency={currency}
-                  merchants={merchants}
-                  onUpdateBucket={updateBucket}
-                  onDeleteBucket={deleteBucket}
-                  onAddLineItem={addLineItem}
-                  onUpdateLineItem={updateLineItem}
-                  onDeleteLineItem={deleteLineItem}
-                  paymentMethods={paymentMethods}
-                />
-              )}
+               {incomeBucket && (
+                 <BucketCard
+                   bucket={incomeBucket}
+                   buckets={currentBudget.buckets}
+                   transactions={currentBudget.transactions}
+                   currency={currency}
+                   merchants={merchants}
+                   onUpdateBucket={updateBucket}
+                   onDeleteBucket={deleteBucket}
+                   onAddLineItem={addLineItem}
+                   onUpdateLineItem={updateLineItem}
+                   onDeleteLineItem={deleteLineItem}
+                   paymentMethods={paymentMethods}
+                   isGuest={!user?.pubkey}
+                 />
+               )}
 
               {/* Section header for expenses */}
               <div className="flex items-center justify-between pt-2">
@@ -323,21 +324,22 @@ export default function Budget() {
 
              {/* Expense buckets */}
               <div className="space-y-3">
-                {expenseBuckets.map((bucket) => (
-                  <BucketCard
-                    key={bucket.id}
-                    bucket={bucket}
-                    buckets={currentBudget.buckets}
-                    transactions={currentBudget.transactions}
-                    currency={currency}
-                    merchants={merchants}
-                    onUpdateBucket={updateBucket}
-                    onDeleteBucket={deleteBucket}
-                    onAddLineItem={addLineItem}
-                    onUpdateLineItem={updateLineItem}
-                    onDeleteLineItem={deleteLineItem}
-                    paymentMethods={paymentMethods}
-                  />
+                 {expenseBuckets.map((bucket) => (
+                   <BucketCard
+                     key={bucket.id}
+                     bucket={bucket}
+                     buckets={currentBudget.buckets}
+                     transactions={currentBudget.transactions}
+                     currency={currency}
+                     merchants={merchants}
+                     onUpdateBucket={updateBucket}
+                     onDeleteBucket={deleteBucket}
+                     onAddLineItem={addLineItem}
+                     onUpdateLineItem={updateLineItem}
+                     onDeleteLineItem={deleteLineItem}
+                     paymentMethods={paymentMethods}
+                     isGuest={!user?.pubkey}
+                   />
                 ))}
              </div>
 
@@ -413,11 +415,14 @@ export default function Budget() {
        </main>
 
        {/* Dialogs */}
-       <AddBucketDialog
-         open={showAddBucket}
-         onOpenChange={setShowAddBucket}
-         onAdd={(name, color, icon) => addBucket(name, color, icon)}
-       />
+        <AddBucketDialog
+          open={showAddBucket}
+          onOpenChange={setShowAddBucket}
+          onAdd={(name, color, icon) => addBucket(name, color, icon)}
+          currentBucketCount={currentBudget.buckets.length}
+          maxBucketsAllowed={5}
+          isGuest={!user?.pubkey}
+        />
 
        {/* Copy Budget Prompt — unified flow for all copy triggers */}
        <CopyMonthPrompt

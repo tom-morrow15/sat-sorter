@@ -7,6 +7,7 @@ import {
 import { SpendingProgressBar } from './SpendingProgressBar';
 import { DeletionConfirmDialog } from './DeletionConfirmDialog';
 import { UpgradeDialog } from './UpgradeDialog';
+import { GuestLimitDialog } from './GuestLimitDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useSubscription } from '@/hooks/useSubscription';
@@ -47,12 +48,16 @@ interface BucketCardProps {
   }) => void;
   onViewTransactions?: (lineItemId: string) => void;
   paymentMethods?: string[];
+  isGuest?: boolean;
+  onLoginNeeded?: () => void;
 }
 
 export function BucketCard({
   bucket, buckets, transactions, currency, merchants = [],
   onUpdateBucket, onDeleteBucket, onAddLineItem, onUpdateLineItem, onDeleteLineItem,
   onViewTransactions,
+  isGuest = false,
+  onLoginNeeded,
 }: BucketCardProps) {
   const { data: priceData } = useBitcoinPrice();
   const { data: subscription } = useSubscription();
@@ -63,13 +68,14 @@ export function BucketCard({
   const [editName, setEditName] = useState(bucket.name);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
 
   // Free tier limits
   const MAX_BUCKETS_FREE = 5;
   const MAX_ITEMS_PER_BUCKET_FREE = 4;
   
   // Get max buckets available to user
-  const maxBucketsAvailable = subscription?.buckets ?? MAX_BUCKETS_FREE;
+  const maxBucketsAvailable = isGuest ? MAX_BUCKETS_FREE : (subscription?.buckets ?? MAX_BUCKETS_FREE);
 
   const Icon = iconMap[bucket.icon] || Wallet;
 
@@ -291,11 +297,18 @@ export function BucketCard({
         onConfirm={handleDeleteConfirmed}
       />
 
-      <UpgradeDialog
-        open={showUpgradeDialog}
-        onOpenChange={setShowUpgradeDialog}
-        bucketCount={buckets.length}
-        maxBucketsForFreeTier={MAX_BUCKETS_FREE}
+      {!isGuest && (
+        <UpgradeDialog
+          open={showUpgradeDialog}
+          onOpenChange={setShowUpgradeDialog}
+          bucketCount={buckets.length}
+          maxBucketsForFreeTier={MAX_BUCKETS_FREE}
+        />
+      )}
+
+      <GuestLimitDialog
+        open={showLoginPrompt && isGuest}
+        onOpenChange={setShowLoginPrompt}
       />
     </div>
   );

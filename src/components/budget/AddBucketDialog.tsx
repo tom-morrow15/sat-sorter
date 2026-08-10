@@ -107,6 +107,8 @@ interface AddBucketDialogProps {
   currentBucketCount?: number;
   maxBucketsAllowed?: number;
   onUpgradeNeeded?: () => void;
+  isGuest?: boolean;
+  onLoginNeeded?: () => void;
 }
 
 interface IconOption {
@@ -295,6 +297,8 @@ export function AddBucketDialog({
   currentBucketCount = 0,
   maxBucketsAllowed = 5,
   onUpgradeNeeded,
+  isGuest = false,
+  onLoginNeeded,
 }: AddBucketDialogProps) {
   const [name, setName] = useState('');
   const [selectedIcon, setSelectedIcon] = useState('wallet');
@@ -305,7 +309,11 @@ export function AddBucketDialog({
 
   const handleAdd = () => {
     if (!canAddBucket) {
-      onUpgradeNeeded?.();
+      if (isGuest) {
+        onLoginNeeded?.();
+      } else {
+        onUpgradeNeeded?.();
+      }
       return;
     }
 
@@ -482,7 +490,12 @@ export function AddBucketDialog({
 
         <DialogFooter className="gap-2">
           <Button variant="outline" onClick={handleClose}>Cancel</Button>
-          {!canAddBucket && (
+          {!canAddBucket && isGuest && (
+            <Button onClick={handleAdd} className="bg-blue-600 hover:bg-blue-700">
+              Sign In to Add More
+            </Button>
+          )}
+          {!canAddBucket && !isGuest && (
             <Button onClick={handleAdd} className="bg-amber-600 hover:bg-amber-700">
               Unlock More Buckets
             </Button>
