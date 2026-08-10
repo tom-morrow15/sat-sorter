@@ -50,6 +50,8 @@ import { MapleSettings } from '@/components/maple/MapleSettings';
 import { PaymentMethodsManager } from './PaymentMethodsManager';
 import { DebugLogDialog } from './DebugLogDialog';
 import { RelaySettingsDialog } from './RelaySettingsDialog';
+import { AccountDetailsDialog } from './AccountDetailsDialog';
+import { WelcomeTour } from '@/components/WelcomeTour';
 import { useRegisterSW } from '@/hooks/useRegisterSW';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { GuestUpgradeModal } from '@/components/GuestUpgradeModal';
@@ -123,6 +125,8 @@ export function BudgetHeader({
   const [showBudgetKey, setShowBudgetKey] = useState(false);
   const [showDebugLog, setShowDebugLog] = useState(false);
   const [showRelaySettings, setShowRelaySettings] = useState(false);
+  const [showAccountDetails, setShowAccountDetails] = useState(false);
+  const [showWelcomeTour, setShowWelcomeTour] = useState(false);
 
   const getAvailableMonths = () => {
     const months: string[] = [];
@@ -254,6 +258,8 @@ export function BudgetHeader({
                   onCopyPreviousMonth={() => onCopyPreviousMonth?.()}
                   onOpenDebugLog={() => setShowDebugLog(true)}
                   onOpenRelaySettings={() => setShowRelaySettings(true)}
+                  onOpenAccountDetails={() => setShowAccountDetails(true)}
+                  onOpenWelcomeTour={() => setShowWelcomeTour(true)}
                   onPlanNextMonth={onPlanNextMonth}
                   onResetBudgetMonth={() => setShowResetConfirm(true)}
                   onSoftReset={handleSoftReset}
@@ -576,6 +582,12 @@ export function BudgetHeader({
 
       {/* Relay Settings */}
       <RelaySettingsDialog open={showRelaySettings} onOpenChange={setShowRelaySettings} />
+
+      {/* Account Details */}
+      <AccountDetailsDialog open={showAccountDetails} onOpenChange={setShowAccountDetails} />
+
+      {/* Welcome Tour */}
+      <WelcomeTour open={showWelcomeTour} onOpenChange={setShowWelcomeTour} />
     </div>
   );
 }

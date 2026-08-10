@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Zap, DollarSign, Bitcoin, ChevronRight, Check, X } from 'lucide-react';
+import { Zap, DollarSign, Bitcoin, ChevronRight, Check, X, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useBudget } from '@/hooks/useBudget';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { createEncryptedSerializer } from '@/lib/secureStorage';
 import { useOnboarding } from '@/contexts/OnboardingContext';
+import { WelcomeTour } from '@/components/WelcomeTour';
 import { cn } from '@/lib/utils';
 
 const ONBOARDING_KEY = 'sat-sorter-onboarding-completed';
@@ -18,6 +19,7 @@ export function FirstRunOnboarding() {
   const [completed, setCompleted] = useLocalStorage<boolean>(ONBOARDING_KEY, false, serializer);
   const [step, setStep] = useState<Step>('welcome');
   const [incomeAmount, setIncomeAmount] = useState('');
+  const [showTour, setShowTour] = useState(false);
 
   // Only show for authenticated or guest users who haven't completed onboarding
   const shouldShow =
@@ -43,6 +45,7 @@ export function FirstRunOnboarding() {
   const handleComplete = () => {
     setCompleted(true);
     setStep('done');
+    setShowTour(true);
   };
 
   const handleSetCurrency = (choice: 'usd' | 'sats') => {
@@ -58,13 +61,16 @@ export function FirstRunOnboarding() {
       const incomeBucket = currentBudget.buckets.find((b) => b.isIncome);
       if (incomeBucket && incomeBucket.lineItems[0]) {
         // Update the salary line item with the user's income
-        // This uses the existing budget infrastructure
       }
     }
-    handleComplete();
+    setCompleted(true);
+    setStep('done');
+    setShowTour(true);
   };
 
-  if (step === 'done') return null;
+  if (step === 'done') {
+    return <WelcomeTour open={showTour} onOpenChange={(open) => { if (!open) setShowTour(false); }} />;
+  }
 
   return (
     <div className="fixed inset-0 z-[100] bg-[hsl(var(--brand)/0.7)] flex items-center justify-center p-4 animate-fade-in">
@@ -236,6 +242,14 @@ export function FirstRunOnboarding() {
                 {incomeAmount && parseFloat(incomeAmount) > 0 ? 'Start Budgeting!' : 'Enter amount'}
               </Button>
             </div>
+
+            <button
+              onClick={handleComplete}
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1 mx-auto"
+            >
+              <BookOpen className="h-3.5 w-3.5" />
+              Skip — Take a full tour instead
+            </button>
           </div>
         )}
       </div>
