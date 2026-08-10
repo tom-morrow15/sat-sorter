@@ -2,7 +2,7 @@ import { useState } from 'react';
 import {
   Zap, DollarSign, Bitcoin, Shield, Plus, Copy, Calendar, Receipt,
   Scissors, Filter, CreditCard, Wallet, TrendingUp, MapPin, Users,
-  MessageSquare, RotateCw, ChevronLeft, ChevronRight, Check, X,
+  MessageSquare, RotateCw, ChevronLeft, ChevronRight, Check, X, Heart,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -56,6 +56,13 @@ const TOUR_STEPS: TourStep[] = [
     title: 'Setting Up Your Budget',
     description: 'Start by adding income, then create expense categories like Groceries, Rent, and Savings. Each category can have multiple line items for granular tracking.',
     howTo: 'Tap "Add Category" on the Home screen, pick an icon and color, then add line items within each category.',
+  },
+  {
+    icon: Heart,
+    iconColor: 'text-amber-500',
+    title: 'Value for Value',
+    description: 'Sat Sorter is free forever — 5 budget buckets with 4 line items each, no strings attached. We built this to help you take control of your finances, not to exploit you.\n\nIf you need more buckets, you can unlock them with sats: $1 gets you +1 bucket, $5 gets you unlimited for the month. No recurring charges, no auto-pay that quietly drains your wallet month after month. You pay only when you need more, only for the month you need it.\n\nYour first month is a free trial with unlimited everything — so you can see what full access feels like before deciding.\n\nWe call this "value for value." We provide a tool that helps you manage your money. If you find it valuable, sending a few sats keeps us building. No paywalls, no lock-in, no tricks.',
+    howTo: 'When you hit the 5-bucket limit, tap "Add Category" and choose a Power-Up that fits your needs for that month. You can also find your subscription status in the hamburger menu → Subscription & Access.',
   },
   {
     icon: Copy,
@@ -224,7 +231,7 @@ export function WelcomeTour({ open, onOpenChange }: WelcomeTourProps) {
               </div>
             )}
 
-            <p className="text-sm text-muted-foreground text-center leading-relaxed">
+            <p className="text-sm text-muted-foreground text-center leading-relaxed whitespace-pre-wrap">
               {step.description}
             </p>
 
