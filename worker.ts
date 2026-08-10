@@ -22,7 +22,7 @@ interface Subscription {
   created_at: string;
 }
 
-const ALBY_ADDRESS = "devin@getalby.com";
+const ALBY_ADDRESS = "satsorter@getalby.com";
 const FREE_TIER_BUCKETS = 5;
 const FREE_TIER_ITEMS = 4;
 const TRIAL_DURATION_DAYS = 31; // First month includes rest of month

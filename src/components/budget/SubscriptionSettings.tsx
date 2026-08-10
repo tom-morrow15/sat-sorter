@@ -21,7 +21,7 @@ export function SubscriptionSettings() {
 
   const handleCopyAddress = async () => {
     try {
-      await navigator.clipboard.writeText('devin@getalby.com');
+      await navigator.clipboard.writeText('satsorter@getalby.com');
       setCopied(true);
       showToast({ title: 'Copied!', description: 'Lightning address copied' });
       setTimeout(() => setCopied(false), 2000);
@@ -176,7 +176,7 @@ export function SubscriptionSettings() {
         <CardContent>
           <div className="flex gap-2">
             <Input
-              value="devin@getalby.com"
+              value="satsorter@getalby.com"
               readOnly
               className="font-mono"
             />
