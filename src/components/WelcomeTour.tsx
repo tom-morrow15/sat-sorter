@@ -51,18 +51,18 @@ const TOUR_STEPS: TourStep[] = [
     needsNostr: true,
   },
   {
-    icon: Plus,
-    iconColor: 'text-primary',
-    title: 'Setting Up Your Budget',
-    description: 'Start by adding income, then create expense categories like Groceries, Rent, and Savings. Each category can have multiple line items for granular tracking.',
-    howTo: 'Tap "Add Category" on the Home screen, pick an icon and color, then add line items within each category.',
-  },
-  {
     icon: Heart,
     iconColor: 'text-amber-500',
     title: 'Value for Value',
-    description: 'Sat Sorter is free forever — 5 budget buckets with 4 line items each, no strings attached. We built this to help you take control of your finances, not to exploit you.\n\nIf you need more buckets, you can unlock them with sats: $1 gets you +1 bucket, $5 gets you unlimited for the month. No recurring charges, no auto-pay that quietly drains your wallet month after month. You pay only when you need more, only for the month you need it.\n\nYour first month is a free trial with unlimited everything — so you can see what full access feels like before deciding.\n\nWe call this "value for value." We provide a tool that helps you manage your money. If you find it valuable, sending a few sats keeps us building. No paywalls, no lock-in, no tricks.',
-    howTo: 'When you hit the 5-bucket limit, tap "Add Category" and choose a Power-Up that fits your needs for that month. You can also find your subscription status in the hamburger menu → Subscription & Access.',
+    description: 'Sat Sorter is free forever — 5 buckets with 4 line items each, no strings attached.\n\nNeed more? Unlock extra buckets with sats: $1 gets you +1 bucket, $5 gets you unlimited for the month. No auto-pay, no recurring charges — you only pay when you need more, only for the month you need it.\n\nYour first month is a free trial with unlimited everything. We call this "value for value" — we provide the tool, and if you find it valuable, sending sats keeps us building.',
+    howTo: 'When you hit the 5-bucket limit, tap "Add Category" and choose a Power-Up. Manage your subscription in the hamburger menu → Subscription & Access.',
+  },
+  {
+    icon: Plus,
+    iconColor: 'text-primary',
+    title: 'Setting Up Your Budget',
+    description: 'Start by adding income, then create expense categories like Groceries, Rent, and Savings. Each category can have multiple line items for granular tracking.\n\nNote: The free tier includes 5 categories with 4 line items each. If you need more, you can unlock additional categories with a Power-Up.',
+    howTo: 'Tap "Add Category" on the Home screen, pick an icon and color, then add line items within each category.',
   },
   {
     icon: Copy,
@@ -181,7 +181,7 @@ export function WelcomeTour({ open, onOpenChange }: WelcomeTourProps) {
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[440px] max-w-[calc(100vw-2rem)] max-h-[85vh] flex flex-col p-0 overflow-hidden [&>button[data-radix-dialog-close]]:hidden">
+      <DialogContent className="sm:max-w-[440px] max-w-[calc(100vw-2rem)] max-h-[85vh] flex flex-col p-0 overflow-hidden [&>button:last-child]:hidden">
         <DialogTitle className="sr-only">Sat Sorter Welcome Tour</DialogTitle>
         {/* Header bar */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-border/40">
