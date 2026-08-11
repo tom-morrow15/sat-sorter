@@ -43,6 +43,26 @@ export interface BudgetContext {
   categories: BudgetCategoryContext[];
   recent_transactions: BudgetTransactionContext[];
   user_evergreen_context: string;
+  // Wealth Tracker data (if available)
+  bitcoin_holdings?: BitcoinHoldingContext[];
+  total_btc?: number;
+  // Local Spend / BTC Map data (if available)
+  nearby_merchants?: MerchantContext[];
+}
+
+export interface BitcoinHoldingContext {
+  address: string;
+  balance_btc: number;
+  balance_usd: number;
+  label?: string;
+}
+
+export interface MerchantContext {
+  name: string;
+  category: string;
+  address?: string;
+  distance_meters?: number;
+  accepts_bitcoin: boolean;
 }
 
 export interface ChatMessage {
@@ -71,7 +91,9 @@ export function buildBudgetContext(
   month: string,
   budget: MonthlyBudget,
   btcPrice: number,
-  evergreenContext: string
+  evergreenContext: string,
+  bitcoinHoldings?: BitcoinHoldingContext[],
+  nearbyMerchants?: MerchantContext[]
 ): BudgetContext {
   // Derive ALL figures from the shared selector so Maple's numbers are
   // guaranteed to match the Home dashboard and the Breakdown screen exactly.
@@ -144,6 +166,11 @@ export function buildBudgetContext(
     parseInt(monthStr, 10) - 1
   ).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
+  // Calculate total BTC holdings if available
+  const total_btc = bitcoinHoldings 
+    ? bitcoinHoldings.reduce((sum, h) => sum + h.balance_btc, 0)
+    : undefined;
+
   return {
     month: monthLabel,
     btc_price_usd: Math.round(btcPrice * 100) / 100,
@@ -154,6 +181,9 @@ export function buildBudgetContext(
     categories,
     recent_transactions,
     user_evergreen_context: evergreenContext.trim(),
+    bitcoin_holdings: bitcoinHoldings,
+    total_btc,
+    nearby_merchants: nearbyMerchants,
   };
 }
 
@@ -165,6 +195,10 @@ const CHAT_SYSTEM_PROMPT = `You are Maple, the Budget Buddy inside Sat Sorter. Y
 
 Important: Transactions may be split across multiple line items. When a transaction has "(split)" in its category, it means the amount was divided across the listed line items. Use this information when reasoning about spending.
 
+You ALSO have access to:
+- **Wealth Tracker data**: The user's actual Bitcoin address balances (balance_btc, balance_usd, address, label). You can answer questions like "What's my total Bitcoin holdings?" or "How much BTC do I have?" directly from this data.
+- **Local Spend / BTC Map data**: Nearby Bitcoin-accepting merchants (name, category, address, distance). You can answer questions like "Where can I get coffee near me that accepts Bitcoin?" directly from this data.
+
 Sat Sorter features you can discuss:
 - **Transactions Tab**: Users can tap "More" in the bottom nav → Transactions to see all transactions, search, filter by category, or tap the receipt icon next to any line item to jump straight to all transactions for that specific line item.
 - **Wealth Tracker**: Users can tap "More" → Wealth Tracker to add Bitcoin addresses and monitor their on-chain BTC holdings over time.
@@ -174,7 +208,7 @@ Sat Sorter features you can discuss:
 - **Budget Partners**: Users can share their budget with a partner (spouse, etc.) via a QR code — changes sync automatically.
 - **Budget Buddy**: This is you — users can ask you anything about their budget, spending, or the app itself.
 
-Always reason using the line-item level detail, not just category totals — for example, if asked about "coffee", look for a matching line item. Tailor all advice through the evergreen context when relevant. Answer helpfully, concisely, and in a friendly tone. Default to USD but feel free to mention sats using the provided btc_price_usd. If a purchase would overspend a category or line item, warn them and suggest moving funds from another one with surplus. Only use data provided in context. ${FORMATTING_RULES}`;
+Always reason using the line-item level detail, not just category totals — for example, if asked about "coffee", look for a matching line item. When answering questions about BTC holdings or merchants, use the actual data provided (bitcoin_holdings, nearby_merchants). Tailor all advice through the evergreen context when relevant. Answer helpfully, concisely, and in a friendly tone. Default to USD but feel free to mention sats using the provided btc_price_usd. If a purchase would overspend a category or line item, warn them and suggest moving funds from another one with surplus. Only use data provided in context. ${FORMATTING_RULES}`;
 
 /**
  * Maple Proxy provides OpenAI-compatible API access to Maple's encrypted models.

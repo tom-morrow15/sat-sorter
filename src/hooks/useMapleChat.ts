@@ -3,6 +3,8 @@ import { useAISettings } from './useAISettings';
 import { useBudget } from './useBudget';
 import { useBitcoinPrice } from './useBitcoinPrice';
 import { useToast } from './useToast';
+import { useWealthTracker } from './useWealthTracker';
+import { useBTCMap } from './useBTCMap';
 import {
   buildBudgetContext,
   chatWithMaple,
@@ -76,13 +78,50 @@ export function useMapleChat(): UseMapleChatReturn {
     ];
   }
 
+  const { addresses: wealthAddresses } = useWealthTracker();
+  const { merchants: btcMapMerchants } = useBTCMap();
+
   const getContext = useCallback(() => {
     const btcPrice = priceData?.usdPerBtc ?? 0;
     if (!btcPrice) {
       throw new Error('BTC price unavailable');
     }
-    return buildBudgetContext(currentMonth, currentBudget, btcPrice, evergreenContext);
-  }, [currentMonth, currentBudget, priceData, evergreenContext]);
+
+    // Transform Wealth Tracker data for Maple
+    const bitcoinHoldings = wealthAddresses.length > 0 
+      ? wealthAddresses.map(addr => ({
+          address: addr.address,
+          balance_btc: addr.balance / 100_000_000, // Convert satoshis to BTC
+          balance_usd: (addr.balance / 100_000_000) * btcPrice,
+          label: addr.label,
+        }))
+      : undefined;
+
+    // Transform BTC Map merchants for Maple (only Bitcoin-accepting ones)
+    const nearbyMerchants = btcMapMerchants.length > 0
+      ? btcMapMerchants
+          .filter(m => m.tags?.payment?.includes('bitcoin') || m.tags?.payment?.includes('lightning'))
+          .slice(0, 20) // Limit to 20 nearest
+          .map(m => ({
+            name: m.tags?.name || 'Unnamed merchant',
+            category: m.tags?.amenity || m.tags?.shop || 'Other',
+            address: m.tags?.['addr:street'] 
+              ? `${m.tags['addr:street']}${m.tags['addr:housenumber'] ? ` ${m.tags['addr:housenumber']}` : ''}` 
+              : undefined,
+            distance_meters: m.distance,
+            accepts_bitcoin: true,
+          }))
+      : undefined;
+
+    return buildBudgetContext(
+      currentMonth, 
+      currentBudget, 
+      btcPrice, 
+      evergreenContext,
+      bitcoinHoldings,
+      nearbyMerchants
+    );
+  }, [currentMonth, currentBudget, priceData, evergreenContext, wealthAddresses, btcMapMerchants]);
 
   const sendMessage = useCallback(
     async (text: string) => {
