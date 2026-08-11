@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { AlertCircle, Zap, RotateCcw, Loader2, CheckCircle2, Clock } from 'lucide-react';
+import { AlertCircle, Zap, Loader2, CheckCircle2, Clock } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -83,7 +83,6 @@ export function SubscriptionSettings() {
   const [errorMessage, setErrorMessage] = useState('');
   const [testCodeInput, setTestCodeInput] = useState('');
   const [isApplyingCode, setIsApplyingCode] = useState(false);
-  const [isResetting, setIsResetting] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const satsPerUsd = priceData?.satsPerUsd ?? 0;
@@ -206,29 +205,6 @@ export function SubscriptionSettings() {
     }
   };
 
-  const handleResetToFree = async () => {
-    if (!user?.pubkey) return;
-    setIsResetting(true);
-    try {
-      const response = await fetch(`${WORKER_URL}/api/subscription/reset`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pubkey: user.pubkey }),
-      });
-      if (!response.ok) throw new Error('Failed to reset');
-      toast({ title: 'Reset to Free Tier', description: 'You now have 5 buckets and 4 items per bucket.' });
-      refetchSubscription();
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to reset',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsResetting(false);
-    }
-  };
-
   const handleBackToStatus = () => {
     if (pollRef.current) {
       clearInterval(pollRef.current);
@@ -239,8 +215,6 @@ export function SubscriptionSettings() {
     setInvoiceData(null);
     setErrorMessage('');
   };
-
-  const WORKER_URL = 'https://sat-sorter-worker.satsorter.workers.dev';
 
   // Not logged in
   if (!user?.pubkey) {
@@ -476,19 +450,6 @@ export function SubscriptionSettings() {
                   </p>
                 </div>
               )}
-
-              {subscription.tier !== 'free' && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleResetToFree}
-                  disabled={isResetting}
-                  className="mt-3 text-xs"
-                >
-                  <RotateCcw className="h-3 w-3 mr-1" />
-                  {isResetting ? 'Resetting...' : 'Reset to Free Tier'}
-                </Button>
-              )}
             </div>
           </div>
         </CardContent>
@@ -584,31 +545,33 @@ export function SubscriptionSettings() {
         </CardContent>
       </Card>
 
-      {/* Test Payment Flow (development only) */}
-      <Card className="border-dashed border-amber-300 dark:border-amber-800">
-        <CardHeader>
-          <CardTitle className="text-sm flex items-center gap-2 text-amber-700 dark:text-amber-300">
-            <AlertCircle className="h-4 w-4" />
-            Test Payment Flow
-          </CardTitle>
-          <CardDescription className="text-amber-600 dark:text-amber-400 text-xs">
-            Test the Power-Up payment flow with a real Lightning invoice. This bypasses your current subscription status.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setState('selecting');
-            }}
-            className="text-xs border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900"
-          >
-            <Zap className="h-3 w-3 mr-1" />
-            Test Payment Flow
-          </Button>
-        </CardContent>
-      </Card>
+      {/* Test Payment Flow — hidden unless ?dev=true in URL */}
+      {new URLSearchParams(window.location.search).get('dev') === 'true' && (
+        <Card className="border-dashed border-amber-300 dark:border-amber-800">
+          <CardHeader>
+            <CardTitle className="text-sm flex items-center gap-2 text-amber-700 dark:text-amber-300">
+              <AlertCircle className="h-4 w-4" />
+              Test Payment Flow
+            </CardTitle>
+            <CardDescription className="text-amber-600 dark:text-amber-400 text-xs">
+              Test the Power-Up payment flow with a real Lightning invoice. This bypasses your current subscription status.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setState('selecting');
+              }}
+              className="text-xs border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900"
+            >
+              <Zap className="h-3 w-3 mr-1" />
+              Test Payment Flow
+            </Button>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
