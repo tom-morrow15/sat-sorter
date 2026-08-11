@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Copy, Check, AlertCircle, Zap, LogIn } from 'lucide-react';
+import { useState } from 'react';
+import { Copy, Check, AlertCircle, Zap, LogIn, RotateCcw } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,6 +20,7 @@ export function SubscriptionSettings() {
   const { showToast } = useToast();
   const [testCodeInput, setTestCodeInput] = useState('');
   const [isApplyingCode, setIsApplyingCode] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
   const [copied, setCopied] = useState(false);
 
   const handleCopyAddress = async () => {
@@ -62,6 +64,28 @@ export function SubscriptionSettings() {
       });
     } finally {
       setIsApplyingCode(false);
+    }
+  };
+
+  const handleResetToFree = async () => {
+    if (!user?.pubkey) return;
+    setIsResetting(true);
+    try {
+      const response = await fetch(`${WORKER_URL}/api/subscription/reset`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pubkey: user.pubkey }),
+      });
+      if (!response.ok) throw new Error('Failed to reset');
+      showToast({ title: 'Reset to Free Tier', description: 'You now have 5 buckets and 4 items per bucket.' });
+    } catch (error) {
+      showToast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to reset',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsResetting(false);
     }
   };
 
@@ -188,6 +212,20 @@ export function SubscriptionSettings() {
                     Upgrade from the budget page to add more.
                   </p>
                 </div>
+              )}
+
+              {/* Reset to Free (for testing) */}
+              {subscription.tier !== 'free' && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleResetToFree}
+                  disabled={isResetting}
+                  className="mt-3 text-xs"
+                >
+                  <RotateCcw className="h-3 w-3 mr-1" />
+                  {isResetting ? 'Resetting...' : 'Reset to Free Tier'}
+                </Button>
               )}
             </div>
           </div>

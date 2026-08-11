@@ -505,6 +505,41 @@ export default {
         });
       }
 
+      // ─── POST /api/subscription/reset ───────────────────────────────────
+      // Resets a user's subscription to free tier (for testing)
+      if (pathname === "/api/subscription/reset" && request.method === "POST") {
+        const body = await request.json();
+        const { pubkey } = body;
+
+        if (!pubkey) {
+          return json({ error: "Missing pubkey" }, 400);
+        }
+
+        const now = new Date();
+        await getOrCreateSubscription(db, pubkey); // Ensure record exists
+
+        await db
+          .prepare(
+            `UPDATE subscriptions
+             SET tier = 'free', buckets = ?, items_per_bucket = ?, payment_type = 'none', expires_at = NULL, updated_at = ?
+             WHERE pubkey = ?`
+          )
+          .bind(FREE_TIER_BUCKETS, FREE_TIER_ITEMS, now.toISOString(), pubkey)
+          .run();
+
+        return json({
+          success: true,
+          message: "Subscription reset to free tier",
+          subscription: {
+            tier: 'free',
+            buckets: FREE_TIER_BUCKETS,
+            items_per_bucket: FREE_TIER_ITEMS,
+            expires_at: null,
+            payment_type: 'none',
+          },
+        });
+      }
+
       // ─── POST /api/subscription/apply-test-code ──────────────────────────
       // Applies a test code for unlimited access (development only)
       if (pathname === "/api/subscription/apply-test-code" && request.method === "POST") {
