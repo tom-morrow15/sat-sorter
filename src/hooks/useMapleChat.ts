@@ -78,7 +78,7 @@ export function useMapleChat(): UseMapleChatReturn {
     ];
   }
 
-  const { addresses: wealthAddresses } = useWealthTracker();
+  const { watchedAddresses: wealthAddresses } = useWealthTracker();
   const { merchants: btcMapMerchants } = useBTCMap();
 
   const getContext = useCallback(() => {
@@ -88,8 +88,9 @@ export function useMapleChat(): UseMapleChatReturn {
     }
 
     // Transform Wealth Tracker data for Maple
-    const bitcoinHoldings = wealthAddresses.length > 0 
-      ? wealthAddresses.map(addr => ({
+    const safeWealthAddresses = Array.isArray(wealthAddresses) ? wealthAddresses : [];
+    const bitcoinHoldings = safeWealthAddresses.length > 0 
+      ? safeWealthAddresses.map(addr => ({
           address: addr.address,
           balance_btc: addr.balance / 100_000_000, // Convert satoshis to BTC
           balance_usd: (addr.balance / 100_000_000) * btcPrice,
@@ -98,8 +99,8 @@ export function useMapleChat(): UseMapleChatReturn {
       : undefined;
 
     // Transform BTC Map merchants for Maple (only Bitcoin-accepting ones)
-    const nearbyMerchants = btcMapMerchants.length > 0
-      ? btcMapMerchants
+    const nearbyMerchants = (btcMapMerchants || []).length > 0
+      ? (btcMapMerchants || [])
           .filter(m => m.tags?.payment?.includes('bitcoin') || m.tags?.payment?.includes('lightning'))
           .slice(0, 20) // Limit to 20 nearest
           .map(m => ({
