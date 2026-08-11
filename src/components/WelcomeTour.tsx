@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
   Zap, DollarSign, Bitcoin, Shield, Plus, Copy, Calendar, Receipt,
-  Scissors, Filter, CreditCard, Wallet, TrendingUp, MapPin, Users,
+  Scissors, CreditCard, Wallet, TrendingUp, MapPin, Users,
   MessageSquare, RotateCw, ChevronLeft, ChevronRight, Check, X, Heart,
   Smartphone,
 } from 'lucide-react';
@@ -94,11 +94,11 @@ const TOUR_STEPS: TourStep[] = [
     howTo: 'When adding a transaction, tap "Split across categories" to divide the total among multiple line items.',
   },
   {
-    icon: Filter,
+    icon: Receipt,
     iconColor: 'text-primary',
     title: 'Transactions Tab',
-    description: 'View all transactions for the month, search and filter by category, and see which transactions still need to be categorized.',
-    howTo: 'Tap "More" in the bottom nav → Transactions. Use the search bar to find specific transactions or filter by category.',
+    description: 'View all transactions for the month, search and filter by category, and see which transactions still need to be categorized.\n\nTip: Tap the receipt icon next to any line item to instantly see all transactions for that specific line item.',
+    howTo: 'Tap "More" in the bottom nav → Transactions. Use the search bar to find specific transactions or filter by category. You can also tap the receipt icon on any line item to jump straight to its transactions.',
   },
   {
     icon: CreditCard,
