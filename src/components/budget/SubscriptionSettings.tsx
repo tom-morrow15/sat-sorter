@@ -1,40 +1,178 @@
-import { useState } from 'react';
-import { useState } from 'react';
-import { Copy, Check, AlertCircle, Zap, LogIn, RotateCcw } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { AlertCircle, Zap, RotateCcw, Loader2, CheckCircle2, Clock } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { useSubscription, useApplyTestCode } from '@/hooks/useSubscription';
+import { useSubscription, useApplyTestCode, useCreateInvoice, useVerifyPayment } from '@/hooks/useSubscription';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useToast } from '@/hooks/useToast';
+import { useBitcoinPrice } from '@/hooks/useBitcoinPrice';
 import { formatDistanceToNow } from 'date-fns';
 import { LoginArea } from '@/components/auth/LoginArea';
+import { InvoiceDisplay } from './InvoiceDisplay';
+import { Input } from '@/components/ui/input';
 
-const WORKER_URL = 'https://sat-sorter-worker.satsorter.workers.dev';
+interface UpgradeTier {
+  id: string;
+  name: string;
+  price: number; // in USD
+  buckets: number;
+  description: string;
+}
+
+const UPGRADE_TIERS: UpgradeTier[] = [
+  {
+    id: 'plus-1',
+    name: '+1 Bucket',
+    price: 1,
+    buckets: 1,
+    description: 'Add 1 additional bucket for this month',
+  },
+  {
+    id: 'plus-2',
+    name: '+2 Buckets',
+    price: 2,
+    buckets: 2,
+    description: 'Add 2 additional buckets for this month',
+  },
+  {
+    id: 'plus-3',
+    name: '+3 Buckets',
+    price: 3,
+    buckets: 3,
+    description: 'Add 3 additional buckets for this month',
+  },
+  {
+    id: 'plus-4',
+    name: '+4 Buckets',
+    price: 4,
+    buckets: 4,
+    description: 'Add 4 additional buckets for this month',
+  },
+  {
+    id: 'unlimited',
+    name: 'Unlimited',
+    price: 5,
+    buckets: Infinity,
+    description: 'Unlimited buckets and items for this month',
+  },
+  {
+    id: 'yearly',
+    name: 'Yearly Unlimited',
+    price: 50,
+    buckets: Infinity,
+    description: 'Unlimited everything for 12 months',
+  },
+];
+
+type SettingsState = 'status' | 'selecting' | 'invoice' | 'success';
 
 export function SubscriptionSettings() {
-  const { data: subscription } = useSubscription();
+  const { data: subscription, refetch: refetchSubscription } = useSubscription();
   const { user } = useCurrentUser();
-  const applyTestCode = useApplyTestCode();
   const { toast } = useToast();
+  const { data: priceData } = useBitcoinPrice();
+  const createInvoice = useCreateInvoice();
+  const verifyPayment = useVerifyPayment();
+  const applyTestCode = useApplyTestCode();
+
+  const [state, setState] = useState<SettingsState>('status');
+  const [selectedTier, setSelectedTier] = useState<UpgradeTier | null>(null);
+  const [invoiceData, setInvoiceData] = useState<{ pr: string; invoiceId: string } | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
   const [testCodeInput, setTestCodeInput] = useState('');
   const [isApplyingCode, setIsApplyingCode] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const handleCopyAddress = async () => {
-    try {
-      await navigator.clipboard.writeText('satsorter@getalby.com');
-      setCopied(true);
-      toast({ title: 'Copied!', description: 'Lightning address copied' });
-      setTimeout(() => setCopied(false), 2000);
-    } catch (error) {
+  const satsPerUsd = priceData?.satsPerUsd ?? 0;
+
+  // Clean up polling when component unmounts or state changes
+  useEffect(() => {
+    return () => {
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+    };
+  }, []);
+
+  // Start polling when invoice is shown
+  useEffect(() => {
+    if (state !== 'invoice' || !invoiceData) return;
+
+    pollRef.current = setInterval(async () => {
+      try {
+        const result = await verifyPayment(invoiceData.invoiceId);
+        if (result.success && (result.paid || result.alreadyPaid)) {
+          if (pollRef.current) {
+            clearInterval(pollRef.current);
+            pollRef.current = null;
+          }
+          setState('success');
+          toast({
+            title: 'Power-Up Activated!',
+            description: `Your ${selectedTier?.name} is now active.`,
+          });
+          setTimeout(() => {
+            refetchSubscription();
+            setState('status');
+            setSelectedTier(null);
+            setInvoiceData(null);
+          }, 2000);
+        }
+      } catch (error) {
+        console.error('Polling error:', error);
+      }
+    }, 4000);
+
+    return () => {
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+    };
+  }, [state, invoiceData, verifyPayment, toast, selectedTier, refetchSubscription]);
+
+  const handleSelectTier = async (tier: UpgradeTier) => {
+    if (!satsPerUsd) {
       toast({
         title: 'Error',
-        description: 'Failed to copy',
+        description: 'Unable to fetch Bitcoin price. Please try again.',
         variant: 'destructive',
       });
+      return;
+    }
+
+    setSelectedTier(tier);
+    setIsLoading(true);
+    setErrorMessage('');
+
+    try {
+      const satoshis = Math.round(tier.price * satsPerUsd);
+      const millisatoshis = satoshis * 1000;
+
+      const result = await createInvoice(
+        millisatoshis,
+        `Sat Sorter - ${tier.name}`
+      );
+
+      setInvoiceData({
+        pr: result.invoice.pr,
+        invoiceId: result.invoiceId,
+      });
+      setState('invoice');
+    } catch (error) {
+      console.error('Error creating invoice:', error);
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to create invoice',
+        variant: 'destructive',
+      });
+      setState('status');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -56,6 +194,7 @@ export function SubscriptionSettings() {
         description: result.message || 'Test code applied',
       });
       setTestCodeInput('');
+      refetchSubscription();
     } catch (error) {
       toast({
         title: 'Error',
@@ -78,6 +217,7 @@ export function SubscriptionSettings() {
       });
       if (!response.ok) throw new Error('Failed to reset');
       toast({ title: 'Reset to Free Tier', description: 'You now have 5 buckets and 4 items per bucket.' });
+      refetchSubscription();
     } catch (error) {
       toast({
         title: 'Error',
@@ -89,17 +229,30 @@ export function SubscriptionSettings() {
     }
   };
 
-  // If not logged in, show login prompt
+  const handleBackToStatus = () => {
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+    setState('status');
+    setSelectedTier(null);
+    setInvoiceData(null);
+    setErrorMessage('');
+  };
+
+  const WORKER_URL = 'https://sat-sorter-worker.satsorter.workers.dev';
+
+  // Not logged in
   if (!user?.pubkey) {
     return (
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Zap className="h-5 w-5 text-amber-500" />
-            Your Power-Ups
+            Power-Ups & Access
           </CardTitle>
           <CardDescription>
-            Sign in with Nostr to manage your Power-Ups
+            Sign in with Nostr to unlock Power-Ups
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -108,7 +261,7 @@ export function SubscriptionSettings() {
               Sign in to access:
             </p>
             <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
-              <li>✓ Paid upgrade tiers for more buckets</li>
+              <li>✓ Power-Ups for more buckets</li>
               <li>✓ Subscription status tracking</li>
               <li>✓ Encrypted budget sync across devices</li>
             </ul>
@@ -123,7 +276,7 @@ export function SubscriptionSettings() {
     return (
       <Card>
         <CardContent className="p-6">
-          <p className="text-muted-foreground">Loading subscription info...</p>
+          <p className="text-muted-foreground">Loading Power-Ups info...</p>
         </CardContent>
       </Card>
     );
@@ -143,9 +296,64 @@ export function SubscriptionSettings() {
 
   const isUnlimited = subscription.buckets >= 999999;
 
+  // ─── SUCCESS STATE ───
+  if (state === 'success') {
+    return (
+      <div className="py-8 text-center space-y-4">
+        <div className="flex justify-center">
+          <div className="h-16 w-16 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center">
+            <CheckCircle2 className="h-8 w-8 text-green-600" />
+          </div>
+        </div>
+        <p className="text-lg font-medium text-foreground">
+          {selectedTier?.name} activated!
+        </p>
+        <p className="text-sm text-muted-foreground">
+          {selectedTier?.description}
+        </p>
+      </div>
+    );
+  }
+
+  // ─── INVOICE STATE ───
+  if (state === 'invoice' && invoiceData && selectedTier) {
+    return (
+      <div className="space-y-4">
+        <div className="bh-panel p-3 rounded-lg bg-green-50 dark:bg-green-950 border-l-4 border-l-green-500 flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-green-900 dark:text-green-100">
+              ✓ {selectedTier.name}
+            </p>
+            <p className="text-xs text-green-800 dark:text-green-200 mt-1">
+              {selectedTier.description}
+            </p>
+          </div>
+          <p className="font-mono text-lg font-semibold text-green-900 dark:text-green-100">
+            ${selectedTier.price}
+          </p>
+        </div>
+
+        <InvoiceDisplay
+          invoice={invoiceData.pr}
+          amount={Math.round(selectedTier.price * satsPerUsd) * 1000}
+        />
+
+        <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+          <Clock className="h-4 w-4 animate-pulse" />
+          Waiting for payment... Keep this window open.
+        </div>
+
+        <Button variant="outline" onClick={handleBackToStatus} className="w-full">
+          Cancel Payment
+        </Button>
+      </div>
+    );
+  }
+
+  // ─── STATUS STATE (default) ───
   return (
     <div className="space-y-6">
-      {/* Current Subscription Status */}
+      {/* Current Status */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -156,7 +364,7 @@ export function SubscriptionSettings() {
             Manage your Sat Sorter Power-Ups and budget bucket access
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-4">
           <div className={`p-4 rounded-lg ${tierColors[subscription.tier]}`}>
             <div className="space-y-3">
               <div className="flex items-center justify-between">
@@ -209,12 +417,11 @@ export function SubscriptionSettings() {
                 <div className="mt-3 p-3 bg-amber-100 dark:bg-amber-900 rounded border-l-4 border-l-amber-500">
                   <p className="text-xs font-medium text-amber-900 dark:text-amber-100">
                     You're on the free tier: 5 buckets, 4 items per bucket.
-                    Upgrade from the budget page to add more.
+                    Choose a Power-Up below to add more.
                   </p>
                 </div>
               )}
 
-              {/* Reset to Free (for testing) */}
               {subscription.tier !== 'free' && (
                 <Button
                   variant="outline"
@@ -232,37 +439,64 @@ export function SubscriptionSettings() {
         </CardContent>
       </Card>
 
-      {/* Lightning Address */}
+      {/* Power-Up Options */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Lightning Address</CardTitle>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Zap className="h-4 w-4 text-amber-500" />
+            Power-Up Your Budget
+          </CardTitle>
           <CardDescription>
-            Send payments to this Lightning address to upgrade your plan
+            Choose a Power-Up to unlock more buckets this month. Pay once — no recurring charges.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-2">
-            <Input
-              value="satsorter@getalby.com"
-              readOnly
-              className="font-mono"
-            />
-            <Button
-              onClick={handleCopyAddress}
-              size="icon"
-              variant="outline"
-            >
-              {copied ? (
-                <Check className="h-4 w-4 text-green-600" />
-              ) : (
-                <Copy className="h-4 w-4" />
-              )}
-            </Button>
+          <div className="grid gap-2">
+            {UPGRADE_TIERS.map((tier) => (
+              <button
+                key={tier.id}
+                onClick={() => handleSelectTier(tier)}
+                disabled={isLoading}
+                className={`p-3 rounded-lg border-2 transition-colors text-left ${
+                  selectedTier?.id === tier.id
+                    ? 'border-amber-500 bg-amber-50 dark:bg-amber-950'
+                    : 'border-border hover:border-amber-300 hover:bg-muted'
+                } ${isLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-semibold text-foreground flex items-center gap-2">
+                      <Zap className="h-4 w-4" />
+                      {tier.name}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {tier.description}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-mono text-lg font-semibold">
+                      ${tier.price}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {satsPerUsd ? `~${Math.round(tier.price * satsPerUsd).toLocaleString()} sats` : 'Loading price...'}
+                    </p>
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+
+          <div className="mt-3 p-3 bg-amber-50 dark:bg-amber-950 rounded border-l-4 border-l-amber-500 text-xs">
+            <p className="text-amber-900 dark:text-amber-100">
+              <strong>How it works:</strong> Pay once for this calendar month.
+              Next month you can choose to pay again or use the free tier (5 buckets).
+              No recurring charges, no surprises.
+            </p>
           </div>
         </CardContent>
       </Card>
 
-      {/* Test Code (always visible for logged-in users — useful for testing) */}
+      {/* Test Code */}
       <Card className="border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950">
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2 text-amber-900 dark:text-amber-100">
