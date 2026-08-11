@@ -262,6 +262,7 @@ export function BudgetHeader({
                   onOpenRelaySettings={() => setShowRelaySettings(true)}
                   onOpenAccountDetails={() => setShowAccountDetails(true)}
                   onOpenWelcomeTour={() => setShowWelcomeTour(true)}
+                  onOpenSubscription={() => setShowSubscription(true)}
                   onPlanNextMonth={onPlanNextMonth}
                   onResetBudgetMonth={() => setShowResetConfirm(true)}
                   onSoftReset={handleSoftReset}

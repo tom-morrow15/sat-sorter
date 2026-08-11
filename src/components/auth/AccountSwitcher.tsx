@@ -2,7 +2,7 @@ import { useState } from 'react';
 import {
   ChevronDown, LogOut, UserIcon, Heart, Info, Copy, AlertTriangle, RotateCw,
   Cloud, LogIn, Sun, Moon, GraduationCap, Wallet, Menu, QrCode, Calendar,
-  Users, Bug, Wifi, MessageSquare, CreditCard, KeyRound, BookOpen,
+  Users, Bug, Wifi, MessageSquare, CreditCard, KeyRound, BookOpen, Zap,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -47,6 +47,7 @@ interface AccountSwitcherProps {
   onOpenRelaySettings?: () => void;
   onOpenAccountDetails?: () => void;
   onOpenWelcomeTour?: () => void;
+  onOpenSubscription?: () => void;
   variant?: 'avatar' | 'hamburger';
   updateAvailable?: boolean;
   triggerClassName?: string;
@@ -59,7 +60,7 @@ export function AccountSwitcher({
   onSoftReset, onHardReset, onTotalReset,
   onOpenBackup, onSupportSatSorter, onSupportBitcoinProjects,
   onAbout, onLearnAboutBitcoin, onOpenDebugLog, onOpenRelaySettings,
-  onOpenAccountDetails, onOpenWelcomeTour,
+  onOpenAccountDetails, onOpenWelcomeTour, onOpenSubscription,
   variant = 'avatar', updateAvailable = false, triggerClassName,
 }: AccountSwitcherProps) {
   const { currentUser, otherUsers, removeLogin } = useLoggedInAccounts();
@@ -218,6 +219,12 @@ export function AccountSwitcher({
             <DropdownMenuItem onClick={onOpenWelcomeTour}>
               <BookOpen className="h-4 w-4 mr-2" />
               Welcome Tour
+            </DropdownMenuItem>
+          )}
+          {onOpenSubscription && (
+            <DropdownMenuItem onClick={onOpenSubscription}>
+              <Zap className="h-4 w-4 mr-2 text-amber-500" />
+              Subscription & Access
             </DropdownMenuItem>
           )}
           <DropdownMenuItem onClick={() => onSupportSatSorter?.()}>
