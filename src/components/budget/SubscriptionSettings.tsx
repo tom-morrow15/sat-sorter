@@ -17,7 +17,7 @@ export function SubscriptionSettings() {
   const { data: subscription } = useSubscription();
   const { user } = useCurrentUser();
   const applyTestCode = useApplyTestCode();
-  const { showToast } = useToast();
+  const { toast } = useToast();
   const [testCodeInput, setTestCodeInput] = useState('');
   const [isApplyingCode, setIsApplyingCode] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
@@ -27,10 +27,10 @@ export function SubscriptionSettings() {
     try {
       await navigator.clipboard.writeText('satsorter@getalby.com');
       setCopied(true);
-      showToast({ title: 'Copied!', description: 'Lightning address copied' });
+      toast({ title: 'Copied!', description: 'Lightning address copied' });
       setTimeout(() => setCopied(false), 2000);
     } catch (error) {
-      showToast({
+      toast({
         title: 'Error',
         description: 'Failed to copy',
         variant: 'destructive',
@@ -40,7 +40,7 @@ export function SubscriptionSettings() {
 
   const handleApplyTestCode = async () => {
     if (!testCodeInput.trim()) {
-      showToast({
+      toast({
         title: 'Error',
         description: 'Please enter a test code',
         variant: 'destructive',
@@ -51,13 +51,13 @@ export function SubscriptionSettings() {
     setIsApplyingCode(true);
     try {
       const result = await applyTestCode(testCodeInput);
-      showToast({
+      toast({
         title: 'Success!',
         description: result.message || 'Test code applied',
       });
       setTestCodeInput('');
     } catch (error) {
-      showToast({
+      toast({
         title: 'Error',
         description: error instanceof Error ? error.message : 'Failed to apply test code',
         variant: 'destructive',
@@ -77,9 +77,9 @@ export function SubscriptionSettings() {
         body: JSON.stringify({ pubkey: user.pubkey }),
       });
       if (!response.ok) throw new Error('Failed to reset');
-      showToast({ title: 'Reset to Free Tier', description: 'You now have 5 buckets and 4 items per bucket.' });
+      toast({ title: 'Reset to Free Tier', description: 'You now have 5 buckets and 4 items per bucket.' });
     } catch (error) {
-      showToast({
+      toast({
         title: 'Error',
         description: error instanceof Error ? error.message : 'Failed to reset',
         variant: 'destructive',

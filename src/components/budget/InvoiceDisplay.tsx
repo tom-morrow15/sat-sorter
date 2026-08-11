@@ -15,7 +15,7 @@ export function InvoiceDisplay({ invoice, amount }: InvoiceDisplayProps) {
   const [showQR, setShowQR] = useState(true);
   const [qrImage, setQrImage] = useState<string>('');
   const [qrLoading, setQrLoading] = useState(true);
-  const { showToast } = useToast();
+  const { toast } = useToast();
 
   // Generate QR code in useEffect (not during render)
   useEffect(() => {
@@ -47,7 +47,7 @@ export function InvoiceDisplay({ invoice, amount }: InvoiceDisplayProps) {
     try {
       await navigator.clipboard.writeText(invoice);
       setCopied(true);
-      showToast({ title: 'Copied!', description: 'Invoice copied to clipboard' });
+      toast({ title: 'Copied!', description: 'Invoice copied to clipboard' });
       setTimeout(() => setCopied(false), 2000);
     } catch (error) {
       console.error('Failed to copy:', error);
@@ -59,10 +59,10 @@ export function InvoiceDisplay({ invoice, amount }: InvoiceDisplayProps) {
       try {
         document.execCommand('copy');
         setCopied(true);
-        showToast({ title: 'Copied!', description: 'Invoice copied to clipboard' });
+        toast({ title: 'Copied!', description: 'Invoice copied to clipboard' });
         setTimeout(() => setCopied(false), 2000);
       } catch (e) {
-        showToast({
+        toast({
           title: 'Error',
           description: 'Failed to copy invoice',
           variant: 'destructive',

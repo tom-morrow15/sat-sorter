@@ -80,7 +80,7 @@ export function UpgradeDialog({
   const [invoiceData, setInvoiceData] = useState<{ pr: string; invoiceId: string } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  const { showToast } = useToast();
+  const { toast } = useToast();
   const { data: priceData } = useBitcoinPrice();
   const createInvoice = useCreateInvoice();
   const verifyPayment = useVerifyPayment();
@@ -120,7 +120,7 @@ export function UpgradeDialog({
             pollRef.current = null;
           }
           setState('success');
-          showToast({
+          toast({
             title: 'Payment Received!',
             description: 'Your subscription has been upgraded.',
           });
@@ -143,7 +143,7 @@ export function UpgradeDialog({
         pollRef.current = null;
       }
     };
-  }, [state, invoiceData, verifyPayment, showToast, onUpgradeComplete, onOpenChange]);
+  }, [state, invoiceData, verifyPayment, toast, onUpgradeComplete, onOpenChange]);
 
   const handleSelectTier = async (tier: UpgradeTier) => {
     if (!satsPerUsd) {
@@ -175,7 +175,7 @@ export function UpgradeDialog({
       console.error('Error creating invoice:', error);
       setErrorMessage(error instanceof Error ? error.message : 'Failed to create invoice');
       setState('error');
-      showToast({
+      toast({
         title: 'Error',
         description: error instanceof Error ? error.message : 'Failed to create invoice',
         variant: 'destructive',
