@@ -3,6 +3,7 @@ import {
   Zap, DollarSign, Bitcoin, Shield, Plus, Copy, Calendar, Receipt,
   Scissors, Filter, CreditCard, Wallet, TrendingUp, MapPin, Users,
   MessageSquare, RotateCw, ChevronLeft, ChevronRight, Check, X, Heart,
+  Smartphone,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -54,8 +55,8 @@ const TOUR_STEPS: TourStep[] = [
     icon: Heart,
     iconColor: 'text-amber-500',
     title: 'Value for Value',
-    description: 'Sat Sorter is free forever — 5 buckets with 4 line items each, no strings attached.\n\nNeed more? Unlock extra buckets with sats: $1 gets you +1 bucket, $5 gets you unlimited for the month. No auto-pay, no recurring charges — you only pay when you need more, only for the month you need it.\n\nYour first month is a free trial with unlimited everything. We call this "value for value" — we provide the tool, and if you find it valuable, sending sats keeps us building.',
-    howTo: 'When you hit the 5-bucket limit, tap "Add Category" and choose a Power-Up. Manage your access in the hamburger menu → Power-Ups & Access.',
+    description: 'Sat Sorter is free forever — 5 categories with 4 line items each, no strings attached.\n\nNeed more? Unlock extra categories with sats: $1 gets you +1 category, $5 gets you unlimited for the month. No auto-pay, no recurring charges — you only pay when you need more, only for the month you need it.\n\nYour first month is a free trial with unlimited everything. We call this "value for value" — we provide the tool, and if you find it valuable, sending sats keeps us building.',
+    howTo: 'When you hit the 5-category limit, tap "Add Category" and choose a Power-Up. Manage your access in the hamburger menu → Power-Ups & Access.',
   },
   {
     icon: Plus,
@@ -150,6 +151,13 @@ const TOUR_STEPS: TourStep[] = [
     title: 'Refreshing the App',
     description: 'When a new version is deployed, refresh to get the latest updates without losing your data. Your budget and login are preserved.',
     howTo: 'Open the hamburger menu → Settings → Refresh the app. Your data stays safe — only the app code updates.',
+  },
+  {
+    icon: Smartphone,
+    iconColor: 'text-primary',
+    title: 'Install Sat Sorter',
+    description: 'Sat Sorter is a Progressive Web App (PWA) — install it on your phone for a native app experience with an icon on your home screen.\n\niPhone (Safari): Tap the Share button at the bottom → scroll down → "Add to Home Screen" → tap "Add".\n\nAndroid (Chrome): Tap the three-dot menu in the top right → tap "Install app" or "Add to Home Screen".',
+    howTo: 'Once installed, Sat Sorter opens in its own window with no browser bar — just like a native app. Your budget and login are preserved.',
   },
 ];
 
