@@ -96,10 +96,10 @@ export function SubscriptionSettings() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Zap className="h-5 w-5 text-amber-500" />
-            Your Subscription
+            Your Power-Ups
           </CardTitle>
           <CardDescription>
-            Sign in with Nostr to manage your subscription
+            Sign in with Nostr to manage your Power-Ups
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -150,10 +150,10 @@ export function SubscriptionSettings() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Zap className="h-5 w-5 text-amber-500" />
-            Your Subscription
+            Your Power-Ups
           </CardTitle>
           <CardDescription>
-            Manage your Sat Sorter subscription and budget bucket access
+            Manage your Sat Sorter Power-Ups and budget bucket access
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">

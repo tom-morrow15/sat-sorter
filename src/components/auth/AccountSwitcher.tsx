@@ -224,7 +224,7 @@ export function AccountSwitcher({
           {onOpenSubscription && (
             <DropdownMenuItem onClick={onOpenSubscription}>
               <Zap className="h-4 w-4 mr-2 text-amber-500" />
-              Subscription & Access
+              Power-Ups & Access
             </DropdownMenuItem>
           )}
           <DropdownMenuItem onClick={() => onSupportSatSorter?.()}>

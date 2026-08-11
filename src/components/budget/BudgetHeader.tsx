@@ -327,7 +327,7 @@ export function BudgetHeader({
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => setShowSubscription(true)}>
                       <Zap className="h-4 w-4 mr-2 text-amber-500" />
-                      Subscription & Access
+                      Power-Ups & Access
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => setShowDonateSorter(true)}>
                       <Heart className="h-4 w-4 mr-2 text-primary" />
@@ -515,8 +515,8 @@ export function BudgetHeader({
       <Dialog open={showSubscription} onOpenChange={setShowSubscription}>
         <DialogContent className="sm:max-w-[520px] max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Subscription & Access</DialogTitle>
-            <DialogDescription>Manage your budget bucket limits and payment status</DialogDescription>
+            <DialogTitle>Power-Ups & Access</DialogTitle>
+            <DialogDescription>Manage your Power-Ups and budget bucket access</DialogDescription>
           </DialogHeader>
           <div className="py-4">
             <SubscriptionSettings />

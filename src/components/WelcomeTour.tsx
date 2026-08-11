@@ -55,7 +55,7 @@ const TOUR_STEPS: TourStep[] = [
     iconColor: 'text-amber-500',
     title: 'Value for Value',
     description: 'Sat Sorter is free forever — 5 buckets with 4 line items each, no strings attached.\n\nNeed more? Unlock extra buckets with sats: $1 gets you +1 bucket, $5 gets you unlimited for the month. No auto-pay, no recurring charges — you only pay when you need more, only for the month you need it.\n\nYour first month is a free trial with unlimited everything. We call this "value for value" — we provide the tool, and if you find it valuable, sending sats keeps us building.',
-    howTo: 'When you hit the 5-bucket limit, tap "Add Category" and choose a Power-Up. Manage your subscription in the hamburger menu → Subscription & Access.',
+    howTo: 'When you hit the 5-bucket limit, tap "Add Category" and choose a Power-Up. Manage your access in the hamburger menu → Power-Ups & Access.',
   },
   {
     icon: Plus,
