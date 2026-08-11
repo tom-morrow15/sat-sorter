@@ -296,6 +296,61 @@ export function SubscriptionSettings() {
 
   const isUnlimited = subscription.buckets >= 999999;
 
+  // ─── SELECTING STATE (test payment flow) ───
+  if (state === 'selecting') {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-medium text-foreground">Select a Power-Up to test</p>
+          <Button variant="ghost" size="sm" onClick={handleBackToStatus}>
+            Back
+          </Button>
+        </div>
+
+        <div className="grid gap-2">
+          {UPGRADE_TIERS.map((tier) => (
+            <button
+              key={tier.id}
+              onClick={() => handleSelectTier(tier)}
+              disabled={isLoading}
+              className={`p-3 rounded-lg border-2 transition-colors text-left ${
+                selectedTier?.id === tier.id
+                  ? 'border-amber-500 bg-amber-50 dark:bg-amber-950'
+                  : 'border-border hover:border-amber-300 hover:bg-muted'
+              } ${isLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-semibold text-foreground flex items-center gap-2">
+                    <Zap className="h-4 w-4" />
+                    {tier.name}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {tier.description}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="font-mono text-lg font-semibold">
+                    ${tier.price}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {satsPerUsd ? `~${Math.round(tier.price * satsPerUsd).toLocaleString()} sats` : 'Loading price...'}
+                  </p>
+                </div>
+              </div>
+            </button>
+          ))}
+        </div>
+
+        <div className="p-3 bg-amber-50 dark:bg-amber-950 rounded border-l-4 border-l-amber-500 text-xs">
+          <p className="text-amber-900 dark:text-amber-100">
+            <strong>Test mode:</strong> This will generate a real Lightning invoice. Payment will be verified by the backend. This is for testing the payment flow.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   // ─── SUCCESS STATE ───
   if (state === 'success') {
     return (
@@ -526,6 +581,32 @@ export function SubscriptionSettings() {
               {isApplyingCode ? 'Applying...' : 'Apply'}
             </Button>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Test Payment Flow (development only) */}
+      <Card className="border-dashed border-amber-300 dark:border-amber-800">
+        <CardHeader>
+          <CardTitle className="text-sm flex items-center gap-2 text-amber-700 dark:text-amber-300">
+            <AlertCircle className="h-4 w-4" />
+            Test Payment Flow
+          </CardTitle>
+          <CardDescription className="text-amber-600 dark:text-amber-400 text-xs">
+            Test the Power-Up payment flow with a real Lightning invoice. This bypasses your current subscription status.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setState('selecting');
+            }}
+            className="text-xs border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900"
+          >
+            <Zap className="h-3 w-3 mr-1" />
+            Test Payment Flow
+          </Button>
         </CardContent>
       </Card>
     </div>
