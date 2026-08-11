@@ -19,7 +19,7 @@ import { useNWC } from '@/hooks/useNWCContext';
 import { useBitcoinPrice, usdToSats, formatSats, formatUsd } from '@/hooks/useBitcoinPrice';
 
 // Lightning address that supports Sat Sorter development.
-export const SAT_SORTER_LIGHTNING_ADDRESS = 'devin@primal.net';
+export const SAT_SORTER_LIGHTNING_ADDRESS = 'satsorter@getalby.com';
 
 // The suggested default donation, in USD.
 const DEFAULT_USD = 5;
