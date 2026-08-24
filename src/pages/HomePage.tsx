@@ -121,8 +121,9 @@ export default function HomePage() {
     const nextDate = new Date(year, month);
     const nextMonth = `${nextDate.getFullYear()}-${String(nextDate.getMonth() + 1).padStart(2, '0')}`;
 
-    // If current month has more buckets than free tier allows, require upgrade for next month
-    if (currentBudget.buckets.length > FREE_TIER_BUCKETS && !isGuest) {
+    // If current month has more buckets than the subscription allows, require upgrade for next month
+    // (skip for unlimited users — their maxBucketsAllowed is the unlimited sentinel)
+    if (!isGuest && maxBucketsAllowed < UNLIMITED_SENTINEL && currentBudget.buckets.length > maxBucketsAllowed) {
       pendingPlanNextMonth.current = nextMonth;
       setShowPlanNextMonthUpgrade(true);
       return;
@@ -447,9 +448,9 @@ export default function HomePage() {
             previousBudget={previousMonthBudget}
             currentBudgets={fullState.budgets.filter(b => b.month === currentMonth)}
             onStartFresh={() => toast({ title: 'Starting fresh', description: 'Your new month is ready.' })}
-            onCopyPrevious={handleCopyPreviousMonth}
-            maxBucketsAllowed={FREE_TIER_BUCKETS}
-          />
+              onCopyPrevious={handleCopyPreviousMonth}
+              maxBucketsAllowed={maxBucketsAllowed}
+            />
         );
       })()}
       {showWalletModal && <WalletModalControlled open={showWalletModal} onOpenChange={setShowWalletModal} />}

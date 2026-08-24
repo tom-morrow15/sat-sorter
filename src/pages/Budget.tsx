@@ -500,7 +500,7 @@ export default function Budget() {
                 });
               }}
               onCopyPrevious={handleCopyPreviousMonth}
-              maxBucketsAllowed={5}
+              maxBucketsAllowed={maxBucketsAllowed}
             />
           );
         })()}
