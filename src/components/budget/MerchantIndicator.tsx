@@ -77,9 +77,9 @@ export function MerchantIndicator({ lineItemName, merchants, className }: Mercha
           </div>
         </div>
         
-        <ScrollArea className="max-h-[250px]">
+        <ScrollArea className="max-h-[300px]">
           <div className="p-2 space-y-1">
-            {(matchingMerchants as (BTCMapElement & { distance: number })[]).slice(0, 10).map((merchant) => {
+            {(matchingMerchants as (BTCMapElement & { distance: number })[]).map((merchant) => {
               const hasLightning = acceptsLightning(merchant);
               const hasOnchain = acceptsOnchain(merchant);
               
@@ -194,9 +194,9 @@ export function MerchantBadge({ lineItemName, merchants, className }: MerchantIn
           </div>
         </div>
         
-        <ScrollArea className="max-h-[200px]">
+        <ScrollArea className="max-h-[250px]">
           <div className="p-2 space-y-1">
-            {(matchingMerchants as (BTCMapElement & { distance: number })[]).slice(0, 8).map((merchant) => {
+            {(matchingMerchants as (BTCMapElement & { distance: number })[]).map((merchant) => {
               const hasLightning = acceptsLightning(merchant);
               const hasOnchain = acceptsOnchain(merchant);
               
