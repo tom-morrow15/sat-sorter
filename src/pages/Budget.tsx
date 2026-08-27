@@ -80,6 +80,7 @@ export default function Budget() {
     addTransaction,
     addTransactions,
     assignTransaction,
+    updateTransaction,
     deleteTransaction,
 
     duplicateFromMonth,
@@ -405,15 +406,16 @@ export default function Budget() {
            {/* Right Column - Transactions */}
            <div className="lg:col-span-5 xl:col-span-4">
              <div className="lg:sticky lg:top-6">
-               <TransactionsPanel
-                 transactions={currentBudget.transactions}
-                 buckets={currentBudget.buckets}
-                 currency={currency}
-                 onAddTransaction={addTransaction}
-                 onAddTransactions={addTransactions}
-                 onAssignTransaction={assignTransaction}
-                 onDeleteTransaction={deleteTransaction}
-               />
+                <TransactionsPanel
+                  transactions={currentBudget.transactions}
+                  buckets={currentBudget.buckets}
+                  currency={currency}
+                  onAddTransaction={addTransaction}
+                  onAddTransactions={addTransactions}
+                  onAssignTransaction={assignTransaction}
+                  onUpdateTransaction={updateTransaction}
+                  onDeleteTransaction={deleteTransaction}
+                />
              </div>
            </div>
          </div>

@@ -46,6 +46,9 @@ export function useNWCSync() {
     syncedPaymentHashes: [],
   });
   const [autoSyncEnabled, setAutoSyncEnabled] = useLocalStorage<boolean>('nwc-auto-sync', false);
+  // Track how many new transactions were imported but not yet viewed by the user.
+  // The bottom nav and transactions menu show a flashing dot when this > 0.
+  const [unviewedImportCount, setUnviewedImportCount] = useLocalStorage<number>('nwc-unviewed-count', 0);
 
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const syncInProgressRef = useRef(false);
@@ -174,10 +177,33 @@ export function useNWCSync() {
             continue;
           }
 
+          // Build a human-readable description from the NWC transaction data.
+          // NWC invoices often have a description baked into the bolt11 invoice
+          // or as a separate description field. We try to extract the most
+          // meaningful info available.
+          const walletAlias = activeConnection.alias || 'Lightning Wallet';
+
+          // Parse description from the invoice or description field
+          let txDescription = 'Lightning payment';
+          if (nwcTx.description && nwcTx.description.trim()) {
+            // NWC description is often the invoice description (LNURL comment or payer memo)
+            txDescription = nwcTx.description.trim();
+          } else if (nwcTx.invoice) {
+            // Try to decode the bolt11 invoice description tag
+            // The invoice may contain a payment description after the prefix
+            const descMatch = nwcTx.invoice.match(/^[a-z0-9]+/i);
+            if (descMatch && nwcTx.invoice.length > 100) {
+              // Long invoice with no description — use a generic label
+              txDescription = `${nwcTx.type === 'incoming' ? 'Received' : 'Sent'} via Lightning`;
+            } else {
+              txDescription = `${nwcTx.type === 'incoming' ? 'Received' : 'Sent'} via Lightning`;
+            }
+          }
+
           // Create transaction
           const transaction = {
             amount: amountSats,
-            description: nwcTx.description || nwcTx.invoice?.slice(0, 50) || 'Lightning payment',
+            description: txDescription,
             date: new Date((nwcTx.settled_at || nwcTx.created_at) * 1000).toISOString(),
             lineItemId: null,
             bucketId: null,
@@ -185,6 +211,8 @@ export function useNWCSync() {
             source: 'nwc' as const,
             paymentHash: nwcTx.payment_hash,
             preimage: nwcTx.preimage,
+            // Tag with the wallet name so the user knows which Lightning wallet was used
+            paymentMethod: walletAlias,
           };
 
           addTransaction(transaction);
@@ -210,6 +238,11 @@ export function useNWCSync() {
       result.imported = imported;
       result.skipped = skipped;
       result.success = true;
+
+      // Track unviewed imports for the notification dot
+      if (imported > 0) {
+        setUnviewedImportCount(prev => prev + imported);
+      }
 
       // Update sync state
       if (imported > 0 || latestTimestamp > (syncState.lastSyncTimestamp || 0)) {
@@ -315,6 +348,13 @@ export function useNWCSync() {
     });
   }, [setSyncState, toast]);
 
+  /**
+   * Clear the unviewed import count — called when the user visits the Transactions page
+   */
+  const clearUnviewedImports = useCallback(() => {
+    setUnviewedImportCount(0);
+  }, [setUnviewedImportCount]);
+
   // Auto-start polling when enabled and wallet is connected.
   // The effect cleans up the interval when auto-sync is disabled,
   // the wallet disconnects, or the component unmounts.
@@ -346,5 +386,7 @@ export function useNWCSync() {
     stopAutoSync,
     clearSyncHistory,
     hasWalletConnected: connections.length > 0,
+    unviewedImportCount,
+    clearUnviewedImports,
   };
 }

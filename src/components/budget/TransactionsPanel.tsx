@@ -50,6 +50,7 @@ interface TransactionsPanelProps {
   onAddTransaction: (transaction: Omit<Transaction, 'id'>) => void;
   onAddTransactions?: (transactions: Omit<Transaction, 'id'>[]) => void;
   onAssignTransaction: (transactionId: string, bucketId: string, lineItemId: string) => void;
+  onUpdateTransaction?: (transactionId: string, updates: Partial<Transaction>) => void;
   onDeleteTransaction: (transactionId: string) => void;
   lineItemIdFilter?: string;
   paymentMethods?: string[];
@@ -63,6 +64,7 @@ export function TransactionsPanel({
   onAddTransaction,
   onAddTransactions,
   onAssignTransaction,
+  onUpdateTransaction,
   onDeleteTransaction,
   lineItemIdFilter,
   paymentMethods: passedPaymentMethods,
@@ -92,6 +94,7 @@ export function TransactionsPanel({
   // Assign form state
   const [selectedBucketId, setSelectedBucketId] = useState<string>('');
   const [selectedLineItemId, setSelectedLineItemId] = useState<string>('');
+  const [editDescription, setEditDescription] = useState<string>('');
 
   // Clear search/filter results whenever the lineItemIdFilter changes (e.g., when user clicks Clear button)
   useEffect(() => {
@@ -234,13 +237,18 @@ export function TransactionsPanel({
 
   const handleOpenAssign = (transaction: Transaction) => {
     setSelectedTransaction(transaction);
-    setSelectedBucketId('');
-    setSelectedLineItemId('');
+    setSelectedBucketId(transaction.bucketId || '');
+    setSelectedLineItemId(transaction.lineItemId || '');
+    setEditDescription(transaction.description || '');
     setShowAssignDialog(true);
   };
 
   const handleAssign = () => {
     if (selectedTransaction && selectedBucketId && selectedLineItemId) {
+      // Update the description if it changed
+      if (onUpdateTransaction && editDescription.trim() !== selectedTransaction.description) {
+        onUpdateTransaction(selectedTransaction.id, { description: editDescription.trim() });
+      }
       onAssignTransaction(selectedTransaction.id, selectedBucketId, selectedLineItemId);
       setShowAssignDialog(false);
       setSelectedTransaction(null);
@@ -371,6 +379,11 @@ export function TransactionsPanel({
                          </p>
                        </div>
                       <div className="flex items-center gap-2 shrink-0">
+                        {transaction.source === 'nwc' && (
+                          <Badge variant="secondary" className="text-xs px-1.5 py-0 bg-petrol/15 text-petrol hidden sm:inline-flex">
+                            <Zap className="h-3 w-3 mr-0.5" />LN
+                          </Badge>
+                        )}
                         {transaction.partnerPubkey && <PartnerAttribution pubkey={transaction.partnerPubkey} />}
                             <span
                              className={cn(
@@ -743,23 +756,38 @@ export function TransactionsPanel({
 
       {/* Assign Transaction Dialog */}
       <Dialog open={showAssignDialog} onOpenChange={setShowAssignDialog}>
-        <DialogContent className="sm:max-w-[400px]">
-          <DialogHeader>
+        <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-[440px] max-h-[85dvh] flex flex-col overflow-hidden p-0">
+          <DialogHeader className="px-6 pt-6 pb-2 flex-shrink-0">
             <DialogTitle>Categorize Transaction</DialogTitle>
             <DialogDescription>
-              Assign this transaction to a budget category.
+              Edit details and assign to a budget category.
             </DialogDescription>
           </DialogHeader>
 
           {selectedTransaction && (
-            <div className="py-4 space-y-4">
+            <div className="flex-1 overflow-y-auto overscroll-contain px-6 space-y-4">
               {/* Transaction summary */}
               <div className="p-3 rounded-lg bg-muted/50">
-                <p className="font-medium">{selectedTransaction.description}</p>
-               <p className="text-sm text-muted-foreground">
-                   {formatAmount(selectedTransaction.amount, selectedTransaction)} •{' '}
-                   {formatDate(selectedTransaction.date)}
-                 </p>
+                <p className="text-sm text-muted-foreground">
+                  {formatAmount(selectedTransaction.amount, selectedTransaction)} •{' '}
+                  {formatDate(selectedTransaction.date)}
+                  {selectedTransaction.paymentMethod && (
+                    <span className="ml-1.5">· {selectedTransaction.paymentMethod}</span>
+                  )}
+                </p>
+              </div>
+
+              {/* Editable description */}
+              <div className="space-y-2">
+                <Label htmlFor="edit-description">Description</Label>
+                <Textarea
+                  id="edit-description"
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  placeholder="e.g., Coffee at Starbucks, Groceries at Whole Foods..."
+                  rows={2}
+                  className="resize-none"
+                />
               </div>
 
               {/* Category selection */}
@@ -812,32 +840,32 @@ export function TransactionsPanel({
             </div>
           )}
 
-           <DialogFooter>
-             <Button variant="outline" onClick={() => setShowAssignDialog(false)}>
-               Cancel
-             </Button>
-             <Button
-               variant="ghost"
-               onClick={() => {
-                 if (selectedTransaction) {
-                   setShowAssignDialog(false);
-                   handleOpenSplit(selectedTransaction);
-                 }
-               }}
-               className="gap-2"
-             >
-               <Scissors className="h-4 w-4" />
-               Split
-             </Button>
-             <Button
-               onClick={handleAssign}
-               disabled={!selectedBucketId || !selectedLineItemId}
-             >
-               Assign
-             </Button>
-           </DialogFooter>
-         </DialogContent>
-       </Dialog>
+            <DialogFooter className="px-6 py-4 flex-shrink-0 border-t">
+              <Button variant="outline" onClick={() => setShowAssignDialog(false)}>
+                Cancel
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  if (selectedTransaction) {
+                    setShowAssignDialog(false);
+                    handleOpenSplit(selectedTransaction);
+                  }
+                }}
+                className="gap-2"
+              >
+                <Scissors className="h-4 w-4" />
+                Split
+              </Button>
+              <Button
+                onClick={handleAssign}
+                disabled={!selectedBucketId || !selectedLineItemId}
+              >
+                Assign
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
        {/* CSV Import Dialog */}
        <CSVImportDialog

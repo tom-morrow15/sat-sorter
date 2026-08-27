@@ -5,6 +5,7 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useBudget } from '@/hooks/useBudget';
 import { useBudgetAutoSave } from '@/hooks/useBudgetAutoSave';
 import { useAddTransaction } from '@/components/budget/AddTransactionProvider';
+import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { cn } from '@/lib/utils';
 
 export function BottomNavigation() {
@@ -15,6 +16,10 @@ export function BottomNavigation() {
   const { openAddTransaction } = useAddTransaction() ?? {};
 
   const { status: autoSaveStatus, canAutoSave } = useBudgetAutoSave(fullState);
+
+  // Read the unviewed NWC import count — synced via localStorage custom events
+  const [unviewedImports] = useLocalStorage<number>('nwc-unviewed-count', 0);
+  const hasNewImports = unviewedImports > 0;
 
   const isActive = (path: string) => location.pathname === path;
   const [showMore, setShowMore] = useState(false);
@@ -107,7 +112,7 @@ export function BottomNavigation() {
           <div ref={moreRef} className="contents">
             <button
               onClick={() => setShowMore(!showMore)}
-              className="flex flex-col items-center justify-center flex-1 h-full gap-1 transition-colors touch-target"
+              className="flex flex-col items-center justify-center flex-1 h-full gap-1 transition-colors touch-target relative"
             >
               <div className={cn(
                 'flex items-center justify-center h-8 w-12 rounded-full transition-all',
@@ -118,6 +123,10 @@ export function BottomNavigation() {
               <span className={cn('text-[10px] font-medium leading-none', (isMoreActive || showMore) ? 'text-primary' : 'text-muted-foreground')}>
                 More
               </span>
+              {/* Flashing red dot when new NWC transactions have been imported */}
+              {hasNewImports && (
+                <span className="absolute top-1 right-3 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-card animate-pulse-dot" />
+              )}
             </button>
 
             {showMore && (
@@ -135,7 +144,11 @@ export function BottomNavigation() {
                       )}
                     >
                       <Icon className={cn('h-4 w-4', active ? 'text-primary' : 'text-muted-foreground')} />
-                      <span>{item.label}</span>
+                      <span className="flex-1">{item.label}</span>
+                      {/* Flashing red dot on Transactions when new NWC imports exist */}
+                      {item.path === '/transactions' && hasNewImports && (
+                        <span className="h-2.5 w-2.5 rounded-full bg-red-500 animate-pulse-dot" />
+                      )}
                     </button>
                   );
                 })}

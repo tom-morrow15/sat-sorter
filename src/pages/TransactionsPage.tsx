@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useSeoMeta } from '@unhead/react';
 import { useSearchParams } from 'react-router-dom';
 import { X, Filter } from 'lucide-react';
@@ -11,6 +11,7 @@ import { useBudget } from '@/hooks/useBudget';
 import { useToast } from '@/hooks/useToast';
 import { useBitcoinPrice } from '@/hooks/useBitcoinPrice';
 import { useSyncCopiedBudget } from '@/hooks/useSharedBudgetSync';
+import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { formatMonth } from '@/lib/budgetTypes';
 
 export default function TransactionsPage() {
@@ -18,6 +19,12 @@ export default function TransactionsPage() {
   const lineItemIdFilter = searchParams.get('lineItemId');
   const { toast } = useToast();
   const [showWalletModal, setShowWalletModal] = useState(false);
+
+  // Clear the unviewed NWC import count when the user visits this page
+  const [, setUnviewedCount] = useLocalStorage<number>('nwc-unviewed-count', 0);
+  useEffect(() => {
+    setUnviewedCount(0);
+  }, [setUnviewedCount]);
   const [showCopyPrompt, setShowCopyPrompt] = useState(false);
 
   const { data: priceData } = useBitcoinPrice();
@@ -25,7 +32,7 @@ export default function TransactionsPage() {
 
   const {
     currentBudget, currency, currentMonth, fullState, toggleCurrency, setCurrentMonth,
-    addTransaction, addTransactions, assignTransaction, deleteTransaction,
+    addTransaction, addTransactions, assignTransaction, updateTransaction, deleteTransaction,
     duplicateFromMonth, resetCurrentMonth, availableMonths, paymentMethods, addPaymentMethod,
   } = useBudget();
 
@@ -128,6 +135,7 @@ export default function TransactionsPage() {
             onAddTransaction={addTransaction}
             onAddTransactions={addTransactions}
             onAssignTransaction={assignTransaction}
+            onUpdateTransaction={updateTransaction}
             onDeleteTransaction={deleteTransaction}
             lineItemIdFilter={lineItemIdFilter || undefined}
             paymentMethods={paymentMethods}
