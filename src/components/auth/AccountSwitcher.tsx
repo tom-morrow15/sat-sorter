@@ -159,6 +159,12 @@ export function AccountSwitcher({
 
           {/* === BUDGET TOOLS === */}
           <DropdownMenuLabel className="text-xs text-muted-foreground uppercase tracking-wider">Budget Tools</DropdownMenuLabel>
+          {onOpenSubscription && (
+            <DropdownMenuItem onClick={onOpenSubscription}>
+              <Zap className="h-4 w-4 mr-2 text-amber-500" />
+              Power-Ups & Access
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem onClick={() => onCopyPreviousMonth?.()}>
             <Copy className="h-4 w-4 mr-2" />
             Copy Previous Month
@@ -219,12 +225,6 @@ export function AccountSwitcher({
             <DropdownMenuItem onClick={onOpenWelcomeTour}>
               <BookOpen className="h-4 w-4 mr-2" />
               Welcome Tour
-            </DropdownMenuItem>
-          )}
-          {onOpenSubscription && (
-            <DropdownMenuItem onClick={onOpenSubscription}>
-              <Zap className="h-4 w-4 mr-2 text-amber-500" />
-              Power-Ups & Access
             </DropdownMenuItem>
           )}
           <DropdownMenuItem onClick={() => onSupportSatSorter?.()}>

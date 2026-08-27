@@ -303,6 +303,10 @@ export function BudgetHeader({
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuLabel className="bh-caption text-muted-foreground">Budget Tools</DropdownMenuLabel>
+                    <DropdownMenuItem onClick={() => setShowSubscription(true)}>
+                      <Zap className="h-4 w-4 mr-2 text-amber-500" />
+                      Power-Ups & Access
+                    </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => onCopyPreviousMonth?.()}>
                       <Copy className="h-4 w-4 mr-2" />
                       Copy Previous Month
@@ -324,10 +328,6 @@ export function BudgetHeader({
                     <DropdownMenuItem onClick={() => setShowWelcomeTour(true)}>
                       <BookOpen className="h-4 w-4 mr-2" />
                       Welcome Tour
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setShowSubscription(true)}>
-                      <Zap className="h-4 w-4 mr-2 text-amber-500" />
-                      Power-Ups & Access
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => setShowDonateSorter(true)}>
                       <Heart className="h-4 w-4 mr-2 text-primary" />
