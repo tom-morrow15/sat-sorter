@@ -848,19 +848,24 @@ export function TransactionsPanel({
               <Button variant="outline" onClick={() => setShowAssignDialog(false)}>
                 Cancel
               </Button>
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  if (selectedTransaction) {
-                    setShowAssignDialog(false);
-                    handleOpenSplit(selectedTransaction);
-                  }
-                }}
-                className="gap-2"
-              >
-                <Scissors className="h-4 w-4" />
-                Split
-              </Button>
+              {/* Hide split button for NWC-imported transactions — splitting
+                  for auto-imported Lightning transactions needs work and
+                  will be addressed later. */}
+              {selectedTransaction?.source !== 'nwc' && (
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    if (selectedTransaction) {
+                      setShowAssignDialog(false);
+                      handleOpenSplit(selectedTransaction);
+                    }
+                  }}
+                  className="gap-2"
+                >
+                  <Scissors className="h-4 w-4" />
+                  Split
+                </Button>
+              )}
               <Button
                 onClick={handleAssign}
                 disabled={!selectedBucketId || !selectedLineItemId}
