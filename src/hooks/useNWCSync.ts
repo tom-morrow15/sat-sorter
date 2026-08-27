@@ -4,6 +4,7 @@ import { useBudget } from '@/hooks/useBudget';
 import { useToast } from '@/hooks/useToast';
 import { useNWC } from '@/hooks/useNWCContext';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { useBitcoinPrice, satsToUsd } from '@/hooks/useBitcoinPrice';
 
 interface NWCTransaction {
   type: 'incoming' | 'outgoing';
@@ -39,6 +40,7 @@ export function useNWCSync() {
   const { toast } = useToast();
   const { getActiveConnection, connections } = useNWC();
   const { addTransaction, currentBudget } = useBudget();
+  const { data: priceData } = useBitcoinPrice();
 
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncState, setSyncState] = useLocalStorage<SyncState>('nwc-sync-state', {
@@ -203,6 +205,11 @@ export function useNWCSync() {
           // Create transaction
           const transaction = {
             amount: amountSats,
+            // Store the USD equivalent so the split editor and budget
+            // calculations work correctly. Without amountUsd, the SplitEditor
+            // sees $0.00 as the total and can't function.
+            amountUsd: priceData ? satsToUsd(amountSats, priceData.usdPerBtc) : undefined,
+            btcPriceAtEntry: priceData?.usdPerBtc,
             description: txDescription,
             date: new Date((nwcTx.settled_at || nwcTx.created_at) * 1000).toISOString(),
             lineItemId: null,
@@ -292,6 +299,7 @@ export function useNWCSync() {
     currentBudget.transactions,
     addTransaction,
     toast,
+    priceData,
   ]);
 
   // Keep the ref pointing to the latest syncTransactions so the interval

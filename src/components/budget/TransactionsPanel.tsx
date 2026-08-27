@@ -277,6 +277,10 @@ export function TransactionsPanel({
           bucketId: split.bucketId,
           isIncome: selectedTransaction.isIncome,
           paymentMethod: pm,
+          // Preserve NWC origin metadata so split transactions retain their source
+          source: selectedTransaction.source,
+          paymentHash: selectedTransaction.paymentHash,
+          preimage: selectedTransaction.preimage,
         };
         onAddTransaction(newTx);
       });

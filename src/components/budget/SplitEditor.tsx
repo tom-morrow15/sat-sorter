@@ -10,7 +10,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { SplitRow } from './SplitRow';
 import { createSplit, getTotalFromSplits } from '@/lib/splitUtils';
-import { useBitcoinPrice, formatUsd, formatSats } from '@/hooks/useBitcoinPrice';
+import { useBitcoinPrice, formatUsd, formatSats, satsToUsd } from '@/hooks/useBitcoinPrice';
 import type { Transaction, TransactionSplit, Bucket } from '@/lib/budgetTypes';
 import { cn } from '@/lib/utils';
 
@@ -32,7 +32,13 @@ export function SplitEditor({
   const { data: priceData } = useBitcoinPrice();
   const [splits, setSplits] = useState<TransactionSplit[]>([]);
 
-  const totalUsd = transaction.amountUsd ?? 0;
+  // Calculate the total USD amount for this transaction.
+  // If amountUsd is already set (e.g., manually entered in USD mode), use it.
+  // Otherwise, convert from sats using the current BTC price.
+  // This fixes the issue where NWC-imported transactions had no amountUsd
+  // and the split editor showed $0.00 as the total.
+  const totalUsd = transaction.amountUsd
+    ?? (priceData ? satsToUsd(transaction.amount, priceData.usdPerBtc) : 0);
   const splitsTotalUsd = getTotalFromSplits(splits);
   const remainingUsd = totalUsd - splitsTotalUsd;
   const remainingSats = remainingUsd > 0 && priceData 
