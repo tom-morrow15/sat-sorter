@@ -37,7 +37,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/useToast';
 import { useBitcoinPrice, formatSats, satsToUsd, formatUsd } from '@/hooks/useBitcoinPrice';
 import { useIsMobile } from '@/hooks/useIsMobile';
-import { parseCSVTransactions, type ParsedCSVTransaction, type CSVParseResult } from '@/lib/csvImport';
+import { parseCSVTransactions, type CSVParseResult } from '@/lib/csvImport';
 import { categorizeMerchant } from '@/lib/merchantUtils';
 import type { Transaction } from '@/lib/budgetTypes';
 import { cn } from '@/lib/utils';
@@ -271,30 +271,30 @@ export function CSVImportDialog({
         </Alert>
       )}
 
-      {/* Unit selector */}
-      {parseResult === null && (
-        <div className="space-y-2">
-          <Label className="text-xs text-muted-foreground">Amounts in CSV are:</Label>
-          <div className="flex gap-2">
-            <Button
-              variant={csvUnit === 'usd' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => handleUnitChange('usd')}
-              className="flex-1"
-            >
-              USD ($)
-            </Button>
-            <Button
-              variant={csvUnit === 'sats' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => handleUnitChange('sats')}
-              className="flex-1"
-            >
-              Sats (₿)
-            </Button>
-          </div>
+      {/* Unit selector — always visible so user can change units after parsing */}
+      <div className="space-y-2">
+        <Label className="text-xs text-muted-foreground">Amounts in CSV are:</Label>
+        <div className="flex gap-2">
+          <Button
+            variant={csvUnit === 'usd' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => handleUnitChange('usd')}
+            className="flex-1"
+            disabled={isProcessing}
+          >
+            USD ($)
+          </Button>
+          <Button
+            variant={csvUnit === 'sats' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => handleUnitChange('sats')}
+            className="flex-1"
+            disabled={isProcessing}
+          >
+            Sats (₿)
+          </Button>
         </div>
-      )}
+      </div>
 
       {/* File upload area */}
       {importedCount === 0 && (
@@ -438,25 +438,27 @@ export function CSVImportDialog({
             </ScrollArea>
           </div>
 
-          {/* Import button */}
-          <Button
-            onClick={handleImport}
-            disabled={isProcessing || parseResult.transactions.length === 0}
-            className="w-full"
-            size="lg"
-          >
-            {isProcessing ? (
-              <>
-                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                Importing...
-              </>
-            ) : (
-              <>
-                <FileSpreadsheet className="h-4 w-4 mr-2" />
-                Import {parseResult.transactions.length} Transaction{parseResult.transactions.length !== 1 ? 's' : ''}
-              </>
-            )}
-          </Button>
+          {/* Import button — only on mobile (drawer has no DialogFooter, desktop uses the footer button) */}
+          {isMobile && (
+            <Button
+              onClick={handleImport}
+              disabled={isProcessing || parseResult.transactions.length === 0}
+              className="w-full"
+              size="lg"
+            >
+              {isProcessing ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Importing...
+                </>
+              ) : (
+                <>
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                  Import {parseResult.transactions.length} Transaction{parseResult.transactions.length !== 1 ? 's' : ''}
+                </>
+              )}
+            </Button>
+          )}
         </>
       )}
 

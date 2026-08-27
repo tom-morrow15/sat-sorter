@@ -48,19 +48,9 @@ export function useNWCSync() {
   const [autoSyncEnabled, setAutoSyncEnabled] = useLocalStorage<boolean>('nwc-auto-sync', false);
 
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
-
-  /**
-   * Check if NWC wallet supports list_transactions
-   */
-  const checkListTransactionsSupport = useCallback(async (client: LN): Promise<boolean> => {
-    try {
-      // Try to get info - some wallets expose supported methods
-      // If list_transactions fails, we'll know it's not supported
-      return true; // Optimistically assume support, will fail gracefully
-    } catch {
-      return false;
-    }
-  }, []);
+  const syncInProgressRef = useRef(false);
+  // Always point to the latest sync function so intervals never call stale closures
+  const syncTransactionsRef = useRef<((showToast?: boolean) => Promise<NWCSyncResult>) | null>(null);
 
   /**
    * Fetch transactions from NWC wallet
@@ -112,6 +102,13 @@ export function useNWCSync() {
       errors: [],
     };
 
+    // Prevent concurrent syncs from racing (both from auto-sync interval + manual trigger)
+    if (syncInProgressRef.current) {
+      result.success = false;
+      result.errors.push('Sync already in progress');
+      return result;
+    }
+
     const activeConnection = getActiveConnection();
     if (!activeConnection) {
       if (showToast) {
@@ -125,6 +122,7 @@ export function useNWCSync() {
       return result;
     }
 
+    syncInProgressRef.current = true;
     setIsSyncing(true);
 
     try {
@@ -143,10 +141,12 @@ export function useNWCSync() {
         }
         result.success = true;
         setIsSyncing(false);
+        syncInProgressRef.current = false;
         return result;
       }
 
       // Track which payment hashes we've already synced
+      // Build the initial set from both localStorage state and current budget transactions
       const existingHashes = new Set([
         ...syncState.syncedPaymentHashes,
         ...currentBudget.transactions
@@ -191,6 +191,11 @@ export function useNWCSync() {
           addTransaction(transaction);
           imported++;
 
+          // Add the hash to the set immediately so subsequent iterations
+          // within this same sync can detect it (prevents double-import
+          // if the same sync loop encounters duplicate payment_hashes)
+          existingHashes.add(nwcTx.payment_hash);
+
           // Track the latest timestamp
           const txTimestamp = nwcTx.settled_at || nwcTx.created_at;
           if (txTimestamp > latestTimestamp) {
@@ -221,7 +226,7 @@ export function useNWCSync() {
         });
       }
 
-      if (showToast && imported > 0) {
+        if (showToast && imported > 0) {
         toast({
           title: 'Sync complete',
           description: `Imported ${imported} transaction${imported !== 1 ? 's' : ''}${
@@ -243,6 +248,7 @@ export function useNWCSync() {
       }
     } finally {
       setIsSyncing(false);
+      syncInProgressRef.current = false;
     }
 
     return result;
@@ -256,40 +262,38 @@ export function useNWCSync() {
     toast,
   ]);
 
+  // Keep the ref pointing to the latest syncTransactions so the interval
+  // never calls a stale closure (e.g., with outdated budget state)
+  useEffect(() => {
+    syncTransactionsRef.current = syncTransactions;
+    return () => { syncTransactionsRef.current = null; };
+  }, [syncTransactions]);
+
   /**
    * Start automatic background sync
+   * Sets the flag; the useEffect below handles the interval + initial sync.
+   * This prevents the old pattern where startAutoSync AND the effect both
+   * created intervals and ran initial syncs, causing double-imports.
    */
   const startAutoSync = useCallback(() => {
-    if (pollIntervalRef.current) {
-      clearInterval(pollIntervalRef.current);
-    }
-
     setAutoSyncEnabled(true);
-
-    // Initial sync
-    syncTransactions(false);
-
-    // Set up polling interval
-    pollIntervalRef.current = setInterval(() => {
-      syncTransactions(false);
-    }, POLL_INTERVAL_MS);
 
     toast({
       title: 'Auto-sync enabled',
       description: 'Transactions will sync automatically every 5 minutes.',
     });
-  }, [syncTransactions, setAutoSyncEnabled, toast]);
+  }, [setAutoSyncEnabled, toast]);
 
   /**
    * Stop automatic background sync
    */
   const stopAutoSync = useCallback(() => {
+    setAutoSyncEnabled(false);
+
     if (pollIntervalRef.current) {
       clearInterval(pollIntervalRef.current);
       pollIntervalRef.current = null;
     }
-
-    setAutoSyncEnabled(false);
 
     toast({
       title: 'Auto-sync disabled',
@@ -312,24 +316,27 @@ export function useNWCSync() {
     });
   }, [setSyncState, toast]);
 
-  // Auto-start polling if enabled and wallet is connected
+  // Auto-start polling when enabled and wallet is connected.
+  // The effect cleans up the interval when auto-sync is disabled,
+  // the wallet disconnects, or the component unmounts.
   useEffect(() => {
-    if (autoSyncEnabled && connections.length > 0) {
-      // Start polling
-      pollIntervalRef.current = setInterval(() => {
-        syncTransactions(false);
-      }, POLL_INTERVAL_MS);
+    if (!autoSyncEnabled || connections.length === 0) return;
 
-      // Initial sync on mount
-      syncTransactions(false);
-    }
+    // Start polling using the ref, which always points to the latest sync function
+    pollIntervalRef.current = setInterval(() => {
+      syncTransactionsRef.current?.(false);
+    }, POLL_INTERVAL_MS);
+
+    // Initial sync on mount
+    syncTransactionsRef.current?.(false);
 
     return () => {
       if (pollIntervalRef.current) {
         clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
       }
     };
-  }, [autoSyncEnabled, connections.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [autoSyncEnabled, connections.length]);
 
   return {
     isSyncing,
