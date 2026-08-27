@@ -8,11 +8,11 @@ import {
   AlertCircle,
   CheckCircle2,
   Zap,
-  Link2,
   Scissors,
+  Upload,
 } from 'lucide-react';
 import { TransactionSearchFilter } from './TransactionSearchFilter';
-import { DataSourcesDialog } from './DataSourcesDialog';
+import { CSVImportDialog } from './CSVImportDialog';
 import { DeletionConfirmDialog } from './DeletionConfirmDialog';
 import { SplitEditor } from './SplitEditor';
 import { PartnerAttribution } from './PartnerAttribution';
@@ -71,7 +71,7 @@ export function TransactionsPanel({
   const { data: priceData } = useBitcoinPrice();
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showAssignDialog, setShowAssignDialog] = useState(false);
-  const [showDataSources, setShowDataSources] = useState(false);
+  const [showCSVImport, setShowCSVImport] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showSplitEditor, setShowSplitEditor] = useState(false);
   const [isAddingSplit, setIsAddingSplit] = useState(false);
@@ -311,8 +311,8 @@ export function TransactionsPanel({
               </p>
             </div>
             <div className="flex items-center gap-1.5">
-              <Button size="sm" variant="outline" onClick={() => setShowDataSources(true)} className="touch-target-sm">
-                <Link2 className="h-4 w-4 sm:mr-1" />
+              <Button size="sm" variant="outline" onClick={() => setShowCSVImport(true)} className="touch-target-sm">
+                <Upload className="h-4 w-4 sm:mr-1" />
                 <span className="hidden sm:inline">Import</span>
               </Button>
               <Button size="sm" onClick={() => setShowAddDialog(true)} className="touch-target-sm">
@@ -626,13 +626,13 @@ export function TransactionsPanel({
           {transactions.length === 0 && !filteredTransactions.length && (
             <div className="text-center py-12">
               <div className="h-12 w-12 rounded-md bg-primary/10 flex items-center justify-center mx-auto mb-3">
-                <Link2 className="h-6 w-6 text-primary" />
+                <Upload className="h-6 w-6 text-primary" />
               </div>
               <p className="text-sm font-medium mb-1">No transactions yet</p>
-              <p className="text-xs text-muted-foreground mb-4">Import from your wallet or add manually</p>
+              <p className="text-xs text-muted-foreground mb-4">Import from a CSV or add manually</p>
               <div className="flex flex-col sm:flex-row gap-2 justify-center">
-                <Button size="sm" onClick={() => setShowDataSources(true)} className="touch-target-sm">
-                  <Link2 className="h-4 w-4 mr-1" /> Connect Data Source
+                <Button size="sm" onClick={() => setShowCSVImport(true)} className="touch-target-sm">
+                  <Upload className="h-4 w-4 mr-1" /> Import CSV
                 </Button>
                 <Button size="sm" variant="outline" onClick={() => setShowAddDialog(true)} className="touch-target-sm">
                   <Plus className="h-4 w-4 mr-1" /> Add Manually
@@ -839,10 +839,13 @@ export function TransactionsPanel({
          </DialogContent>
        </Dialog>
 
-       {/* Data Sources Dialog */}
-       <DataSourcesDialog
-         open={showDataSources}
-         onOpenChange={setShowDataSources}
+       {/* CSV Import Dialog */}
+       <CSVImportDialog
+         open={showCSVImport}
+         onOpenChange={setShowCSVImport}
+         onImport={onAddTransactions ? onAddTransactions : (txs) => txs.forEach(t => onAddTransaction(t))}
+         existingTransactions={transactions}
+         currency={currency}
        />
 
         {/* Deletion confirmation dialog */}
