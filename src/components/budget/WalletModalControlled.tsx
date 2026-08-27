@@ -1,14 +1,13 @@
 import { useState, forwardRef } from 'react';
 import {
   Wallet, Plus, Trash2, Zap, Globe, WalletMinimal, CheckCircle, X,
-  RefreshCw, Clock, QrCode, Shield,
+  RefreshCw, Clock, QrCode, Shield, ArrowLeft,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -409,7 +408,9 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
   };
 
   const handleSync = () => {
-    syncTransactions(true);
+    syncTransactions(true).catch((error) => {
+      console.error('Sync failed:', error);
+    });
   };
 
   const handleToggleAutoSync = () => {
@@ -436,87 +437,80 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
     onToggleAutoSync: handleToggleAutoSync,
   };
 
-  const addWalletDialog = (
-    <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle>Connect Lightning Wallet</DialogTitle>
-          <DialogDescription>
-            Enter your connection string or scan a QR code from your wallet app.
-          </DialogDescription>
-        </DialogHeader>
-        <AddWalletContent
-          alias={alias}
-          setAlias={setAlias}
-          connectionUri={connectionUri}
-          setConnectionUri={setConnectionUri}
-          onScanQR={() => setShowQRScanner(true)}
-        />
-        <DialogFooter className="px-4">
-          <Button
-            onClick={handleAddConnection}
-            disabled={isConnecting || !connectionUri.trim()}
-            className="w-full"
-          >
-            {isConnecting ? 'Connecting...' : 'Connect'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-
   if (isMobile) {
     return (
       <>
         <Drawer open={open} onOpenChange={onOpenChange}>
           <DrawerContent className="max-h-[90vh] flex flex-col">
-            <DrawerHeader className="text-center relative flex-shrink-0">
-              <DrawerClose asChild>
-                <Button variant="ghost" size="sm" className="absolute right-4 top-4">
-                  <X className="h-4 w-4" />
-                  <span className="sr-only">Close</span>
-                </Button>
-              </DrawerClose>
-              <DrawerTitle className="flex items-center justify-center gap-2 pt-2">
-                <Wallet className="h-5 w-5" />
-                Lightning Wallet
-              </DrawerTitle>
-              <DrawerDescription>
-                Connect your wallet for automatic transaction imports
-              </DrawerDescription>
-            </DrawerHeader>
-            <div className="flex-1 overflow-y-auto overscroll-contain pb-8">
-              <WalletContent {...walletContentProps} />
-            </div>
-          </DrawerContent>
-        </Drawer>
-        {/* Render Add Wallet as a separate Drawer for mobile */}
-        <Drawer open={addDialogOpen} onOpenChange={setAddDialogOpen}>
-          <DrawerContent className="max-h-[85vh] flex flex-col">
-            <DrawerHeader className="flex-shrink-0">
-              <DrawerTitle>Connect Lightning Wallet</DrawerTitle>
-              <DrawerDescription>
-                Enter your connection string or scan a QR code.
-              </DrawerDescription>
-            </DrawerHeader>
-            <div className="flex-1 overflow-y-auto overscroll-contain">
-              <AddWalletContent
-                alias={alias}
-                setAlias={setAlias}
-                connectionUri={connectionUri}
-                setConnectionUri={setConnectionUri}
-                onScanQR={() => setShowQRScanner(true)}
-              />
-            </div>
-            <div className="p-4 flex-shrink-0 border-t bg-background">
-              <Button
-                onClick={handleAddConnection}
-                disabled={isConnecting || !connectionUri.trim()}
-                className="w-full"
-              >
-                {isConnecting ? 'Connecting...' : 'Connect'}
-              </Button>
-            </div>
+            {addDialogOpen ? (
+              /* ─── Inline Add Wallet View (mobile) ─── */
+              <>
+                <DrawerHeader className="text-center relative flex-shrink-0">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute left-4 top-4 h-8 w-8"
+                    onClick={() => setAddDialogOpen(false)}
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                    <span className="sr-only">Back</span>
+                  </Button>
+                  <DrawerClose asChild>
+                    <Button variant="ghost" size="sm" className="absolute right-4 top-4">
+                      <X className="h-4 w-4" />
+                      <span className="sr-only">Close</span>
+                    </Button>
+                  </DrawerClose>
+                  <DrawerTitle className="flex items-center justify-center gap-2 pt-2">
+                    <Wallet className="h-5 w-5" />
+                    Connect Lightning Wallet
+                  </DrawerTitle>
+                  <DrawerDescription>
+                    Enter your connection string or scan a QR code.
+                  </DrawerDescription>
+                </DrawerHeader>
+                <div className="flex-1 overflow-y-auto overscroll-contain pb-8">
+                  <AddWalletContent
+                    alias={alias}
+                    setAlias={setAlias}
+                    connectionUri={connectionUri}
+                    setConnectionUri={setConnectionUri}
+                    onScanQR={() => setShowQRScanner(true)}
+                  />
+                </div>
+                <div className="p-4 flex-shrink-0 border-t bg-background">
+                  <Button
+                    onClick={handleAddConnection}
+                    disabled={isConnecting || !connectionUri.trim()}
+                    className="w-full"
+                  >
+                    {isConnecting ? 'Connecting...' : 'Connect'}
+                  </Button>
+                </div>
+              </>
+            ) : (
+              /* ─── Main Wallet View (mobile) ─── */
+              <>
+                <DrawerHeader className="text-center relative flex-shrink-0">
+                  <DrawerClose asChild>
+                    <Button variant="ghost" size="sm" className="absolute right-4 top-4">
+                      <X className="h-4 w-4" />
+                      <span className="sr-only">Close</span>
+                    </Button>
+                  </DrawerClose>
+                  <DrawerTitle className="flex items-center justify-center gap-2 pt-2">
+                    <Wallet className="h-5 w-5" />
+                    Lightning Wallet
+                  </DrawerTitle>
+                  <DrawerDescription>
+                    Connect your wallet for automatic transaction imports
+                  </DrawerDescription>
+                </DrawerHeader>
+                <div className="flex-1 overflow-y-auto overscroll-contain pb-8">
+                  <WalletContent {...walletContentProps} />
+                </div>
+              </>
+            )}
           </DrawerContent>
         </Drawer>
         <QRScanner
@@ -534,19 +528,65 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-[500px] max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Wallet className="h-5 w-5" />
-              Lightning Wallet
-            </DialogTitle>
-            <DialogDescription>
-              Connect your wallet for automatic transaction imports
-            </DialogDescription>
-          </DialogHeader>
-          <WalletContent {...walletContentProps} />
+          {addDialogOpen ? (
+            /* ─── Inline Add Wallet View ───
+               Rendered inside the same dialog to avoid nested-dialog
+               positioning and focus-trap conflicts. */
+            <>
+              <DialogHeader>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 flex-shrink-0"
+                    onClick={() => setAddDialogOpen(false)}
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                    <span className="sr-only">Back</span>
+                  </Button>
+                  <DialogTitle className="flex items-center gap-2">
+                    <Wallet className="h-5 w-5" />
+                    Connect Lightning Wallet
+                  </DialogTitle>
+                </div>
+                <DialogDescription>
+                  Enter your connection string or scan a QR code from your wallet app.
+                </DialogDescription>
+              </DialogHeader>
+              <AddWalletContent
+                alias={alias}
+                setAlias={setAlias}
+                connectionUri={connectionUri}
+                setConnectionUri={setConnectionUri}
+                onScanQR={() => setShowQRScanner(true)}
+              />
+              <div className="px-4">
+                <Button
+                  onClick={handleAddConnection}
+                  disabled={isConnecting || !connectionUri.trim()}
+                  className="w-full"
+                >
+                  {isConnecting ? 'Connecting...' : 'Connect'}
+                </Button>
+              </div>
+            </>
+          ) : (
+            /* ─── Main Wallet View ─── */
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Wallet className="h-5 w-5" />
+                  Lightning Wallet
+                </DialogTitle>
+                <DialogDescription>
+                  Connect your wallet for automatic transaction imports
+                </DialogDescription>
+              </DialogHeader>
+              <WalletContent {...walletContentProps} />
+            </>
+          )}
         </DialogContent>
       </Dialog>
-      {addWalletDialog}
       <QRScanner
         open={showQRScanner}
         onOpenChange={setShowQRScanner}

@@ -64,36 +64,42 @@ export function useNWCInternal() {
     }
 
     try {
-      let timeoutId: NodeJS.Timeout | undefined;
-      const testPromise = new Promise((resolve, reject) => {
-        try {
-          const client = new LN(parsed.connectionString);
-          resolve(client);
-        } catch (error) {
-          reject(error);
-        }
-      });
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        timeoutId = setTimeout(() => reject(new Error('Connection test timeout')), 10000);
-      });
+      // Use LN client to verify the connection by calling getInfo() on the
+      // underlying NWCClient. This sends a real NWC request to the wallet
+      // relay, confirming the connection string is valid and the wallet is
+      // reachable. It also retrieves the wallet alias and supported methods.
+      const ln = new LN(parsed.connectionString);
 
+      let walletInfo: NWCInfo | null = null;
       try {
-        await Promise.race([testPromise, timeoutPromise]) as LN;
-        if (timeoutId) clearTimeout(timeoutId);
-      } catch (error) {
-        if (timeoutId) clearTimeout(timeoutId);
-        throw error;
+        const info = await Promise.race([
+          ln.nwcClient.getInfo(),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('Connection test timeout')), 15000)
+          ),
+        ]);
+
+        walletInfo = {
+          alias: info.alias,
+          color: info.color,
+          pubkey: info.pubkey,
+          network: info.network,
+          methods: info.methods,
+          notifications: info.notifications,
+        };
+      } finally {
+        ln.close();
       }
 
       const connection: NWCConnection = {
         connectionString: parsed.connectionString,
-        alias: alias || 'NWC Wallet',
+        alias: alias || walletInfo?.alias || 'NWC Wallet',
         isConnected: true,
       };
 
       setConnectionInfo(prev => ({
         ...prev,
-        [parsed.connectionString]: {
+        [parsed.connectionString]: walletInfo ?? {
           alias: connection.alias,
           methods: ['pay_invoice'],
         },

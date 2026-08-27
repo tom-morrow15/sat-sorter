@@ -53,41 +53,40 @@ export function useNWCSync() {
   const syncTransactionsRef = useRef<((showToast?: boolean) => Promise<NWCSyncResult>) | null>(null);
 
   /**
-   * Fetch transactions from NWC wallet
+   * Fetch transactions from NWC wallet using NWCClient (NIP-47 list_transactions)
+   *
+   * The LN class from @getalby/sdk is a high-level wrapper that only exposes
+   * pay() and requestPayment(). However, it has a readonly `nwcClient` property
+   * that gives direct access to the underlying NWCClient, which supports the
+   * NIP-47 list_transactions method.
    */
   const fetchNWCTransactions = useCallback(async (
     connectionString: string,
     fromTimestamp?: number
   ): Promise<NWCTransaction[]> => {
-    const client = new LN(connectionString);
+    const ln = new LN(connectionString);
 
     try {
-      // The Alby SDK uses getTransactions or listTransactions
-      // Different wallets may have different method names
-      const response = await (client as unknown as {
-        getTransactions: (params: { from?: number; limit?: number }) => Promise<{ transactions: NWCTransaction[] }>
-      }).getTransactions({
+      const response = await ln.nwcClient.listTransactions({
         from: fromTimestamp,
         limit: 100,
       });
 
       return response.transactions || [];
     } catch (error) {
-      // Try alternative method name
-      try {
-        const response = await (client as unknown as {
-          listTransactions: (params: { from?: number; limit?: number }) => Promise<{ transactions: NWCTransaction[] }>
-        }).listTransactions({
-          from: fromTimestamp,
-          limit: 100,
-        });
+      const errorMsg = error instanceof Error ? error.message : String(error);
 
-        return response.transactions || [];
-      } catch {
-        // This is expected for wallets that don't support list_transactions
-        // Don't log as error since it's normal behavior
-        throw new Error('This wallet does not support transaction listing. Try connecting a different wallet or use manual entry.');
+      // Provide a user-friendly error message for common failure cases
+      if (errorMsg.includes('not authorized') || errorMsg.includes('restricted')) {
+        throw new Error(
+          'Your wallet does not allow transaction listing. Please re-connect your wallet with the "list_transactions" permission enabled.'
+        );
       }
+
+      throw new Error(`Failed to fetch transactions: ${errorMsg}`);
+    } finally {
+      // Always close the WebSocket connection to avoid leaks
+      ln.close();
     }
   }, []);
 
