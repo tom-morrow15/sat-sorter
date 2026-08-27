@@ -124,57 +124,62 @@ export function NostrInfoContent() {
 export function DifferenceInfoContent() {
   return (
     <div className="space-y-5">
-      <div className="overflow-x-auto -mx-1">
-        <table className="w-full text-sm border-collapse">
-          <thead>
-            <tr className="border-b">
-              <th className="text-left py-2 pr-3 font-semibold text-destructive/80">Traditional Budgeting Apps</th>
-              <th className="text-left py-2 pl-3 font-semibold text-primary">Sat Sorter + Nostr</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border/50">
-            <tr>
-              <td className="py-2.5 pr-3 text-muted-foreground">Email sign-up required</td>
-              <td className="py-2.5 pl-3">No email, no phone, no PII</td>
-            </tr>
-            <tr>
-              <td className="py-2.5 pr-3 text-muted-foreground">Your data lives on their server</td>
-              <td className="py-2.5 pl-3">Your data lives encrypted on public relays</td>
-            </tr>
-            <tr>
-              <td className="py-2.5 pr-3 text-muted-foreground">They can read your budget</td>
-              <td className="py-2.5 pl-3">Nobody but you can decrypt it</td>
-            </tr>
-            <tr>
-              <td className="py-2.5 pr-3 text-muted-foreground">Data sold or mined for ads</td>
-              <td className="py-2.5 pl-3">Data is unreadable to anyone else</td>
-            </tr>
-            <tr>
-              <td className="py-2.5 pr-3 text-muted-foreground">If they shut down, you lose everything</td>
-              <td className="py-2.5 pl-3">Your data is portable. Take it anywhere.</td>
-            </tr>
-            <tr>
-              <td className="py-2.5 pr-3 text-muted-foreground">Account locked to one app</td>
-              <td className="py-2.5 pl-3">You hold the keys. Use them in other apps.</td>
-            </tr>
-            <tr>
-              <td className="py-2.5 pr-3 text-muted-foreground">They can ban or deplatform you</td>
-              <td className="py-2.5 pl-3">Nobody can revoke your account</td>
-            </tr>
-            <tr>
-              <td className="py-2.5 pr-3 text-muted-foreground">If it's free, you're the product</td>
-              <td className="py-2.5 pl-3">Built on open source and open standards</td>
-            </tr>
-            <tr>
-              <td className="py-2.5 pr-3 text-muted-foreground">Forces one currency view</td>
-              <td className="py-2.5 pl-3">USD and Bitcoin side by side — learn a Bitcoin standard at your own pace</td>
-            </tr>
-            <tr>
-              <td className="py-2.5 pr-3 text-muted-foreground">Helps you spend — that's it</td>
-              <td className="py-2.5 pl-3">Helps you spend — and understand sound money</td>
-            </tr>
-          </tbody>
-        </table>
+      <div className="rounded-xl border bg-card overflow-hidden">
+        <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-border">
+          {/* Left column - Traditional */}
+          <div className="p-4 md:pr-5">
+            <div className="flex items-center gap-2 mb-3 pb-2 border-b">
+              <div className="h-2 w-2 rounded-full bg-destructive/60" />
+              <span className="text-sm font-semibold text-destructive/90">Traditional Budgeting Apps</span>
+            </div>
+            <ul className="space-y-2.5 text-sm">
+              {[
+                "Email sign-up required",
+                "Your data lives on their server",
+                "They can read your budget",
+                "Data sold or mined for ads",
+                "If they shut down, you lose everything",
+                "Account locked to one app",
+                "They can ban or deplatform you",
+                "If it's free, you're the product",
+                "Forces one currency view",
+                "Helps you spend — that's it",
+              ].map((item, idx) => (
+                <li key={idx} className="flex gap-2 text-muted-foreground">
+                  <span className="mt-1.5 block h-1 w-1 flex-shrink-0 rounded-full bg-muted-foreground/40" />
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Right column - Sat Sorter */}
+          <div className="p-4 md:pl-5 bg-primary/5 md:bg-transparent">
+            <div className="flex items-center gap-2 mb-3 pb-2 border-b border-primary/20">
+              <div className="h-2 w-2 rounded-full bg-primary" />
+              <span className="text-sm font-semibold text-primary">Sat Sorter + Nostr</span>
+            </div>
+            <ul className="space-y-2.5 text-sm">
+              {[
+                "No email, no phone, no PII",
+                "Your data lives encrypted on public relays",
+                "Nobody but you can decrypt it",
+                "Data is unreadable to anyone else",
+                "Your data is portable. Take it anywhere.",
+                "You hold the keys. Use them in other apps.",
+                "Nobody can revoke your account",
+                "Built on open source and open standards",
+                "USD and Bitcoin side by side — learn a Bitcoin standard at your own pace",
+                "Helps you spend — and understand sound money",
+              ].map((item, idx) => (
+                <li key={idx} className="flex gap-2 text-foreground">
+                  <span className="mt-1.5 block h-1 w-1 flex-shrink-0 rounded-full bg-primary/60" />
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
       </div>
 
       <p className="text-muted-foreground">
