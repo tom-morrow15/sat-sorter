@@ -383,7 +383,10 @@ export function AddTransactionDialog({
                 min="0"
                 placeholder={currency === 'usd' ? '0.00' : '0'}
                 className="h-14 pl-10 text-2xl font-mono"
-                autoFocus
+                // No autoFocus — on iOS PWA, auto-focusing an input before the
+                // dialog open animation completes causes the keyboard to appear
+                // mid-animation, which shifts the viewport and makes the dialog
+                // jump to the top. Let the user tap the field themselves.
               />
             </div>
             {conversionDisplay && (

@@ -145,7 +145,6 @@ export function ManageBudgetTemplateDialog({
                     placeholder="e.g., Standard Household Budget"
                     value={templateName}
                     onChange={(e) => setTemplateName(e.target.value)}
-                    autoFocus
                   />
                 </div>
 

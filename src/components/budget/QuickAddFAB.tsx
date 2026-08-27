@@ -220,7 +220,6 @@ export function QuickAddFAB({ onAddTransaction, currency }: QuickAddFABProps) {
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 onKeyDown={handleKeyDown}
-                autoFocus
               />
             </div>
 

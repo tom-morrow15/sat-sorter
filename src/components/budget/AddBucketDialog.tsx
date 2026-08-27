@@ -391,7 +391,6 @@ export function AddBucketDialog({
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Entertainment, Insurance, Coffee"
               onKeyDown={(e) => { if (e.key === 'Enter') handleAdd(); }}
-              autoFocus
             />
           </div>
 
