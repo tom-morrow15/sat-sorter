@@ -82,12 +82,15 @@ function normalizeHeader(name: string): string {
 
 /**
  * Detect which column is the date, description, and amount columns
- * based on header names.
+ * based on header names. Also detects separate Debit/Credit columns
+ * (common in bank exports from Chase, Bank of America, etc.).
  */
 function detectColumns(headers: string[]): {
   dateIdx: number;
   descriptionIdx: number;
   amountIdx: number;
+  debitIdx: number; // -1 if no separate debit column
+  creditIdx: number; // -1 if no separate credit column
   dateHeader?: string;
   descriptionHeader?: string;
   amountHeader?: string;
@@ -102,15 +105,21 @@ function detectColumns(headers: string[]): {
   const descPatterns = ['description', 'desc', 'memo', 'details', 'name', 'merchant', 'payee', 'narration', 'note', 'transaction'];
   let descriptionIdx = normalized.findIndex(h => descPatterns.some(p => h === p || h.includes(p)));
 
-  // Amount column detection
-  const amountPatterns = ['amount', 'amt', 'value', 'total', 'debit', 'credit', 'price', 'sum', 'amountusd', 'amountsats'];
+  // Amount column detection — exclude "debit" and "credit" from single-amount detection
+  // since they'll be handled separately below
+  const amountPatterns = ['amount', 'amt', 'value', 'total', 'price', 'sum', 'amountusd', 'amountsats'];
   let amountIdx = normalized.findIndex(h => amountPatterns.some(p => h === p || h.includes(p)));
+
+  // Detect separate Debit and Credit columns (common in bank CSV exports)
+  // Match exact "debit" or "withdrawal" / "credit" or "deposit"
+  const debitIdx = normalized.findIndex(h => h === 'debit' || h === 'withdrawal' || h === 'withdrawals' || h === 'debitamount');
+  const creditIdx = normalized.findIndex(h => h === 'credit' || h === 'deposit' || h === 'deposits' || h === 'creditamount');
 
   // Fallback: if we have exactly 3 columns, assume date, description, amount
   if (headers.length >= 3) {
     if (dateIdx === -1) dateIdx = 0;
     if (descriptionIdx === -1) descriptionIdx = descriptionIdx !== -1 ? descriptionIdx : (dateIdx === 0 ? 1 : 0);
-    if (amountIdx === -1) {
+    if (amountIdx === -1 && debitIdx === -1 && creditIdx === -1) {
       // Find a column that's not date or description
       for (let i = 0; i < headers.length; i++) {
         if (i !== dateIdx && i !== descriptionIdx) {
@@ -124,15 +133,17 @@ function detectColumns(headers: string[]): {
   // Last resort: assume standard order
   if (dateIdx === -1) dateIdx = 0;
   if (descriptionIdx === -1) descriptionIdx = Math.min(1, headers.length - 1);
-  if (amountIdx === -1) amountIdx = Math.min(2, headers.length - 1);
+  if (amountIdx === -1 && debitIdx === -1 && creditIdx === -1) amountIdx = Math.min(2, headers.length - 1);
 
   return {
     dateIdx,
     descriptionIdx,
     amountIdx,
+    debitIdx,
+    creditIdx,
     dateHeader: headers[dateIdx],
     descriptionHeader: headers[descriptionIdx],
-    amountHeader: headers[amountIdx],
+    amountHeader: headers[amountIdx >= 0 ? amountIdx : 0],
   };
 }
 
@@ -346,13 +357,18 @@ export function parseCSVTransactions(
   }
 
   // Detect column indices
-  const { dateIdx, descriptionIdx, amountIdx, dateHeader, descriptionHeader, amountHeader } =
+  const { dateIdx, descriptionIdx, amountIdx, debitIdx, creditIdx, dateHeader, descriptionHeader, amountHeader } =
     detectColumns(headers);
+
+  // When separate Debit/Credit columns exist, use them instead of a single amount column
+  const hasSeparateDebitCredit = debitIdx >= 0 || creditIdx >= 0;
 
   result.detectedColumns = {
     date: dateHeader,
     description: descriptionHeader,
-    amount: amountHeader,
+    amount: hasSeparateDebitCredit
+      ? (debitIdx >= 0 ? headers[debitIdx] : undefined) + '/' + (creditIdx >= 0 ? headers[creditIdx] : '')
+      : amountHeader,
   };
 
   // Process data rows
@@ -373,7 +389,6 @@ export function parseCSVTransactions(
 
       const dateStr = parts[dateIdx] || '';
       const description = parts[descriptionIdx] || '';
-      const amountStr = parts[amountIdx] || '';
 
       // Parse date
       const parsedDate = parseDate(dateStr);
@@ -383,11 +398,36 @@ export function parseCSVTransactions(
         continue;
       }
 
-      // Parse amount
-      const rawAmount = parseAmount(amountStr);
+      // ─── Amount parsing ───
+      let rawAmount: number | null;
+
+      if (hasSeparateDebitCredit) {
+        // Read from separate debit and credit columns
+        // Debit = money out (negative), Credit = money in (positive)
+        const debitStr = debitIdx >= 0 ? (parts[debitIdx] || '').trim() : '';
+        const creditStr = creditIdx >= 0 ? (parts[creditIdx] || '').trim() : '';
+
+        const debitVal = debitStr ? parseAmount(debitStr) : null;
+        const creditVal = creditStr ? parseAmount(creditStr) : null;
+
+        if (debitVal !== null && debitVal !== 0) {
+          // Debit = expense (negative)
+          rawAmount = -Math.abs(debitVal);
+        } else if (creditVal !== null && creditVal !== 0) {
+          // Credit = income (positive)
+          rawAmount = Math.abs(creditVal);
+        } else {
+          rawAmount = null;
+        }
+      } else {
+        // Single amount column
+        const amountStr = parts[amountIdx] || '';
+        rawAmount = parseAmount(amountStr);
+      }
+
       if (rawAmount === null) {
         result.skippedRows++;
-        result.errors.push(`Row ${i + 1}: Could not parse amount "${amountStr}"`);
+        result.errors.push(`Row ${i + 1}: Could not parse amount`);
         continue;
       }
 
