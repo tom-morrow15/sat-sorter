@@ -58,7 +58,7 @@ export function WelcomeScreen({ onGuestMode }: WelcomeScreenProps) {
       key: 'signin',
       icon: Key,
       title: 'SIGN IN',
-      body: 'Already set up? Use your 12 words or nsec — they unlock the same account.',
+      body: 'Already set up? Use your private key to sign in and restore your account.',
       onClick: () => navigate('/sign-in'),
       accent: '#2F6E6A',
       primary: false,

@@ -78,7 +78,7 @@ export function NostrInfoContent() {
           Instead of an email and password, you hold a cryptographic key — like a digital signature that proves you're you. Your budget data is encrypted and stored on public relays. No company sits between you and your money.
         </p>
         <p className="text-muted-foreground mt-2">
-          The relays can't read your data. Sat Sorter can't read your data. Only you, with your 12-word key, can unlock it.
+          The relays can't read your data. Sat Sorter can't read your data. Only you, with your private key, can unlock it.
         </p>
       </section>
 
@@ -272,7 +272,7 @@ export function PrivacyPromiseContent() {
 
       <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
         <p className="text-sm font-medium text-destructive">
-          One thing we can't do: If you lose your 12 words AND your nsec, we cannot recover your account or your data. We don't have your keys. That's by design. This is not a bug — it's the feature that keeps your data truly private.
+          One thing we can't do: If you lose your private key, we cannot recover your account or your data. We don't have your keys. That's by design. This is not a bug — it's the feature that keeps your data truly private.
         </p>
       </div>
     </div>

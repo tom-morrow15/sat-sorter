@@ -186,7 +186,7 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ isOpen, onClose, onLogin }) =
 
       <TabsContent value='key' className='space-y-4'>
         <div className="rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 p-3 text-xs text-amber-800 dark:text-amber-200">
-          ⚠️ Pasting your secret key (nsec) into any website is equivalent to typing your seed phrase into a website — only do this if you fully trust the site and understand the risk.
+          ⚠️ Pasting your secret key (nsec) into any website is equivalent to typing your private key into a website — only do this if you fully trust the site and understand the risk.
         </div>
         <form onSubmit={(e) => {
           e.preventDefault();

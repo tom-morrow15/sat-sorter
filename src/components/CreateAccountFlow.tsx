@@ -73,7 +73,7 @@ export function CreateAccountFlow() {
     let hasError = false;
     for (const w of MNEMONIC_WORDS) {
       if (confirmWords[w].trim().toLowerCase() !== mnemonicArray[w - 1].toLowerCase()) {
-        setErrors((prev) => ({ ...prev, [w]: `Word ${w} doesn't match your backup phrase.` }));
+        setErrors((prev) => ({ ...prev, [w]: `Word ${w} doesn't match your private key.` }));
         hasError = true;
       } else {
         setErrors((prev) => ({ ...prev, [w]: null }));
@@ -108,7 +108,7 @@ export function CreateAccountFlow() {
     (w) => confirmWords[w].trim().toLowerCase() === mnemonicArray[w - 1].toLowerCase()
   );
 
-  const stepTitle = step === 1 ? 'Your backup phrase' : step === 2 ? 'Confirm your backup' : "You're all set";
+  const stepTitle = step === 1 ? 'Your private key' : step === 2 ? 'Confirm your key' : "You're all set";
   const stepSubtitle = step === 1 ? 'Step 1 of 3' : step === 2 ? 'Step 2 of 3' : 'Step 3 of 3';
 
   return (
@@ -187,10 +187,10 @@ export function CreateAccountFlow() {
                 <div className="p-4 border-b bg-muted/30">
                   <div className="flex items-center gap-2">
                     <Lock className="h-4 w-4 text-primary" />
-                    <span className="text-sm font-semibold">12-word backup phrase</span>
+                    <span className="text-sm font-semibold">Your private key</span>
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Write these down in order. They're your only recovery key.
+                    Write these down in order. They're your only way to recover your account.
                   </p>
                 </div>
                 <div className="p-4">
@@ -231,7 +231,7 @@ export function CreateAccountFlow() {
                     <span className="text-sm font-semibold">Also save your nsec</span>
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">
-                    A shorter format for copy/paste. Same account as the 12 words.
+                     A shorter format for copy/paste. Same account as your private key.
                   </p>
                 </div>
                 <div className="p-4 space-y-3">
@@ -254,7 +254,7 @@ export function CreateAccountFlow() {
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     <div className="bg-muted/30 rounded-lg p-3">
-                      <span className="font-semibold block text-foreground">12 words</span>
+                      <span className="font-semibold block text-foreground">Private key</span>
                       <span className="text-muted-foreground">Master key. Write on paper.</span>
                     </div>
                     <div className="bg-muted/30 rounded-lg p-3">
@@ -264,7 +264,7 @@ export function CreateAccountFlow() {
                   </div>
                   <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-3">
                     <p className="text-xs text-destructive/80 font-medium">
-                      Treat your nsec like your 12 words. Never share it, screenshot it, or store it online.
+                      Treat your nsec like your private key. Never share it, screenshot it, or store it online.
                     </p>
                   </div>
                 </div>
@@ -279,7 +279,7 @@ export function CreateAccountFlow() {
                   className="mt-0.5"
                 />
                 <Label htmlFor="backed-up" className="text-sm leading-relaxed cursor-pointer">
-                  I've written down my 12 words and saved my nsec in a safe place.
+                  I've written down my private key and saved my nsec in a safe place.
                 </Label>
               </div>
 
@@ -288,7 +288,7 @@ export function CreateAccountFlow() {
                 disabled={!backedUp}
                 className="w-full h-12 text-base font-semibold btn-interactive"
               >
-                I saved my backup — Continue
+                 I saved my private key — Continue
               </Button>
             </div>
           )}
@@ -297,7 +297,7 @@ export function CreateAccountFlow() {
           {step === 2 && (
             <div className="space-y-6">
               <p className="text-sm text-muted-foreground leading-relaxed">
-                To make sure you saved your phrase, enter the words at positions <strong className="text-foreground">4</strong>, <strong className="text-foreground">9</strong>, and <strong className="text-foreground">12</strong>.
+                 To make sure you saved your private key, enter the words at positions <strong className="text-foreground">4</strong>, <strong className="text-foreground">9</strong>, and <strong className="text-foreground">12</strong>.
               </p>
 
               <div className="space-y-4">
@@ -329,7 +329,7 @@ export function CreateAccountFlow() {
 
               <div className="rounded-xl border bg-muted/40 p-4 text-sm text-muted-foreground leading-relaxed">
                 <p>
-                  In a traditional app, you click "Forgot password?" to reset. Here, there's no reset — no company holds your keys. That's the point. That's what keeps your data private. It also means you're responsible for your backup.
+                   In a traditional app, you click "Forgot password?" to reset. Here, there's no reset — no company holds your keys. That's the point. That's what keeps your data private. It also means you're responsible for your private key.
                 </p>
               </div>
 
@@ -360,7 +360,7 @@ export function CreateAccountFlow() {
                 <ul className="space-y-2.5 text-sm text-muted-foreground">
                   {[
                     'Created cryptographic keys that only you hold',
-                    'Backed them up with a 12-word phrase',
+                    'Backed them up with a private key',
                     'Set up encrypted syncing across your devices',
                   ].map((item) => (
                     <li key={item} className="flex items-start gap-2.5">

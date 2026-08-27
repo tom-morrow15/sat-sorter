@@ -23,7 +23,7 @@ export function SignInScreen() {
 
     const trimmed = input.trim();
     if (!trimmed) {
-      setError('Please enter your 12-word seed phrase or nsec.');
+      setError('Please enter your private key.');
       return;
     }
 
@@ -51,7 +51,7 @@ export function SignInScreen() {
       setError(
         err instanceof Error
           ? err.message
-          : 'Could not parse your input. Please check your seed phrase or nsec and try again.'
+          : 'Could not parse your input. Please check your private key and try again.'
       );
     } finally {
       setIsSubmitting(false);
@@ -92,7 +92,7 @@ export function SignInScreen() {
               Sign in
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Paste your 12-word seed phrase or nsec to restore your account.
+              Paste your private key to restore your account.
             </p>
           </div>
 
@@ -109,14 +109,14 @@ export function SignInScreen() {
                   setInput(e.target.value);
                   setError(null);
                 }}
-                placeholder="Enter your 12-word seed phrase, nsec1..., or 64-character hex key..."
+                placeholder="Enter your private key (nsec1..., 12-word phrase, or hex)..."
                 className="min-h-[140px] font-mono text-sm resize-none bg-muted/20 border-muted-foreground/20 focus:bg-background"
                 autoComplete="off"
                 spellCheck={false}
                 autoFocus
               />
               <p className="text-xs text-muted-foreground">
-                12 words, nsec, or hex — all unlock the same account.
+                Your private key can be in any format — all unlock the same account.
               </p>
             </div>
 

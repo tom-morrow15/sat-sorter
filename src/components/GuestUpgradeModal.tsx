@@ -87,7 +87,7 @@ export function GuestUpgradeModal({ open, onOpenChange }: GuestUpgradeModalProps
 
             <div className="space-y-3 my-4">
               <p className="text-sm text-muted-foreground">
-                We'll generate a 12-word backup phrase and encrypt your budget data. Your data will be synced to Nostr relays and available on any device you sign into.
+                 We'll generate a private key and encrypt your budget data. Your data will be synced to Nostr relays and available on any device you sign into.
               </p>
               <div className="bg-muted/50 rounded-lg p-3">
                 <p className="text-xs text-muted-foreground">
@@ -113,7 +113,7 @@ export function GuestUpgradeModal({ open, onOpenChange }: GuestUpgradeModalProps
             <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
             <div>
               <p className="font-medium">Generating your Nostr keys...</p>
-              <p className="text-sm text-muted-foreground mt-1">Creating a secure 12-word backup phrase</p>
+               <p className="text-sm text-muted-foreground mt-1">Creating a secure private key</p>
             </div>
           </div>
         )}
@@ -153,7 +153,7 @@ export function GuestUpgradeModal({ open, onOpenChange }: GuestUpgradeModalProps
             <div className="my-4">
               {mnemonic && (
                 <div className="bg-muted/50 rounded-lg p-4 mb-4">
-                  <p className="text-xs font-medium text-destructive mb-2">⚠️ Save these 12 words — they're the only way to recover your account:</p>
+                  <p className="text-xs font-medium text-destructive mb-2">⚠️ Save your private key — it's the only way to recover your account:</p>
                   <div className="grid grid-cols-3 gap-1">
                     {mnemonic.split(' ').map((word, i) => (
                       <div key={i} className="text-xs font-mono bg-background rounded px-2 py-1 text-center border">
@@ -164,7 +164,7 @@ export function GuestUpgradeModal({ open, onOpenChange }: GuestUpgradeModalProps
                 </div>
               )}
               <p className="text-sm text-muted-foreground">
-                Your budget data has been encrypted and published to Nostr relays. You can now access it from any device by signing in with these 12 words or your nsec.
+                 Your budget data has been encrypted and published to Nostr relays. You can now access it from any device by signing in with your private key.
               </p>
             </div>
 

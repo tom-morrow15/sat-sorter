@@ -132,7 +132,7 @@ export function parseKeyInput(input: string): ParsedKeyPair {
   }
 
   throw new Error(
-    'Could not parse input. Please provide a valid 12-word seed phrase, nsec (starting with nsec1), or 64-character hex private key.'
+    'Could not parse input. Please provide a valid private key (12-word phrase, nsec starting with nsec1, or 64-character hex).'
   );
 }
 
