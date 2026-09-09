@@ -255,10 +255,10 @@ export function CreateAccountFlow() {
                 <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
                 <div>
                   <p className="text-sm font-medium text-destructive">
-                    These words ARE your account.
+                    There is no way to recover these if you lose them.
                   </p>
                   <p className="text-xs text-destructive/70 mt-1">
-                    Anyone who has them can access your budget. Keep them safe. We don't have a copy and can't reset them.
+                    No password reset. No recovery email. Sat Sorter cannot restore access. Anyone who has them can access your account.
                   </p>
                 </div>
               </div>
@@ -292,19 +292,15 @@ export function CreateAccountFlow() {
                       )}
                     </Button>
                   </div>
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div className="bg-muted/30 rounded-lg p-3">
-                      <span className="font-semibold block text-foreground">Private key</span>
-                      <span className="text-muted-foreground">Master key. Write on paper.</span>
-                    </div>
-                    <div className="bg-muted/30 rounded-lg p-3">
-                      <span className="font-semibold block text-foreground">nsec</span>
-                      <span className="text-muted-foreground">Daily key. Copy/paste to apps.</span>
-                    </div>
-                  </div>
-                  <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-3">
+                  <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-3 space-y-1.5">
                     <p className="text-xs text-destructive/80 font-medium">
-                      Treat your nsec like your private key. Never share it, screenshot it, or store it online.
+                      Keep both of these secret and safe. They are yours alone.
+                    </p>
+                    <p className="text-xs text-destructive/70">
+                      There is no password reset, no recovery email, and no way for Sat Sorter to restore access if you lose them. Anyone who has them can access your account.
+                    </p>
+                    <p className="text-xs text-destructive/70">
+                      Do not screenshot these. Do not store them in a digital photo, cloud note, or text message. Write them down on paper or save them in a dedicated password manager.
                     </p>
                   </div>
                 </div>
@@ -319,7 +315,7 @@ export function CreateAccountFlow() {
                   className="mt-0.5"
                 />
                 <Label htmlFor="backed-up" className="text-sm leading-relaxed cursor-pointer">
-                  I've written down my private key and saved my nsec in a safe place.
+                  I've written down my private key and nsec, and saved them somewhere secure (not a screenshot or photo).
                 </Label>
               </div>
 
