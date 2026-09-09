@@ -9,6 +9,7 @@ import {
   Shield,
   Lock,
   AlertTriangle,
+  ExternalLink,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,6 +19,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { generateMnemonic, keysFromMnemonic, encryptSecretKey } from '@/utils/nostrAuth';
 import { saveSession, generateSessionPassword } from '@/utils/sessionStore';
 import { useOnboarding } from '@/contexts/OnboardingContext';
+import { useLoginActions } from '@/hooks/useLoginActions';
 import { cn } from '@/lib/utils';
 
 const MNEMONIC_WORDS = [4, 9, 12] as const;
@@ -26,6 +28,18 @@ const STEPS = [1, 2, 3] as const;
 export function CreateAccountFlow() {
   const navigate = useNavigate();
   const { completeOnboarding } = useOnboarding();
+  const login = useLoginActions();
+
+  const hasExtension = typeof window !== 'undefined' && 'nostr' in window;
+
+  const handleExtensionLogin = async () => {
+    try {
+      await login.extension();
+      navigate('/home', { replace: true });
+    } catch {
+      // User may have cancelled or extension not ready
+    }
+  };
 
   const [step, setStep] = useState(1);
   const [copiedNsec, setCopiedNsec] = useState(false);
@@ -182,6 +196,32 @@ export function CreateAccountFlow() {
           {/* === STEP 1: Backup phrase === */}
           {step === 1 && (
             <div className="space-y-6">
+              {/* Extension hint — shown if a NIP-07 extension is detected */}
+              {hasExtension && (
+                <div className="rounded-xl border bg-primary/5 border-primary/20 p-4 animate-fade-in">
+                  <div className="flex items-start gap-3">
+                    <ExternalLink className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                    <div className="space-y-2 flex-1">
+                      <p className="text-sm font-medium text-foreground">
+                        We detected a browser extension
+                      </p>
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        You already have a Nostr key in your extension (like Alby). You can use your existing identity instead of creating a new one.
+                      </p>
+                      <div className="flex gap-2 pt-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleExtensionLogin}
+                        >
+                          Sign in with Extension
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Mnemonic card */}
               <div className="rounded-2xl border bg-card shadow-sm overflow-hidden">
                 <div className="p-4 border-b bg-muted/30">
