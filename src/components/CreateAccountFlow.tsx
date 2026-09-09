@@ -315,7 +315,7 @@ export function CreateAccountFlow() {
                   className="mt-0.5"
                 />
                 <Label htmlFor="backed-up" className="text-sm leading-relaxed cursor-pointer">
-                  I've written down my private key and nsec, and saved them somewhere secure (not a screenshot or photo).
+                  I've written down my private key and nsec, and I understand that only I am responsible for keeping them safe. Sat Sorter cannot recover them if lost.
                 </Label>
               </div>
 
