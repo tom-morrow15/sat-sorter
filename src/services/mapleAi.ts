@@ -292,27 +292,30 @@ export async function fetchMapleModels(
 ): Promise<MapleModelOption[]> {
   const url = getModelsUrl(proxyUrl);
   // CORS proxy fallback — used if the direct request fails due to CORS
+  // SECURITY: We do NOT forward the Authorization header through the proxy.
+  // The proxy is a third-party service and should never see API keys.
   const corsProxyUrl = `https://proxy.shakespeare.diy/?url=${encodeURIComponent(url)}`;
 
-  const tryFetch = async (fetchUrl: string): Promise<Response> => {
-    return fetch(fetchUrl, {
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-      },
-    });
+  const tryFetch = async (fetchUrl: string, includeAuth: boolean): Promise<Response> => {
+    const headers: Record<string, string> = {};
+    if (includeAuth) {
+      headers['Authorization'] = `Bearer ${apiKey}`;
+    }
+    return fetch(fetchUrl, { headers });
   };
 
   try {
-    let response = await tryFetch(url);
+    let response = await tryFetch(url, true);
 
     // If CORS blocks the direct request, try via the CORS proxy
+    // WITHOUT the Authorization header — the proxy cannot be trusted with keys
     if (!response.ok && response.status === 0) {
-      response = await tryFetch(corsProxyUrl);
+      response = await tryFetch(corsProxyUrl, false);
     }
 
     if (!response.ok) {
-      // Try CORS proxy as a second attempt for any failure
-      response = await tryFetch(corsProxyUrl);
+      // Try CORS proxy as a second attempt for any failure — still no auth
+      response = await tryFetch(corsProxyUrl, false);
     }
 
     if (!response.ok) {

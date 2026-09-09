@@ -21,7 +21,12 @@ export function SignInScreen() {
   const handleSignIn = async () => {
     setError(null);
 
-    const trimmed = input.trim();
+    let trimmed = input.trim();
+    // Strip "nostr:" URI prefix if present (NIP-21)
+    if (trimmed.startsWith('nostr:')) {
+      trimmed = trimmed.slice(6).trim();
+    }
+
     if (!trimmed) {
       setError('Please enter your private key.');
       return;
@@ -29,16 +34,15 @@ export function SignInScreen() {
 
     setIsSubmitting(true);
     try {
+      // Parse the key first — this is fast and validates the input
       const keys = parseKeyInput(trimmed);
-      const password = generateSessionPassword();
-      const ncryptsec = encryptSecretKey(keys.secretKey, password);
-      await saveSession(ncryptsec, password);
 
-      // Also log into the Nostr system immediately so the user does not have
-      // to repeat "Log in" on the home screen. This fixes the "sign in with
-      // existing account" flow.
+      // Log in immediately so the user is authenticated without waiting
+      // for the expensive scrypt-based session encryption
       login.nsec(keys.nsec);
 
+      // Transition the onboarding state to 'authenticated' so the router
+      // switches to app routes
       completeOnboarding({
         ...keys,
         displayName: '',
@@ -46,7 +50,25 @@ export function SignInScreen() {
         showSats: false,
       });
 
+      // Navigate to home immediately — the user is now logged in
       navigate('/home', { replace: true });
+
+      // Save the encrypted session in the background (non-blocking).
+      // This is the expensive scrypt operation (N=2^16) that can take
+      // several seconds on mobile devices. We do it after navigation
+      // so the user sees the app immediately.
+      // Use setTimeout to yield to the event loop first.
+      setTimeout(() => {
+        try {
+          const password = generateSessionPassword();
+          const ncryptsec = encryptSecretKey(keys.secretKey, password);
+          saveSession(ncryptsec, password).catch((e) => {
+            console.warn('[SignInScreen] Background session save failed:', e);
+          });
+        } catch (e) {
+          console.warn('[SignInScreen] Background session encryption failed:', e);
+        }
+      }, 100);
     } catch (err) {
       setError(
         err instanceof Error

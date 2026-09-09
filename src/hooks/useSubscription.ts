@@ -24,6 +24,58 @@ interface CreateInvoiceResponse {
 const WORKER_URL = 'https://sat-sorter-worker.satsorter.workers.dev';
 
 /**
+ * Create a NIP-98 HTTP Auth header by signing a kind 27235 event.
+ *
+ * The event tags include:
+ * - u: the full request URL
+ * - method: the HTTP method (GET, POST, etc.)
+ *
+ * The worker verifies the signature to authenticate the user.
+ */
+async function createNip98AuthHeader(
+  signer: { signEvent: (event: any) => Promise<any> },
+  url: string,
+  method: string
+): Promise<string> {
+  const event = {
+    kind: 27235,
+    content: '',
+    tags: [
+      ['u', url],
+      ['method', method.toUpperCase()],
+    ],
+    created_at: Math.floor(Date.now() / 1000),
+  };
+
+  const signedEvent = await signer.signEvent(event);
+  const encoded = btoa(JSON.stringify(signedEvent));
+  return `Nostr ${encoded}`;
+}
+
+/**
+ * Authenticated fetch helper that adds NIP-98 auth header.
+ * Falls back gracefully if the signer is unavailable.
+ */
+async function authedFetch(
+  user: { signer: { signEvent: (event: any) => Promise<any> }; pubkey: string } | null | undefined,
+  url: string,
+  options: RequestInit = {}
+): Promise<Response> {
+  const headers = new Headers(options.headers);
+
+  if (user?.signer) {
+    try {
+      const authHeader = await createNip98AuthHeader(user.signer, url, options.method || 'GET');
+      headers.set('Authorization', authHeader);
+    } catch (e) {
+      console.warn('[useSubscription] Failed to create NIP-98 auth header:', e);
+    }
+  }
+
+  return fetch(url, { ...options, headers });
+}
+
+/**
  * Hook to fetch the current user's subscription status.
  * - Guest users (not logged in) always get free tier with isGuest=true
  * - Logged-in users fetch from the backend, with periodic refetch
@@ -78,6 +130,7 @@ export function useSubscription() {
 /**
  * Hook to create a Lightning invoice via the backend.
  * The backend stores the invoice with the user's pubkey for later verification.
+ * Requires NIP-98 auth — the user's signer signs the request.
  */
 export function useCreateInvoice() {
   const { user } = useCurrentUser();
@@ -87,10 +140,11 @@ export function useCreateInvoice() {
       throw new Error('You must be logged in to upgrade');
     }
 
-    const response = await fetch(`${WORKER_URL}/api/subscription/create-invoice`, {
+    const url = `${WORKER_URL}/api/subscription/create-invoice`;
+    const response = await authedFetch(user, url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ amount, comment, pubkey: user.pubkey }),
+      body: JSON.stringify({ amount, comment }),
     });
 
     if (!response.ok) {
@@ -107,6 +161,7 @@ export function useCreateInvoice() {
  * This calls the backend which independently checks with Alby that the invoice was paid.
  * Once verified, the backend updates the user's subscription.
  *
+ * Requires NIP-98 auth — the user's signer signs the request.
  * The frontend should poll this every 3-5 seconds while waiting for payment.
  */
 export function useVerifyPayment() {
@@ -124,10 +179,11 @@ export function useVerifyPayment() {
       throw new Error('You must be logged in to verify payment');
     }
 
-    const response = await fetch(`${WORKER_URL}/api/subscription/verify-payment`, {
+    const url = `${WORKER_URL}/api/subscription/verify-payment`;
+    const response = await authedFetch(user, url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pubkey: user.pubkey, invoiceId }),
+      body: JSON.stringify({ invoiceId }),
     });
 
     if (!response.ok) {
@@ -148,6 +204,7 @@ export function useVerifyPayment() {
 
 /**
  * Hook to apply a test code for unlimited access (development only).
+ * Requires NIP-98 auth — the user's signer signs the request.
  */
 export function useApplyTestCode() {
   const { user } = useCurrentUser();
@@ -158,10 +215,11 @@ export function useApplyTestCode() {
       throw new Error('You must be logged in to apply a test code');
     }
 
-    const response = await fetch(`${WORKER_URL}/api/subscription/apply-test-code`, {
+    const url = `${WORKER_URL}/api/subscription/apply-test-code`;
+    const response = await authedFetch(user, url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pubkey: user.pubkey, testCode }),
+      body: JSON.stringify({ testCode }),
     });
 
     if (!response.ok) {

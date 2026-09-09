@@ -51,7 +51,7 @@ User input → localStorage (encrypted with device key) → IndexedDB (NIP-49 en
 ## What We Protect Against
 
 ### ✅ Browser Extension Scraping
-Sensitive data in localStorage (budget nsec, NWC connection strings, API keys) is encrypted with the device key. An extension that reads localStorage sees ciphertext, not plaintext.
+All sensitive data in localStorage (budget nsec, NWC connection strings, API keys) is encrypted with the device key. An extension that reads localStorage sees ciphertext, not plaintext. The budget keypair nsec is encrypted via XChaCha20-Poly1305 at rest in its own localStorage slot.
 
 ### ✅ XSS (Cross-Site Scripting)
 - React's JSX escapes all content by default — no `dangerouslySetInnerHTML` except the chart component which generates CSS (not HTML)
@@ -65,10 +65,11 @@ Sensitive data in localStorage (budget nsec, NWC connection strings, API keys) i
 - Amount inputs use `type="number"` with `inputMode="decimal"` and `min="0"`
 
 ### ✅ Network Security
-- All API calls use HTTPS
-- Nostr relays communicate over WSS (WebSocket Secure)
-- No sensitive data is transmitted in URLs (all in request bodies or encrypted event content)
-- Budget data is encrypted with NIP-44 before being sent to relays
+ - All API calls use HTTPS
+ - Nostr relays communicate over WSS (WebSocket Secure)
+ - No sensitive data is transmitted in URLs (all in request bodies or encrypted event content)
+ - Budget data is encrypted with NIP-44 before being sent to relays
+ - **AI API keys are never forwarded through the CORS proxy** — if a direct request to the AI provider fails, the CORS proxy fallback strips the Authorization header so the user's API key is never exposed to third-party proxy infrastructure
 
 ### ✅ Budget Partner Security
 - Shared budget nsec is encrypted per-partner using NIP-44 before being sent as an invite
@@ -77,11 +78,20 @@ Sensitive data in localStorage (budget nsec, NWC connection strings, API keys) i
 - Invites verify the budget npub matches the decrypted nsec before storing
 
 ### ✅ Zaps and Payments
-- Lightning invoices are validated as strings before being passed to the wallet
-- Payment amounts are validated (must be > 0)
-- NWC payments use the active connection's client (created from the connection string, never stored in state)
-- Payment timeouts prevent hanging (15 seconds)
-- The zap endpoint URL is fetched from the author's Nostr profile (kind 0 metadata), not from user input
+ - Lightning invoices are validated as strings before being passed to the wallet
+ - **Invoice amounts are decoded and verified** before NWC auto-payment — if the returned invoice amount doesn't match the user's requested amount, payment is aborted
+ - Payment amounts are validated (must be > 0)
+ - NWC payments use the active connection's client (created from the connection string, never stored in state)
+ - Payment timeouts prevent hanging (15 seconds)
+ - The zap endpoint URL is fetched from the author's Nostr profile (kind 0 metadata), not from user input
+
+### ✅ Subscription Backend (Cloudflare Worker)
+ - **NIP-98 HTTP Auth required** on all mutating endpoints (create-invoice, verify-payment, apply-test-code). The client signs a kind 27235 event; the worker verifies the Schnorr signature.
+ - Pubkeys are validated as 64-char hex before any database operation
+ - Rate limiting: per-IP limits on all endpoints (especially strict on test-code attempts to prevent brute force)
+ - The `/reset` endpoint has been removed — no unauthenticated destructive operations
+ - Error responses never leak internal error details to the client
+ - Invoice expiry is enforced at verify time
 
 ## Known Limitations (By Design)
 
@@ -89,9 +99,9 @@ Sensitive data in localStorage (budget nsec, NWC connection strings, API keys) i
 When a user signs in with an nsec, Nostrify's `NostrLoginProvider` stores the raw private key in localStorage (under the key `nostr:login`). This is required for Nostr event signing — the signer needs the key to sign events.
 
 **Mitigation:**
-- The key is also encrypted in IndexedDB via NIP-49 (sessionStore), which serves as a backup if localStorage is cleared
-- localStorage is cleared on sign-out (`removeLogin` + `clearSession`)
-- We recommend NIP-07 browser extensions for high-value keys — they store keys in a separate security context and never expose the raw secret to the page
+ - The key is also encrypted in IndexedDB via NIP-49 (sessionStore), which serves as a backup if localStorage is cleared
+ - localStorage is cleared on sign-out (`removeLogin`) and on factory reset (which also wipes IndexedDB)
+ - We recommend NIP-07 browser extensions for high-value keys — they store keys in a separate security context and never expose the raw secret to the page
 
 **Why we can't fully eliminate this:** Nostr signing requires the raw key. The alternative is NIP-07 extensions, which handle signing in a separate security context. We support both — the extension is the safer option.
 

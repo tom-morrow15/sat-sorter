@@ -155,9 +155,10 @@ export function useRegisterSW() {
   const factoryResetApp = useCallback(async () => {
     const message =
       "⚠️ FACTORY RESET — DANGER\n\n" +
-      "This will DELETE all budget data saved locally on this device.\n\n" +
-      "• If you use Nostr login and have used Backup & Sync (or the app has synced), you can recover your data after logging back in.\n" +
-      "• If you are in guest mode, or have never synced to Nostr/cloud, your budgets will be PERMANENTLY LOST.\n\n" +
+      "This will DELETE all data saved locally on this device.\n\n" +
+      "• Budget data, Lightning wallet connections (NWC), AI API keys, Bitcoin addresses\n" +
+      "• If you use Nostr login and have used Backup & Sync, you can recover your data after logging back in.\n" +
+      "• If you are in guest mode, or have never synced, your budgets will be PERMANENTLY LOST.\n\n" +
       "Are you absolutely sure you want to do this?";
 
     if (!window.confirm(message)) {
@@ -185,20 +186,91 @@ export function useRegisterSW() {
     }
 
     try {
-      // 3. Nuke the main budget localStorage key (and known legacy keys)
-      localStorage.removeItem('sat-sorter-budget');
-      localStorage.removeItem('sat-sorter:payment-methods');
-      // Remove any other sat-sorter keys we know about
-      Object.keys(localStorage).forEach((key) => {
-        if (key.startsWith('sat-sorter')) {
-          try { localStorage.removeItem(key); } catch {}
-        }
-      });
+      // 3. Clear ALL localStorage — not just sat-sorter prefixed keys.
+      // This ensures NWC connection strings (spending power!), API keys,
+      // Nostrify login state (user nsec), and any other sensitive data
+      // are fully removed. A partial wipe leaves wallet keys behind.
+      localStorage.clear();
     } catch (e) {
       console.warn('[useRegisterSW] localStorage clear during factory reset failed:', e);
+      // Fallback: try to remove known keys individually
+      const knownKeys = [
+        'sat-sorter-budget',
+        'sat-sorter:budget-keypair',
+        'sat-sorter:payment-methods',
+        'sat-sorter-guest-mode',
+        'sat-sorter-onboarded',
+        'nwc-connections',
+        'nwc-active-connection',
+        'nwc-sync-state',
+        'nwc-auto-sync',
+        'nwc-unviewed-count',
+        'sat-sorter:ai-provider',
+        'sat-sorter:maple-api-key',
+        'sat-sorter:maple-enabled',
+        'sat-sorter:ppq-api-key',
+        'sat-sorter:ppq-proxy-url',
+        'sat-sorter:ppq-model',
+        'sat-sorter:ppq-zdr',
+        'sat-sorter:maple-proxy-url',
+        'sat-sorter:maple-model',
+        'sat-sorter:maple-evergreen-context',
+        'sat-sorter:ai-disclaimer-accepted',
+        'sat-sorter-wealth-tracker',
+        'nostr:login',
+      ];
+      for (const key of knownKeys) {
+        try { localStorage.removeItem(key); } catch {}
+      }
+      // Also remove any remaining sat-sorter keys
+      try {
+        Object.keys(localStorage).forEach((key) => {
+          if (key.startsWith('sat-sorter') || key.startsWith('nwc')) {
+            try { localStorage.removeItem(key); } catch {}
+          }
+        });
+      } catch {}
     }
 
-    // 4. Hard reload to a clean state
+    try {
+      // 4. Clear ALL IndexedDB databases — device encryption keys, sessions,
+      // DM message stores, etc. This ensures the device key (which decrypts
+      // localStorage) is destroyed, making any leftover ciphertext unrecoverable.
+      const databases = await indexedDB.databases?.();
+      if (databases && databases.length > 0) {
+        await Promise.all(
+          databases.map((db) => {
+            if (db.name) {
+              return new Promise<void>((resolve) => {
+                const req = indexedDB.deleteDatabase(db.name!);
+                req.onsuccess = () => resolve();
+                req.onerror = () => resolve();
+                req.onblocked = () => resolve();
+              });
+            }
+            return Promise.resolve();
+          })
+        );
+      } else {
+        // Fallback for browsers without indexedDB.databases()
+        // Delete known databases by name
+        const knownDBs = ['satSorter', 'nostr-dm-store-' + window.location.hostname];
+        await Promise.all(
+          knownDBs.map((name) =>
+            new Promise<void>((resolve) => {
+              const req = indexedDB.deleteDatabase(name);
+              req.onsuccess = () => resolve();
+              req.onerror = () => resolve();
+              req.onblocked = () => resolve();
+            })
+          )
+        );
+      }
+    } catch (e) {
+      console.warn('[useRegisterSW] IndexedDB clear during factory reset failed:', e);
+    }
+
+    // 5. Hard reload to a clean state
     window.location.href = window.location.origin + window.location.pathname;
   }, []);
 

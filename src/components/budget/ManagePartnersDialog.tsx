@@ -45,6 +45,7 @@ export function ManagePartnersDialog({
   const [showShareQR, setShowShareQR] = useState(false);
   const [showJoinScanner, setShowJoinScanner] = useState(false);
   const [showSecurityWarning, setShowSecurityWarning] = useState(false);
+  const [showJoinWarning, setShowJoinWarning] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState('');
 
@@ -265,7 +266,7 @@ export function ManagePartnersDialog({
                 className="w-full"
                 size="lg"
                 variant="outline"
-                onClick={() => setShowJoinScanner(true)}
+                onClick={() => setShowJoinWarning(true)}
                 disabled={isJoining}
               >
                 <Camera className="h-5 w-5 mr-2" />
@@ -401,6 +402,55 @@ export function ManagePartnersDialog({
             <p className="text-xs text-muted-foreground text-center">
               This gives full access to the shared budget. Only share with people you trust.
             </p>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Join Budget security warning — shown before the scanner opens */}
+      <Dialog open={showJoinWarning} onOpenChange={setShowJoinWarning}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Shield className="h-5 w-5 text-amber-500" />
+              Before You Join
+            </DialogTitle>
+            <DialogDescription>
+              Please read carefully before scanning a budget key.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-3 text-sm">
+            <div className="p-3 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300">
+              <p className="font-medium mb-1">The person who shared this key can see everything you enter.</p>
+              <p className="text-xs">
+                When you join a shared budget, all categories, transactions, and amounts you add
+                are encrypted with the budget key — which the keyholder controls. They can see
+                <strong> all of your spending data</strong> in real time, for as long as you use this budget.
+              </p>
+            </div>
+            <div className="p-3 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-xs">
+              <p className="font-medium mb-1">Your personal Nostr key (nsec) is never shared.</p>
+              <p>
+                This only shares budget data through a separate budget-specific key.
+                Your identity, profile, posts, zaps, and all other Nostr apps are completely unaffected.
+              </p>
+            </div>
+            <ul className="space-y-1.5 text-xs text-muted-foreground list-disc list-inside">
+              <li>Only join budgets from people you trust completely</li>
+              <li>The keyholder can see every transaction you enter, past and future</li>
+              <li>There is no way to "partially" join — it's all or nothing</li>
+              <li>To leave later, you'll need to create a new personal budget</li>
+            </ul>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" className="flex-1" onClick={() => setShowJoinWarning(false)}>
+              Cancel
+            </Button>
+            <Button className="flex-1" onClick={() => {
+              setShowJoinWarning(false);
+              setShowJoinScanner(true);
+            }}>
+              I Understand — Scan QR Code
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

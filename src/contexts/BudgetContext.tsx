@@ -1,6 +1,6 @@
 import { createContext, useContext, useMemo, useEffect, useRef, useCallback, ReactNode } from 'react';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
-import { createEncryptedSerializer } from '@/lib/secureStorage';
+import { createEncryptedSerializer, encryptValue, decryptValue } from '@/lib/secureStorage';
 import {
   BudgetState,
   getCurrentMonth,
@@ -24,29 +24,40 @@ const BudgetContext = createContext<BudgetContextValue | null>(null);
 
   const MIGRATION_KEY = 'sat-sorter-partner-migration-shown';
   const PAYMENT_METHODS_MIGRATION_KEY = 'sat-sorter-payment-methods-migrated';
-  /** Separate plaintext key for the budget keypair. The encrypted state can fail
-   *  to decrypt in sandboxed/PWA environments where IndexedDB produces an
-   *  ephemeral key that changes each session. Storing the keypair separately
-   *  (unencrypted) ensures it survives those reloads. */
+  /** Encrypted key for the budget keypair. Uses the same device encryption key
+   *  as the rest of the budget state (XChaCha20-Poly1305 via secureStorage).
+   *  The keypair is stored separately so it survives even when the main
+   *  encrypted budget state fails to decrypt (e.g., ephemeral IndexedDB key
+   *  in PWA/sandboxed contexts). */
   const BUDGET_KEYPAIR_KEY = 'sat-sorter:budget-keypair';
 
-  // Read the keypair from its own plaintext localStorage slot.
-  // This runs once on mount and merges the keypair into state if the main
-  // encrypted state lost it.
+  // Read the keypair from its own encrypted localStorage slot.
+  // Falls back to legacy plaintext format for one-time migration.
   const loadKeypairFromStorage = (): { budgetNsec: string; budgetNpub: string } | null => {
     try {
       const raw = localStorage.getItem(BUDGET_KEYPAIR_KEY);
       if (!raw) {
-        console.log('[BudgetContext] No keypair in plaintext slot');
         return null;
       }
+
+      // Try encrypted format first (enc:v1: prefix)
+      if (raw.startsWith('enc:v1:')) {
+        const decrypted = decryptValue(raw);
+        const parsed = JSON.parse(decrypted);
+        if (parsed?.budgetNsec && parsed?.budgetNpub) {
+          console.log('[BudgetContext] Loaded keypair from encrypted slot:', parsed.budgetNpub.slice(0, 16) + '...');
+          return parsed;
+        }
+      }
+
+      // Legacy plaintext fallback — migrate to encrypted format on next save
       const parsed = JSON.parse(raw);
       if (parsed?.budgetNsec && parsed?.budgetNpub) {
-        console.log('[BudgetContext] Loaded keypair from plaintext slot:', parsed.budgetNpub.slice(0, 16) + '...');
+        console.log('[BudgetContext] Loaded keypair from legacy plaintext slot (will migrate to encrypted):', parsed.budgetNpub.slice(0, 16) + '...');
         return parsed;
       }
     } catch (e) {
-      console.warn('[BudgetContext] Failed to load keypair from plaintext slot:', e);
+      console.warn('[BudgetContext] Failed to load keypair from slot:', e);
     }
     return null;
   };
@@ -54,13 +65,16 @@ const BudgetContext = createContext<BudgetContextValue | null>(null);
   const saveKeypairToStorage = (kp: { budgetNsec: string; budgetNpub: string } | null) => {
     try {
       if (kp) {
-        localStorage.setItem(BUDGET_KEYPAIR_KEY, JSON.stringify(kp));
-        console.log('[BudgetContext] Saved keypair to plaintext slot:', kp.budgetNpub.slice(0, 16) + '...');
+        // Encrypt before storing — never store the budget nsec in plaintext
+        const json = JSON.stringify(kp);
+        const encrypted = encryptValue(json);
+        localStorage.setItem(BUDGET_KEYPAIR_KEY, encrypted);
+        console.log('[BudgetContext] Saved keypair to encrypted slot:', kp.budgetNpub.slice(0, 16) + '...');
       } else {
         localStorage.removeItem(BUDGET_KEYPAIR_KEY);
       }
     } catch (e) {
-      console.warn('[BudgetContext] Failed to save keypair to plaintext slot:', e);
+      console.warn('[BudgetContext] Failed to save keypair to slot:', e);
     }
   };
 

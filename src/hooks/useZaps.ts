@@ -12,6 +12,28 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
 import type { NostrEvent } from '@nostrify/nostrify';
 
+/**
+ * Decode a bolt11 Lightning invoice and extract the amount in millisatoshis.
+ * Returns null if the invoice cannot be decoded.
+ *
+ * SECURITY: This is critical for verifying that a returned invoice matches
+ * the amount the user intended to pay. Without this check, a malicious or
+ * compromised LNURL endpoint could return an invoice for a much larger amount.
+ */
+function decodeBolt11Amount(bolt11: string): number | null {
+  try {
+    // nip57.getSatoshisAmountFromBolt11 parses the bolt11 string and
+    // extracts the satoshi amount from the invoice.
+    const sats = nip57.getSatoshisAmountFromBolt11(bolt11);
+    if (sats && sats > 0) {
+      return sats * 1000; // convert sats to millisats
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export function useZaps(
   target: Event | Event[],
   webln: WebLNProvider | null,
@@ -226,6 +248,25 @@ export function useZaps(
             const newInvoice = responseData.pr;
             if (!newInvoice || typeof newInvoice !== 'string') {
               throw new Error('Lightning service did not return a valid invoice');
+            }
+
+            // SECURITY: Verify the invoice amount matches what the user requested.
+            // A compromised or malicious LNURL endpoint could return an invoice
+            // for a much larger amount. We decode the bolt11 and check.
+            const invoiceAmountMsat = decodeBolt11Amount(newInvoice);
+            if (invoiceAmountMsat === null) {
+              console.warn('[useZaps] Could not decode invoice amount — proceeding with caution');
+            } else if (invoiceAmountMsat !== zapAmount) {
+              // Amount mismatch — this is a red flag. Refuse to auto-pay.
+              const invoiceSats = Math.floor(invoiceAmountMsat / 1000);
+              const requestedSats = amount;
+              console.error(
+                `[useZaps] Invoice amount mismatch: invoice is ${invoiceSats} sats but user requested ${requestedSats} sats`
+              );
+              throw new Error(
+                `Invoice amount mismatch: the invoice is for ${invoiceSats} sats but you requested to send ${requestedSats} sats. ` +
+                `Payment aborted for your safety. Please try again or contact the recipient.`
+              );
             }
 
             // Get the current active NWC connection dynamically

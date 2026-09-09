@@ -148,13 +148,14 @@ export async function scanReceipt(
     body: JSON.stringify(requestBody),
   });
 
-  // CORS fallback
+  // CORS fallback — used if the direct request fails due to CORS
+  // SECURITY: Do NOT forward the Authorization header through the proxy.
+  // The proxy is a third-party service and should never see API keys.
   if (!response.ok && response.status === 0) {
     const corsUrl = `https://proxy.shakespeare.diy/?url=${encodeURIComponent(url)}`;
     response = await fetch(corsUrl, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(requestBody),

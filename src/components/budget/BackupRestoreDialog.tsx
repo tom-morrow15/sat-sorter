@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import {
   Download,
   Upload,
@@ -10,6 +10,7 @@ import {
   Shield,
   Smartphone,
   Laptop,
+  Key,
 } from 'lucide-react';
 import {
   Dialog,
@@ -26,6 +27,7 @@ import { useToast } from '@/hooks/useToast';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useBudgetSync } from '@/hooks/useBudgetSync';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { createEncryptedSerializer } from '@/lib/secureStorage';
 import { SAFE_DEFAULT_BUDGET_STATE } from '@/lib/budgetTypes';
 import type { BudgetState } from '@/lib/budgetTypes';
 
@@ -50,11 +52,16 @@ export function BackupRestoreDialog({ open, onOpenChange }: BackupRestoreDialogP
     canSync,
   } = useBudgetSync();
 
-  // Access local budget state — use the exact same safe default as everywhere else
-  const [localBudget, setLocalBudget] = useLocalStorage<BudgetState>('sat-sorter-budget', SAFE_DEFAULT_BUDGET_STATE);
+  // Use the SAME encrypted serializer as BudgetContext so that
+  // import/export goes through the encryption layer (not plaintext)
+  const budgetSerializer = useMemo(() => createEncryptedSerializer<BudgetState>(), []);
+  const [localBudget, setLocalBudget] = useLocalStorage<BudgetState>('sat-sorter-budget', SAFE_DEFAULT_BUDGET_STATE, budgetSerializer);
 
   // Export to JSON file
   const handleExport = () => {
+    // SECURITY: Warn the user if the export contains a budget nsec
+    const hasBudgetKey = !!(localBudget as any)?.budgetKeypair?.budgetNsec;
+
     const dataStr = JSON.stringify(localBudget, null, 2);
     const dataBlob = new Blob([dataStr], { type: 'application/json' });
     const url = URL.createObjectURL(dataBlob);
@@ -69,7 +76,9 @@ export function BackupRestoreDialog({ open, onOpenChange }: BackupRestoreDialogP
 
     toast({
       title: 'Backup exported',
-      description: 'Your budget data has been downloaded as a JSON file.',
+      description: hasBudgetKey
+        ? '⚠️ This file contains your budget private key. Store it securely — anyone with this file can see your shared budget data.'
+        : 'Your budget data has been downloaded as a JSON file.',
     });
   };
 
@@ -272,7 +281,11 @@ export function BackupRestoreDialog({ open, onOpenChange }: BackupRestoreDialogP
             </p>
             <div className="grid grid-cols-2 gap-2">
               <Button variant="outline" onClick={handleExport}>
-                <Download className="h-4 w-4 mr-2" />
+                {localBudget && (localBudget as any)?.budgetKeypair ? (
+                  <Key className="h-4 w-4 mr-2 text-amber-500" />
+                ) : (
+                  <Download className="h-4 w-4 mr-2" />
+                )}
                 Export File
               </Button>
               <div>

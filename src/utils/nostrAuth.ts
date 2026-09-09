@@ -72,7 +72,12 @@ export function keysFromMnemonic(mnemonic: string, passphrase?: string): KeyPair
  * Returns a KeyPair plus a 'source' field indicating the format.
  */
 export function parseKeyInput(input: string): ParsedKeyPair {
-  const trimmed = input.trim();
+  let trimmed = input.trim();
+
+  // Strip "nostr:" URI prefix if present (NIP-21)
+  if (trimmed.startsWith('nostr:')) {
+    trimmed = trimmed.slice(6).trim();
+  }
 
   // Detect nsec format
   if (trimmed.startsWith('nsec1')) {
