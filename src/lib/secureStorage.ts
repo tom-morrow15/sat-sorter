@@ -16,7 +16,7 @@
  * which keeps private keys in a separate security context.
  */
 
-import { xchacha20poly1305 } from '@noble/ciphers/chacha';
+import { xchacha20poly1305 } from '@noble/ciphers/chacha.js';
 import { randomBytes } from '@noble/hashes/utils';
 import { openDB, type IDBPDatabase } from 'idb';
 

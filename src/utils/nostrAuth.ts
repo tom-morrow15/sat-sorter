@@ -3,7 +3,7 @@ import BIP32Factory from 'bip32';
 import * as ecc from '@bitcoinerlab/secp256k1';
 import { nip19 } from 'nostr-tools';
 import { scrypt } from '@noble/hashes/scrypt';
-import { xchacha20poly1305 } from '@noble/ciphers/chacha';
+import { xchacha20poly1305 } from '@noble/ciphers/chacha.js';
 import { concatBytes, randomBytes } from '@noble/hashes/utils';
 import { bech32 } from '@scure/base';
 
