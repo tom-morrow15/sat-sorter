@@ -60,6 +60,21 @@ function hostOf(url: string): string {
   try { return new URL(url).host; } catch { return url; }
 }
 
+/** Compare two relay URLs ignoring cosmetic differences (trailing slash,
+ *  ws vs wss scheme) that break exact-string matching between stored NIP-65
+ *  URLs and our recommended-relay list. */
+function sameRelay(a: string, b: string): boolean {
+  const norm = (u: string) => {
+    try {
+      const parsed = new URL(u);
+      return `${parsed.host}${parsed.pathname.replace(/\/+$/, '')}`;
+    } catch {
+      return u.replace(/\/+$/, '');
+    }
+  };
+  return norm(a) === norm(b);
+}
+
 function StatusDot({ state }: { state: 'unknown' | 'testing' | 'connected' | 'failed' }) {
   if (state === 'connected') {
     return <span className="h-2 w-2 rounded-full bg-green-500 shrink-0" title="Connected" />;
@@ -93,7 +108,13 @@ export function RelaySettingsDialog({ open, onOpenChange }: RelaySettingsDialogP
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  const isAdded = (url: string) => relays.some(r => r.url === url);
+  const isAdded = (url: string) => relays.some(r => sameRelay(r.url, url));
+
+  /** Health result for a stored relay matching the given (recommended) URL. */
+  const healthFor = (url: string) => {
+    const match = relays.find(r => sameRelay(r.url, url));
+    return match ? results[match.url] : undefined;
+  };
 
   const saveRelays = (newRelays: Relay[]) => {
     updateConfig((current) => ({
@@ -127,7 +148,7 @@ export function RelaySettingsDialog({ open, onOpenChange }: RelaySettingsDialogP
       });
       return;
     }
-    if (relays.some(r => r.url === normalized)) {
+    if (relays.some(r => sameRelay(r.url, normalized))) {
       toast({ title: 'Already added', description: 'This relay is already in your list.', variant: 'destructive' });
       return;
     }
@@ -149,7 +170,7 @@ export function RelaySettingsDialog({ open, onOpenChange }: RelaySettingsDialogP
   );
 
   const customRelays = relays.filter(
-    r => !RECOMMENDED_RELAYS.some(rec => rec.url === r.url)
+    r => !RECOMMENDED_RELAYS.some(rec => sameRelay(rec.url, r.url))
   );
 
   return (
@@ -187,7 +208,7 @@ export function RelaySettingsDialog({ open, onOpenChange }: RelaySettingsDialogP
           </p>
           <div className="space-y-1.5">
             {recommended.map((rec) => {
-              const health = results[rec.url];
+              const health = healthFor(rec.url);
               return (
                 <div
                   key={rec.url}
