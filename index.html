@@ -12,7 +12,14 @@
     <!-- PWA Meta Tags -->
     <meta name="application-name" content="Sat Sorter" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <!-- iOS 27 draws a system progressive blur over the top of standalone PWAs
+         that use black-translucent status bars (no web-facing opt-out exists —
+         see WebKit/PWA reports). "default" avoids it. iOS samples the page's
+         top pixels to tint the status bar, so the fixed plate div in <body>
+         keeps the status bar matching the app theme.
+         NOTE: this setting is frozen at PWA install time — users must re-add
+         the app to their Home Screen after this change. -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Sat Sorter" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="theme-color" content="#D9662E" />
@@ -46,6 +53,11 @@
     <meta property="twitter:description" content="Zero-based budgeting on a Bitcoin standard. Give every sat a job." />
   </head>
   <body>
+    <!-- iOS status-bar tint plate: a real element at the very top so iOS's
+         status-bar color sampler picks up the app theme (pseudo-elements are
+         invisible to the sampler). Kept at 1px + z-max + pointer-events none
+         so it never interferes with the app. -->
+    <div aria-hidden="true" style="position:fixed;top:0;left:0;right:0;height:1px;background:hsl(var(--brand));z-index:9999;pointer-events:none;"></div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
