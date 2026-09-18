@@ -38,7 +38,7 @@ const MAX_STORED_HASHES = 1000; // Limit stored hashes to prevent localStorage b
 
 export function useNWCSync() {
   const { toast } = useToast();
-  const { getActiveConnection, connections } = useNWC();
+  const { connections } = useNWC();
   const { addTransaction, currentBudget } = useBudget();
   const { data: priceData } = useBitcoinPrice();
 
@@ -113,8 +113,7 @@ export function useNWCSync() {
       return result;
     }
 
-    const activeConnection = getActiveConnection();
-    if (!activeConnection) {
+    if (connections.length === 0) {
       if (showToast) {
         toast({
           title: 'No wallet connected',
@@ -130,11 +129,29 @@ export function useNWCSync() {
     setIsSyncing(true);
 
     try {
-      // Fetch transactions from the wallet
-      const nwcTransactions = await fetchNWCTransactions(
-        activeConnection.connectionString,
-        syncState.lastSyncTimestamp || undefined
-      );
+      // Fetch transactions from ALL connected wallets — a user might have
+      // both an Alby Hub and a Primal wallet connected, and transactions
+      // from every wallet belong in the budget.
+      const fetched: { tx: NWCTransaction; walletAlias: string }[] = [];
+      const connectionErrors: string[] = [];
+
+      for (const connection of connections) {
+        try {
+          const txs = await fetchNWCTransactions(
+            connection.connectionString,
+            syncState.lastSyncTimestamp || undefined
+          );
+          const alias = connection.alias || 'Lightning Wallet';
+          for (const tx of txs || []) {
+            fetched.push({ tx, walletAlias: alias });
+          }
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : String(error);
+          connectionErrors.push(`${connection.alias || 'Wallet'}: ${msg}`);
+        }
+      }
+
+      const nwcTransactions = fetched;
 
       if (!nwcTransactions || nwcTransactions.length === 0) {
         if (showToast) {
@@ -162,7 +179,7 @@ export function useNWCSync() {
       let skipped = 0;
       let latestTimestamp = syncState.lastSyncTimestamp || 0;
 
-      for (const nwcTx of nwcTransactions) {
+      for (const { tx: nwcTx, walletAlias } of nwcTransactions) {
         try {
           // Skip if we've already synced this transaction
           if (existingHashes.has(nwcTx.payment_hash)) {
@@ -183,7 +200,6 @@ export function useNWCSync() {
           // NWC invoices often have a description baked into the bolt11 invoice
           // or as a separate description field. We try to extract the most
           // meaningful info available.
-          const walletAlias = activeConnection.alias || 'Lightning Wallet';
 
           // Parse description from the invoice or description field
           let txDescription = 'Lightning payment';
@@ -242,6 +258,9 @@ export function useNWCSync() {
         }
       }
 
+      // Surface per-wallet connection failures (e.g. Primal app not running)
+      result.errors.push(...connectionErrors);
+
       result.imported = imported;
       result.skipped = skipped;
       result.success = true;
@@ -253,7 +272,7 @@ export function useNWCSync() {
 
       // Update sync state
       if (imported > 0 || latestTimestamp > (syncState.lastSyncTimestamp || 0)) {
-        const newHashes = nwcTransactions.map(t => t.payment_hash);
+        const newHashes = nwcTransactions.map(e => e.tx.payment_hash);
         const allHashes = [...syncState.syncedPaymentHashes, ...newHashes];
 
         // Keep only the most recent hashes to prevent localStorage bloat
@@ -292,7 +311,7 @@ export function useNWCSync() {
 
     return result;
   }, [
-    getActiveConnection,
+    connections,
     fetchNWCTransactions,
     syncState,
     setSyncState,
@@ -377,7 +396,19 @@ export function useNWCSync() {
     // Initial sync on mount
     syncTransactionsRef.current?.(false);
 
+    // iOS suspends background timers when a PWA is closed/backgrounded, so
+    // the 5-minute poll can't fire while away. Sync immediately when the app
+    // comes back to the foreground — this is what makes imported transactions
+    // "pop up" the moment the user opens Sat Sorter.
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        syncTransactionsRef.current?.(false);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (pollIntervalRef.current) {
         clearInterval(pollIntervalRef.current);
         pollIntervalRef.current = null;
