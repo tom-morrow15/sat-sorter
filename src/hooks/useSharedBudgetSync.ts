@@ -8,6 +8,7 @@ import { useBudgetContext } from '@/contexts/BudgetContext';
 import { useToast } from '@/hooks/useToast';
 import { encryptWithBudgetKey, decryptWithBudgetKey } from '@/lib/budgetCrypto';
 import { mapRelayUrl } from '@/lib/devRelayProxy';
+import { mergeMonthlyBudgets } from '@/lib/budgetMerge';
 import type { MonthlyBudget } from '@/lib/budgetTypes';
 
 /**
@@ -123,9 +124,11 @@ export function fingerprintBudgetMonth(budget: MonthlyBudget): string {
     // Include each transaction's id + its line item assignment so reassigning
     // a transaction to a different line item is detected as a change.
     txs: (budget.transactions || []).map(t => `${t.id}:${t.lineItemId || ''}`).sort(),
-    // Include deletedTxIds so a deletion changes the fingerprint and triggers
-    // a publish — without this, deleting a transaction wouldn't sync.
+    // Include tombstone lists so a deletion changes the fingerprint and
+    // triggers a publish — without this, deletions wouldn't sync.
     deletedTxIds: (budget.deletedTxIds || []).sort(),
+    deletedBucketIds: (budget.deletedBucketIds || []).sort(),
+    deletedLineItemIds: (budget.deletedLineItemIds || []).sort(),
   });
 }
 
@@ -425,58 +428,16 @@ export function useSharedBudgetSync(budgetNpub: string, budgetNsec: string) {
 
         console.log(`[SharedBudgetSync] Received snapshot for ${snapshot.month}`);
 
-        // Merge the incoming snapshot into local state — union by ID so neither
-        // partner's edits are ever lost. This is the key fix for the
-        // "transactions disappear / don't sync both ways" problem: we never
-        // discard local data just because the other partner published a snapshot.
+        // Merge via the shared tombstone-aware engine: union by id, with
+        // deletions represented by tombstones (deletedTxIds, deletedBucketIds,
+        // deletedLineItemIds) that always win over union. This is what makes
+        // partner deletions stick — without tombstones, a union merge would
+        // resurrect anything the other partner deleted.
         stateRef.current.setState((prev) => {
           const existingIdx = prev.budgets.findIndex((b) => b.month === snapshot.month);
-          const snapshotDeleted = new Set(snapshot.deletedTxIds || []);
 
           if (existingIdx >= 0) {
-            const local = prev.budgets[existingIdx];
-
-            // Merge transactions: keep all local txs, add any from snapshot we
-            // don't have, and remove any that the snapshot says were deleted.
-            const localTxIds = new Set(local.transactions.map(t => t.id));
-            const newFromSnapshot = (snapshot.transactions || []).filter(
-              t => !localTxIds.has(t.id) && !snapshotDeleted.has(t.id)
-            );
-            const mergedTxs = [
-              ...local.transactions.filter(t => !snapshotDeleted.has(t.id)),
-              ...newFromSnapshot,
-            ];
-
-            // Merge buckets: keep all local buckets, add any from snapshot we
-            // don't have (matched by bucket id). Line items within each bucket
-            // are unioned by id so neither partner's line items are lost.
-            const localBucketIds = new Set(local.buckets.map(b => b.id));
-            const newBuckets = (snapshot.buckets || []).filter(b => !localBucketIds.has(b.id));
-            const mergedBuckets = [
-              ...local.buckets.map(lb => {
-                const snapBucket = (snapshot.buckets || []).find(sb => sb.id === lb.id);
-                if (!snapBucket) return lb;
-                // Union line items by id
-                const localItemIds = new Set(lb.lineItems.map(li => li.id));
-                const newItems = (snapBucket.lineItems || []).filter(li => !localItemIds.has(li.id));
-                return { ...lb, lineItems: [...lb.lineItems, ...newItems] };
-              }),
-              ...newBuckets,
-            ];
-
-            // Union deletedTxIds so deletions propagate both ways
-            const mergedDeleted = Array.from(new Set([
-              ...(local.deletedTxIds || []),
-              ...(snapshot.deletedTxIds || []),
-            ]));
-
-            const merged: MonthlyBudget = {
-              ...local,
-              buckets: mergedBuckets,
-              transactions: mergedTxs,
-              deletedTxIds: mergedDeleted,
-            };
-
+            const merged = mergeMonthlyBudgets(prev.budgets[existingIdx], snapshot);
             const newBudgets = [...prev.budgets];
             newBudgets[existingIdx] = merged;
             return { ...prev, budgets: newBudgets };

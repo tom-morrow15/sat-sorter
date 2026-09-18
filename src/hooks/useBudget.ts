@@ -108,6 +108,14 @@ export function useBudget() {
     const updatedBudget = {
       ...currentBudget,
       buckets: currentBudget.buckets.filter(b => b.id !== bucketId),
+      // Tombstone the bucket AND its line items so the deletions propagate to
+      // the partner and personal backup — without this, union merges would
+      // resurrect deleted buckets forever.
+      deletedBucketIds: [...(currentBudget.deletedBucketIds || []), bucketId],
+      deletedLineItemIds: [
+        ...(currentBudget.deletedLineItemIds || []),
+        ...(bucket?.lineItems || []).map(li => li.id),
+      ],
       // Unassign any transactions from this bucket
       transactions: currentBudget.transactions.map(t =>
         t.bucketId === bucketId ? { ...t, bucketId: null, lineItemId: null } : t
@@ -172,6 +180,9 @@ export function useBudget() {
           ? { ...b, lineItems: b.lineItems.filter(item => item.id !== lineItemId) }
           : b
       ),
+      // Tombstone the line item so the deletion propagates to the partner
+      // and personal backup instead of being resurrected by union merges
+      deletedLineItemIds: [...(currentBudget.deletedLineItemIds || []), lineItemId],
       // Unassign any transactions from this line item
       transactions: currentBudget.transactions.map(t =>
         t.lineItemId === lineItemId ? { ...t, lineItemId: null, bucketId: null } : t

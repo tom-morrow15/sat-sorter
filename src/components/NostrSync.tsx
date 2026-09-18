@@ -10,6 +10,7 @@ import type { WealthTrackerState } from '@/lib/wealthTypes';
 import { mergeWealthStates } from '@/lib/wealthTypes';
 import { useToast } from '@/hooks/useToast';
 import { fetchFullBudgetFromNostr } from '@/hooks/useBudgetSync';
+import { mergeMonthlyBudgets } from '@/lib/budgetMerge';
 
 // Wealth tracker — same NIP-78 kind, different d-tag so the two datasets
 // live side-by-side as separate addressable events.
@@ -42,49 +43,20 @@ const SAVED_BUDGET_KEY = 'sat-sorter-saved-budget';
  *   budgets, otherwise keep local's currentMonth.
  */
 function mergeBudgetStates(local: BudgetState, remote: BudgetState): BudgetState {
-  const scoreBudget = (b: MonthlyBudget): number => {
-    const lineItemCount = b.buckets.reduce((sum, bucket) => sum + bucket.lineItems.length, 0);
-    const plannedSum = b.buckets.reduce(
-      (sum, bucket) =>
-        sum +
-        bucket.lineItems.reduce(
-          (s, li) => s + (li.plannedAmount || 0) + (li.plannedAmountUsd || 0),
-          0
-        ),
-      0
-    );
-    // Weight: transactions are most important (user activity), then line items,
-    // then planned amounts. This makes sure a month with real data always wins
-    // over a month that only has empty default buckets.
-    return (
-      b.transactions.length * 1000 +
-      lineItemCount * 10 +
-      (plannedSum > 0 ? 5 : 0) +
-      b.buckets.length
-    );
-  };
+  // Merge per-month with the shared tombstone-aware engine. The old
+  // "whichever month has more data wins" heuristic resurrected deleted
+  // line items/buckets (a stale-but-bigger snapshot beat a newer-but-smaller
+  // one) and fought with the shared partner sync.
+  const months = new Set<string>();
+  for (const b of local.budgets) months.add(b.month);
+  for (const b of remote.budgets) months.add(b.month);
 
-  const byMonth = new Map<string, MonthlyBudget>();
-
-  // Start with local
-  for (const b of local.budgets) {
-    byMonth.set(b.month, b);
-  }
-
-  // Merge remote — keep whichever has more data for that month
-  for (const remoteBudget of remote.budgets) {
-    const existing = byMonth.get(remoteBudget.month);
-    if (!existing) {
-      byMonth.set(remoteBudget.month, remoteBudget);
-    } else {
-      const remoteScore = scoreBudget(remoteBudget);
-      const localScore = scoreBudget(existing);
-      // Prefer remote on ties (user explicitly saved to cloud)
-      byMonth.set(remoteBudget.month, remoteScore >= localScore ? remoteBudget : existing);
-    }
-  }
-
-  const mergedBudgets = Array.from(byMonth.values());
+  const mergedBudgets: MonthlyBudget[] = Array.from(months).map((month) => {
+    const lb = local.budgets.find((b) => b.month === month);
+    const rb = remote.budgets.find((b) => b.month === month);
+    if (lb && rb) return mergeMonthlyBudgets(lb, rb);
+    return lb || rb!;
+  });
 
   // Choose currentMonth: prefer remote's if that month exists in merged data
   const remoteMonthHasData = mergedBudgets.some(b => b.month === remote.currentMonth);

@@ -62,6 +62,13 @@ export interface MonthlyBudget {
    *  propagate to the partner — without this, a deleted transaction would
    *  reappear when the other partner's snapshot is merged in. */
   deletedTxIds?: string[];
+  /** IDs of buckets that were explicitly deleted (tombstones). Deletions must
+   *  survive merging with the partner's snapshot — a union merge without
+   *  tombstones would resurrect deleted buckets forever. */
+  deletedBucketIds?: string[];
+  /** IDs of line items that were explicitly deleted (tombstones). Same
+   *  rationale as deletedBucketIds. */
+  deletedLineItemIds?: string[];
 }
 
 export interface BudgetPartner {
