@@ -29,6 +29,11 @@ export interface AddressData {
 export interface WealthTrackerState {
   watchedAddresses: WatchedAddress[];
   balanceHistory: BalanceSnapshot[]; // All snapshots for all addresses
+  /** BTC addresses that were explicitly deleted (tombstones). Tracked so a
+   *  deletion survives the union merge with the partner/cloud snapshot —
+   *  without this, removed addresses resurrect on every sync. Keyed by the
+   *  BTC address string (stable across devices, unlike generated ids). */
+  deletedAddresses?: string[];
   lastSyncTime?: number;
   lastSyncError?: string;
 }
@@ -143,9 +148,17 @@ export function mergeWealthStates(
   type MergedAddress = WatchedAddress & { _idAliases: Set<string> };
   const byBtcAddr = new Map<string, MergedAddress>();
 
+  // Tombstones are monotonic: union both sides; explicitly deleted addresses
+  // never resurrect, no matter which device still has them.
+  const deletedAddresses = new Set([
+    ...(local.deletedAddresses || []),
+    ...(remote.deletedAddresses || []),
+  ]);
+
   const ingest = (addrs: WatchedAddress[], isRemote: boolean) => {
     for (const a of addrs) {
       if (!a || !a.address) continue;
+      if (deletedAddresses.has(a.address)) continue; // tombstoned — stays deleted
       const existing = byBtcAddr.get(a.address);
       if (!existing) {
         byBtcAddr.set(a.address, {
@@ -208,6 +221,7 @@ export function mergeWealthStates(
   return {
     watchedAddresses: mergedAddresses,
     balanceHistory: mergedHistory,
+    deletedAddresses: Array.from(deletedAddresses),
     lastSyncTime: lastSyncTime || undefined,
     // Don't carry over old error messages after a successful merge.
     lastSyncError: undefined,

@@ -227,6 +227,11 @@ export function useWealthTracker() {
               createdAt: Math.floor(Date.now() / 1000),
             },
           ],
+          // Un-tombstone: re-adding a previously deleted address is an
+          // explicit act — the deletion no longer applies.
+          deletedAddresses: (prev.deletedAddresses || []).filter(
+            (a) => a !== address
+          ),
         };
       });
     },
@@ -236,11 +241,19 @@ export function useWealthTracker() {
   // Remove an address from the watch list.
   const removeAddress = useCallback(
     (addressId: string) => {
-      setState((prev) => ({
-        ...prev,
-        watchedAddresses: prev.watchedAddresses.filter((a) => a.id !== addressId),
-        balanceHistory: prev.balanceHistory.filter((b) => b.addressId !== addressId),
-      }));
+      setState((prev) => {
+        const removed = prev.watchedAddresses.find((a) => a.id === addressId);
+        return {
+          ...prev,
+          watchedAddresses: prev.watchedAddresses.filter((a) => a.id !== addressId),
+          balanceHistory: prev.balanceHistory.filter((b) => b.addressId !== addressId),
+          // Tombstone the BTC address so the deletion survives the wealth sync
+          // merge instead of resurrecting on the next snapshot union.
+          deletedAddresses: removed?.address
+            ? [...(prev.deletedAddresses || []), removed.address]
+            : prev.deletedAddresses,
+        };
+      });
     },
     [setState]
   );

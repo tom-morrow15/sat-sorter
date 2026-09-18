@@ -1,9 +1,14 @@
-import { Trash2, Edit2, Check, X, Copy, Loader2 } from 'lucide-react';
+import { Trash2, Edit2, Check, X, Loader2, MoreVertical } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { WatchedAddress } from '@/lib/wealthTypes';
 import { formatSats } from '@/hooks/useBitcoinPrice';
-import { useState } from 'react';
 
 interface AddressListItemProps {
   address: WatchedAddress;
@@ -46,14 +51,6 @@ export function AddressListItem({
   onEditCancel,
   onRemove,
 }: AddressListItemProps) {
-  const [copiedAddress, setCopiedAddress] = useState(false);
-
-  const handleCopyAddress = async () => {
-    await navigator.clipboard.writeText(address.address);
-    setCopiedAddress(true);
-    setTimeout(() => setCopiedAddress(false), 2000);
-  };
-
   if (isEditing) {
     return (
       <div className="p-3 rounded-xl bg-muted/40 space-y-3">
@@ -82,9 +79,11 @@ export function AddressListItem({
   const fetchFailed = balanceSats === null;
 
   return (
-    <div className="flex items-center justify-between gap-3 p-3 -mx-1 rounded-xl hover:bg-muted/30 transition-colors group">
+    <div className="flex items-start gap-2 p-3 -mx-1 rounded-xl hover:bg-muted/30 transition-colors group">
+      {/* Label + address — given all the room freed up by moving actions into
+          the overflow menu, so full labels are readable on mobile */}
       <div className="flex-1 min-w-0">
-        <p className="font-medium text-sm truncate">{address.label}</p>
+        <p className="font-medium text-sm break-words">{address.label}</p>
         <p className="text-xs text-muted-foreground font-mono truncate">
           {address.address}
         </p>
@@ -94,7 +93,7 @@ export function AddressListItem({
       </div>
 
       {/* Balance */}
-      <div className="flex flex-col items-end shrink-0 min-w-[110px]">
+      <div className="flex flex-col items-end shrink-0">
         {isLoading && !hasBalance ? (
           <div className="flex items-center gap-1 text-xs text-muted-foreground">
             <Loader2 className="h-3 w-3 animate-spin" />
@@ -121,35 +120,30 @@ export function AddressListItem({
         )}
       </div>
 
-      <div className="flex items-center gap-1 ml-2 shrink-0">
-        <Button
-          size="icon"
-          variant="ghost"
-          className="h-8 w-8 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
-          onClick={handleCopyAddress}
-          title={copiedAddress ? 'Copied!' : 'Copy address'}
-        >
-          <Copy className="h-3.5 w-3.5" />
-        </Button>
-        <Button
-          size="icon"
-          variant="ghost"
-          className="h-8 w-8 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
-          onClick={onEditStart}
-          title="Edit label"
-        >
-          <Edit2 className="h-3.5 w-3.5" />
-        </Button>
-        <Button
-          size="icon"
-          variant="ghost"
-          className="h-8 w-8 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity text-destructive hover:text-destructive"
-          onClick={() => onRemove(address.id)}
-          title="Remove address"
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-        </Button>
-      </div>
+      {/* Actions behind an overflow menu — keeps the row compact on mobile */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8 shrink-0"
+            aria-label={`Actions for ${address.label}`}
+          >
+            <MoreVertical className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={onEditStart}>
+            <Edit2 className="h-4 w-4 mr-2" /> Edit label
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={() => onRemove(address.id)}
+            className="text-destructive focus:text-destructive"
+          >
+            <Trash2 className="h-4 w-4 mr-2" /> Remove address
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }
