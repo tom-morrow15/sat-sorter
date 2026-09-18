@@ -3,6 +3,13 @@ import { createRoot } from 'react-dom/client';
 // Import polyfills first
 import './lib/polyfills.ts';
 
+// iOS 27 standalone PWAs get a system blur over the top edge — tag the
+// document so CSS can keep that band content-free (see index.css)
+import { isIOSStandalonePWA } from './lib/iosStandalone';
+if (isIOSStandalonePWA()) {
+  document.documentElement.classList.add('ios27-pwa');
+}
+
 // Dev-only console bridge (must run before app code logs anything)
 import './lib/devConsoleBridge';
 

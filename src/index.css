@@ -334,6 +334,14 @@
   .safe-top { padding-top: env(safe-area-inset-top); }
   .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
 
+  /* iOS 27 standalone PWAs: the system blurs the top edge of the viewport
+     (no web-facing opt-out). Keep that band content-free — extra top padding
+     on the header pushes the ticker below the blur, which is invisible over
+     the solid header background. Tune --ios27-extra-pad against a device. */
+  html.ios27-pwa .safe-top {
+    padding-top: calc(env(safe-area-inset-top) + var(--ios27-extra-pad, 48px));
+  }
+
   .focus-ring-animated:focus-visible {
     outline: 2px solid hsl(var(--ring));
     outline-offset: 2px;
