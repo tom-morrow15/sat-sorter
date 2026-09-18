@@ -149,7 +149,7 @@ function generatePieSlices(
   spendingByBucket: Array<{ bucket: BucketDerived; spentUsd: number }>,
   totalSpent: number
 ) {
-  const slices = [];
+  const slices: { dashArray: string; dashOffset: string }[] = [];
   let currentOffset = 0;
 
   for (const item of spendingByBucket) {

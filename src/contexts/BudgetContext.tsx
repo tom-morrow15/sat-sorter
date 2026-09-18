@@ -100,7 +100,7 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
     }
     console.log('[BudgetContext] State computed — keypair:', !!normalized.budgetKeypair, 'budgets:', normalized.budgets.length);
     return normalized;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [rawState]);
 
   // setState wrapper that also normalizes the value the caller stores.

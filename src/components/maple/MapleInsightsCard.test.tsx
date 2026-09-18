@@ -24,6 +24,8 @@ vi.mock('@/hooks/useToast', () => ({
   useToast: () => ({ toast: vi.fn() }),
 }));
 
+import { analyzeMonth } from '@/services/mapleAi';
+
 vi.mock('@/services/mapleAi', async () => {
   const actual = await vi.importActual<typeof import('@/services/mapleAi')>('@/services/mapleAi');
   return {
@@ -47,6 +49,22 @@ describe('MapleInsightsCard', () => {
   beforeEach(() => {
     vi.resetAllMocks();
     localStorage.clear();
+    // resetAllMocks wipes the mock implementations declared in the module
+    // factory above, so restore defaults that individual tests can override.
+    (useAISettings as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+      apiKey: '',
+      evergreenContext: '',
+    });
+    (useBudget as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+      currentBudget: { buckets: [], transactions: [] },
+      currentMonth: '2026-04',
+    });
+    (useBitcoinPrice as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: { usdPerBtc: 100_000 },
+    });
+    (analyzeMonth as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(
+      'You are spending 30% of your Food budget. Great job!'
+    );
   });
 
   it('renders nothing when no API key', () => {

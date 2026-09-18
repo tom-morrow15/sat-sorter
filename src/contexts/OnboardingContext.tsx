@@ -7,6 +7,19 @@ import { useLoginActions } from '@/hooks/useLoginActions';
 import type { KeyPair } from '@/utils/nostrAuth';
 import type { BudgetState } from '@/lib/budgetTypes';
 
+/** Onboarding flow states, in the order a new user experiences them. */
+type OnboardingState = 'loading' | 'authenticated' | 'guest' | 'welcome';
+
+/** Nostr key material handed to the app after account creation/import. */
+interface OnboardingKeys {
+  secretKey: Uint8Array;
+  nsec: string;
+  npub: string;
+  displayName?: string;
+  currency?: string;
+  showSats?: boolean;
+}
+
 interface OnboardingContextValue {
   state: OnboardingState;
   keys: OnboardingKeys | null;

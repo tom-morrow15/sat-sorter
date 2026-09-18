@@ -21,7 +21,7 @@ interface GuestUpgradeModalProps {
 export function GuestUpgradeModal({ open, onOpenChange }: GuestUpgradeModalProps) {
   const navigate = useNavigate();
   const { upgradeGuest } = useOnboarding();
-  const { state: budgetState } = useBudget();
+  const { fullState: budgetState } = useBudget();
   const { uploadBudget } = useBudgetSync();
   const { toast } = useToast();
   const [step, setStep] = useState<'confirm' | 'generating' | 'encrypting' | 'publishing' | 'done' | 'error'>('confirm');

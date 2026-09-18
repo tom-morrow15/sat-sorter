@@ -50,7 +50,8 @@ export function AddTransactionProvider({ children }: { children: ReactNode }) {
         isIncome={isIncome}
         onSave={(transaction) => {
           if (hasSharedBudget && user?.pubkey) {
-            transaction.partnerPubkey = user.pubkey;
+            // Tag locally-created transactions with our pubkey for partner sync
+            Object.assign(transaction, { partnerPubkey: user.pubkey });
           }
           addTransaction(transaction);
         }}

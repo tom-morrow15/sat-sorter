@@ -549,14 +549,27 @@ export function useSharedBudgetSync(budgetNpub: string, budgetNsec: string) {
 
       for (const relay of sharedRelays) {
         try {
-          const sub = relay.req(
-            [{ kinds: [BUDGET_KIND], authors: [keys.budgetPub], since: now - 30 }],
-            {
-              onevent: (ev: any) => handleIncomingEventRef.current(ev),
-              oneose: () => { console.log(`[SharedBudgetSync] Live subscription active on ${relay.constructor.name}`); },
+          // NRelay1.req() returns an async generator of relay messages.
+          const sub = relay.req([
+            { kinds: [BUDGET_KIND], authors: [keys.budgetPub], since: now - 30 },
+          ]);
+          subscriptions.push({
+            close: () => { void sub.return(undefined); },
+          });
+          // Drain the subscription stream in the background
+          void (async () => {
+            try {
+              for await (const msg of sub) {
+                if (msg[0] === 'EVENT' && msg[2]) {
+                  handleIncomingEventRef.current(msg[2]);
+                } else if (msg[0] === 'EOSE') {
+                  console.log(`[SharedBudgetSync] Live subscription active on ${relay.constructor.name}`);
+                }
+              }
+            } catch {
+              // relay connection closed
             }
-          );
-          subscriptions.push(sub);
+          })();
         } catch (e) {
           console.warn('[SharedBudgetSync] Failed to subscribe on a shared relay:', e);
         }

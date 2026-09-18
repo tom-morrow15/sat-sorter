@@ -35,6 +35,9 @@ interface AccountSwitcherProps {
   onCopyPreviousMonth?: () => void;
   onPlanNextMonth?: () => void;
   onResetBudgetMonth?: () => void;
+  onSoftReset?: () => void;
+  onHardReset?: () => void;
+  onTotalReset?: () => void;
   onRefreshApp?: () => void;
   onUpdateApp?: () => void;
   onFactoryReset?: () => void;

@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useAuthor } from '@/hooks/useAuthor';
 import { nip19 } from 'nostr-tools';
 import { genUserName } from '@/lib/genUserName';
 import { useToast } from '@/hooks/useToast';
@@ -24,13 +25,14 @@ interface MyNpubQrProps {
  */
 export function MyNpubQr({ open, onOpenChange }: MyNpubQrProps) {
   const { user } = useCurrentUser();
+  const { data: author } = useAuthor(user?.pubkey);
   const { toast } = useToast();
   const [copied, setCopied] = useState(false);
 
   if (!user?.pubkey) return null;
 
   const npub = nip19.npubEncode(user.pubkey);
-  const displayName = user.metadata?.name || genUserName(user.pubkey);
+  const displayName = author?.metadata?.name || genUserName(user.pubkey);
 
   const handleCopy = async () => {
     try {

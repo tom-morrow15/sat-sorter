@@ -23,6 +23,7 @@ export function TestApp({ children }: TestAppProps) {
 
   const defaultConfig: AppConfig = {
     theme: 'light',
+    logoStyle: 'bitcoin',
     relayMetadata: {
       relays: [
         { url: 'wss://relay.nostr.band', read: true, write: true },

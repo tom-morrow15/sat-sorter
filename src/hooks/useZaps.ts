@@ -229,7 +229,11 @@ export function useZaps(
         amount: zapAmount,
         relays: config.relayMetadata.relays.map(r => r.url),
         comment
-      });
+      } as unknown as Parameters<typeof nip57.makeZapRequest>[0]);
+      // Cast note: we pass both profile and event so the zap request carries
+      // the 'p' tag AND the 'e'/'a' tag. nostr-tools' types model these as
+      // mutually exclusive (ProfileZap | EventZap), but the runtime supports
+      // both fields together.
 
       // Sign the zap request (but don't publish to relays - only send to LNURL endpoint)
       if (!user.signer) {

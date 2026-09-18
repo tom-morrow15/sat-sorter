@@ -101,6 +101,7 @@ export async function fetchFullBudgetFromNostr(
       templates: manifest.templates || [],
       paymentMethods: manifest.paymentMethods || [],
       userRole: (manifest.userRole as any) || 'owner',
+      accessibleBudgets: (manifest as { accessibleBudgets?: BudgetState['accessibleBudgets'] }).accessibleBudgets ?? [],
       defaultTemplateId: manifest.defaultTemplateId,
       lastSynced: Math.floor(Date.now() / 1000),
     };

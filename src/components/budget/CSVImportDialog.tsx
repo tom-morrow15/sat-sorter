@@ -197,7 +197,7 @@ export function CSVImportDialog({
           isIncome: tx.isIncome,
           source: 'manual',
           merchantName: tx.description,
-          categoryHint,
+          categoryHint: categoryHint ?? undefined,
         });
       }
 

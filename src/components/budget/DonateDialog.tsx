@@ -201,12 +201,11 @@ export function DonateDialog({ open, onOpenChange }: DonateDialogProps) {
       // Try WebLN next.
       if (webln) {
         try {
-          let provider = webln;
+          // WebLN providers' enable() returns void per spec; just await it.
           if (typeof webln.enable === 'function') {
-            const enabled = await webln.enable();
-            if (enabled) provider = enabled as typeof webln;
+            await webln.enable();
           }
-          await provider.sendPayment(pr);
+          await webln.sendPayment(pr);
           setStage('success');
           setIsWorking(false);
           toast({

@@ -78,7 +78,7 @@ export function useMapleChat(): UseMapleChatReturn {
     ];
   }
 
-  const { watchedAddresses: wealthAddresses } = useWealthTracker();
+  const { watchedAddresses: wealthAddresses, liveBalancesById } = useWealthTracker();
   const { merchants: btcMapMerchants } = useBTCMap();
 
   const getContext = useCallback(() => {
@@ -89,25 +89,31 @@ export function useMapleChat(): UseMapleChatReturn {
 
     // Transform Wealth Tracker data for Maple
     const safeWealthAddresses = Array.isArray(wealthAddresses) ? wealthAddresses : [];
+    const balanceSats = (addressId: string): number => liveBalancesById.get(addressId) ?? 0;
     const bitcoinHoldings = safeWealthAddresses.length > 0 
       ? safeWealthAddresses.map(addr => ({
           address: addr.address,
-          balance_btc: addr.balance / 100_000_000, // Convert satoshis to BTC
-          balance_usd: (addr.balance / 100_000_000) * btcPrice,
+          balance_btc: balanceSats(addr.id) / 100_000_000, // Convert satoshis to BTC
+          balance_usd: (balanceSats(addr.id) / 100_000_000) * btcPrice,
           label: addr.label,
         }))
       : undefined;
 
-    // Transform BTC Map merchants for Maple (only Bitcoin-accepting ones)
+    // Transform BTC Map merchants for Maple (only Bitcoin-accepting ones).
+    // OSM payment tags live on osm_json.tags (payment:bitcoin / payment:lightning).
     const nearbyMerchants = (btcMapMerchants || []).length > 0
       ? (btcMapMerchants || [])
-          .filter(m => m.tags?.payment?.includes('bitcoin') || m.tags?.payment?.includes('lightning'))
+          .filter(m =>
+            m.osm_json.tags['payment:bitcoin'] === 'yes' ||
+            m.osm_json.tags['payment:lightning'] === 'yes' ||
+            m.osm_json.tags['payment:onchain'] === 'yes'
+          )
           .slice(0, 20) // Limit to 20 nearest
           .map(m => ({
-            name: m.tags?.name || 'Unnamed merchant',
-            category: m.tags?.amenity || m.tags?.shop || 'Other',
-            address: m.tags?.['addr:street'] 
-              ? `${m.tags['addr:street']}${m.tags['addr:housenumber'] ? ` ${m.tags['addr:housenumber']}` : ''}` 
+            name: m.osm_json.tags.name || m.osm_json.tags['name:en'] || 'Unnamed merchant',
+            category: m.tags.category || m.osm_json.tags.amenity || m.osm_json.tags.shop || 'Other',
+            address: m.osm_json.tags['addr:street'] 
+              ? `${m.osm_json.tags['addr:street']}${m.osm_json.tags['addr:housenumber'] ? ` ${m.osm_json.tags['addr:housenumber']}` : ''}` 
               : undefined,
             distance_meters: m.distance,
             accepts_bitcoin: true,

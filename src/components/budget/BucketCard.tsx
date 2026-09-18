@@ -24,7 +24,7 @@ import type { BTCMapElement } from '@/hooks/useBTCMap';
 import { cn } from '@/lib/utils';
 import { CATEGORY_PALETTE } from '@/lib/categoryPalette';
 
-const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
+const iconMap: Record<string, React.ComponentType<{ className?: string; style?: React.CSSProperties }>> = {
   home: Home, car: Car, utensils: Utensils, heart: Heart, 'piggy-bank': PiggyBank,
   wallet: Wallet, 'shopping-bag': ShoppingBag, briefcase: Briefcase,
   'graduation-cap': GraduationCap, plane: Plane, gift: Gift, music: Music,

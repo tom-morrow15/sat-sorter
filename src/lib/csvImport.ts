@@ -31,6 +31,31 @@ export interface CSVParseResult {
 }
 
 /**
+ * Re-assemble a row that split into more fields than there are columns,
+ * because values contained unquoted commas — e.g. "Jan 15, 2024" dates or
+ * "1,234.56" amounts. Greedily merges leading fields into the date and
+ * trailing fields into the amount; whatever remains is the description.
+ * Returns null if no valid date/amount combination can be formed.
+ */
+function tryReassembleRow(parts: string[]): string[] | null {
+  const n = parts.length;
+  // Prefer candidates that consume the most fields (a date spanning two
+  // fields beats a bare word that happens to parse as a date)
+  for (let k = n - 2; k >= 1; k--) {
+    const dateCandidate = parts.slice(0, k).join(', ');
+    if (!parseDate(dateCandidate)) continue;
+    for (let m = n - k - 1; m >= 1; m--) {
+      const amountCandidate = parts.slice(n - m).join(', ');
+      if (parseAmount(amountCandidate) === null) continue;
+      const middle = parts.slice(k, n - m).join(', ').trim();
+      if (!middle) continue;
+      return [dateCandidate, middle, amountCandidate];
+    }
+  }
+  return null;
+}
+
+/**
  * Parse a single CSV line, properly handling quoted fields with embedded commas.
  */
 function parseCSVLine(line: string): string[] {
@@ -77,7 +102,7 @@ function parseCSVLine(line: string): string[] {
  * Normalize a header name for comparison.
  */
 function normalizeHeader(name: string): string {
-  return name.toLowerCase().trim().replace(/[\s_\-]+/g, '');
+  return name.toLowerCase().trim().replace(/[\s_-]+/g, '');
 }
 
 /**
@@ -101,14 +126,15 @@ function detectColumns(headers: string[]): {
   const datePatterns = ['date', 'transactiondate', 'postdate', 'posteddate', 'datetime', 'time', 'created', 'settled'];
   let dateIdx = normalized.findIndex(h => datePatterns.some(p => h === p || h.includes(p)));
 
-  // Description column detection
+  // Description column detection — skip the date column (headers like
+  // "Transaction Date" would otherwise match the 'transaction' pattern)
   const descPatterns = ['description', 'desc', 'memo', 'details', 'name', 'merchant', 'payee', 'narration', 'note', 'transaction'];
-  let descriptionIdx = normalized.findIndex(h => descPatterns.some(p => h === p || h.includes(p)));
+  let descriptionIdx = normalized.findIndex((h, i) => i !== dateIdx && descPatterns.some(p => h === p || h.includes(p)));
 
-  // Amount column detection — exclude "debit" and "credit" from single-amount detection
-  // since they'll be handled separately below
+  // Amount column detection — exclude date/description columns; exclude "debit"
+  // and "credit" from single-amount detection since they're handled separately
   const amountPatterns = ['amount', 'amt', 'value', 'total', 'price', 'sum', 'amountusd', 'amountsats'];
-  let amountIdx = normalized.findIndex(h => amountPatterns.some(p => h === p || h.includes(p)));
+  let amountIdx = normalized.findIndex((h, i) => i !== dateIdx && i !== descriptionIdx && amountPatterns.some(p => h === p || h.includes(p)));
 
   // Detect separate Debit and Credit columns (common in bank CSV exports)
   // Match exact "debit" or "withdrawal" / "credit" or "deposit"
@@ -172,7 +198,7 @@ function parseDate(dateStr: string): string | null {
   // US format: MM/DD/YYYY or M/D/YYYY (with optional time)
   const slashMatch = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})(\s+.*)?$/);
   if (slashMatch) {
-    let [, part1, part2, year, time] = slashMatch;
+    const [, part1, part2, year, time] = slashMatch;
     let month, day;
 
     const num1 = parseInt(part1);
@@ -196,7 +222,7 @@ function parseDate(dateStr: string): string | null {
   // European format with dots: DD.MM.YYYY
   const dotMatch = trimmed.match(/^(\d{1,2})\.(\d{1,2})\.(\d{2,4})$/);
   if (dotMatch) {
-    let [, day, month, year] = dotMatch;
+    const [, day, month, year] = dotMatch;
     const fullYear = year.length === 2 ? `20${year}` : year;
     const date = new Date(`${fullYear}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T12:00:00.000Z`);
     if (!isNaN(date.getTime())) return date.toISOString();
@@ -379,7 +405,14 @@ export function parseCSVTransactions(
     result.totalRows++;
 
     try {
-      const parts = parseLine(line);
+      let parts = parseLine(line);
+
+      // Real-world CSVs often contain unquoted values with embedded commas
+      // ("Jan 15, 2024" dates, "1,234.56" amounts). Re-assemble oversized rows.
+      if (parts.length > 3 && !hasSeparateDebitCredit && headers.length === 3) {
+        const reassembled = tryReassembleRow(parts);
+        if (reassembled) parts = reassembled;
+      }
 
       if (parts.length < 3) {
         result.skippedRows++;

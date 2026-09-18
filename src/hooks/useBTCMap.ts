@@ -37,6 +37,7 @@ export interface BTCMapElement {
       severity: number;
       description: string;
     }>;
+    [key: string]: string | undefined | Array<{ type: string; severity: number; description: string }>;
   };
   created_at?: string;
   updated_at?: string;
@@ -185,7 +186,7 @@ export function getMerchantKeywords(element: BTCMapElement): string[] {
   // This helps match "Steak n Shake" even if the category is generic
   if (merchantName.length > 0) {
     const nameWords = merchantName
-      .split(/[\s\-&\/]+/)
+      .split(/[\s&/]+/)
       .filter(word => word.length > 2 && !['the', 'and', 'or', 'in', 'at', 'by', 'for'].includes(word));
     keywords.push(...nameWords);
   }
@@ -229,7 +230,7 @@ export function lineItemMatchesMerchant(lineItemName: string, merchants: BTCMapE
 
   // Split line item name into searchable words
   const lineItemWords = lowerName
-    .split(/[\s\/\-&]+/)
+    .split(/[\s/&-]+/)
     .filter(word => word.length > 2 && !ignoreWords.includes(word));
 
   const matches = merchants.filter(merchant => {
@@ -258,7 +259,7 @@ export function lineItemMatchesMerchant(lineItemName: string, merchants: BTCMapE
     // WORD-BY-WORD MATCHING - check individual words
     const lineItemWordMatches = lineItemWords.filter(word => {
       // Direct word match in merchant name (case-insensitive)
-      const merchantWords = merchantName.split(/[\s\-&\/]+/);
+      const merchantWords = merchantName.split(/[\s&/]+/);
       if (merchantWords.some(mw => mw === word || mw.includes(word))) {
         return true;
       }
@@ -651,7 +652,7 @@ export function acceptsOnchain(element: BTCMapElement): boolean {
 // Get merchant location info for display
 export function getMerchantLocation(element: BTCMapElement): string {
   const tags = element.osm_json.tags;
-  const parts = [];
+  const parts: string[] = [];
 
   if (tags['addr:city']) parts.push(tags['addr:city']);
   if (tags['addr:state']) parts.push(tags['addr:state']);
@@ -686,7 +687,7 @@ export async function geocodeLocation(query: string): Promise<{ lat: number; lon
       // Create a friendly display name from the address
       let displayName = query;
       if (result.address) {
-        const parts = [];
+        const parts: string[] = [];
         if (result.address.city || result.address.town || result.address.village) {
           parts.push(result.address.city || result.address.town || result.address.village);
         }

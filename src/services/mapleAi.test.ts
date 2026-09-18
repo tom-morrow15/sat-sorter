@@ -220,7 +220,7 @@ describe('getMapleErrorMessage', () => {
 
   it('returns network message for network Error', () => {
     const err = new Error('Network error');
-    expect(getMapleErrorMessage(err)).toBe('An unexpected error occurred. Please try again.');
+    expect(getMapleErrorMessage(err)).toBe("Can't reach Maple. Check your connection.");
   });
 
   it('returns generic for unknown', () => {

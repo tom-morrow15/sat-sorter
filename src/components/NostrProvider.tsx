@@ -15,8 +15,12 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
 
   const queryClient = useQueryClient();
 
-  // Create NPool instance only once
-  const pool = useRef<NPool | undefined>(undefined);
+  // Create NPool instance only once.
+  // Typed loosely: @nostrify/react bundles its own copy of @nostrify/nostrify,
+  // so the NPool instances are structurally identical but nominally distinct
+  // types. The pool is only ever passed to NostrContext.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const pool = useRef<any>(undefined);
 
   // Use refs so the pool always has the latest data
   const relayMetadata = useRef(config.relayMetadata);

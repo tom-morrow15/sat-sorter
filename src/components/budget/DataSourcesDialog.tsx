@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import { formatSats, usdToSats } from '@/hooks/useBitcoinPrice';
 import {
   Upload,
   Wallet,
@@ -439,7 +440,7 @@ function CSVPanel({ onBack, onSuccess }: { onBack: () => void; onSuccess: () => 
           isIncome: transaction.isIncome,
           source: 'manual',
           merchantName: transaction.description,
-          categoryHint,
+          categoryHint: categoryHint ?? undefined,
           bucketId: null,
           lineItemId: null,
         });

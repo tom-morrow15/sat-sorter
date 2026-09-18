@@ -26,7 +26,7 @@ export function AccountDetailsDialog({ open, onOpenChange }: AccountDetailsDialo
 
   // Find the current user's nsec from the login store
   const nsecLogin = logins.find((l: any) => l.type === 'nsec' && l.data?.nsec);
-  const nsec = nsecLogin?.data?.nsec as string | undefined;
+  const nsec = (nsecLogin?.data as { nsec?: string } | undefined)?.nsec;
 
   // Get pubkey from the first available login
   const pubkey = logins.find((l: any) => l.pubkey)?.pubkey as string | undefined;
