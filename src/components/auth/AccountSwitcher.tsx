@@ -76,7 +76,10 @@ export function AccountSwitcher({
 
   if (!currentUser && variant === 'avatar') return null;
 
-  const getDisplayName = (account: any): string => account.metadata.name ?? genUserName(account.pubkey);
+  // Nostr convention: display_name is the human-facing name; name is the
+  // username handle. Prefer display_name, fall back to name, then generated.
+  const getDisplayName = (account: any): string =>
+    account.metadata.display_name || account.metadata.name || genUserName(account.pubkey);
   const hasPendingInvites = pendingInvitesCount > 0;
 
   const renderTrigger = () => {

@@ -17,7 +17,8 @@ interface PartnerAttributionProps {
 export function PartnerAttribution({ pubkey, showName = true, className }: PartnerAttributionProps) {
   const profile = useAuthor(pubkey);
   const metadata = profile.data?.metadata;
-  const name = metadata?.name || metadata?.display_name || genUserName(pubkey);
+  // Nostr convention: display_name is the human-facing name; name is the handle
+  const name = metadata?.display_name || metadata?.name || genUserName(pubkey);
   const picture = metadata?.picture;
   const firstName = name.split(' ')[0].slice(0, 12);
 

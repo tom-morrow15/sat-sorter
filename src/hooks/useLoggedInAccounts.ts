@@ -1,7 +1,8 @@
 import { useNostr } from '@nostrify/react';
 import { useNostrLogin } from '@nostrify/react/login';
 import { useQuery } from '@tanstack/react-query';
-import { NSchema as n, NostrEvent, NostrMetadata } from '@nostrify/nostrify';
+import type { NostrEvent, NostrMetadata } from '@nostrify/nostrify';
+import { parseProfileMetadata } from '@/lib/profile';
 
 export interface Account {
   id: string;
@@ -19,20 +20,16 @@ export function useLoggedInAccounts() {
     queryFn: async ({ signal }) => {
       const events = await nostr.query(
         [{ kinds: [0], authors: logins.map((l) => l.pubkey) }],
-        { signal: AbortSignal.any([signal, AbortSignal.timeout(1500)]) },
+        // 5s — see useAuthor.ts: slower relays need more than 1.5s to answer
+        { signal: AbortSignal.any([signal, AbortSignal.timeout(5000)]) },
       );
 
       return logins.map(({ id, pubkey }): Account => {
         const event = events.find((e) => e.pubkey === pubkey);
-        try {
-          const metadata = n.json().pipe(n.metadata()).parse(event?.content);
-          return { id, pubkey, metadata, event };
-        } catch {
-          return { id, pubkey, metadata: {}, event };
-        }
+        return { id, pubkey, metadata: parseProfileMetadata(event?.content) ?? {}, event };
       });
     },
-    retry: 3,
+    retry: 1,
   });
 
   // Current user is the first login
