@@ -26,14 +26,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useNWC } from '@/hooks/useNWCContext';
-import { useWallet } from '@/hooks/useWallet';
 import { useToast } from '@/hooks/useToast';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useNWCSync } from '@/hooks/useNWCSync';
 import { QRScanner } from './QRScanner';
 import type { NWCConnection, NWCInfo } from '@/hooks/useNWC';
-import type { WebLNProvider } from "@webbtc/webln-types";
 
 interface WalletModalControlledProps {
   open: boolean;
@@ -96,6 +95,55 @@ const WALLET_GUIDES: { id: string; name: string; steps: string[]; note?: string 
       'Create a connection with "list_transactions" enabled',
       'Copy the connection string and paste it below',
     ],
+    note: 'Coinos is a hosted wallet — easy to start, but the operator holds the funds.',
+  },
+  {
+    id: 'electrum',
+    name: 'Electrum',
+    steps: [
+      'Open Electrum → Tools → "Nostr Wallet Connect" (recent versions)',
+      'Create a connection named "Sat Sorter" with "list_transactions" enabled',
+      'Copy the connection string and paste it below',
+    ],
+  },
+  {
+    id: 'minibits',
+    name: 'Minibits',
+    steps: [
+      'Open Minibits → Settings → "Nostr Wallet Connect" / Apps',
+      'Create a connection with "list_transactions" enabled',
+      'Copy the connection string and paste it below',
+    ],
+    note: 'Minibits is an ecash wallet backed by a mint — you trust the mint operator for the sats held there.',
+  },
+  {
+    id: 'cashu',
+    name: 'Cashu.me',
+    steps: [
+      'Open Cashu.me → Settings → "Nostr Wallet Connect"',
+      'Create a connection with "list_transactions" enabled',
+      'Copy the connection string and paste it below',
+    ],
+    note: 'Cashu.me is self-custodial ecash — connections work while the app is open.',
+  },
+  {
+    id: 'lnbits',
+    name: 'LNbits',
+    steps: [
+      'In your LNbits instance, enable the "Nostr Wallet Connect" extension',
+      'Create a wallet connection with "list_transactions" enabled',
+      'Copy the connection string and paste it below',
+    ],
+  },
+  {
+    id: 'node',
+    name: 'My own node (LND / Core Lightning)',
+    steps: [
+      'Install an NWC plugin or service for your node (e.g. LND via Alby Hub, CLN via cln-nostr-wallet-connect)',
+      'Create a connection named "Sat Sorter" with "list_transactions" enabled',
+      'Copy the connection string and paste it below',
+    ],
+    note: 'Fully self-custodial — your node, your keys, your budget data.',
   },
   {
     id: 'other',
@@ -124,22 +172,16 @@ const AddWalletContent = forwardRef<HTMLDivElement, {
       {/* Step 1: pick your wallet — shows exact taps for each one */}
       <div className="space-y-2">
         <Label>Which wallet are you connecting?</Label>
-        <div className="flex flex-wrap gap-1.5">
-          {WALLET_GUIDES.map((g) => (
-            <button
-              key={g.id}
-              type="button"
-              onClick={() => setSelectedGuide(g.id)}
-              className={`px-3 py-1.5 rounded-full text-xs border transition-colors ${
-                selectedGuide === g.id
-                  ? 'bg-primary text-primary-foreground border-primary'
-                  : 'bg-muted/30 border-border hover:bg-muted/60'
-              }`}
-            >
-              {g.name}
-            </button>
-          ))}
-        </div>
+        <Select value={selectedGuide} onValueChange={setSelectedGuide}>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Choose your wallet" />
+          </SelectTrigger>
+          <SelectContent>
+            {WALLET_GUIDES.map((g) => (
+              <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <ol className="text-xs text-muted-foreground space-y-1.5 list-decimal list-inside bg-muted/20 border border-border/40 rounded-lg p-3">
           {guide.steps.map((step, i) => (
             <li key={i}>{step}</li>
@@ -209,7 +251,6 @@ function formatLastSync(timestamp: number | null): string {
 
 // ─── Wallet Content (main body) ───
 const WalletContent = forwardRef<HTMLDivElement, {
-  webln: WebLNProvider | null;
   hasNWC: boolean;
   connections: NWCConnection[];
   connectionInfo: Record<string, NWCInfo>;
@@ -223,7 +264,6 @@ const WalletContent = forwardRef<HTMLDivElement, {
   onSync: () => void;
   onToggleAutoSync: () => void;
 }>(({
-  webln,
   hasNWC,
   connections,
   connectionInfo,
@@ -237,67 +277,9 @@ const WalletContent = forwardRef<HTMLDivElement, {
   onSync,
   onToggleAutoSync,
 }, ref) => {
-  // Connection-protocol details (WebLN, NWC capabilities) are power-user
-  // info — collapsed by default so novices see only what matters.
-  const [showAdvanced, setShowAdvanced] = useState(false);
-
   return (
   <div className="space-y-6 px-4 pb-4" ref={ref}>
     <PrivacyBanner />
-
-    {/* Connection details — power-user info, collapsed by default */}
-    <div>
-      <button
-        className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-        onClick={() => setShowAdvanced((v) => !v)}
-      >
-        {showAdvanced ? '▾' : '▸'} Advanced — connection details
-      </button>
-      {showAdvanced && (
-      <div className="space-y-3 mt-2">
-      <h3 className="font-medium">Connection Status</h3>
-      <div className="grid gap-3">
-        {/* WebLN */}
-        <div className="flex items-center justify-between p-3 border rounded-lg">
-          <div className="flex items-center gap-3">
-            <Globe className="h-4 w-4 text-muted-foreground" />
-            <div>
-              <p className="text-sm font-medium">WebLN</p>
-              <p className="text-xs text-muted-foreground">Browser extension</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            {webln && <CheckCircle className="h-4 w-4 text-green-600" />}
-            <Badge variant={webln ? "default" : "secondary"} className="text-xs">
-              {webln ? "Ready" : "Not Found"}
-            </Badge>
-          </div>
-        </div>
-        {/* NWC */}
-        <div className="flex items-center justify-between p-3 border rounded-lg">
-          <div className="flex items-center gap-3">
-            <WalletMinimal className="h-4 w-4 text-muted-foreground" />
-            <div>
-              <p className="text-sm font-medium">Nostr Wallet Connect</p>
-              <p className="text-xs text-muted-foreground">
-                {connections.length > 0
-                  ? `${connections.length} wallet${connections.length !== 1 ? 's' : ''} connected`
-                  : "Remote wallet connection"
-                }
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            {hasNWC && <CheckCircle className="h-4 w-4 text-green-600" />}
-            <Badge variant={hasNWC ? "default" : "secondary"} className="text-xs">
-              {hasNWC ? "Ready" : "None"}
-            </Badge>
-          </div>
-        </div>
-      </div>
-      </div>
-      )}
-    </div>
 
     {/* Transaction Sync Section — only when a wallet is connected */}
     {hasNWC && (
@@ -420,7 +402,7 @@ const WalletContent = forwardRef<HTMLDivElement, {
     </div>
 
     {/* Help text for users with no connections */}
-    {!webln && connections.length === 0 && (
+    {connections.length === 0 && (
       <>
         <Separator />
         <div className="space-y-3">
@@ -465,8 +447,6 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
     removeConnection,
     setActiveConnection
   } = useNWC();
-
-  const { webln } = useWallet();
 
   const {
     isSyncing,
@@ -530,7 +510,6 @@ export function WalletModalControlled({ open, onOpenChange }: WalletModalControl
   };
 
   const walletContentProps = {
-    webln,
     hasNWC,
     connections,
     connectionInfo,
