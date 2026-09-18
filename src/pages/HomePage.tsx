@@ -219,12 +219,12 @@ export default function HomePage() {
             <Alert className="bg-card border-l-4 border-l-primary relative">
               <button
                 onClick={() => setDismissedGuestBanner(true)}
-                className="absolute top-2.5 right-2.5 text-muted-foreground hover:text-foreground touch-target-sm flex items-center justify-center"
+                className="absolute top-1 right-1 z-10 flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
                 aria-label="Dismiss"
               >
                 <X className="h-4 w-4" />
               </button>
-              <AlertDescription className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pr-6">
+              <AlertDescription className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pr-12">
                 <div>
                   <span className="text-sm font-medium">Budgeting on a Bitcoin standard.</span>
                   <span className="text-sm text-muted-foreground"> Create a free Nostr account for cloud sync, budget sharing, and an AI budget buddy.</span>
@@ -250,13 +250,13 @@ export default function HomePage() {
             <Alert className="bg-card border-l-4 border-l-primary relative">
               <button
                 onClick={() => setDismissedNwcPrompt(true)}
-                className="absolute top-2.5 right-2.5 text-muted-foreground hover:text-foreground touch-target-sm flex items-center justify-center"
+                className="absolute top-1 right-1 z-10 flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
                 aria-label="Dismiss"
               >
                 <X className="h-4 w-4" />
               </button>
               <Zap className="h-4 w-4 text-primary" />
-              <AlertDescription className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pr-6">
+              <AlertDescription className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pr-12">
                 <span className="text-sm">Connect your Lightning wallet to track transactions automatically.</span>
                 <Button variant="outline" size="sm" onClick={() => setShowWalletModal(true)} className="shrink-0 touch-target-sm">
                   <Wallet className="h-4 w-4 mr-2" /> Connect

@@ -74,7 +74,7 @@ export function BtcTipCard() {
 
   return (
     <div className="relative animate-slide-in-up" style={{ animationDelay: '0.05s', animationFillMode: 'both' }}>
-      <div className="flex items-start gap-3 p-4 bh-card border-l-4 border-l-mustard">
+      <div className="flex items-start gap-3 p-4 pr-14 bh-card border-l-4 border-l-mustard">
         <div className="h-8 w-8 rounded-md bg-mustard/15 flex items-center justify-center shrink-0">
           <Lightbulb className="h-4 w-4 text-mustard" />
         </div>
@@ -86,14 +86,16 @@ export function BtcTipCard() {
             {todayTip.body}
           </p>
         </div>
-        <button
-          onClick={() => setDismissed(true)}
-          className="text-muted-foreground hover:text-foreground transition-colors shrink-0 touch-target-sm flex items-center justify-center"
-          aria-label="Dismiss"
-        >
-          <X className="h-4 w-4" />
-        </button>
       </div>
+      {/* Dismiss button flush at the corner — hit area and glyph line up
+          exactly where users instinctively tap */}
+      <button
+        onClick={() => setDismissed(true)}
+        className="absolute top-1 right-1 z-10 flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+        aria-label="Dismiss"
+      >
+        <X className="h-4 w-4" />
+      </button>
     </div>
   );
 }
