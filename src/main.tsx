@@ -3,6 +3,9 @@ import { createRoot } from 'react-dom/client';
 // Import polyfills first
 import './lib/polyfills.ts';
 
+// Dev-only console bridge (must run before app code logs anything)
+import './lib/devConsoleBridge';
+
 // Initialize secure storage (device encryption key) before app renders
 // so that all useLocalStorage calls with encrypted serializers have the key ready.
 import { initSecureStorage } from './lib/secureStorage';

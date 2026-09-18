@@ -234,6 +234,11 @@ export function NostrSync() {
   // Supports the new split storage format (manifest + per-month events) and
   // falls back to the legacy single-blob format for existing users.
   useEffect(() => {
+    console.log('[NostrSync] budget download effect fired', {
+      hasPubkey: !!user?.pubkey,
+      hasNip44: !!user?.signer?.nip44,
+      alreadySynced: syncedPubkeys.current.has(user?.pubkey ?? ''),
+    });
     if (!user?.pubkey || !user?.signer?.nip44) return;
 
     const pubkey = user.pubkey;

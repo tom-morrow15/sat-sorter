@@ -2,7 +2,23 @@ import path from "node:path";
 import fs from "node:fs";
 
 import react from "@vitejs/plugin-react-swc";
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
+
+// Dev-only: relax the app's strict CSP so the embedded preview browser can
+// reach local dev endpoints (relay proxy ws://localhost:8090, console log
+// collector http://localhost:8099). Production CSP is untouched.
+function devCspRelax(): Plugin {
+  return {
+    name: "dev-csp-relax",
+    apply: "serve",
+    transformIndexHtml(html) {
+      return html.replace(
+        "connect-src 'self' blob: https: wss:",
+        "connect-src 'self' blob: https: wss: ws: http://localhost:8099 http://localhost:8090",
+      );
+    },
+  };
+}
 
 // Resolve version at config load time (works for both `vite` and `vite build`).
 // Preferred source: package.json "version". Fallback: build-time timestamp.
@@ -53,6 +69,7 @@ export default defineConfig({
   },
   plugins: [
     forceReplaceAppVersion(),
+    devCspRelax(),
     react(),
   ],
   resolve: {

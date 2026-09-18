@@ -3,6 +3,7 @@ import { NostrEvent, NostrFilter, NPool, NRelay1 } from '@nostrify/nostrify';
 import { NostrContext } from '@nostrify/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAppContext } from '@/hooks/useAppContext';
+import { mapRelayUrl } from '@/lib/devRelayProxy';
 
 interface NostrProviderProps {
   children: React.ReactNode;
@@ -30,7 +31,7 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
   if (!pool.current) {
     pool.current = new NPool({
       open(url: string) {
-        return new NRelay1(url);
+        return new NRelay1(mapRelayUrl(url));
       },
       reqRouter(filters: NostrFilter[]) {
         const routes = new Map<string, NostrFilter[]>();
@@ -41,7 +42,7 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
           .map(r => r.url);
 
         for (const url of readRelays) {
-          routes.set(url, filters);
+          routes.set(mapRelayUrl(url), filters);
         }
 
         return routes;
@@ -54,7 +55,7 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
 
         const allRelays = new Set<string>(writeRelays);
 
-        return [...allRelays];
+        return [...allRelays].map(mapRelayUrl);
       },
     });
   }

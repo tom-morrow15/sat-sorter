@@ -7,6 +7,7 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useBudgetContext } from '@/contexts/BudgetContext';
 import { useToast } from '@/hooks/useToast';
 import { encryptWithBudgetKey, decryptWithBudgetKey } from '@/lib/budgetCrypto';
+import { mapRelayUrl } from '@/lib/devRelayProxy';
 import type { MonthlyBudget } from '@/lib/budgetTypes';
 
 /**
@@ -47,7 +48,7 @@ const SHARED_RELAYS = [
 /** Open direct relay connections to the shared relay set.
  *  Returns an array of NRelay1 instances. */
 function openSharedRelays(): NRelay1[] {
-  return SHARED_RELAYS.map((url) => {
+  return SHARED_RELAYS.map((url) => mapRelayUrl(url)).map((url) => {
     try {
       return new NRelay1(url);
     } catch {
