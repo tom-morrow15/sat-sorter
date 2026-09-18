@@ -11,9 +11,6 @@ import { mergeWealthStates } from '@/lib/wealthTypes';
 import { useToast } from '@/hooks/useToast';
 import { fetchFullBudgetFromNostr } from '@/hooks/useBudgetSync';
 
-const APP_IDENTIFIER = 'sat-sorter/budget-data';
-const BUDGET_KIND = 30078;
-
 // Wealth tracker — same NIP-78 kind, different d-tag so the two datasets
 // live side-by-side as separate addressable events.
 const WEALTH_APP_IDENTIFIER = 'sat-sorter/wealth-data';
@@ -210,13 +207,23 @@ export function NostrSync() {
 
             if (fetchedRelays.length > 0) {
               console.log('Syncing relay list from Nostr:', fetchedRelays);
-              updateConfig((current) => ({
-                ...current,
-                relayMetadata: {
-                  relays: fetchedRelays,
-                  updatedAt: event.created_at,
-                },
-              }));
+              updateConfig((current) => {
+                // Merge instead of overwrite: private relays (e.g. self-hosted
+                // relays that are never published in NIP-65) must survive every
+                // sync, and locally-added relays not yet in the published list
+                // are preserved too.
+                const fetchedUrls = new Set(fetchedRelays.map(r => r.url));
+                const preserved = (current.relayMetadata?.relays ?? []).filter(
+                  r => r.private || !fetchedUrls.has(r.url)
+                );
+                return {
+                  ...current,
+                  relayMetadata: {
+                    relays: [...fetchedRelays, ...preserved],
+                    updatedAt: event.created_at,
+                  },
+                };
+              });
             }
           }
         }

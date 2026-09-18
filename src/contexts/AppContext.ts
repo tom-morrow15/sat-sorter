@@ -3,9 +3,21 @@ import { createContext } from "react";
 export type Theme = "dark" | "light" | "system";
 export type LogoStyle = "bitcoin" | "sats";
 
+export interface Relay {
+  url: string;
+  read: boolean;
+  write: boolean;
+  /**
+   * Private relays are stored only on this device and are never published
+   * in the user's public NIP-65 relay list (e.g. self-hosted relays on a
+   * home network). Default: true for user-added relays.
+   */
+  private?: boolean;
+}
+
 export interface RelayMetadata {
   /** List of relays with read/write permissions */
-  relays: { url: string; read: boolean; write: boolean }[];
+  relays: Relay[];
   /** Unix timestamp of when the relay list was last updated */
   updatedAt: number;
 }
