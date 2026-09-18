@@ -138,12 +138,18 @@ export function RelaySettingsDialog({ open, onOpenChange }: RelaySettingsDialogP
     }
   };
 
-  const addRelay = (url: string, options: { private: boolean }) => {
+  const addRelay = (rawUrl: string, options: { private: boolean }) => {
+    // Be forgiving about what the user pastes: https:// URLs are converted to
+    // wss:// (relays are websockets), and bare hostnames get wss:// prefixed.
+    let url = rawUrl.trim();
+    if (/^http:\/\//i.test(url)) url = url.replace(/^http/i, 'ws');
+    else if (/^https:\/\//i.test(url)) url = url.replace(/^https/i, 'wss');
+
     const normalized = normalizeRelayUrl(url);
-    if (!normalized.startsWith('ws')) {
+    if (!/^wss?:\/\//i.test(normalized)) {
       toast({
         title: 'Invalid relay address',
-        description: 'Relay addresses look like wss://relay.example.com',
+        description: 'Relay addresses look like wss://relay.example.com — check for typos and try again.',
         variant: 'destructive',
       });
       return;
