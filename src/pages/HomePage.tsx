@@ -8,7 +8,7 @@ import { useToast } from '@/hooks/useToast';
 import { BudgetHeader } from '@/components/budget/BudgetHeader';
 import { BucketCard } from '@/components/budget/BucketCard';
 import { DashboardSummary } from '@/components/budget/DashboardSummary';
-import { BtcTipCard } from '@/components/budget/BtcTipCard';
+import { BitcoinIsmTicker } from '@/components/budget/BitcoinIsmTicker';
 import { AddBucketDialog } from '@/components/budget/AddBucketDialog';
 import { UpgradeDialog } from '@/components/budget/UpgradeDialog';
 import { GuestLimitDialog } from '@/components/budget/GuestLimitDialog';
@@ -266,10 +266,6 @@ export default function HomePage() {
           )}
         </div>
 
-        <div className="mt-4">
-          <BtcTipCard />
-        </div>
-
         {/* Budget categories */}
         <div className="space-y-4 mt-6">
           {incomeBucket && (
@@ -312,13 +308,6 @@ export default function HomePage() {
                 </p>
               </div>
             </div>
-            {hasBudget && (
-              <Button size="sm" onClick={handleAddBucketClick} className="touch-target-sm">
-                <Plus className="h-4 w-4 mr-1.5" />
-                <span className="hidden sm:inline">Add Category</span>
-                <span className="sm:hidden">Add</span>
-              </Button>
-            )}
           </div>
 
           {/* Two-column grid on desktop, single column on mobile/tablet */}
@@ -344,6 +333,19 @@ export default function HomePage() {
               </div>
             ))}
           </div>
+
+          {/* Add Category — sits below the last expense category so adding feels natural */}
+          {hasBudget && expenseBuckets.length > 0 && (
+            <Button
+              variant="outline"
+              onClick={handleAddBucketClick}
+              className="w-full touch-target-sm border-dashed text-muted-foreground hover:text-foreground animate-slide-in-up"
+              style={{ animationDelay: `${0.15 + expenseBuckets.length * 0.06}s`, animationFillMode: 'both' }}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Category
+            </Button>
+          )}
 
           {/* Empty state */}
           {expenseBuckets.length === 0 && (
@@ -373,9 +375,7 @@ export default function HomePage() {
         </div>
 
         <footer className="mt-12 pt-8 divider-soft text-center space-y-2">
-          <p className="text-xs text-muted-foreground/70 italic">
-            Since 1913, the US dollar has lost over 96% of its purchasing power. Bitcoin fixes this.
-          </p>
+          <BitcoinIsmTicker />
         </footer>
       </main>
 

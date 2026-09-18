@@ -4,6 +4,22 @@ import fs from "node:fs";
 import react from "@vitejs/plugin-react-swc";
 import { defineConfig, type Plugin } from "vite";
 
+// Dev-only: force the browser to never cache dev modules. Some embedded
+// browsers restore pages from cache without revalidating despite no-cache,
+// which serves stale code (e.g. modules transformed before .env.local existed).
+function devNoStore(): Plugin {
+  return {
+    name: "dev-no-store",
+    apply: "serve",
+    configureServer(server) {
+      server.middlewares.use((_req, res, next) => {
+        res.setHeader("Cache-Control", "no-store");
+        next();
+      });
+    },
+  };
+}
+
 // Dev-only: relax the app's strict CSP so the embedded preview browser can
 // reach local dev endpoints (relay proxy ws://localhost:8090, console log
 // collector http://localhost:8099). Production CSP is untouched.
@@ -56,7 +72,9 @@ function forceReplaceAppVersion() {
 export default defineConfig({
   server: {
     host: "::",
-    port: 8080,
+    // 8081: fresh origin — sidesteps any stale module cache the preview
+    // browser holds for localhost:8080. Move back once confident.
+    port: 8081,
   },
   define: {
     // Official Vite define (for any code that still references the bare global)
@@ -69,6 +87,7 @@ export default defineConfig({
   },
   plugins: [
     forceReplaceAppVersion(),
+    devNoStore(),
     devCspRelax(),
     react(),
   ],

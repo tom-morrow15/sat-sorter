@@ -7,6 +7,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/useToast';
 import { BudgetHeader } from '@/components/budget/BudgetHeader';
+import { BitcoinIsmTicker } from '@/components/budget/BitcoinIsmTicker';
 import { BudgetDashboard } from '@/components/budget/BudgetDashboard';
 import { BucketCard } from '@/components/budget/BucketCard';
 import { AddBucketDialog } from '@/components/budget/AddBucketDialog';
@@ -422,13 +423,8 @@ export default function Budget() {
 
          {/* Footer */}
          <footer className="mt-12 lg:mt-16 pt-6 lg:pt-8 border-t text-center space-y-3">
-           {/* Easter egg - Dollar purchasing power */}
-           <p className="text-xs text-muted-foreground/70 italic">
-             💡 Since 1913, the US dollar has lost over 96% of its purchasing power.
-             <br className="sm:hidden" />
-             <span className="hidden sm:inline"> </span>
-             Bitcoin fixes this.
-           </p>
+           {/* Rotating bitcoin-isms — passive education for new bitcoiners */}
+           <BitcoinIsmTicker />
 
 
          </footer>

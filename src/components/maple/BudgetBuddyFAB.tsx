@@ -26,7 +26,7 @@ export function BudgetBuddyFAB() {
       onClick={() => isMapleEnabled && navigate('/buddy')}
       disabled={!isMapleEnabled}
       className={cn(
-        'fixed right-8 z-30 flex items-center justify-center',
+        'fixed right-8 z-51 flex items-center justify-center',
         'h-14 w-14 rounded-2xl transition-all press-feedback',
         isMapleEnabled
           ? 'bg-primary text-primary-foreground shadow-[0_8px_24px_-6px_hsl(var(--primary)/0.6)] hover:scale-105 active:scale-95 cursor-pointer'

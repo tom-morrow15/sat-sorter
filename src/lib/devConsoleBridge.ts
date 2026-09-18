@@ -4,6 +4,7 @@
  * can still be debugged. Active only in dev when VITE_RELAY_PROXY is set.
  */
 if (import.meta.env.DEV && import.meta.env.VITE_RELAY_PROXY) {
+  document.title = '[bridge-active] ' + document.title;
   const orig = { log: console.log, warn: console.warn, error: console.error, info: console.info };
   const post = (level: string, args: unknown[]) => {
     try {
@@ -12,10 +13,11 @@ if (import.meta.env.DEV && import.meta.env.VITE_RELAY_PROXY) {
         if (typeof a === 'object') { try { return JSON.stringify(a); } catch { return String(a); } }
         return String(a);
       }).join(' ');
-      fetch('http://localhost:8099/log', {
-        method: 'POST',
-        body: `${new Date().toISOString()} [${level}] ${line}`,
-      }).catch(() => {});
+      const body = `${new Date().toISOString()} [${level}] ${line}`;
+      // Try both loopback hostnames — browsers may resolve/block them differently
+      for (const host of ['http://localhost:8099/log', 'http://127.0.0.1:8099/log']) {
+        fetch(host, { method: 'POST', body }).catch(() => {});
+      }
     } catch { /* never break the app for logging */ }
   };
   for (const level of ['log', 'warn', 'error', 'info'] as const) {
