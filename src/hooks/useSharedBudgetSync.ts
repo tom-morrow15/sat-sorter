@@ -38,13 +38,17 @@ const MONTH_DTAG_PREFIX = 'sat-sorter/budget-data/';
 
 /** Fixed set of well-known public relays for shared budget sync.
  *  Both partners publish to and subscribe from these, ensuring events
- *  are always reachable regardless of personal relay configuration. */
-const SHARED_RELAYS = [
+ *  are always reachable regardless of personal relay configuration.
+ *  Exported so UI sections that display the set stay in sync. */
+export const SHARED_BUDGET_RELAYS = [
+  'wss://relay.primal.net',
   'wss://relay.damus.io',
-  'wss://relay.nostr.band',
   'wss://nos.lol',
   'wss://relay.ditto.pub',
+  'wss://relay.nostr.band',
 ];
+
+const SHARED_RELAYS = SHARED_BUDGET_RELAYS;
 
 /** Open direct relay connections to the shared relay set.
  *  Returns an array of NRelay1 instances. */

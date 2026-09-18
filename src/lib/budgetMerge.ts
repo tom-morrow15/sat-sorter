@@ -1,4 +1,49 @@
-import type { MonthlyBudget } from './budgetTypes';
+import { generateId, type MonthlyBudget } from './budgetTypes';
+
+/**
+ * Clone a source month's budget structure into a brand-new month.
+ *
+ * Guarantees:
+ * - Every bucket and line item gets a FRESH id — the copy is technically a
+ *   new thing, so tombstones recorded in the source month (deletedLineItemIds /
+ *   deletedBucketIds) can never affect the copy, and deleting an item in the
+ *   copy never affects the source month.
+ * - No tombstone lists, transactions, or sync history are carried over —
+ *   the copy starts clean.
+ * - Line items keep their planned amounts; btcPriceAtBudget is reset to the
+ *   price at copy time (or the source's last known price as fallback).
+ */
+export function cloneBudgetForMonth(
+  source: MonthlyBudget,
+  targetMonth: string,
+  btcPriceAtCopy?: number
+): MonthlyBudget {
+  const price = btcPriceAtCopy ?? source.buckets[0]?.lineItems[0]?.btcPriceAtBudget;
+
+  // Defensive: tombstoned items shouldn't appear in live state, but if stale
+  // data slips through (e.g. pre-tombstone data), never copy them forward.
+  const deletedBucketIds = new Set(source.deletedBucketIds || []);
+  const deletedLineItemIds = new Set(source.deletedLineItemIds || []);
+
+  return {
+    id: generateId(),
+    month: targetMonth,
+    buckets: source.buckets
+      .filter((bucket) => !deletedBucketIds.has(bucket.id))
+      .map((bucket) => ({
+        ...bucket,
+        id: generateId(),
+        lineItems: bucket.lineItems
+          .filter((item) => !deletedLineItemIds.has(item.id))
+          .map((item) => ({
+            ...item,
+            id: generateId(),
+            btcPriceAtBudget: price,
+          })),
+      })),
+    transactions: [], // Start fresh — no transactions are copied
+  };
+}
 
 /**
  * Tombstone-aware merge for a single monthly budget.

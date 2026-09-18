@@ -13,6 +13,7 @@ import {
   generateId,
   formatMonth,
 } from '@/lib/budgetTypes';
+import { cloneBudgetForMonth } from '@/lib/budgetMerge';
 
 export function useBudget() {
   // Use shared context so all components share the same state instance
@@ -296,26 +297,11 @@ export function useBudget() {
         return { success: false, message: 'Previous month has no budget categories to copy' };
       }
 
-      // Deep-clone buckets with new IDs. Reset btcPriceAtBudget to the current
-      // price so the copied line items are priced at the copy time, not the
-      // source month's potentially stale price.
-      const priceAtCopy = currentBtcPrice ?? sourceBudget.buckets[0]?.lineItems[0]?.btcPriceAtBudget;
-      const newBuckets = sourceBudget.buckets.map(bucket => ({
-        ...bucket,
-        id: generateId(),
-        lineItems: bucket.lineItems.map(item => ({
-          ...item,
-          id: generateId(),
-          btcPriceAtBudget: priceAtCopy,
-        })),
-      }));
-
-      const newBudget: MonthlyBudget = {
-        id: generateId(),
-        month: targetMonth,
-        buckets: newBuckets,
-        transactions: [], // Start fresh — no transactions are copied
-      };
+      // cloneBudgetForMonth guarantees fresh ids for every bucket and line
+      // item (so the copy is technically new — tombstones in the source month
+      // can't affect it and vice versa) and carries over no tombstone lists,
+      // transactions, or sync history.
+      const newBudget = cloneBudgetForMonth(sourceBudget, targetMonth, currentBtcPrice);
 
       saveBudget(newBudget);
       console.log(`[useBudget] Successfully duplicated budget from ${sourceMonth} to ${targetMonth}`);

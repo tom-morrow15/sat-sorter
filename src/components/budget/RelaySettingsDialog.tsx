@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { SHARED_BUDGET_RELAYS } from '@/hooks/useSharedBudgetSync';
 import {
   AlertTriangle,
   Check,
@@ -40,15 +41,6 @@ const RECOMMENDED_RELAYS: { url: string; name: string; blurb: string }[] = [
   { url: 'wss://nos.lol', name: 'nos.lol', blurb: 'Popular free community relay' },
   { url: 'wss://relay.ditto.pub', name: 'Ditto', blurb: 'Reliable open-source relay' },
   { url: 'wss://relay.nostr.band', name: 'Nostr.band', blurb: 'Search and indexing relay' },
-];
-
-/** Fixed relay set used for budget-partner sync (shared budgets must be
- *  reachable by both partners regardless of personal relay choices). */
-const SHARED_BUDGET_RELAYS = [
-  'wss://relay.damus.io',
-  'wss://relay.nostr.band',
-  'wss://nos.lol',
-  'wss://relay.ditto.pub',
 ];
 
 const normalizeRelayUrl = (url: string): string => {

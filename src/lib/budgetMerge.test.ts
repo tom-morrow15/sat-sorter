@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { mergeMonthlyBudgets } from './budgetMerge';
+import { mergeMonthlyBudgets, cloneBudgetForMonth } from './budgetMerge';
 import type { MonthlyBudget, Bucket, LineItem, Transaction } from './budgetTypes';
 
 // ─── Helpers ────────────────────────────────────────────────────
@@ -148,5 +148,57 @@ describe('mergeMonthlyBudgets', () => {
 
     const merged = mergeMonthlyBudgets(local, remote);
     expect(merged.transactions.find(t => t.id === 't-wife')?.partnerPubkey).toBe('wife-pubkey');
+  });
+});
+
+// ─── cloneBudgetForMonth (copy previous month) ─────────────────
+
+describe('cloneBudgetForMonth', () => {
+  it('gives every bucket and line item a FRESH id (copy is technically new)', () => {
+    const source = month({
+      buckets: [bucket('b1', 'Food', [lineItem('groceries', 'Groceries')])],
+    });
+
+    const copy = cloneBudgetForMonth(source, '2026-10');
+
+    expect(copy.month).toBe('2026-10');
+    expect(copy.id).not.toBe(source.id);
+    expect(copy.buckets[0].id).not.toBe('b1');
+    expect(copy.buckets[0].lineItems[0].id).not.toBe('groceries');
+    // Structure and amounts are preserved
+    expect(copy.buckets[0].name).toBe('Food');
+    expect(copy.buckets[0].lineItems[0].name).toBe('Groceries');
+  });
+
+  it('carries over NO tombstones, transactions, or sync history', () => {
+    const source = month({
+      buckets: [bucket('b1', 'Food', [])],
+      transactions: [transaction('t1', 'li1', 'b1')],
+      deletedTxIds: ['t9'],
+      deletedBucketIds: ['b9'],
+      deletedLineItemIds: ['li9'],
+    });
+
+    const copy = cloneBudgetForMonth(source, '2026-10');
+
+    expect(copy.transactions).toEqual([]);
+    expect(copy.deletedTxIds).toBeUndefined();
+    expect(copy.deletedBucketIds).toBeUndefined();
+    expect(copy.deletedLineItemIds).toBeUndefined();
+  });
+
+  it('tombstoned (deleted) items in the source do not block the copy', () => {
+    // 'flex-pay' was deleted in September (tombstoned). Copying September to
+    // October must not resurrect it — but a NEW item added in October with a
+    // fresh id is unaffected by September's tombstones.
+    const source = month({
+      buckets: [bucket('b1', 'Subscriptions', [lineItem('flex-pay', 'Flex Pay')])],
+      deletedLineItemIds: ['flex-pay'],
+    });
+
+    const copy = cloneBudgetForMonth(source, '2026-10');
+    // Defensive: tombstoned items shouldn't even be in the live source array,
+    // but if stale data slips through, the copy must exclude them too.
+    expect(copy.buckets[0].lineItems.map(li => li.id)).not.toContain('flex-pay');
   });
 });
