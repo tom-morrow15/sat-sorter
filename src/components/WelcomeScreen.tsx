@@ -229,12 +229,6 @@ export function WelcomeScreen({ onGuestMode }: WelcomeScreenProps) {
                 No email. No tracking. No lock-in. Your data. Your keys.
               </p>
             </div>
-            <p className="text-[10px] text-muted-foreground/40">
-              Vibed with{' '}
-              <a href="https://shakespeare.diy" target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">
-                Shakespeare
-              </a>
-            </p>
           </div>
         </div>
       </main>

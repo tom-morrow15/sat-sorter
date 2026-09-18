@@ -376,12 +376,6 @@ export default function HomePage() {
           <p className="text-xs text-muted-foreground/70 italic">
             Since 1913, the US dollar has lost over 96% of its purchasing power. Bitcoin fixes this.
           </p>
-          <p className="text-sm text-muted-foreground">
-            Vibed with{' '}
-            <a href="https://shakespeare.diy" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
-              Shakespeare
-            </a>
-          </p>
         </footer>
       </main>
 

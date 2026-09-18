@@ -430,17 +430,7 @@ export default function Budget() {
              Bitcoin fixes this.
            </p>
 
-           <p className="text-sm text-muted-foreground">
-             Vibed with{' '}
-             <a
-               href="https://shakespeare.diy"
-               target="_blank"
-               rel="noopener noreferrer"
-               className="text-primary hover:underline"
-             >
-               Shakespeare
-             </a>
-           </p>
+
          </footer>
        </main>
 
