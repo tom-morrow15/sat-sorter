@@ -55,6 +55,59 @@ function PrivacyBanner() {
   );
 }
 
+// ─── Per-wallet connection guides ───
+// Novice path: pick your wallet, follow the taps, paste the string.
+const WALLET_GUIDES: { id: string; name: string; steps: string[]; note?: string }[] = [
+  {
+    id: 'primal',
+    name: 'Primal',
+    steps: [
+      'Open the Primal app and go to your Wallet',
+      'Open Wallet settings and find "Nostr Wallet Connect" (connected apps)',
+      'Create a connection and enable "list_transactions" — Sat Sorter needs it for auto-import',
+      'Copy the nostr+walletconnect:// string and paste it below',
+    ],
+    note: 'Primal is non-custodial: the Primal app must be running for Sat Sorter to read transactions (or use Primal\'s Remote Signer).',
+  },
+  {
+    id: 'alby',
+    name: 'Alby Hub / Alby',
+    steps: [
+      'Open Alby Hub → Apps → "New app" (or the Alby extension → Settings → Nostr Wallet Connect)',
+      'Name the connection "Sat Sorter"',
+      'Grant at least "list_transactions" (add get_balance and pay_invoice if you want zaps)',
+      'Copy the nostr+walletconnect:// string and paste it below',
+    ],
+  },
+  {
+    id: 'zeus',
+    name: 'Zeus',
+    steps: [
+      'Open Zeus → Settings → "Nostr Wallet Connect"',
+      'Create a new connection named "Sat Sorter" with "list_transactions" enabled',
+      'Copy the connection string and paste it below',
+    ],
+  },
+  {
+    id: 'coinos',
+    name: 'Coinos',
+    steps: [
+      'Log in to Coinos → Account settings → Nostr Wallet Connect',
+      'Create a connection with "list_transactions" enabled',
+      'Copy the connection string and paste it below',
+    ],
+  },
+  {
+    id: 'other',
+    name: 'Other wallet',
+    steps: [
+      'In your wallet, look for "Nostr Wallet Connect", "NWC", or "Connect to app"',
+      'Create a connection and enable "list_transactions" if available',
+      'Copy the nostr+walletconnect:// string and paste it below',
+    ],
+  },
+];
+
 // ─── Add Wallet Form ───
 const AddWalletContent = forwardRef<HTMLDivElement, {
   alias: string;
@@ -62,45 +115,83 @@ const AddWalletContent = forwardRef<HTMLDivElement, {
   connectionUri: string;
   setConnectionUri: (value: string) => void;
   onScanQR?: () => void;
-}>(({ alias, setAlias, connectionUri, setConnectionUri, onScanQR }, ref) => (
-  <div className="space-y-4 px-4" ref={ref}>
-    <div>
-      <Label htmlFor="alias">Wallet Name (optional)</Label>
-      <Input
-        id="alias"
-        placeholder="My Lightning Wallet"
-        value={alias}
-        onChange={(e) => setAlias(e.target.value)}
-      />
-    </div>
-    <div>
-      <Label htmlFor="connection-uri">Connection URI</Label>
-      <Textarea
-        id="connection-uri"
-        placeholder="nostr+walletconnect://..."
-        value={connectionUri}
-        onChange={(e) => setConnectionUri(e.target.value)}
-        rows={3}
-      />
-      <div className="flex items-center justify-between mt-2">
-        <p className="text-xs text-muted-foreground">
-          Get this from your wallet app (e.g., Alby, Zeus, Primal).
-        </p>
-        {onScanQR && (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={onScanQR}
-          >
-            <QrCode className="h-4 w-4 mr-1" />
-            Scan
-          </Button>
+}>(({ alias, setAlias, connectionUri, setConnectionUri, onScanQR }, ref) => {
+  const [selectedGuide, setSelectedGuide] = useState('other');
+  const guide = WALLET_GUIDES.find((g) => g.id === selectedGuide) ?? WALLET_GUIDES[WALLET_GUIDES.length - 1];
+
+  return (
+    <div className="space-y-4 px-4" ref={ref}>
+      {/* Step 1: pick your wallet — shows exact taps for each one */}
+      <div className="space-y-2">
+        <Label>Which wallet are you connecting?</Label>
+        <div className="flex flex-wrap gap-1.5">
+          {WALLET_GUIDES.map((g) => (
+            <button
+              key={g.id}
+              type="button"
+              onClick={() => setSelectedGuide(g.id)}
+              className={`px-3 py-1.5 rounded-full text-xs border transition-colors ${
+                selectedGuide === g.id
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'bg-muted/30 border-border hover:bg-muted/60'
+              }`}
+            >
+              {g.name}
+            </button>
+          ))}
+        </div>
+        <ol className="text-xs text-muted-foreground space-y-1.5 list-decimal list-inside bg-muted/20 border border-border/40 rounded-lg p-3">
+          {guide.steps.map((step, i) => (
+            <li key={i}>{step}</li>
+          ))}
+        </ol>
+        {guide.note && (
+          <p className="text-xs text-amber-600 dark:text-amber-400">💡 {guide.note}</p>
         )}
       </div>
+
+      {/* Step 2: paste the connection string */}
+      <div>
+        <Label htmlFor="connection-uri">Connection string</Label>
+        <Textarea
+          id="connection-uri"
+          placeholder="nostr+walletconnect://..."
+          value={connectionUri}
+          onChange={(e) => setConnectionUri(e.target.value)}
+          rows={3}
+          className="font-mono text-xs"
+        />
+        <div className="flex items-center justify-between mt-2">
+          <p className="text-xs text-muted-foreground">
+          Looks like nostr+walletconnect://… — paste it exactly as copied.
+          </p>
+          {onScanQR && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onScanQR}
+            >
+              <QrCode className="h-4 w-4 mr-1" />
+              Scan
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Step 3: optional name — auto-filled from the wallet on connect anyway */}
+      <div>
+        <Label htmlFor="alias">Wallet Name (optional)</Label>
+        <Input
+          id="alias"
+          placeholder={guide.name}
+          value={alias}
+          onChange={(e) => setAlias(e.target.value)}
+        />
+      </div>
     </div>
-  </div>
-));
+  );
+});
 AddWalletContent.displayName = 'AddWalletContent';
 
 // Format relative time
@@ -145,12 +236,25 @@ const WalletContent = forwardRef<HTMLDivElement, {
   lastSyncTimestamp,
   onSync,
   onToggleAutoSync,
-}, ref) => (
+}, ref) => {
+  // Connection-protocol details (WebLN, NWC capabilities) are power-user
+  // info — collapsed by default so novices see only what matters.
+  const [showAdvanced, setShowAdvanced] = useState(false);
+
+  return (
   <div className="space-y-6 px-4 pb-4" ref={ref}>
     <PrivacyBanner />
 
-    {/* Connection Status */}
-    <div className="space-y-3">
+    {/* Connection details — power-user info, collapsed by default */}
+    <div>
+      <button
+        className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+        onClick={() => setShowAdvanced((v) => !v)}
+      >
+        {showAdvanced ? '▾' : '▸'} Advanced — connection details
+      </button>
+      {showAdvanced && (
+      <div className="space-y-3 mt-2">
       <h3 className="font-medium">Connection Status</h3>
       <div className="grid gap-3">
         {/* WebLN */}
@@ -191,6 +295,8 @@ const WalletContent = forwardRef<HTMLDivElement, {
           </div>
         </div>
       </div>
+      </div>
+      )}
     </div>
 
     {/* Transaction Sync Section — only when a wallet is connected */}
@@ -331,7 +437,8 @@ const WalletContent = forwardRef<HTMLDivElement, {
       </>
     )}
   </div>
-));
+  );
+});
 WalletContent.displayName = 'WalletContent';
 
 // ─── Main Component ───
