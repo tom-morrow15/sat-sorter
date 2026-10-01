@@ -48,6 +48,10 @@ export function PartnerSyncWrapper({ children }: { children: React.ReactNode }) 
   const publishTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Track the last published fingerprint to avoid redundant publishes
   const lastPublishedRef = useRef<string>('');
+  // Always publish the budgets that exist when the timer fires, not the
+  // objects captured when it was scheduled.
+  const budgetsRef = useRef(fullState.budgets);
+  budgetsRef.current = fullState.budgets;
   // Track whether the effect has run once. On the first run (app mount / reload)
   // we only record the baseline fingerprint — we do NOT publish, because the
   // state was loaded from storage/relay, not edited by the user. Publishing on
@@ -123,9 +127,11 @@ export function PartnerSyncWrapper({ children }: { children: React.ReactNode }) 
     // Debounce: wait 3s after the last change before publishing
     if (publishTimer.current) clearTimeout(publishTimer.current);
     publishTimer.current = setTimeout(async () => {
-      console.log('[PartnerSyncWrapper] Publishing budget snapshots for', changedMonths.length, 'month(s)...');
+      const months = new Set(changedMonths.map((b) => b.month));
+      const latest = budgetsRef.current.filter((b) => months.has(b.month));
+      console.log('[PartnerSyncWrapper] Publishing budget snapshots for', latest.length, 'month(s)...');
       let published = 0;
-      for (const budget of changedMonths) {
+      for (const budget of latest) {
         if (budget.buckets && budget.buckets.length > 0) {
           const ok = await publishBudgetSnapshot(budget);
           if (ok) {

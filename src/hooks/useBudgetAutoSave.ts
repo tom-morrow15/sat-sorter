@@ -47,6 +47,11 @@ export function useBudgetAutoSave(fullState?: BudgetState) {
   const lastPushedFingerprint = useRef<string | null>(null);
   const hasInitialized = useRef(false);
   const pushTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // The debounce callback must upload whatever is on screen now, not the
+  // snapshot from when the timer was armed. Otherwise a line-item edit made
+  // during those 8 seconds gets published as the old amount.
+  const fullStateRef = useRef(fullState);
+  fullStateRef.current = fullState;
 
   // Reset when user changes (login/logout)
   useEffect(() => {
@@ -86,22 +91,26 @@ export function useBudgetAutoSave(fullState?: BudgetState) {
 
     // Debounce the push
     pushTimer.current = setTimeout(async () => {
-      // Re-read the latest fingerprint (state may have changed during debounce)
-      const latest = budgetFingerprint(fullState);
+      const latestState = fullStateRef.current;
+      if (!latestState?.budgets) return;
+      const latest = budgetFingerprint(latestState);
       if (latest === lastPushedFingerprint.current) return;
 
       setStatus('saving');
-      const ok = await uploadBudget(fullState, { skipRemoteCheck: true });
+      const ok = await uploadBudget(latestState, { skipRemoteCheck: true });
       if (ok) {
         lastPushedFingerprint.current = latest;
         setStatus('saved');
       } else {
         setStatus('error');
-        // Retry once after a longer delay
+        // Retry once after a longer delay, still from the latest state.
         setTimeout(async () => {
-          const retryOk = await uploadBudget(fullState, { skipRemoteCheck: true });
+          const retryState = fullStateRef.current;
+          if (!retryState?.budgets) return;
+          const retryFp = budgetFingerprint(retryState);
+          const retryOk = await uploadBudget(retryState, { skipRemoteCheck: true });
           if (retryOk) {
-            lastPushedFingerprint.current = latest;
+            lastPushedFingerprint.current = retryFp;
             setStatus('saved');
           } else {
             setStatus('error');
