@@ -37,11 +37,21 @@ export function useBudget() {
   const saveBudget = useCallback((budget: MonthlyBudget) => {
     setState(prev => {
       const existingIndex = prev.budgets.findIndex(b => b.month === budget.month);
-      const newBudgets = [...prev.budgets];
+      const now = Math.floor(Date.now() / 1000);
 
-      // Ensure transactions array exists
+      if (existingIndex >= 0) {
+        const current = prev.budgets[existingIndex];
+        // A slow sync can arrive holding a copy of the month from before the
+        // user changed a line item. Drop that write.
+        if ((current.updatedAt ?? 0) > (budget.updatedAt ?? 0)) {
+          return prev;
+        }
+      }
+
+      const newBudgets = [...prev.budgets];
       const safeBudget = {
         ...budget,
+        updatedAt: now,
         transactions: budget.transactions || [],
         buckets: budget.buckets || [],
       };
@@ -156,21 +166,33 @@ export function useBudget() {
     lineItemId: string,
     updates: Partial<LineItem>
   ) => {
-    const updatedBudget = {
-      ...currentBudget,
-      buckets: currentBudget.buckets.map(b =>
-        b.id === bucketId
-          ? {
-              ...b,
-              lineItems: b.lineItems.map(item =>
-                item.id === lineItemId ? { ...item, ...updates } : item
-              ),
-            }
-          : b
-      ),
-    };
-    saveBudget(updatedBudget);
-  }, [currentBudget, saveBudget]);
+    setState(prev => {
+      const now = Math.floor(Date.now() / 1000);
+      const idx = prev.budgets.findIndex(b => b.month === prev.currentMonth);
+      // Month already saved: patch that copy. A closed-over currentBudget
+      // would put the old amount back. If this month was never saved, start
+      // from the on-screen budget so a first edit is not dropped.
+      const budget = idx >= 0 ? prev.budgets[idx] : currentBudget;
+      const next: MonthlyBudget = {
+        ...budget,
+        updatedAt: now,
+        buckets: (budget.buckets || []).map(b =>
+          b.id === bucketId
+            ? {
+                ...b,
+                lineItems: b.lineItems.map(item =>
+                  item.id === lineItemId ? { ...item, ...updates } : item
+                ),
+              }
+            : b
+        ),
+      };
+      const budgets = [...prev.budgets];
+      if (idx >= 0) budgets[idx] = next;
+      else budgets.push(next);
+      return { ...prev, budgets };
+    });
+  }, [setState, currentBudget]);
 
   // Delete a line item
   const deleteLineItem = useCallback((bucketId: string, lineItemId: string) => {
@@ -200,14 +222,22 @@ export function useBudget() {
       date: transaction.date || new Date().toISOString(),
     };
 
-    const updatedBudget = {
-      ...currentBudget,
-      transactions: [...currentBudget.transactions, newTransaction],
-    };
-
-    saveBudget(updatedBudget);
+    setState(prev => {
+      const now = Math.floor(Date.now() / 1000);
+      const idx = prev.budgets.findIndex(b => b.month === prev.currentMonth);
+      const budget = idx >= 0 ? prev.budgets[idx] : currentBudget;
+      const next: MonthlyBudget = {
+        ...budget,
+        updatedAt: now,
+        transactions: [...(budget.transactions || []), newTransaction],
+      };
+      const budgets = [...prev.budgets];
+      if (idx >= 0) budgets[idx] = next;
+      else budgets.push(next);
+      return { ...prev, budgets };
+    });
     return newTransaction;
-  }, [currentBudget, saveBudget]);
+  }, [setState, currentBudget]);
 
   // Add multiple transactions in a single atomic update (used for splits to avoid stale-closure overwrites)
   const addTransactions = useCallback((transactions: Omit<Transaction, 'id'>[]) => {
