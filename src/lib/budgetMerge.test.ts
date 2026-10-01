@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { mergeMonthlyBudgets, cloneBudgetForMonth } from './budgetMerge';
 import type { MonthlyBudget, Bucket, LineItem, Transaction } from './budgetTypes';
 
-// ─── Helpers ────────────────────────────────────────────────────
+// ─── Helpers ────────────────────────────────────────────────────────
 
 function lineItem(id: string, name: string, plannedAmount = 0): LineItem {
   return { id, name, plannedAmount, order: 0 };
@@ -96,7 +96,38 @@ describe('mergeMonthlyBudgets', () => {
     expect(merged.deletedLineItemIds!.sort()).toEqual(['a', 'b']);
   });
 
-  it('partner edits to shared line items (amounts) are applied', () => {
+  it('a newer local line item amount is not replaced by an older snapshot', () => {
+    const local = month({
+      updatedAt: 200,
+      buckets: [bucket('b1', 'Bills', [{ ...lineItem('dtv', 'DIRECTV', 93_000), plannedAmountUsd: 93 }])],
+    });
+    const remote = month({
+      updatedAt: 100,
+      buckets: [bucket('b1', 'Bills', [{ ...lineItem('dtv', 'DIRECTV', 127_000), plannedAmountUsd: 127 }])],
+    });
+
+    const merged = mergeMonthlyBudgets(local, remote);
+    expect(merged.buckets[0].lineItems[0].plannedAmountUsd).toBe(93);
+    expect(merged.buckets[0].lineItems[0].plannedAmount).toBe(93_000);
+  });
+
+  it('a newer remote amount still wins when the partner edited later', () => {
+    const local = month({
+      updatedAt: 100,
+      buckets: [bucket('b1', 'Food', [lineItem('groceries', 'Groceries', 50_000)])],
+    });
+    const remote = month({
+      updatedAt: 200,
+      buckets: [bucket('b1', 'Food', [lineItem('groceries', 'Groceries', 75_000)])],
+    });
+
+    const merged = mergeMonthlyBudgets(local, remote);
+    expect(merged.buckets[0].lineItems[0].plannedAmount).toBe(75_000);
+  });
+
+  it('partner edits still apply when neither side has a timestamp', () => {
+    // Legacy snapshots have no updatedAt. Remote stays the winner so a cloud
+    // restore is not blocked by an older copy that never recorded a clock.
     const local = month({
       buckets: [bucket('b1', 'Food', [lineItem('groceries', 'Groceries', 50_000)])],
     });
@@ -106,6 +137,53 @@ describe('mergeMonthlyBudgets', () => {
 
     const merged = mergeMonthlyBudgets(local, remote);
     expect(merged.buckets[0].lineItems[0].plannedAmount).toBe(75_000);
+  });
+
+  it('a local edit beats a relay snapshot that has no timestamp', () => {
+    const local = month({
+      updatedAt: 200,
+      buckets: [bucket('b1', 'Bills', [{ ...lineItem('dtv', 'DIRECTV', 93_000), plannedAmountUsd: 93 }])],
+    });
+    const remote = month({
+      buckets: [bucket('b1', 'Bills', [{ ...lineItem('dtv', 'DIRECTV', 127_000), plannedAmountUsd: 127 }])],
+    });
+
+    const merged = mergeMonthlyBudgets(local, remote);
+    expect(merged.buckets[0].lineItems[0].plannedAmountUsd).toBe(93);
+    expect(merged.buckets[0].lineItems[0].plannedAmount).toBe(93_000);
+  });
+
+  it('a newer local edit does not resurrect a line item the other side deleted', () => {
+    const local = month({
+      updatedAt: 200,
+      buckets: [bucket('b1', 'Bills', [lineItem('dtv', 'DIRECTV', 93_000), lineItem('dead', 'Gone')])],
+    });
+    const remote = month({
+      updatedAt: 100,
+      buckets: [bucket('b1', 'Bills', [lineItem('dtv', 'DIRECTV', 127_000)])],
+      deletedLineItemIds: ['dead'],
+    });
+
+    const merged = mergeMonthlyBudgets(local, remote);
+    expect(merged.buckets[0].lineItems.map(li => li.id)).not.toContain('dead');
+    expect(merged.buckets[0].lineItems.find(li => li.id === 'dtv')?.plannedAmount).toBe(93_000);
+    expect(merged.deletedLineItemIds).toContain('dead');
+  });
+
+  it('a newer local edit still keeps a line item that only exists on the remote', () => {
+    const local = month({
+      updatedAt: 200,
+      buckets: [bucket('b1', 'Bills', [lineItem('dtv', 'DIRECTV', 93_000)])],
+    });
+    const remote = month({
+      updatedAt: 100,
+      buckets: [bucket('b1', 'Bills', [lineItem('dtv', 'DIRECTV', 127_000), lineItem('hulu', 'Hulu', 10_000)])],
+    });
+
+    const merged = mergeMonthlyBudgets(local, remote);
+    const bills = merged.buckets[0];
+    expect(bills.lineItems.find(li => li.id === 'dtv')?.plannedAmount).toBe(93_000);
+    expect(bills.lineItems.map(li => li.id)).toContain('hulu');
   });
 
   it('partner additions appear in the merged result', () => {
