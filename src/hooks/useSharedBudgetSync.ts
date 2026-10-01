@@ -122,7 +122,7 @@ export function fingerprintBudgetMonth(budget: MonthlyBudget): string {
         color: b.color,
         // Include each line item's id + planned amount so edits to amounts
         // are detected (not just add/remove of line items).
-        items: (b.lineItems || []).map(li => `${li.id}:${li.plannedAmount}`).sort(),
+        items: (b.lineItems || []).map(li => `${li.id}:${li.plannedAmount}:${li.plannedAmountUsd ?? ''}`).sort(),
       }))
       .sort((a, b) => a.name.localeCompare(b.name)),
     // Include each transaction's id + its line item assignment so reassigning
@@ -426,6 +426,11 @@ export function useSharedBudgetSync(budgetNpub: string, budgetNsec: string) {
         if (syncEvent.type !== 'budget-updated') return;
         const snapshot = syncEvent.data?.snapshot as MonthlyBudget;
         if (!snapshot?.month) return;
+        // Old snapshots have no updatedAt. The relay time is the best clock
+        // we have, so a line item edited after that publish is kept.
+        if (snapshot.updatedAt == null && rawEvent.created_at) {
+          snapshot.updatedAt = rawEvent.created_at;
+        }
 
         // Record the fingerprint so PartnerSyncWrapper doesn't echo this back
         receivedFingerprintsRef.current.set(snapshot.month, fingerprintBudgetMonth(snapshot));
