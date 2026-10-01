@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { mergeMonthlyBudgets, cloneBudgetForMonth } from './budgetMerge';
 import type { MonthlyBudget, Bucket, LineItem, Transaction } from './budgetTypes';
 
-// ─── Helpers ────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────
 
 function lineItem(id: string, name: string, plannedAmount = 0): LineItem {
   return { id, name, plannedAmount, order: 0 };
