@@ -20,8 +20,6 @@ export function cloneBudgetForMonth(
 ): MonthlyBudget {
   const price = btcPriceAtCopy ?? source.buckets[0]?.lineItems[0]?.btcPriceAtBudget;
 
-  // Defensive: tombstoned items shouldn't appear in live state, but if stale
-  // data slips through (e.g. pre-tombstone data), never copy them forward.
   const deletedBucketIds = new Set(source.deletedBucketIds || []);
   const deletedLineItemIds = new Set(source.deletedLineItemIds || []);
 
@@ -41,7 +39,7 @@ export function cloneBudgetForMonth(
             btcPriceAtBudget: price,
           })),
       })),
-    transactions: [], // Start fresh — no transactions are copied
+    transactions: [],
   };
 }
 
@@ -55,14 +53,21 @@ export function cloneBudgetForMonth(
  *
  * Semantics:
  * - Buckets, line items, and transactions are unioned by id.
- * - Tombstone lists (deletedTxIds, deletedBucketIds, deletedLineItemIds) are
- *   unioned monotonically: a deletion can never be undone by a merge. The
- *   only way to bring an item back is to create a new one (fresh id).
- * - For items that exist on both sides, remote fields win: the remote
- *   snapshot is the partner's (or the cloud's) latest published state.
- *   Local-only edits are re-published by the sync layer moments later.
+ * - Tombstone lists are unioned monotonically: a deletion can never be undone.
+ * - When both sides have the same item, the side with the newer `updatedAt`
+ *   keeps the amount, name, and other fields. An older relay snapshot must
+ *   not put a line item back to the number the user just changed.
+ * - If neither side has `updatedAt` (legacy data), remote fields still win
+ *   so a cloud restore keeps working.
  */
+function localFieldsWin(local: MonthlyBudget, remote: MonthlyBudget): boolean {
+  if (local.updatedAt == null) return false;
+  if (remote.updatedAt == null) return true;
+  return local.updatedAt >= remote.updatedAt;
+}
+
 export function mergeMonthlyBudgets(local: MonthlyBudget, remote: MonthlyBudget): MonthlyBudget {
+  const keepLocal = localFieldsWin(local, remote);
   // Tombstones are monotonic — union both sides
   const deletedTxIds = new Set([...(local.deletedTxIds || []), ...(remote.deletedTxIds || [])]);
   const deletedBucketIds = new Set([
@@ -87,8 +92,7 @@ export function mergeMonthlyBudgets(local: MonthlyBudget, remote: MonthlyBudget)
       if (!lb) return rb!;
       if (!rb) return lb;
 
-      // Remote (partner's latest published state) wins for shared fields
-      const mergedBucket = { ...lb, ...rb };
+      const mergedBucket = keepLocal ? { ...rb, ...lb } : { ...lb, ...rb };
 
       // Union line items by id, excluding tombstoned line items
       const itemIds = new Set<string>();
@@ -99,7 +103,7 @@ export function mergeMonthlyBudgets(local: MonthlyBudget, remote: MonthlyBudget)
         .map((iid) => {
           const lli = (lb.lineItems || []).find((li) => li.id === iid);
           const rli = (rb.lineItems || []).find((li) => li.id === iid);
-          if (lli && rli) return { ...lli, ...rli };
+          if (lli && rli) return keepLocal ? { ...rli, ...lli } : { ...lli, ...rli };
           return lli || rli!;
         })
         .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
@@ -117,14 +121,18 @@ export function mergeMonthlyBudgets(local: MonthlyBudget, remote: MonthlyBudget)
     .map((id) => {
       const lt = (local.transactions || []).find((t) => t.id === id);
       const rt = (remote.transactions || []).find((t) => t.id === id);
-      if (lt && rt) return { ...lt, ...rt };
+      if (lt && rt) return keepLocal ? { ...rt, ...lt } : { ...lt, ...rt };
       return lt || rt!;
     });
 
+  const updatedAt = Math.max(local.updatedAt ?? 0, remote.updatedAt ?? 0) || undefined;
+
   return {
     ...local,
+    ...(keepLocal ? {} : remote),
     buckets,
     transactions,
+    updatedAt,
     deletedTxIds: Array.from(deletedTxIds),
     deletedBucketIds: Array.from(deletedBucketIds),
     deletedLineItemIds: Array.from(deletedLineItemIds),
