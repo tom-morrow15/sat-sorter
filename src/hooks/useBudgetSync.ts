@@ -83,7 +83,11 @@ export async function fetchFullBudgetFromNostr(
         limit: 1,
       });
       if (monthRes?.data && typeof monthRes.data === 'object' && monthRes.data.month === month) {
-        return monthRes.data as MonthlyBudget;
+        const data = monthRes.data as MonthlyBudget;
+        if (data.updatedAt == null && monthRes.event?.created_at) {
+          data.updatedAt = monthRes.event.created_at;
+        }
+        return data;
       }
       return null;
     });
@@ -126,9 +130,13 @@ export async function fetchFullBudgetFromNostr(
 
     if (budgetData && Array.isArray(budgetData.budgets)) {
       console.log('[budgetNostr] Using legacy single-blob budget (pre-split format)');
+      const createdAt = manifestResult.event?.created_at;
       return {
         data: {
           ...budgetData,
+          budgets: budgetData.budgets.map((b) =>
+            b && b.updatedAt == null && createdAt ? { ...b, updatedAt: createdAt } : b
+          ),
           lastSynced: Math.floor(Date.now() / 1000),
         },
         timestamp: manifestResult.event.created_at,
