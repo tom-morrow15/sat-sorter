@@ -329,26 +329,127 @@ export function formatDistance(km: number): string {
   return `${miles.toFixed(1)} mi`;
 }
 
-// Fetch ALL merchants from BTCMap API (no date filtering)
-async function fetchAllMerchants(): Promise<BTCMapElement[]> {
+const PLACE_FIELDS = [
+  'id',
+  'lat',
+  'lon',
+  'name',
+  'address',
+  'icon',
+  'phone',
+  'website',
+  'osm_id',
+  'opening_hours',
+  'payment_provider',
+  'deleted_at',
+].join(',');
+
+/** BTC Map material icons, mapped onto the categories this app already uses. */
+const ICON_TO_CATEGORY: Record<string, string> = {
+  lunch_dining: 'restaurant',
+  restaurant: 'restaurant',
+  dinner_dining: 'restaurant',
+  ramen_dining: 'restaurant',
+  set_meal: 'restaurant',
+  local_cafe: 'cafe',
+  coffee: 'cafe',
+  bakery_dining: 'bakery',
+  icecream: 'ice_cream',
+  local_bar: 'bar',
+  sports_bar: 'bar',
+  nightlife: 'bar',
+  liquor: 'bar',
+  local_gas_station: 'fuel',
+  local_pharmacy: 'pharmacy',
+  medical_services: 'doctor',
+  content_cut: 'hairdresser',
+  spa: 'spa',
+  car_repair: 'car_repair',
+  directions_car: 'car_repair',
+  local_taxi: 'taxi',
+  hotel: 'hotel',
+  local_grocery_store: 'supermarket',
+  shopping_cart: 'supermarket',
+  store: 'convenience',
+  computer: 'electronics',
+  devices: 'electronics',
+  smartphone: 'electronics',
+  sports: 'sports',
+  fitness_center: 'gym',
+  local_atm: 'atm',
+  atm: 'atm',
+  attach_money: 'atm',
+};
+
+interface BtcMapPlace {
+  id: number;
+  lat?: number;
+  lon?: number;
+  name?: string;
+  address?: string;
+  icon?: string;
+  phone?: string;
+  website?: string;
+  osm_id?: string;
+  opening_hours?: string;
+  payment_provider?: string;
+  deleted_at?: string;
+}
+
+function placeToElement(place: BtcMapPlace): BTCMapElement | null {
+  if (place.lat == null || place.lon == null) return null;
+  const [osmType = 'node', osmId = '0'] = (place.osm_id || '').split(':');
+  const category = ICON_TO_CATEGORY[place.icon || ''] || 'other';
+  const acceptsLightning = Boolean(place.payment_provider);
+  return {
+    id: String(place.id),
+    osm_json: {
+      type: osmType,
+      id: Number(osmId) || place.id,
+      lat: place.lat,
+      lon: place.lon,
+      tags: {
+        name: place.name,
+        phone: place.phone,
+        website: place.website,
+        opening_hours: place.opening_hours,
+        'addr:street': place.address,
+        amenity: category === 'other' ? undefined : category,
+        'payment:lightning': acceptsLightning ? 'yes' : undefined,
+        'payment:onchain': acceptsLightning ? undefined : 'yes',
+      },
+    },
+    tags: { category },
+    deleted_at: place.deleted_at,
+  };
+}
+
+// Fetch merchants near a point. The old /v2/elements dump now 404s unless it
+// is filtered, and it was the entire world. Search by the user's location.
+async function fetchNearbyMerchants(lat: number, lon: number, radiusKm: number): Promise<BTCMapElement[]> {
+  const params = new URLSearchParams({
+    lat: String(lat),
+    lon: String(lon),
+    radius_km: String(Math.max(1, Math.round(radiusKm))),
+    fields: PLACE_FIELDS,
+  });
   const response = await fetch(
-    `https://api.btcmap.org/v2/elements`,
-    { signal: AbortSignal.timeout(30000) }
+    `https://api.btcmap.org/v4/places/search/?${params}`,
+    { signal: AbortSignal.timeout(20000) }
   );
 
   if (!response.ok) {
-    throw new Error('Failed to fetch BTCMap data');
+    throw new Error('Failed to fetch BTC Map places');
   }
 
-  const elements: BTCMapElement[] = await response.json();
+  const places: BtcMapPlace[] = await response.json();
+  const merchants = places
+    .filter(place => !place.deleted_at)
+    .map(placeToElement)
+    .filter((place): place is BTCMapElement => place !== null);
 
-  // Filter out deleted merchants
-  const activeMerchants = elements.filter(el => !el.deleted_at || el.deleted_at === '');
-
-  // Log stats for debugging
-  console.log(`[BTCMap] Fetched ${activeMerchants.length} active merchants out of ${elements.length} total`);
-
-  return activeMerchants;
+  console.log(`[BTCMap] Found ${merchants.length} merchants within ${Math.round(radiusKm)} km`);
+  return merchants;
 }
 
 // Filter merchants by location and radius
@@ -407,18 +508,18 @@ export function useLocationSettings() {
 export function useBTCMap() {
   const { settings, hasLocation } = useLocationSettings();
 
-  // Fetch all merchants once and cache
-  const allMerchantsQuery = useQuery({
-    queryKey: ['btcmap-all-merchants'],
-    queryFn: fetchAllMerchants,
+  // Fetch merchants around the saved location. Refetch when it or the radius changes.
+  const nearbyQuery = useQuery({
+    queryKey: ['btcmap-nearby', settings.lat, settings.lon, settings.radiusMiles],
+    queryFn: () => fetchNearbyMerchants(settings.lat!, settings.lon!, milesToKm(settings.radiusMiles)),
+    enabled: hasLocation && settings.lat !== null && settings.lon !== null,
     staleTime: 1800000, // 30 minutes
     gcTime: 3600000, // 1 hour
   });
 
-  // Filter by user's location
-  const merchants = allMerchantsQuery.data && hasLocation && settings.lat && settings.lon
+  const merchants = nearbyQuery.data && hasLocation && settings.lat && settings.lon
     ? filterMerchantsByLocation(
-        allMerchantsQuery.data,
+        nearbyQuery.data,
         settings.lat,
         settings.lon,
         milesToKm(settings.radiusMiles)
@@ -427,12 +528,12 @@ export function useBTCMap() {
 
   return {
     merchants,
-    isLoading: allMerchantsQuery.isLoading,
-    error: allMerchantsQuery.error instanceof Error ? allMerchantsQuery.error.message : null,
+    isLoading: nearbyQuery.isLoading,
+    error: nearbyQuery.error instanceof Error ? nearbyQuery.error.message : null,
     hasLocation,
     settings,
-    totalMerchants: allMerchantsQuery.data?.length || 0,
-    refetch: allMerchantsQuery.refetch,
+    totalMerchants: nearbyQuery.data?.length || 0,
+    refetch: nearbyQuery.refetch,
   };
 }
 

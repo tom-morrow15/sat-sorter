@@ -16,6 +16,7 @@ import {
   BookOpen,
   Wifi,
   PawPrint,
+  Loader2,
   Search,
   Filter,
   ChevronDown,
@@ -384,7 +385,7 @@ function MerchantDetailDialog({ merchant, open, onOpenChange }: MerchantDetailDi
 }
 
 export function MerchantGrid() {
-  const { merchants } = useBTCMap();
+  const { merchants, isLoading, error } = useBTCMap();
   const [selectedMerchant, setSelectedMerchant] = useState<(BTCMapElement & { distance: number }) | null>(null);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -482,7 +483,21 @@ export function MerchantGrid() {
           />
         </div>
 
-        {merchants.length === 0 ? (
+        {isLoading ? (
+          <Card className="border-dashed">
+            <CardContent className="py-12 text-center text-muted-foreground">
+              <Loader2 className="h-8 w-8 animate-spin mx-auto mb-3" />
+              <p>Finding Bitcoin merchants near you...</p>
+            </CardContent>
+          </Card>
+        ) : error ? (
+          <Card className="border-dashed">
+            <CardContent className="py-12 text-center">
+              <Store className="h-12 w-12 text-muted-foreground/50 mx-auto mb-3" />
+              <p className="text-muted-foreground">Could not load nearby merchants. Check your connection and try again.</p>
+            </CardContent>
+          </Card>
+        ) : merchants.length === 0 ? (
           /* Empty state */
           <Card className="border-dashed">
             <CardContent className="py-12 text-center">
