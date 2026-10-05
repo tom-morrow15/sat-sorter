@@ -126,8 +126,31 @@ export function MapleSettings() {
     }
     const id = addConnection({ ...draft, host: view.host });
     setDraft({ name: '', baseUrl: '', apiKey: '', model: '' });
-    setView({ name: 'edit', id });
-    toast({ title: 'AI added' });
+    setProvider(id);
+    setView({ name: 'list' });
+    toast({ title: 'Saved', description: 'This AI is ready to use in the chat.' });
+  };
+
+  const confirmSave = () => {
+    if (view.name === 'create' && view.preset === 'other') {
+      saveDraft();
+      return;
+    }
+    if (view.name === 'create' && (view.preset === 'maple' || view.preset === 'ppq')) {
+      if (!apiKey.trim()) {
+        toast({ title: 'Add an API key first', variant: 'destructive' });
+        return;
+      }
+      setReturnProvider(view.preset);
+      toast({ title: 'Saved', description: 'This AI is ready to use in the chat.' });
+      setView({ name: 'list' });
+      return;
+    }
+    if (view.name === 'edit') {
+      setProvider(view.id);
+      toast({ title: 'Saved', description: 'This AI is ready to use in the chat.' });
+      setView({ name: 'list' });
+    }
   };
 
   const modelOptions = availableModels.length > 0
@@ -277,7 +300,7 @@ export function MapleSettings() {
                 void runTest(apiKey, proxyUrl, model, view.name === 'create' ? view.preset !== 'other' : view.id === 'maple' || view.id === 'ppq');
               }
             }}
-            onSave={view.name === 'create' && view.preset === 'other' ? saveDraft : undefined}
+            onSave={confirmSave}
             onRemove={view.name === 'edit' && view.id !== 'maple' && view.id !== 'ppq'
               ? () => {
                 removeConnection(view.id);
@@ -381,9 +404,10 @@ function ConnectionForm({
   onZdr: (value: boolean) => void;
   isTesting: boolean;
   onTest: () => void;
-  onSave?: () => void;
+  onSave: () => void;
   onRemove?: () => void;
 }) {
+  const [confirmingRemove, setConfirmingRemove] = useState(false);
   const showAddress = preset === 'other';
   return (
     <div className="space-y-3">
@@ -478,8 +502,26 @@ function ConnectionForm({
           </div>
         </div>
       )}
-      {onSave && <Button className="w-full" onClick={onSave}>Save</Button>}
-      {onRemove && <Button variant="outline" className="w-full" onClick={onRemove}>Remove this AI</Button>}
+      <Button className="w-full" onClick={onSave}>Save</Button>
+      {onRemove && !confirmingRemove && (
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full border-destructive/50 text-destructive hover:bg-destructive/10 hover:text-destructive"
+          onClick={() => setConfirmingRemove(true)}
+        >
+          Remove this AI
+        </Button>
+      )}
+      {confirmingRemove && (
+        <div className="space-y-2 rounded-xl border border-destructive/40 p-3">
+          <p className="text-sm">Remove this AI? You can add it again later.</p>
+          <div className="flex gap-2">
+            <Button type="button" variant="outline" className="flex-1" onClick={() => setConfirmingRemove(false)}>Cancel</Button>
+            <Button type="button" variant="destructive" className="flex-1" onClick={onRemove}>Remove</Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
