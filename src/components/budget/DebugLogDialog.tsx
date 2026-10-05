@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Bug, Trash2 } from 'lucide-react';
+import { ClipboardList, Copy, Trash2 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -9,7 +9,8 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { getDebugLogs, clearDebugLogs, subscribeDebugLogs } from '@/lib/debugLog';
+import { useToast } from '@/hooks/useToast';
+import { getDebugLogs, clearDebugLogs, subscribeDebugLogs, formatDebugLogs } from '@/lib/debugLog';
 import type { DebugLogEntry } from '@/lib/debugLog';
 
 interface DebugLogDialogProps {
@@ -19,8 +20,8 @@ interface DebugLogDialogProps {
 
 export function DebugLogDialog({ open, onOpenChange }: DebugLogDialogProps) {
   const [logs, setLogs] = useState<DebugLogEntry[]>(getDebugLogs());
+  const { toast } = useToast();
 
-  // Subscribe to new log entries so the dialog updates in real time
   useEffect(() => {
     const unsub = subscribeDebugLogs(() => setLogs(getDebugLogs()));
     return unsub;
@@ -31,16 +32,26 @@ export function DebugLogDialog({ open, onOpenChange }: DebugLogDialogProps) {
     setLogs([]);
   };
 
+  const handleCopy = async () => {
+    const text = formatDebugLogs(logs);
+    try {
+      await navigator.clipboard.writeText(text || 'No log entries.');
+      toast({ title: 'Logs copied' });
+    } catch {
+      toast({ title: 'Could not copy logs', variant: 'destructive' });
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px] max-w-[calc(100vw-2rem)] max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Bug className="h-5 w-5" />
-            Sync Debug Log
+            <ClipboardList className="h-5 w-5" />
+            App Logs
           </DialogTitle>
           <DialogDescription>
-            Partner sync diagnostics. Useful for troubleshooting why changes aren't syncing.
+            What this phone just did. Copy them and send them when something breaks.
           </DialogDescription>
         </DialogHeader>
 
@@ -48,16 +59,22 @@ export function DebugLogDialog({ open, onOpenChange }: DebugLogDialogProps) {
           <p className="text-xs text-muted-foreground">
             {logs.length} {logs.length === 1 ? 'entry' : 'entries'}
           </p>
-          <Button size="sm" variant="outline" onClick={handleClear} className="h-8">
-            <Trash2 className="h-3.5 w-3.5 mr-1" />
-            Clear
-          </Button>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={() => { void handleCopy(); }} className="h-8">
+              <Copy className="h-3.5 w-3.5 mr-1" />
+              Copy
+            </Button>
+            <Button size="sm" variant="outline" onClick={handleClear} className="h-8">
+              <Trash2 className="h-3.5 w-3.5 mr-1" />
+              Clear
+            </Button>
+          </div>
         </div>
 
         <ScrollArea className="flex-1 -mx-2 px-2">
           {logs.length === 0 ? (
             <div className="text-center py-8 text-sm text-muted-foreground">
-              No sync activity logged yet.
+              Nothing logged yet. Use the app, then come back.
             </div>
           ) : (
             <div className="space-y-1 font-mono text-[11px] leading-relaxed pb-4">

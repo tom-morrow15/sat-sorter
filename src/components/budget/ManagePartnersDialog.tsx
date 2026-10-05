@@ -119,7 +119,7 @@ export function ManagePartnersDialog({
   const { toast } = useToast();
   const [npubInput, setNpubInput] = useState('');
   const [scannerOpen, setScannerOpen] = useState(false);
-  const [confirm, setConfirm] = useState<'revoke' | 'stop' | null>(null);
+  const [confirm, setConfirm] = useState<'revoke' | 'stop' | 'reset' | null>(null);
   const [editing, setEditing] = useState(false);
   const [joinQr, setJoinQr] = useState('');
 
@@ -331,6 +331,12 @@ export function ManagePartnersDialog({
               </Button>
             </div>
           )}
+
+          {user && (
+            <Button variant="outline" className="w-full" onClick={() => setConfirm('reset')}>
+              Reset budget partner
+            </Button>
+          )}
         </DialogContent>
       </Dialog>
 
@@ -367,11 +373,15 @@ export function ManagePartnersDialog({
       <Dialog open={confirm !== null} onOpenChange={(next) => { if (!next) setConfirm(null); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>{confirm === 'revoke' ? 'Revoke this invite?' : 'Stop sharing?'}</DialogTitle>
+            <DialogTitle>
+              {confirm === 'revoke' ? 'Revoke this invite?' : confirm === 'reset' ? 'Reset the partner connection?' : 'Stop sharing?'}
+            </DialogTitle>
             <DialogDescription>
               {confirm === 'revoke'
                 ? 'They will not be able to join from this invite. The budget stays on this phone.'
-                : 'This removes the partner connection. The budget stays on this phone. New changes will no longer sync.'}
+                : confirm === 'reset'
+                  ? 'This phone forgets the partner connection. Categories, amounts, and transactions stay. Reset on the other phone too, then connect again with a new code.'
+                  : 'This removes the partner connection. The budget stays on this phone. New changes will no longer sync.'}
             </DialogDescription>
           </DialogHeader>
           <div className="flex gap-2">
@@ -381,6 +391,7 @@ export function ManagePartnersDialog({
               setConfirm(null);
               if (action === 'revoke') void run(() => threadApi!.revokeInvite(), 'Invite revoked');
               if (action === 'stop') void run(removeConnection, 'Partner removed');
+              if (action === 'reset') void run(() => threadApi!.resetPartnerConnection(), 'Partner connection reset');
             }}>Confirm</Button>
           </div>
         </DialogContent>

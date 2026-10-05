@@ -1,7 +1,6 @@
 /**
- * Debug log store — captures sync-related log messages in a ring buffer
- * so they can be viewed in-app (useful on mobile PWAs where there's no
- * browser console).
+ * In-app log. Captures console output and uncaught errors so a phone
+ * without a debugger can copy what the app just did.
  */
 
 export interface DebugLogEntry {
@@ -10,24 +9,14 @@ export interface DebugLogEntry {
   level: 'log' | 'warn' | 'error';
 }
 
-const MAX_ENTRIES = 100;
+const MAX_ENTRIES = 400;
+const MAX_MESSAGE = 700;
 const buffer: DebugLogEntry[] = [];
 const listeners = new Set<() => void>();
 
-/** Patterns we capture — sync/partner related logs only. */
-const CAPTURE_PATTERNS = [
-  '[PartnerSyncWrapper]',
-  '[SharedBudgetSync]',
-  '[BudgetContext]',
-  '[ManagePartnersDialog]',
-];
-
-function shouldCapture(message: string): boolean {
-  return CAPTURE_PATTERNS.some((p) => message.includes(p));
-}
-
 function formatArg(arg: unknown): string {
   if (typeof arg === 'string') return arg;
+  if (arg instanceof Error) return `${arg.name}: ${arg.message}`;
   try {
     return JSON.stringify(arg);
   } catch {
@@ -36,8 +25,8 @@ function formatArg(arg: unknown): string {
 }
 
 export function debugLog(message: string, level: 'log' | 'warn' | 'error' = 'log') {
-  if (!shouldCapture(message)) return;
-  buffer.push({ timestamp: Date.now(), message, level });
+  const text = message.length > MAX_MESSAGE ? `${message.slice(0, MAX_MESSAGE)}…` : message;
+  buffer.push({ timestamp: Date.now(), message: text, level });
   if (buffer.length > MAX_ENTRIES) buffer.shift();
   listeners.forEach((l) => l());
 }
@@ -56,29 +45,44 @@ export function subscribeDebugLogs(listener: () => void): () => void {
   return () => listeners.delete(listener);
 }
 
+export function formatDebugLogs(entries: DebugLogEntry[] = buffer): string {
+  return entries.map((entry) => {
+    const time = new Date(entry.timestamp).toISOString();
+    return `${time} ${entry.level.toUpperCase()} ${entry.message}`;
+  }).join('\n');
+}
+
 /**
- * Install a global console interceptor that captures sync-related logs into
- * the debug buffer while still passing them through to the real console.
+ * Capture console output and crashes into the in-app log.
  * Call once at app startup.
  */
 export function installDebugLogCapture(): void {
   const origLog = console.log.bind(console);
+  const origInfo = console.info.bind(console);
   const origWarn = console.warn.bind(console);
   const origError = console.error.bind(console);
 
   console.log = (...args: unknown[]) => {
     origLog(...args);
-    const msg = args.map(formatArg).join(' ');
-    debugLog(msg, 'log');
+    debugLog(args.map(formatArg).join(' '), 'log');
+  };
+  console.info = (...args: unknown[]) => {
+    origInfo(...args);
+    debugLog(args.map(formatArg).join(' '), 'log');
   };
   console.warn = (...args: unknown[]) => {
     origWarn(...args);
-    const msg = args.map(formatArg).join(' ');
-    debugLog(msg, 'warn');
+    debugLog(args.map(formatArg).join(' '), 'warn');
   };
   console.error = (...args: unknown[]) => {
     origError(...args);
-    const msg = args.map(formatArg).join(' ');
-    debugLog(msg, 'error');
+    debugLog(args.map(formatArg).join(' '), 'error');
   };
+
+  window.addEventListener('error', (event) => {
+    debugLog(`Uncaught: ${event.message}`, 'error');
+  });
+  window.addEventListener('unhandledrejection', (event) => {
+    debugLog(`Unhandled: ${formatArg(event.reason)}`, 'error');
+  });
 }

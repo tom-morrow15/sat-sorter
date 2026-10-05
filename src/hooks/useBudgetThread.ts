@@ -336,6 +336,74 @@ export function useBudgetThread() {
     }
   }, [updateThread, user]);
 
+  const resetPartnerConnection = useCallback(async () => {
+    const current = stateRef.current.budgetThread;
+    const endedAt = Date.now();
+    console.log('[BudgetPartners] reset', { status: current?.status || 'none', hadPartner: !!current?.partnerPubkey });
+    if (user?.signer && current?.budgetId) {
+      const other = current.role === 'owner' ? current.partnerPubkey : current.ownerPubkey;
+      if (other && other !== user.pubkey && (current.status === 'pending' || current.status === 'accepted')) {
+        try {
+          await publishEncrypted(
+            user.signer,
+            other,
+            `sat-sorter/thread-leave/${current.budgetId}/${user.pubkey}`,
+            { type: 'leave', budgetId: current.budgetId, endedAt },
+            [['b', current.budgetId]],
+          );
+        } catch (error) {
+          console.warn('[BudgetPartners] could not tell the other phone about the reset', error);
+        }
+      }
+      try {
+        await publishEncrypted(
+          user.signer,
+          user.pubkey,
+          `sat-sorter/thread-self/${endedAt}`,
+          {
+            type: 'self',
+            at: endedAt,
+            budgetId: current.budgetId,
+            thread: {
+              budgetId: current.budgetId,
+              role: 'owner',
+              ownerPubkey: user.pubkey,
+              status: 'left',
+              endedAt,
+              updatedAt: endedAt,
+            },
+          },
+          [['b', current.budgetId]],
+        );
+      } catch (error) {
+        console.warn('[BudgetPartners] could not save the reset', error);
+      }
+    }
+    const next: BudgetThreadState = {
+      budgetId: current?.budgetId || generateId(),
+      role: 'owner',
+      ownerPubkey: user?.pubkey || '',
+      status: 'left',
+      endedAt,
+      updatedAt: endedAt,
+      appliedNoteIds: [],
+      unsyncedNotes: [],
+    };
+    const cleared = {
+      budgetThread: next,
+      partners: [] as BudgetState['partners'],
+      budgetKeypair: undefined,
+      userRole: 'owner' as const,
+    };
+    stateRef.current = { ...stateRef.current, ...cleared };
+    setState((prev) => ({
+      ...prev,
+      ...cleared,
+      accessibleBudgets: (prev.accessibleBudgets || []).filter((budget) => !budget.budgetNsec),
+    }));
+    setIncomingInvite(null);
+  }, [setState, user]);
+
   const showJoinCode = useCallback(async () => {
     if (!user) throw new Error('Log in first');
     const existing = stateRef.current.budgetThread;
@@ -475,7 +543,7 @@ export function useBudgetThread() {
       const at = typeof body.at === 'number' ? body.at : (event.created_at || 0) * 1000;
       if (!selfRecord || at > selfRecord.at) selfRecord = { at, thread: body.thread as BudgetThreadState };
     }
-    if (selfRecord && selfRecord.at > (active?.updatedAt || 0)) {
+    if (selfRecord && selfRecord.at > (stateRef.current.budgetThread?.updatedAt || 0)) {
       const incoming = selfRecord.thread;
       const same = !!active
         && active.budgetId === incoming.budgetId
@@ -786,6 +854,7 @@ export function useBudgetThread() {
     joinBudget,
     revokeInvite,
     leaveOrRemove,
+    resetPartnerConnection,
     showJoinCode,
     dismissInvite: () => setIncomingInvite(null),
   };

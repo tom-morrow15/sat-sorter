@@ -1,14 +1,4 @@
-/**
- * Debug logging utility.
- *
- * In production builds, debug logs are suppressed.
- * Set `localStorage.debug = 'true'` to enable verbose logging in production.
- * Set `localStorage.debug = 'false'` to suppress all logs (including warnings).
- *
- * Usage:
- *   import { debug } from '@/lib/debug';
- *   debug('[SharedBudgetSync] Received event', data);
- */
+import { debugLog } from '@/lib/debugLog';
 
 const isDev = import.meta.env.DEV;
 
@@ -21,16 +11,23 @@ function shouldLog(): boolean {
   }
 }
 
-/** Conditional log — only outputs in dev or when debug mode is enabled. */
-export function debug(...args: unknown[]): void {
-  if (shouldLog()) {
-    console.log(...args);
-  }
+function textOf(args: unknown[]): string {
+  return args.map((arg) => {
+    if (typeof arg === 'string') return arg;
+    try { return JSON.stringify(arg); } catch { return String(arg); }
+  }).join(' ');
 }
 
-/** Conditional warn — always outputs in dev; in prod only when debug is enabled. */
+/** Always kept in the in-app log. Printed to the console in dev only. */
+export function debug(...args: unknown[]): void {
+  const text = textOf(args);
+  if (shouldLog()) console.log(...args);
+  else debugLog(text, 'log');
+}
+
+/** Always kept in the in-app log. Printed to the console in dev only. */
 export function debugWarn(...args: unknown[]): void {
-  if (shouldLog()) {
-    console.warn(...args);
-  }
+  const text = textOf(args);
+  if (shouldLog()) console.warn(...args);
+  else debugLog(text, 'warn');
 }

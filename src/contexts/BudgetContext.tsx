@@ -94,7 +94,9 @@ const BudgetContext = createContext<BudgetContextValue | null>(null);
 
   const savePartnerLink = (thread?: BudgetThreadState) => {
     try {
-      if (!thread?.budgetId || !thread.partnerPubkey) {
+      const active = thread?.status === 'accepted' || thread?.status === 'pending';
+      if (!thread?.budgetId || !thread.partnerPubkey || !active) {
+        localStorage.removeItem(PARTNER_LINK_KEY);
         return;
       }
       const link = {
