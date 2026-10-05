@@ -76,22 +76,23 @@ export function PartnerTransferBar({ floating = false }: { floating?: boolean })
   const done = thread.role === 'partner' ? (thread.receivedMonths || 0) : (thread.sentMonths || 0);
   const waiting = thread.role !== 'partner' && thread.status === 'pending';
   const sending = thread.role !== 'partner' && thread.status === 'accepted' && total > 0 && done < total;
-  const receiving = thread.role === 'partner' && (thread.status === 'pending' || (total > 0 && done < total));
-  if (!waiting && !sending && !receiving) return null;
+  const stillReceiving = thread.role === 'partner' && total > 0 && done < total;
+  const stillWaiting = thread.role === 'partner' && thread.status === 'pending' && done === 0 && total === 0;
+  if (!waiting && !sending && !stillReceiving && !stillWaiting) return null;
 
   const pct = total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 0;
   const label = waiting
-    ? 'Waiting for them to scan'
+    ? 'Waiting for a scan'
     : sending
       ? `Sending the budget, ${done} of ${total} months`
-      : total > 0
+      : stillReceiving
         ? `Receiving the budget, ${done} of ${total} months`
-        : 'Waiting for the other phone to send the budget';
+        : 'Waiting for the budget';
 
   const body = (
     <div className="space-y-2 rounded-lg border bg-card p-3 shadow-sm">
       <p className="text-xs text-muted-foreground">{label}</p>
-      {(sending || (receiving && total > 0)) && <Progress value={pct} className="h-2" />}
+      {(sending || stillReceiving) && <Progress value={pct} className="h-2" />}
     </div>
   );
 

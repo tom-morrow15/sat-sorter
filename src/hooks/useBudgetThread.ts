@@ -469,7 +469,7 @@ export function useBudgetThread() {
       const extras = extrasAgainstBase(incomingMonths, stateRef.current.budgets, user.pubkey, latest.budgetId, Date.now());
       const merged = applyNotes(incomingMonths, extras);
       const expected = Math.max(latest.expectedMonths || 0, announcedTotal);
-      const complete = expected > 0 && incomingMonths.length >= expected;
+      const complete = incomingMonths.length > 0 && (expected === 0 || incomingMonths.length >= expected);
       const wasPending = latest.status === 'pending';
       baselineRef.current = JSON.stringify(merged);
       const nextThread: BudgetThreadState = {
@@ -487,6 +487,18 @@ export function useBudgetThread() {
       if (complete && wasPending) {
         toast({ title: 'Connected', description: 'The shared budget is on this phone.' });
       }
+      return;
+    }
+
+    const fromMonth = latest.sharedFromMonth || getCurrentMonth();
+    const alreadyThere = monthsFrom(stateRef.current.budgets, fromMonth);
+    if (latest.role === 'partner' && latest.status === 'pending' && alreadyThere.length > 0 && ((latest.expectedMonths || 0) === 0 || alreadyThere.length >= (latest.expectedMonths || 0) || (latest.receivedMonths || 0) > 0)) {
+      updateThread({
+        status: 'accepted',
+        acceptedAt: latest.acceptedAt || Date.now(),
+        receivedMonths: Math.max(latest.receivedMonths || 0, alreadyThere.length),
+        expectedMonths: latest.expectedMonths || alreadyThere.length,
+      });
       return;
     }
 
