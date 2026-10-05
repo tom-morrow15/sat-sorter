@@ -243,7 +243,7 @@ export function useBudgetThread() {
       setState((prev) => ({ ...prev, budgetThread: { ...next, expectedMonths: monthCount, sentMonths: 0 } }));
       stateRef.current = { ...stateRef.current, budgetThread: { ...next, expectedMonths: monthCount, sentMonths: 0 } };
       const delivered = await sendMonths({ ...next, expectedMonths: monthCount, sentMonths: 0 }, parsed.pubkey);
-      if (!delivered) throw new Error('The invite was sent, but the budget did not finish sending. Keep Sat Sorter open.');
+      if (!delivered) throw new Error('The invite was sent, but the budget did not finish sending. Leave the app open.');
       baselineRef.current = JSON.stringify(stateRef.current.budgets);
       readyRef.current = true;
     } finally {
@@ -444,13 +444,13 @@ export function useBudgetThread() {
       };
       stateRef.current = { ...stateRef.current, budgetThread: next };
       setState((prev) => ({ ...prev, budgetThread: next }));
-      toast({ title: 'They scanned the code', description: 'Sending the budget. Keep Sat Sorter open.' });
+      toast({ title: 'Code scanned', description: 'Sending the budget. Leave the app open.' });
       sendingRef.current = true;
       try {
         const delivered = await sendMonths(next, acceptedPartner);
         toast(delivered
           ? { title: 'Connected', description: 'They can see this budget.' }
-          : { title: 'The budget did not finish sending', description: 'Keep Sat Sorter open. It will try again.', variant: 'destructive' });
+          : { title: 'The budget did not finish sending', description: 'Leave the app open. It will try again.', variant: 'destructive' });
       } finally {
         sendingRef.current = false;
       }
@@ -485,7 +485,7 @@ export function useBudgetThread() {
       stateRef.current = { ...stateRef.current, budgets: merged, budgetThread: nextThread };
       setState((prev) => ({ ...prev, budgets: merged, budgetThread: nextThread }));
       if (complete && wasPending) {
-        toast({ title: 'Connected', description: 'Their budget is on this phone.' });
+        toast({ title: 'Connected', description: 'The shared budget is on this phone.' });
       }
       return;
     }

@@ -207,7 +207,7 @@ export function ManagePartnersDialog({
               Budget Partners
             </DialogTitle>
             <DialogDescription>
-              Share this budget with one other person. You each stay logged in as yourself, and you both see the same changes.
+              Share a budget with one other person. You each stay signed in as yourself. Sharing starts this month. Earlier months stay on the phone that created them.
             </DialogDescription>
           </DialogHeader>
 
@@ -248,7 +248,7 @@ export function ManagePartnersDialog({
             <div className="rounded-lg border p-3">
               <div className="flex items-start justify-between gap-2">
                 <div className="space-y-2">
-                  <p className="text-sm">Connected. You both see the same budget.</p>
+                  <p className="text-sm">Connected. You both see this month and later months.</p>
                   {thread.partnerPubkey && thread.partnerPubkey !== user.pubkey && <PartnerLine pubkey={thread.partnerPubkey} />}
                   <PartnerTransferBar />
                   {threadApi.unsyncedCount > 0 && (
@@ -284,14 +284,14 @@ export function ManagePartnersDialog({
             <div className="space-y-3">
               <div className="space-y-2 rounded-lg border p-3">
                 <p className="text-sm font-medium">Share your budget</p>
-                <p className="text-xs text-muted-foreground">You show a code. The other person scans it. They get this month and later months. Earlier months stay on this phone.</p>
+                <p className="text-xs text-muted-foreground">Show a code. The other person scans it.</p>
                 <Button className="w-full" onClick={() => { void showCode(); }}>
                   <QrCode className="h-4 w-4 mr-2" /> Show my code
                 </Button>
               </div>
               <div className="space-y-2 rounded-lg border p-3">
                 <p className="text-sm font-medium">Join their budget</p>
-                <p className="text-xs text-muted-foreground">They show a code. You scan it.</p>
+                <p className="text-xs text-muted-foreground">Scan the code on the other person's phone.</p>
                 <Button variant="outline" className="w-full" onClick={() => setScannerOpen(true)}>
                   <Camera className="h-4 w-4 mr-2" /> Scan a code
                 </Button>
@@ -314,11 +314,11 @@ export function ManagePartnersDialog({
       <Dialog open={!!joinQr} onOpenChange={(next) => { if (!next) setJoinQr(''); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>{thread?.status === 'accepted' ? 'Connected' : 'Have them scan this'}</DialogTitle>
+            <DialogTitle>{thread?.status === 'accepted' ? 'Connected' : 'Scan this code'}</DialogTitle>
             <DialogDescription>
               {thread?.status === 'accepted'
-                ? 'They can see this budget.'
-                : 'On their phone, open Budget Partners and tap Scan a code. This phone sends the budget after the scan, so leave it open until it says connected.'}
+                ? 'The other person can see this budget.'
+                : 'On the other phone, open Budget Partners and tap Scan a code. Leave this app open until it says connected.'}
             </DialogDescription>
           </DialogHeader>
           {thread?.status === 'accepted' ? (
@@ -327,7 +327,7 @@ export function ManagePartnersDialog({
               <p className="text-sm text-muted-foreground">
                 {(thread.sentMonths || 0) < (thread.expectedMonths || 0)
                   ? `Sending the budget… ${thread.sentMonths || 0} of ${thread.expectedMonths} months.`
-                  : 'They can see this budget.'}
+                  : 'The other person can see this budget.'}
               </p>
             </div>
           ) : (

@@ -133,8 +133,8 @@ const TOUR_STEPS: TourStep[] = [
     icon: Users,
     iconColor: 'text-petrol',
     title: 'Budget Partners',
-    description: 'Share your budget with one other person. You each keep your own login, and you both see the same categories and transactions.',
-    howTo: 'Open Budget Partners. Send an invite with their npub, or show a join code for them to scan.',
+    description: 'Share a budget with one other person. You each keep your own login. Sharing starts with the current month.',
+    howTo: 'Open Budget Partners. Show a code, or scan the code on the other person\'s phone.',
     needsNostr: true,
   },
   {
