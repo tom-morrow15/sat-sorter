@@ -137,6 +137,8 @@ export function useBudgetThread() {
   const monthSigRef = useRef('');
   const caughtUpRef = useRef('');
   const seenEventsRef = useRef(new Set<string>());
+  const monthStoreRef = useRef(new Map<string, BudgetCheckpoint['budgets'][number]>());
+  const monthStoreBudgetRef = useRef('');
   const applyChainRef = useRef(Promise.resolve());
   const stateRef = useRef(state);
   stateRef.current = state;
@@ -493,8 +495,8 @@ export function useBudgetThread() {
     for (const event of tagged) {
       if (event?.id && seenEventsRef.current.has(event.id)) continue;
       const body = await decrypt(user.signer, event.pubkey, event.content);
-      if (event?.id) seenEventsRef.current.add(event.id);
       if (!body?.type) continue;
+      if (event?.id) seenEventsRef.current.add(event.id);
       const taggedBudgetId = event.tags?.find((tag: string[]) => tag[0] === 'b')?.[1];
       parsed.push({
         event,
@@ -636,9 +638,18 @@ export function useBudgetThread() {
       return;
     }
 
-    if (latest.role === 'partner' && monthsByKey.size > 0) {
+    if (latest.role === 'partner' && (monthsByKey.size > 0 || monthStoreRef.current.size > 0)) {
+      if (monthStoreBudgetRef.current !== latest.budgetId) {
+        monthStoreRef.current = new Map();
+        monthStoreBudgetRef.current = latest.budgetId;
+      }
+      for (const [month, budget] of monthsByKey) {
+        const previous = monthStoreRef.current.get(month);
+        if (!previous || (budget.updatedAt || 0) >= (previous.updatedAt || 0)) monthStoreRef.current.set(month, budget);
+      }
       const from = announcedFrom || latest.sharedFromMonth || '';
-      const incomingMonths = [...monthsByKey.values()].filter((month) => !from || month.month >= from);
+      const incomingMonths = [...monthStoreRef.current.values()].filter((month) => !from || month.month >= from);
+      console.log('[BudgetPartners] received', incomingMonths.length, 'of', Math.max(latest.expectedMonths || 0, announcedTotal), 'months');
       const signature = incomingMonths
         .map((month) => `${month.month}:${month.updatedAt || 0}:${(month.transactions || []).length}:${(month.buckets || []).length}`)
         .sort()
@@ -646,9 +657,12 @@ export function useBudgetThread() {
       if (signature && signature !== monthSigRef.current) {
         monthSigRef.current = signature;
         const clocks = { ...(latest.entityClock || {}) };
-        const extras = extrasAgainstBase(incomingMonths, stateRef.current.budgets, user.pubkey, latest.budgetId, Date.now());
+        const incomingIds = new Set(incomingMonths.map((month) => month.month));
+        const localForIncoming = stateRef.current.budgets.filter((month) => incomingIds.has(month.month));
+        const extras = extrasAgainstBase(incomingMonths, localForIncoming, user.pubkey, latest.budgetId, Date.now());
         const earlier = stateRef.current.budgets.filter((month) => from && month.month < from);
-        const merged = [...earlier, ...applyNotes(incomingMonths, extras, clocks)];
+        const notYet = stateRef.current.budgets.filter((month) => (!from || month.month >= from) && !incomingIds.has(month.month));
+        const merged = [...earlier, ...notYet, ...applyNotes(incomingMonths, extras, clocks)];
         const expected = Math.max(latest.expectedMonths || 0, announcedTotal, incomingMonths.length);
         baselineRef.current = JSON.stringify(merged);
         const outbound = extras
