@@ -139,6 +139,8 @@ export interface BudgetThreadState {
   expectedMonths?: number;
   receivedMonths?: number;
   sentMonths?: number;
+  /** First month the partner receives, YYYY-MM. Earlier months stay on the owner's phone. */
+  sharedFromMonth?: string;
   appliedNoteIds: string[];
   unsyncedNotes: Array<{
     id: string;
@@ -278,6 +280,7 @@ function normalizeBudgetThread(input: any): BudgetThreadState | undefined {
     expectedMonths: typeof input.expectedMonths === 'number' ? input.expectedMonths : undefined,
     receivedMonths: typeof input.receivedMonths === 'number' ? input.receivedMonths : undefined,
     sentMonths: typeof input.sentMonths === 'number' ? input.sentMonths : undefined,
+    sharedFromMonth: typeof input.sharedFromMonth === 'string' && /^\d{4}-\d{2}$/.test(input.sharedFromMonth) ? input.sharedFromMonth : undefined,
     appliedNoteIds: Array.isArray(input.appliedNoteIds) ? input.appliedNoteIds.filter((id: unknown) => typeof id === 'string') : [],
     unsyncedNotes: Array.isArray(input.unsyncedNotes) ? input.unsyncedNotes : [],
   };

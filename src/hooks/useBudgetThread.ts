@@ -3,7 +3,7 @@ import { nip19 } from 'nostr-tools';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useBudgetContext } from '@/contexts/BudgetContext';
 import { useToast } from '@/hooks/useToast';
-import { generateId, type BudgetState, type BudgetThreadState } from '@/lib/budgetTypes';
+import { generateId, getCurrentMonth, type BudgetState, type BudgetThreadState } from '@/lib/budgetTypes';
 import {
   applyNotes,
   diffAgainstBase,
@@ -15,6 +15,9 @@ import {
 } from '@/lib/budgetThread';
 import { publishToSharedRelays, querySharedRelays } from '@/hooks/useSharedBudgetSync';
 
+function monthsFrom(budgets: BudgetState['budgets'], from: string) {
+  return budgets.filter((month) => month.month >= from);
+}
 const KIND = 30078;
 const TAG = 'sat-sorter-thread';
 
@@ -79,15 +82,16 @@ async function publishEncrypted(
   return publishToSharedRelays(event);
 }
 
-export function parsePartnerInput(raw: string): { pubkey?: string; join?: { budgetId: string; ownerPubkey: string; monthCount?: number } } {
+export function parsePartnerInput(raw: string): { pubkey?: string; join?: { budgetId: string; ownerPubkey: string; monthCount?: number; sharedFromMonth?: string } } {
   const value = raw.trim().replace(/^nostr:/, '');
   if (value.startsWith('satsorter:join:')) {
     const parts = value.split(':');
     const budgetId = parts[2];
     const ownerPubkey = parts[3];
     const monthCount = Number(parts[4]);
+    const sharedFromMonth = /^\d{4}-\d{2}$/.test(parts[5] || '') ? parts[5] : undefined;
     if (budgetId && ownerPubkey) {
-      return { join: { budgetId, ownerPubkey, monthCount: Number.isFinite(monthCount) ? monthCount : undefined } };
+      return { join: { budgetId, ownerPubkey, monthCount: Number.isFinite(monthCount) ? monthCount : undefined, sharedFromMonth } };
     }
   }
   try {
@@ -174,7 +178,8 @@ export function useBudgetThread() {
 
   const sendMonths = useCallback(async (current: BudgetThreadState, recipient: string) => {
     if (!user?.signer) return false;
-    const months = stateRef.current.budgets;
+    const from = current.sharedFromMonth || getCurrentMonth();
+    const months = monthsFrom(stateRef.current.budgets, from);
     let done = 0;
     for (const month of months) {
       const sent = await publishEncrypted(
@@ -185,6 +190,7 @@ export function useBudgetThread() {
           type: 'checkpoint',
           budgetId: current.budgetId,
           monthCount: months.length,
+          sharedFromMonth: from,
           checkpoint: {
             authorPubkey: user.pubkey,
             budgets: [month],
@@ -194,7 +200,7 @@ export function useBudgetThread() {
         [['b', current.budgetId]],
       );
       if (sent) done += 1;
-      updateThread({ sentMonths: Math.min(done, months.length), expectedMonths: months.length });
+      updateThread({ sentMonths: Math.min(done, months.length), expectedMonths: months.length, sharedFromMonth: from });
     }
     return done >= months.length;
   }, [updateThread, user]);
@@ -203,7 +209,7 @@ export function useBudgetThread() {
     if (!user?.signer) throw new Error('Log in before inviting a partner');
     const parsed = parsePartnerInput(raw);
       if (parsed.join) {
-        await joinBudget(parsed.join.budgetId, parsed.join.ownerPubkey, parsed.join.monthCount);
+        await joinBudget(parsed.join.budgetId, parsed.join.ownerPubkey, parsed.join.monthCount, parsed.join.sharedFromMonth);
         return;
       }
     if (!parsed.pubkey) throw new Error('Enter an npub, or scan an npub or join code');
@@ -212,16 +218,20 @@ export function useBudgetThread() {
     try {
       const existing = stateRef.current.budgetThread;
       const budgetId = existing?.budgetId || generateId();
+      const from = existing?.sharedFromMonth || getCurrentMonth();
+      const monthCount = monthsFrom(stateRef.current.budgets, from).length;
       const next: BudgetThreadState = {
         budgetId,
         role: 'owner',
         ownerPubkey: user.pubkey,
         partnerPubkey: parsed.pubkey,
         status: 'pending',
+        sharedFromMonth: from,
+        expectedMonths: monthCount,
+        sentMonths: 0,
         appliedNoteIds: existing?.appliedNoteIds || [],
         unsyncedNotes: existing?.unsyncedNotes || [],
       };
-      const monthCount = stateRef.current.budgets.length;
       const invited = await publishEncrypted(
         user.signer,
         parsed.pubkey,
@@ -241,7 +251,7 @@ export function useBudgetThread() {
     }
   }, [sendMonths, setState, user]);
 
-  const joinBudget = useCallback(async (budgetId: string, ownerPubkey: string, monthCount?: number) => {
+  const joinBudget = useCallback(async (budgetId: string, ownerPubkey: string, monthCount?: number, sharedFromMonth?: string) => {
     if (!user?.signer) throw new Error('Log in before joining a budget');
     setBusy(true);
     try {
@@ -260,6 +270,7 @@ export function useBudgetThread() {
         partnerPubkey: ownerPubkey,
         status: 'pending',
         expectedMonths: monthCount,
+        sharedFromMonth,
         receivedMonths: 0,
         appliedNoteIds: [],
         unsyncedNotes: [],
@@ -321,7 +332,8 @@ export function useBudgetThread() {
     const budgetId = existing?.budgetId && existing.status !== 'left' && existing.status !== 'revoked'
       ? existing.budgetId
       : generateId();
-    const total = stateRef.current.budgets.length;
+    const from = existing?.sharedFromMonth || getCurrentMonth();
+    const total = monthsFrom(stateRef.current.budgets, from).length;
     const next: BudgetThreadState = {
       budgetId,
       role: 'owner',
@@ -329,6 +341,7 @@ export function useBudgetThread() {
       partnerPubkey: existing?.status === 'accepted' ? existing.partnerPubkey : undefined,
       status: existing?.status === 'accepted' ? 'accepted' : 'pending',
       acceptedAt: existing?.status === 'accepted' ? existing.acceptedAt : undefined,
+      sharedFromMonth: from,
       expectedMonths: total,
       sentMonths: existing?.sentMonths,
       appliedNoteIds: existing?.appliedNoteIds || [],
@@ -336,7 +349,7 @@ export function useBudgetThread() {
     };
     stateRef.current = { ...stateRef.current, budgetThread: next };
     setState((prev) => ({ ...prev, budgetThread: next }));
-    return `satsorter:join:${budgetId}:${user.pubkey}:${total}`;
+    return `satsorter:join:${budgetId}:${user.pubkey}:${total}:${from}`;
   }, [setState, user]);
 
   // Record a baseline once, after the saved budget is on screen.
@@ -363,7 +376,8 @@ export function useBudgetThread() {
       let previous: BudgetState['budgets'] = [];
       try { previous = JSON.parse(baselineRef.current || '[]'); } catch { previous = []; }
       const notes = diffAgainstBase(previous, stateRef.current.budgets, user.pubkey, threadNow.budgetId, Date.now())
-        .map((note) => ({ ...note, id: generateId() }));
+        .map((note) => ({ ...note, id: generateId() }))
+        .filter((note) => !threadNow.sharedFromMonth || note.month >= threadNow.sharedFromMonth);
       baselineRef.current = latest;
       if (notes.length === 0) return;
       updateThread((threadState) => ({
@@ -383,6 +397,7 @@ export function useBudgetThread() {
     const monthsByKey = new Map<string, BudgetCheckpoint['budgets'][number]>();
     let acceptedPartner = '';
     let announcedTotal = 0;
+    let announcedFrom = '';
     let sawLeaveAt: number | null = null;
 
     for (const event of events) {
@@ -405,6 +420,7 @@ export function useBudgetThread() {
       if (body.type === 'note' && body.note?.id) notes.push(body.note as BudgetNote);
       if (body.type === 'checkpoint' && body.checkpoint?.budgets) {
         if (typeof body.monthCount === 'number') announcedTotal = Math.max(announcedTotal, body.monthCount);
+        if (typeof body.sharedFromMonth === 'string') announcedFrom = body.sharedFromMonth;
         for (const month of body.checkpoint.budgets as BudgetCheckpoint['budgets']) {
           if (!month?.month) continue;
           const previous = monthsByKey.get(month.month);
@@ -415,13 +431,16 @@ export function useBudgetThread() {
     }
 
     if (acceptedPartner && current?.role === 'owner' && current.status === 'pending') {
+      const from = current.sharedFromMonth || getCurrentMonth();
+      const shareCount = monthsFrom(stateRef.current.budgets, from).length;
       const next: BudgetThreadState = {
         ...current,
         partnerPubkey: acceptedPartner,
         status: 'accepted',
         acceptedAt: Date.now(),
+        sharedFromMonth: from,
         sentMonths: 0,
-        expectedMonths: stateRef.current.budgets.length,
+        expectedMonths: shareCount,
       };
       stateRef.current = { ...stateRef.current, budgetThread: next };
       setState((prev) => ({ ...prev, budgetThread: next }));
@@ -445,7 +464,8 @@ export function useBudgetThread() {
     }
 
     if (latest.role === 'partner' && monthsByKey.size > 0) {
-      const incomingMonths = [...monthsByKey.values()];
+      const from = announcedFrom || latest.sharedFromMonth || '';
+      const incomingMonths = [...monthsByKey.values()].filter((month) => !from || month.month >= from);
       const extras = extrasAgainstBase(incomingMonths, stateRef.current.budgets, user.pubkey, latest.budgetId, Date.now());
       const merged = applyNotes(incomingMonths, extras);
       const expected = Math.max(latest.expectedMonths || 0, announcedTotal);
@@ -458,6 +478,7 @@ export function useBudgetThread() {
         acceptedAt: complete ? (latest.acceptedAt || Date.now()) : latest.acceptedAt,
         receivedMonths: incomingMonths.length,
         expectedMonths: expected,
+        sharedFromMonth: from || latest.sharedFromMonth,
         appliedNoteIds: Array.from(new Set([...latest.appliedNoteIds, ...extras.map((note) => note.id)])),
         unsyncedNotes: extras,
       };
@@ -469,7 +490,8 @@ export function useBudgetThread() {
       return;
     }
 
-    if (latest.role === 'owner' && latest.status === 'accepted' && latest.partnerPubkey && !sendingRef.current && (latest.sentMonths || 0) < stateRef.current.budgets.length) {
+    const shareable = monthsFrom(stateRef.current.budgets, latest.sharedFromMonth || getCurrentMonth());
+    if (latest.role === 'owner' && latest.status === 'accepted' && latest.partnerPubkey && !sendingRef.current && (!latest.sharedFromMonth || (latest.sentMonths || 0) < shareable.length)) {
       sendingRef.current = true;
       try {
         await sendMonths(latest, latest.partnerPubkey);

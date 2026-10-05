@@ -284,7 +284,7 @@ export function ManagePartnersDialog({
             <div className="space-y-3">
               <div className="space-y-2 rounded-lg border p-3">
                 <p className="text-sm font-medium">Share your budget</p>
-                <p className="text-xs text-muted-foreground">You show a code. The other person scans it on their phone.</p>
+                <p className="text-xs text-muted-foreground">You show a code. The other person scans it. They get this month and later months. Earlier months stay on this phone.</p>
                 <Button className="w-full" onClick={() => { void showCode(); }}>
                   <QrCode className="h-4 w-4 mr-2" /> Show my code
                 </Button>
