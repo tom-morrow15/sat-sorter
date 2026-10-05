@@ -26,12 +26,18 @@ import type { Bucket } from '@/lib/budgetTypes';
 
 export function BudgetBuddyScreen() {
   const navigate = useNavigate();
-  const { isMapleEnabled, hasKey, disclaimerAccepted, evergreenContext, model, setModel, availableModels, provider } = useAISettings();
+  const { isMapleEnabled, disclaimerAccepted, evergreenContext, model, setModel, availableModels, provider, setProvider, connections, activeName, connectionReady } = useAISettings();
   const { messages, isLoading, sendMessage, clearHistory, preflightCheck } =
     useMapleChat();
 
   // Use fetched models if available, fall back to hardcoded list
-  const modelList: MapleModelOption[] = availableModels.length > 0 ? availableModels : MAPLE_MODELS_FALLBACK;
+  const modelList: MapleModelOption[] = availableModels.length > 0
+    ? availableModels
+    : provider === 'maple'
+      ? MAPLE_MODELS_FALLBACK
+      : model
+        ? [{ id: model, label: model, description: '' }]
+        : [];
 
   // Find the active model info. If the model isn't in the list (custom model),
   // show the raw ID as the label.
@@ -134,8 +140,8 @@ export function BudgetBuddyScreen() {
 
   if (!isMapleEnabled) {
     // Determine what the user needs to do
-    const needsKey = !hasKey;
-    const needsDisclaimer = hasKey && !disclaimerAccepted;
+    const needsKey = !connectionReady;
+    const needsDisclaimer = connectionReady && !disclaimerAccepted;
 
     return (
       <div className="min-h-screen flex flex-col items-center justify-center px-6 text-center bg-background">
@@ -145,7 +151,7 @@ export function BudgetBuddyScreen() {
         <h2 className="font-serif text-2xl mb-2">Budget Buddy</h2>
         <p className="text-muted-foreground text-sm max-w-sm mb-6">
           {needsKey
-            ? 'Your AI budget buddy can analyze your spending, suggest savings, and answer questions about your budget. Add an API key to get started.'
+            ? 'Your AI budget buddy can analyze your spending, suggest savings, and answer questions about your budget. Add Maple, PPQ, or your own AI server to get started.'
             : needsDisclaimer
             ? 'You\'re almost there! Accept the disclaimer in Budget Buddy settings to start chatting.'
             : 'Something went wrong. Try adjusting your Budget Buddy settings.'}
@@ -189,10 +195,21 @@ export function BudgetBuddyScreen() {
               <DropdownMenuTrigger asChild>
                 <button className="flex items-center gap-1 text-xs font-medium text-primary hover:underline">
                   <Cpu className="h-3 w-3" />
-                  <span>{provider === 'ppq' ? 'PPQ' : 'Maple'} · {activeModel.label}</span>
+                  <span>{activeName} · {activeModel.label || 'Choose a model'}</span>
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-64">
+              <DropdownMenuContent align="start" className="w-64 max-h-80 overflow-y-auto">
+                <DropdownMenuLabel>Choose an AI</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {[{ id: 'maple', name: 'Maple' }, { id: 'ppq', name: 'PPQ' }, ...connections.map((connection) => ({ id: connection.id, name: connection.name }))].map((choice) => (
+                  <DropdownMenuItem key={choice.id} onClick={() => setProvider(choice.id)}>
+                    <span className="flex items-center gap-2 text-sm">
+                      {choice.name}
+                      {choice.id === provider && <span className="text-[10px] text-primary">● active</span>}
+                    </span>
+                  </DropdownMenuItem>
+                ))}
+                <DropdownMenuSeparator />
                 <DropdownMenuLabel>Choose a model</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 {modelList.map((m) => (

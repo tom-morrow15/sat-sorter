@@ -206,6 +206,7 @@ export function useRegisterSW() {
         'nwc-auto-sync',
         'nwc-unviewed-count',
         'sat-sorter:ai-provider',
+        'sat-sorter:ai-connections',
         'sat-sorter:maple-api-key',
         'sat-sorter:maple-enabled',
         'sat-sorter:ppq-api-key',

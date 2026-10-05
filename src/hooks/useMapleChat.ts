@@ -40,7 +40,7 @@ export interface UseMapleChatReturn {
 export function useMapleChat(): UseMapleChatReturn {
   const { currentBudget, currentMonth } = useBudget();
   const { data: priceData } = useBitcoinPrice();
-  const { apiKey, evergreenContext, proxyUrl, model, zdr } = useAISettings();
+  const { apiKey, evergreenContext, proxyUrl, model, zdr, isCustom } = useAISettings();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -132,10 +132,10 @@ export function useMapleChat(): UseMapleChatReturn {
 
   const sendMessage = useCallback(
     async (text: string) => {
-      if (!apiKey) {
+      if (!apiKey && !isCustom) {
         toast({
-          title: 'Maple API key missing',
-          description: 'Add your API key in Settings to use Budget Buddy.',
+          title: 'API key missing',
+          description: 'Add an AI in Settings to use Budget Buddy.',
           variant: 'destructive',
         });
         return;
@@ -185,14 +185,14 @@ export function useMapleChat(): UseMapleChatReturn {
         setIsLoading(false);
       }
     },
-    [apiKey, proxyUrl, model, zdr, messages, getContext, setMessages, toast]
+    [apiKey, isCustom, proxyUrl, model, zdr, messages, getContext, setMessages, toast]
   );
 
   const analyze = useCallback(async () => {
-    if (!apiKey) {
+    if (!apiKey && !isCustom) {
       toast({
-        title: 'Maple API key missing',
-        description: 'Add your API key in Settings to use Budget Buddy.',
+        title: 'API key missing',
+        description: 'Add an AI in Settings to use Budget Buddy.',
         variant: 'destructive',
       });
       return '';
@@ -213,7 +213,7 @@ export function useMapleChat(): UseMapleChatReturn {
     } finally {
       setIsLoading(false);
     }
-  }, [apiKey, proxyUrl, model, zdr, getContext, toast]);
+  }, [apiKey, isCustom, proxyUrl, model, zdr, getContext, toast]);
 
   const clearHistory = useCallback(() => {
     setMessages([]);

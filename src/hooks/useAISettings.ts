@@ -21,7 +21,15 @@ import {
  * The selection persists across all chats until changed.
  */
 
-export type AIProvider = 'maple' | 'ppq';
+export type AIProvider = 'maple' | 'ppq' | string;
+
+export interface AiConnection {
+  id: string;
+  name: string;
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+}
 
 export interface AISettings {
   provider: AIProvider;
@@ -34,7 +42,7 @@ export interface AISettings {
 }
 
 // Provider defaults
-export const PROVIDER_DEFAULTS: Record<AIProvider, { proxyUrl: string; label: string; description: string }> = {
+export const PROVIDER_DEFAULTS: Record<'maple' | 'ppq', { proxyUrl: string; label: string; description: string }> = {
   maple: {
     proxyUrl: 'https://maple-proxy-production-c67d.up.railway.app/v1',
     label: 'Maple',
@@ -48,7 +56,7 @@ export const PROVIDER_DEFAULTS: Record<AIProvider, { proxyUrl: string; label: st
 };
 
 // Model defaults per provider (used before dynamic fetch completes)
-export const PROVIDER_MODEL_DEFAULTS: Record<AIProvider, string> = {
+export const PROVIDER_MODEL_DEFAULTS: Record<'maple' | 'ppq', string> = {
   maple: DEFAULT_MAPLE_MODEL,
   ppq: 'gpt-4o-mini',
 };
@@ -67,6 +75,7 @@ const PPQ_MODEL_STORAGE = 'sat-sorter:ppq-model';
 const PPQ_ZDR_STORAGE = 'sat-sorter:ppq-zdr';
 const DISCLAIMER_ACCEPTED_KEY = 'sat-sorter:ai-disclaimer-accepted';
 const MAPLE_MODEL_MIGRATED_STORAGE = 'sat-sorter:maple-model-migrated-v2';
+const CONNECTIONS_KEY = 'sat-sorter:ai-connections';
 
 // Legacy hardcoded secret — only used for one-time migration of old encrypted keys
 const LEGACY_ENCRYPTION_SECRET = 'sat-sorter-maple-local-encryption';
@@ -96,9 +105,11 @@ async function decryptLegacyApiKey(encrypted: string): Promise<string> {
 
 export function useAISettings() {
   const keySerializer = useMemo(() => createEncryptedSerializer<string>(), []);
+  const connectionsSerializer = useMemo(() => createEncryptedSerializer<AiConnection[]>(), []);
 
-  // Provider selection (not encrypted — not sensitive)
-  const [provider, setProvider] = useLocalStorage<AIProvider>(PROVIDER_KEY, 'maple');
+  // Which connection is active. Built-ins are "maple" and "ppq".
+  const [provider, setProvider] = useLocalStorage<string>(PROVIDER_KEY, 'maple');
+  const [connections, setConnections] = useLocalStorage<AiConnection[]>(CONNECTIONS_KEY, [], connectionsSerializer);
 
   // Maple settings (existing keys for backward compat)
   const [mapleApiKey, setMapleApiKey] = useLocalStorage<string>(MAPLE_KEY_STORAGE, '', keySerializer);
@@ -139,16 +150,41 @@ export function useAISettings() {
   }, [migrated, mapleApiKey, setMapleApiKey]);
 
   // Active settings based on selected provider
-  const apiKey = provider === 'maple' ? mapleApiKey : ppqApiKey;
-  const proxyUrl = provider === 'maple' ? mapleProxyUrl : ppqProxyUrl;
-  const model = provider === 'maple' ? mapleModel : ppqModel;
+  const custom = connections.find((connection) => connection.id === provider);
+  const isCustom = Boolean(custom);
+  const apiKey = custom ? custom.apiKey : provider === 'ppq' ? ppqApiKey : mapleApiKey;
+  const proxyUrl = custom ? custom.baseUrl : provider === 'ppq' ? ppqProxyUrl : mapleProxyUrl;
+  const model = custom ? custom.model : provider === 'ppq' ? ppqModel : mapleModel;
+
+  const updateConnection = (id: string, patch: Partial<AiConnection>) => {
+    setConnections((prev) => prev.map((connection) => connection.id === id ? { ...connection, ...patch } : connection));
+  };
+
+  const addConnection = (draft: { name: string; baseUrl: string; apiKey: string; model: string }) => {
+    const id = `c_${Date.now().toString(36)}`;
+    const next: AiConnection = {
+      id,
+      name: draft.name.trim() || 'Custom',
+      baseUrl: draft.baseUrl.trim().replace(/\/+$/, ''),
+      apiKey: draft.apiKey.trim(),
+      model: draft.model.trim(),
+    };
+    setConnections((prev) => [...prev, next]);
+    setProvider(id);
+    return id;
+  };
+
+  const removeConnection = (id: string) => {
+    setConnections((prev) => prev.filter((connection) => connection.id !== id));
+    if (provider === id) setProvider('maple');
+  };
 
   // Dynamically fetch models from the active provider
   const [availableModels, setAvailableModels] = useState<MapleModelOption[]>([]);
   const [modelsLoading, setModelsLoading] = useState(false);
 
   useEffect(() => {
-    if (!apiKey || !proxyUrl) {
+    if (!proxyUrl) {
       setAvailableModels([]);
       return;
     }
@@ -157,24 +193,37 @@ export function useAISettings() {
     fetchMapleModels(apiKey, proxyUrl).then((models) => {
       if (!cancelled) {
         setAvailableModels(models);
+        if (isCustom && !model && models[0]) updateConnection(provider, { model: models[0].id });
         setModelsLoading(false);
       }
     }).catch(() => {
       if (!cancelled) setModelsLoading(false);
     });
     return () => { cancelled = true; };
-  }, [apiKey, proxyUrl]);
+  }, [apiKey, proxyUrl, isCustom, model, provider]);
 
   const hasKey = apiKey.length > 0;
+  const connectionReady = isCustom ? proxyUrl.trim().length > 0 : hasKey;
 
-  // Budget Buddy is enabled when: user has a key AND accepted the disclaimer.
-  // The old mapleEnabled toggle is no longer required — the disclaimer replaces it.
-  const isMapleEnabled = hasKey && disclaimerAccepted;
+  // Budget Buddy is enabled when a connection is ready and the disclaimer is accepted.
+  const isMapleEnabled = connectionReady && disclaimerAccepted;
 
-  // Setters that route to the correct provider's storage
-  const setApiKey = provider === 'maple' ? setMapleApiKey : setPpqApiKey;
-  const setModelForProvider = provider === 'maple' ? setMapleModel : setPpqModel;
-  const setProxyUrlForProvider = provider === 'maple' ? setMapleProxyUrl : setPpqProxyUrl;
+  const setApiKey = (value: string) => {
+    if (custom) updateConnection(custom.id, { apiKey: value });
+    else if (provider === 'ppq') setPpqApiKey(value);
+    else setMapleApiKey(value);
+  };
+  const setModelForProvider = (value: string) => {
+    if (custom) updateConnection(custom.id, { model: value });
+    else if (provider === 'ppq') setPpqModel(value);
+    else setMapleModel(value);
+  };
+  const setProxyUrlForProvider = (value: string) => {
+    if (custom) updateConnection(custom.id, { baseUrl: value.trim() });
+    else if (provider === 'ppq') setPpqProxyUrl(value);
+    else setMapleProxyUrl(value);
+  };
+  const activeName = custom?.name || (provider === 'ppq' ? 'PPQ' : 'Maple');
 
   return {
     // Active settings (resolved based on provider)
@@ -188,16 +237,23 @@ export function useAISettings() {
     setModel: setModelForProvider,
     evergreenContext,
     setEvergreenContext,
-    zdr: ppqZdr,
+    zdr: provider === 'ppq' ? ppqZdr : false,
     setZdr: setPpqZdr,
 
     // Status
     hasKey,
+    connectionReady,
+    isCustom,
     isMapleEnabled, // backward compat for components that check this
     disclaimerAccepted,
     setDisclaimerAccepted,
     availableModels,
     modelsLoading,
+    activeName,
+    connections,
+    addConnection,
+    removeConnection,
+    updateConnection,
 
     // Per-provider settings (for the settings UI)
     maple: {

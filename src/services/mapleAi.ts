@@ -275,7 +275,12 @@ export const MAPLE_MODELS_DEFAULT = MAPLE_MODELS_FALLBACK;
 // Back-compat alias: components previously imported MAPLE_MODELS.
 export { MAPLE_MODELS_FALLBACK as MAPLE_MODELS };
 
-/** Build the /models URL from a base proxy URL */
+function authHeaders(apiKey: string, json = false): Record<string, string> {
+  const headers: Record<string, string> = {};
+  if (json) headers['Content-Type'] = 'application/json';
+  if (apiKey.trim()) headers.Authorization = `Bearer ${apiKey.trim()}`;
+  return headers;
+}
 function getModelsUrl(proxyUrl: string): string {
   const base = proxyUrl.replace(/\/+$/, '');
   return `${base}/models`;
@@ -298,8 +303,8 @@ export async function fetchMapleModels(
 
   const tryFetch = async (fetchUrl: string, includeAuth: boolean): Promise<Response> => {
     const headers: Record<string, string> = {};
-    if (includeAuth) {
-      headers['Authorization'] = `Bearer ${apiKey}`;
+    if (includeAuth && apiKey.trim()) {
+      headers['Authorization'] = `Bearer ${apiKey.trim()}`;
     }
     return fetch(fetchUrl, { headers });
   };
@@ -379,6 +384,24 @@ function getChatCompletionsUrl(proxyUrl: string): string {
   return `${base}/chat/completions`;
 }
 
+function readSseLine(line: string): string {
+  if (!line.startsWith('data: ')) return '';
+  const data = line.slice(6).trim();
+  if (!data || data === '[DONE]') return '';
+  return readJsonContent(data);
+}
+
+function readJsonContent(raw: string): string {
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed.choices?.[0]?.delta?.content
+      || parsed.choices?.[0]?.message?.content
+      || '';
+  } catch {
+    return '';
+  }
+}
+
 async function callMaple(
   apiKey: string,
   proxyUrl: string,
@@ -417,10 +440,7 @@ async function callMaple(
 
   const response = await fetch(url, {
     method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
+    headers: authHeaders(apiKey, true),
     body: JSON.stringify(requestBody),
   });
 
@@ -428,13 +448,13 @@ async function callMaple(
     const errorText = await response.text();
 
     if (response.status === 401 || response.status === 403) {
-      throw new Error('Invalid Maple API key. Check your key in Settings.');
+      throw new Error('The server rejected the API key.');
     }
     if (response.status === 429) {
-      throw new Error('Rate limited by Maple. Please try again in a moment.');
+      throw new Error('The server is rate limiting requests. Try again in a moment.');
     }
     
-    throw new Error(`Maple API error ${response.status}: ${errorText}`);
+    throw new Error(`AI server error ${response.status}: ${errorText}`);
   }
 
   // Handle streaming response with cross-chunk buffering.
@@ -460,22 +480,10 @@ async function callMaple(
       buffer = lines.pop() || '';
 
       for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          const data = line.slice(6).trim();
-          if (data === '[DONE]') continue;
-          
-          try {
-            const parsed = JSON.parse(data);
-            const content = parsed.choices?.[0]?.delta?.content;
-            if (content) {
-              fullContent += content;
-            }
-          } catch (e) {
-            // Ignore parse errors for SSE chunks
-          }
-        }
+        fullContent += readSseLine(line);
       }
     }
+    if (buffer.trim()) fullContent += readSseLine(buffer) || readJsonContent(buffer);
   } finally {
     reader.releaseLock();
   }
@@ -515,10 +523,7 @@ export async function testKey(
     const url = getChatCompletionsUrl(proxyUrl);
     const response = await fetch(url, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
+      headers: authHeaders(apiKey, true),
       body: JSON.stringify({
         model: model || DEFAULT_MAPLE_MODEL,
         messages: [{ role: 'user', content: 'Hello' }],
@@ -530,16 +535,16 @@ export async function testKey(
 
     if (!response.ok) {
       if (response.status === 401 || response.status === 403) {
-        return { ok: false, error: 'Invalid Maple API key. Check your credentials.' };
+        return { ok: false, error: 'The server rejected the API key.' };
       }
       if (response.status === 429) {
         return { ok: false, error: 'Rate limited. Please try again in a moment.' };
       }
       if (response.status >= 500) {
-        return { ok: false, error: 'Maple Proxy backend is temporarily unavailable.' };
+        return { ok: false, error: 'The AI server is temporarily unavailable.' };
       }
       const text = await response.text();
-      return { ok: false, error: `Maple error ${response.status}: ${text}` };
+      return { ok: false, error: `AI server error ${response.status}: ${text}` };
     }
 
     // For test, just consume the stream to verify it works
@@ -564,7 +569,7 @@ export async function testKey(
     let message = 'Unknown error';
     if (error instanceof TypeError) {
       if (error.message.includes('fetch') || error.message.includes('Failed')) {
-        message = `Cannot reach Maple Proxy at ${proxyUrl}. Make sure the Maple app's Local Proxy is running.`;
+        message = `Cannot reach the AI server at ${proxyUrl}.`;
       } else {
         message = error.message;
       }
@@ -695,19 +700,19 @@ export function getBucketRemainingUsd(
 export function getMapleErrorMessage(error: unknown): string {
   if (error instanceof Response) {
     if (error.status === 401) {
-      return 'Invalid Maple API key. Check Settings.';
+      return 'The server rejected the API key. Check Settings.';
     }
     if (error.status === 429) {
-      return 'Maple rate limit hit. Please wait a moment.';
+      return 'The AI server is rate limiting requests. Please wait a moment.';
     }
-    return `Maple API error (${error.status}). Please try again.`;
+    return `AI server error (${error.status}). Please try again.`;
   }
   if (error instanceof Error) {
     if (
       error.message.includes('Failed to fetch') ||
       error.message.includes('Network')
     ) {
-      return "Can't reach Maple. Check your connection.";
+      return "Can't reach the AI server. Check the address and your connection.";
     }
     return error.message;
   }
