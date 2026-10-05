@@ -66,8 +66,14 @@ export function PartnerSyncWrapper({ children }: { children: React.ReactNode }) 
 
   // Diagnostic: log whether the shared budget keypair is available
   useEffect(() => {
-    console.log('[PartnerSyncWrapper] budgetKeypair present:', !!budgetKeypair, 'budgets:', fullState.budgets.length);
-  }, [budgetKeypair, fullState.budgets.length]);
+    console.log('[BudgetPartners] link', {
+      status: state.budgetThread?.status || 'none',
+      role: state.budgetThread?.role || 'none',
+      partner: !!state.budgetThread?.partnerPubkey,
+      unsent: state.budgetThread?.unsyncedNotes?.length || 0,
+      keypair: !!budgetKeypair,
+    });
+  }, [budgetKeypair, state.budgetThread?.partnerPubkey, state.budgetThread?.role, state.budgetThread?.status, state.budgetThread?.unsyncedNotes?.length]);
 
   // Publish full-month snapshots whenever the budget state changes (debounced)
   useEffect(() => {
