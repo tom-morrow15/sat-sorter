@@ -1,16 +1,23 @@
 import { useState } from 'react';
-import { QrCode, Camera, Users } from 'lucide-react';
+import { QrCode, Camera, Users, MoreVertical } from 'lucide-react';
 import { nip19 } from 'nostr-tools';
 import QRCode from 'qrcode';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/useToast';
 import { useBudget } from '@/hooks/useBudget';
+import { useBudgetContext } from '@/contexts/BudgetContext';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useAuthor } from '@/hooks/useAuthor';
 import { usePartners } from '@/hooks/usePartners';
 import { useSharedSync } from './PartnerSyncWrapper';
 import { QRScanner } from './QRScanner';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
   Dialog,
   DialogContent,
@@ -32,19 +39,39 @@ function PartnerLine({ pubkey, name }: { pubkey: string; name?: string }) {
   return <p className="text-sm font-medium">{label}</p>;
 }
 
+function PartnerMenu({ onEdit, onRemove }: { onEdit: () => void; onRemove: () => void }) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" aria-label="Partner options">
+          <MoreVertical className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={onEdit}>Edit connection</DropdownMenuItem>
+        <DropdownMenuItem onClick={onRemove} className="text-destructive focus:text-destructive">
+          Remove partner
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 export function ManagePartnersDialog({
   open,
   onOpenChange,
 }: ManagePartnersDialogProps) {
   const { fullState } = useBudget();
+  const { setState } = useBudgetContext();
   const { user } = useCurrentUser();
-  const { partners: nostrPartners } = usePartners();
+  const { partners: nostrPartners, removePartner: removeNostrPartner } = usePartners();
   const shared = useSharedSync();
   const threadApi = shared?.thread;
   const { toast } = useToast();
   const [npubInput, setNpubInput] = useState('');
   const [scannerOpen, setScannerOpen] = useState(false);
   const [confirm, setConfirm] = useState<'revoke' | 'stop' | null>(null);
+  const [editing, setEditing] = useState(false);
   const [joinQr, setJoinQr] = useState('');
 
   const thread = threadApi?.thread;
@@ -56,11 +83,12 @@ export function ManagePartnersDialog({
       .filter((pubkey): pubkey is string => !!pubkey && pubkey !== user?.pubkey)
       .map((pubkey) => ({ pubkey, permission: 'edit' as const, addedAt: 0, name: undefined, status: undefined })),
   );
-  const knownPartners = [...(fullState.partners || []), ...nostrPartners, ...txPartners].filter((partner) => {
+  const listedPartners = [...(fullState.partners || []), ...nostrPartners].filter((partner) => {
     return partner.pubkey && partner.pubkey !== user?.pubkey && partner.status !== 'declined';
   });
-  const existingPartners = Array.from(new Map(knownPartners.map((partner) => [partner.pubkey, partner])).values());
-  const alreadyShared = !newThreadActive && (!!fullState.budgetKeypair || fullState.userRole === 'editor' || fullState.userRole === 'viewer' || existingPartners.length > 0);
+  const namedPartners = listedPartners.length > 0 ? listedPartners : txPartners;
+  const existingPartners = namedPartners.filter((partner, index) => namedPartners.findIndex((item) => item.pubkey === partner.pubkey) === index);
+  const alreadyShared = !newThreadActive && (!!fullState.budgetKeypair || fullState.userRole === 'editor' || fullState.userRole === 'viewer' || listedPartners.length > 0);
 
   const run = async (action: () => Promise<void>, success: string) => {
     try {
@@ -86,6 +114,32 @@ export function ManagePartnersDialog({
     const url = await QRCode.toDataURL(code, { width: 280, margin: 1, color: { dark: '#000', light: '#fff' } });
     setJoinQr(url);
   }, 'Join code ready');
+
+  const removeConnection = async () => {
+    if (thread?.status === 'accepted') {
+      await threadApi?.leaveOrRemove();
+      setEditing(false);
+      return;
+    }
+    const sharedNpub = fullState.budgetKeypair?.budgetNpub;
+    for (const partner of nostrPartners) {
+      if (partner.pubkey && partner.pubkey !== user?.pubkey) {
+        try {
+          await removeNostrPartner(partner.pubkey);
+        } catch {
+          // The connection still comes off this phone.
+        }
+      }
+    }
+    setState((prev) => ({
+      ...prev,
+      partners: [],
+      budgetKeypair: undefined,
+      userRole: 'owner',
+      accessibleBudgets: (prev.accessibleBudgets || []).filter((budget) => !budget.budgetNsec && budget.budgetNpub !== sharedNpub),
+    }));
+    setEditing(false);
+  };
 
   const partnerLabel = thread?.partnerPubkey
     ? nip19.npubEncode(thread.partnerPubkey).slice(0, 16) + '…'
@@ -135,34 +189,41 @@ export function ManagePartnersDialog({
           )}
 
           {user && thread?.status === 'accepted' && threadApi && (
-            <div className="space-y-3">
-              <p className="text-sm">This budget is shared with {partnerLabel}. You can both edit it.</p>
-              {threadApi.unsyncedCount > 0 && (
-                <p className="text-xs text-muted-foreground">
-                  {threadApi.unsyncedCount} change{threadApi.unsyncedCount === 1 ? '' : 's'} saved on this phone, not sent yet.
-                </p>
-              )}
-              <Button variant="outline" className="w-full" onClick={() => setConfirm('stop')}>
-                {thread.role === 'owner' ? 'Remove partner' : 'Leave shared budget'}
-              </Button>
+            <div className="rounded-lg border p-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="space-y-2">
+                  <p className="text-sm">This budget is shared with {partnerLabel}. You can both edit it.</p>
+                  {threadApi.unsyncedCount > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      {threadApi.unsyncedCount} change{threadApi.unsyncedCount === 1 ? '' : 's'} saved on this phone, not sent yet.
+                    </p>
+                  )}
+                </div>
+                <PartnerMenu onEdit={() => setEditing(true)} onRemove={() => setConfirm('stop')} />
+              </div>
             </div>
           )}
 
           {user && alreadyShared && (
-            <div className="space-y-2 rounded-lg border p-3">
-              <p className="text-sm">
-                {fullState.userRole === 'editor' || fullState.userRole === 'viewer'
-                  ? 'You are already on this shared budget.'
-                  : 'This budget is already shared.'}
-              </p>
-              {existingPartners.map((partner) => (
-                <PartnerLine key={partner.pubkey} pubkey={partner.pubkey} name={partner.name} />
-              ))}
-              <p className="text-xs text-muted-foreground">You do not need to send a new invite.</p>
+            <div className="rounded-lg border p-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="space-y-2">
+                  <p className="text-sm">
+                    {fullState.userRole === 'editor' || fullState.userRole === 'viewer'
+                      ? 'You are already on this shared budget.'
+                      : 'This budget is already shared.'}
+                  </p>
+                  {existingPartners.map((partner) => (
+                    <PartnerLine key={partner.pubkey} pubkey={partner.pubkey} name={partner.name} />
+                  ))}
+                  <p className="text-xs text-muted-foreground">You do not need to send a new invite.</p>
+                </div>
+                <PartnerMenu onEdit={() => setEditing(true)} onRemove={() => setConfirm('stop')} />
+              </div>
             </div>
           )}
 
-          {user && !alreadyShared && (!thread || thread.status === 'none' || thread.status === 'revoked' || thread.status === 'left') && (
+          {user && (editing || (!alreadyShared && !newThreadActive)) && (!thread || thread.status === 'none' || thread.status === 'revoked' || thread.status === 'left' || editing) && (
             <div className="space-y-3">
               <Input
                 value={npubInput}
@@ -172,7 +233,7 @@ export function ManagePartnersDialog({
                 autoCorrect="off"
               />
               <Button className="w-full" disabled={threadApi?.busy || !npubInput.trim()} onClick={() => invite(npubInput)}>
-                Send invite
+                {editing ? 'Update connection' : 'Send invite'}
               </Button>
               <Button variant="outline" className="w-full" onClick={() => setScannerOpen(true)}>
                 <Camera className="h-4 w-4 mr-2" /> Scan a code
@@ -209,7 +270,7 @@ export function ManagePartnersDialog({
             <DialogDescription>
               {confirm === 'revoke'
                 ? 'They will not be able to join from this invite. The budget stays on this phone.'
-                : 'You both keep the budget. New changes will no longer sync.'}
+                : 'This removes the partner connection. The budget stays on this phone. New changes will no longer sync.'}
             </DialogDescription>
           </DialogHeader>
           <div className="flex gap-2">
@@ -218,7 +279,7 @@ export function ManagePartnersDialog({
               const action = confirm;
               setConfirm(null);
               if (action === 'revoke') void run(() => threadApi!.revokeInvite(), 'Invite revoked');
-              if (action === 'stop') void run(() => threadApi!.leaveOrRemove(), 'Sharing stopped');
+              if (action === 'stop') void run(removeConnection, 'Partner removed');
             }}>Confirm</Button>
           </div>
         </DialogContent>

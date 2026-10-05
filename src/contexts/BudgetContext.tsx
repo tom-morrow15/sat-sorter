@@ -117,6 +117,8 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
       // encrypted-state decryption failures on reload.
       if (normalized.budgetKeypair) {
         saveKeypairToStorage(normalized.budgetKeypair);
+      } else if (prevNormalized.budgetKeypair) {
+        saveKeypairToStorage(null);
       }
 
       return normalized;
