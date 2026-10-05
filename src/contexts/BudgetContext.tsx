@@ -3,6 +3,7 @@ import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { createEncryptedSerializer, encryptValue, decryptValue } from '@/lib/secureStorage';
 import {
   BudgetState,
+  BudgetThreadState,
   getCurrentMonth,
   normalizeBudgetState,
   SAFE_DEFAULT_BUDGET_STATE,
@@ -30,6 +31,7 @@ const BudgetContext = createContext<BudgetContextValue | null>(null);
    *  encrypted budget state fails to decrypt (e.g., ephemeral IndexedDB key
    *  in PWA/sandboxed contexts). */
   const BUDGET_KEYPAIR_KEY = 'sat-sorter:budget-keypair';
+  const PARTNER_LINK_KEY = 'sat-sorter:budget-partner';
 
   // Read the keypair from its own encrypted localStorage slot.
   // Falls back to legacy plaintext format for one-time migration.
@@ -78,6 +80,42 @@ const BudgetContext = createContext<BudgetContextValue | null>(null);
     }
   };
 
+  const loadPartnerLink = (): BudgetThreadState | null => {
+    try {
+      const raw = localStorage.getItem(PARTNER_LINK_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw.startsWith('enc:v1:') ? decryptValue(raw) : raw);
+      if (!parsed?.budgetId || !parsed?.status) return null;
+      return parsed as BudgetThreadState;
+    } catch {
+      return null;
+    }
+  };
+
+  const savePartnerLink = (thread?: BudgetThreadState) => {
+    try {
+      if (!thread?.budgetId || !thread.partnerPubkey) {
+        return;
+      }
+      const link = {
+        budgetId: thread.budgetId,
+        role: thread.role,
+        ownerPubkey: thread.ownerPubkey,
+        partnerPubkey: thread.partnerPubkey,
+        status: thread.status,
+        sharedFromMonth: thread.sharedFromMonth,
+        acceptedAt: thread.acceptedAt,
+        endedAt: thread.endedAt,
+        updatedAt: thread.updatedAt || Date.now(),
+        appliedNoteIds: [],
+        unsyncedNotes: [],
+      };
+      localStorage.setItem(PARTNER_LINK_KEY, encryptValue(JSON.stringify(link)));
+    } catch (e) {
+      console.warn('[BudgetContext] Failed to save partner link:', e);
+    }
+  };
+
 export function BudgetProvider({ children }: { children: ReactNode }) {
   // Use the ultra-safe default. This is the #1 defense against Safari "Clear History"
   // leaving behind a partial object that is missing accessibleBudgets (or other new fields).
@@ -97,6 +135,18 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
         console.log('[BudgetContext] Merged keypair from plaintext slot into state');
         normalized.budgetKeypair = storedKeypair;
       }
+    }
+    const storedPartner = loadPartnerLink();
+    const localThread = normalized.budgetThread;
+    const localMissingPartner = !localThread?.partnerPubkey || localThread.status === 'none' || localThread.status === 'left' || localThread.status === 'revoked';
+    if (storedPartner?.partnerPubkey && storedPartner.status === 'accepted' && localMissingPartner && (storedPartner.updatedAt || 0) >= (localThread?.updatedAt || 0)) {
+      normalized.budgetThread = {
+        ...storedPartner,
+        appliedNoteIds: localThread?.appliedNoteIds || storedPartner.appliedNoteIds || [],
+        unsyncedNotes: localThread?.unsyncedNotes || [],
+        entityClock: localThread?.entityClock || {},
+        catchUpDone: localThread?.catchUpDone,
+      };
     }
     console.log('[BudgetContext] State computed — keypair:', !!normalized.budgetKeypair, 'budgets:', normalized.budgets.length);
     return normalized;
@@ -120,6 +170,7 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
       } else if (prevNormalized.budgetKeypair) {
         saveKeypairToStorage(null);
       }
+      savePartnerLink(normalized.budgetThread);
 
       return normalized;
     });

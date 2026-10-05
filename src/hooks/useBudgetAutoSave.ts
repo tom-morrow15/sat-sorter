@@ -45,6 +45,7 @@ export function useBudgetAutoSave(fullState?: BudgetState) {
   const [status, setStatus] = useState<AutoSaveStatus>('idle');
 
   const lastPushedFingerprint = useRef<string | null>(null);
+  const monthFingerprints = useRef<Map<string, string>>(new Map());
   const hasInitialized = useRef(false);
   const pushTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // The debounce callback must upload whatever is on screen now, not the
@@ -79,6 +80,7 @@ export function useBudgetAutoSave(fullState?: BudgetState) {
     if (!hasInitialized.current) {
       hasInitialized.current = true;
       lastPushedFingerprint.current = fingerprint;
+      for (const month of fullState.budgets) monthFingerprints.current.set(month.month, JSON.stringify(month));
       setStatus('saved');
       return;
     }
@@ -97,9 +99,11 @@ export function useBudgetAutoSave(fullState?: BudgetState) {
       if (latest === lastPushedFingerprint.current) return;
 
       setStatus('saving');
-      const ok = await uploadBudget(latestState, { skipRemoteCheck: true });
+      const changed = latestState.budgets.filter((month) => monthFingerprints.current.get(month.month) !== JSON.stringify(month));
+      const ok = await uploadBudget(latestState, { skipRemoteCheck: true, onlyMonths: changed.length > 0 ? changed : undefined });
       if (ok) {
         lastPushedFingerprint.current = latest;
+        for (const month of latestState.budgets) monthFingerprints.current.set(month.month, JSON.stringify(month));
         setStatus('saved');
       } else {
         setStatus('error');
@@ -108,9 +112,11 @@ export function useBudgetAutoSave(fullState?: BudgetState) {
           const retryState = fullStateRef.current;
           if (!retryState?.budgets) return;
           const retryFp = budgetFingerprint(retryState);
-          const retryOk = await uploadBudget(retryState, { skipRemoteCheck: true });
+          const retryChanged = retryState.budgets.filter((month) => monthFingerprints.current.get(month.month) !== JSON.stringify(month));
+          const retryOk = await uploadBudget(retryState, { skipRemoteCheck: true, onlyMonths: retryChanged.length > 0 ? retryChanged : undefined });
           if (retryOk) {
             lastPushedFingerprint.current = retryFp;
+            for (const month of retryState.budgets) monthFingerprints.current.set(month.month, JSON.stringify(month));
             setStatus('saved');
           } else {
             setStatus('error');

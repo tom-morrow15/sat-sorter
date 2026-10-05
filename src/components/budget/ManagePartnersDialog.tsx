@@ -138,6 +138,8 @@ export function ManagePartnersDialog({
   const namedPartners = listedPartners.length > 0 ? listedPartners : txPartners;
   const existingPartners = namedPartners.filter((partner, index) => namedPartners.findIndex((item) => item.pubkey === partner.pubkey) === index);
   const alreadyShared = !newThreadActive && (!!fullState.budgetKeypair || fullState.userRole === 'editor' || fullState.userRole === 'viewer' || listedPartners.length > 0);
+  const connected = !!(thread?.partnerPubkey && thread.partnerPubkey !== user?.pubkey && (thread.status === 'accepted' || (thread.status === 'pending' && thread.role === 'partner')));
+  const showSavedPartner = !connected && existingPartners.length > 0;
 
   const run = async (action: () => Promise<void>, success: string) => {
     try {
@@ -217,6 +219,10 @@ export function ManagePartnersDialog({
             </DialogDescription>
           </DialogHeader>
 
+          {user && !(thread?.partnerPubkey && thread.partnerPubkey !== user.pubkey && (thread.status === 'accepted' || thread.status === 'pending')) && existingPartners.length === 0 && (
+            <p className="text-sm">This phone is not connected to a budget partner.</p>
+          )}
+
           {!user && (
             <p className="text-sm text-muted-foreground">Log in with your Nostr key before inviting a partner.</p>
           )}
@@ -267,7 +273,19 @@ export function ManagePartnersDialog({
             </div>
           )}
 
-          {user && alreadyShared && (
+          {user && showSavedPartner && (
+            <div className="rounded-lg border p-3">
+              <div className="space-y-2">
+                <p className="text-sm">Saved on this phone, but new transactions are not being sent yet.</p>
+                {existingPartners.map((partner) => (
+                  <PartnerLine key={partner.pubkey} pubkey={partner.pubkey} name={partner.name} />
+                ))}
+                <p className="text-xs text-muted-foreground">Show a code on this phone. Scan it on the other phone. Leave both open until both say connected.</p>
+              </div>
+            </div>
+          )}
+
+          {user && alreadyShared && !showSavedPartner && (
             <div className="rounded-lg border p-3">
               <div className="flex items-start justify-between gap-2">
                 <div className="space-y-2">

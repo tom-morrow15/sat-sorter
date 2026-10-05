@@ -1,8 +1,11 @@
 import { useCallback, useState } from 'react';
 import { useNostr } from '@nostrify/react';
+import { NRelay1 } from '@nostrify/nostrify';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
-import { useNostrPublish } from '@/hooks/useNostrPublish';
+import { useAppContext } from '@/hooks/useAppContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { mapRelayUrl } from '@/lib/devRelayProxy';
+import { SHARED_BUDGET_RELAYS } from '@/hooks/useSharedBudgetSync';
 import type { BudgetState, MonthlyBudget } from '@/lib/budgetTypes';
 
 const APP_IDENTIFIER = 'sat-sorter/budget-data';
@@ -29,6 +32,25 @@ interface SyncStatus {
   lastSynced: number | null;
   isSyncing: boolean;
   error: string | null;
+}
+
+/** One relay accepting the event is enough. The shared pool waits for every
+ *  relay, so one slow relay was turning a normal save into an error. */
+async function publishToAnyRelay(event: any, relays: string[]): Promise<boolean> {
+  const urls = [...new Set(relays.filter(Boolean))];
+  if (urls.length === 0) return false;
+  const results = await Promise.all(urls.map(async (url) => {
+    const relay = new NRelay1(mapRelayUrl(url));
+    try {
+      await relay.event(event, { signal: AbortSignal.timeout(12000) });
+      return true;
+    } catch {
+      return false;
+    } finally {
+      try { relay.close(); } catch { /* already closed */ }
+    }
+  }));
+  return results.some(Boolean);
 }
 
 // Helper: fetch + decrypt a single event by exact filter (for manifest or a specific month)
@@ -151,7 +173,7 @@ export async function fetchFullBudgetFromNostr(
 export function useBudgetSync() {
   const { nostr } = useNostr();
   const { user } = useCurrentUser();
-  const { mutateAsync: publish } = useNostrPublish();
+  const { config } = useAppContext();
   const queryClient = useQueryClient();
   const [syncStatus, setSyncStatus] = useState<SyncStatus>({
     lastSynced: null,
@@ -236,9 +258,9 @@ export function useBudgetSync() {
   // Upload (now uses the split format: one manifest + one small event per month)
   const uploadBudget = useCallback(async (
     budgetState: BudgetState,
-    options: { allowEmpty?: boolean; skipRemoteCheck?: boolean } = {}
+    options: { allowEmpty?: boolean; skipRemoteCheck?: boolean; onlyMonths?: MonthlyBudget[] } = {}
   ): Promise<boolean> => {
-    if (!user?.pubkey || !user?.signer?.nip44) {
+    if (!user?.pubkey || !user?.signer?.nip44 || !user.signer.signEvent) {
       setSyncStatus(prev => ({ ...prev, error: 'Not logged in or signer unavailable' }));
       return false;
     }
@@ -253,28 +275,39 @@ export function useBudgetSync() {
       return false;
     }
 
+    const toUpload = options.onlyMonths && options.onlyMonths.length > 0 ? options.onlyMonths : months;
+    const writeRelays = (config.relayMetadata?.relays || []).filter((relay) => relay.write).map((relay) => relay.url);
+    const relays = [...writeRelays, ...SHARED_BUDGET_RELAYS];
+
+    const publishBudgetEvent = async (tags: string[][], content: string) => {
+      const event = await user.signer.signEvent({
+        kind: BUDGET_KIND,
+        content,
+        tags,
+        created_at: Math.floor(Date.now() / 1000),
+      });
+      const sent = await publishToAnyRelay(event, relays);
+      if (!sent) throw new Error('No relay accepted the save');
+    };
+
     setSyncStatus(prev => ({ ...prev, isSyncing: true, error: null }));
 
     try {
-      // 1. Publish one small encrypted event per month
-      for (const monthBudget of months) {
+      for (const monthBudget of toUpload) {
         const dtag = `${MONTH_DTAG_PREFIX}${monthBudget.month}`;
         const encryptedMonth = await user.signer.nip44.encrypt(
           user.pubkey,
           JSON.stringify(monthBudget)
         );
-
-        await publish({
-          kind: BUDGET_KIND,
-          content: encryptedMonth,
-          tags: [
+        await publishBudgetEvent(
+          [
             ['d', dtag],
             ['alt', `Sat Sorter budget month ${monthBudget.month} (encrypted)`],
           ],
-        });
+          encryptedMonth,
+        );
       }
 
-      // 2. Publish the small manifest (global metadata + list of months)
       const manifest: BudgetManifestV2 = {
         version: 2,
         currentMonth: budgetState.currentMonth,
@@ -292,14 +325,13 @@ export function useBudgetSync() {
         JSON.stringify(manifest)
       );
 
-      await publish({
-        kind: BUDGET_KIND,
-        content: encryptedManifest,
-        tags: [
+      await publishBudgetEvent(
+        [
           ['d', APP_IDENTIFIER],
           ['alt', 'Sat Sorter budget data manifest (encrypted)'],
         ],
-      });
+        encryptedManifest,
+      );
 
       const now = Math.floor(Date.now() / 1000);
       setSyncStatus({
@@ -309,12 +341,6 @@ export function useBudgetSync() {
       });
 
       queryClient.invalidateQueries({ queryKey: ['budget-sync', user.pubkey] });
-
-      console.log('[useBudgetSync] Uploaded split budget:', {
-        months: manifest.months.length,
-        currentMonth: manifest.currentMonth,
-      });
-
       return true;
     } catch (e) {
       console.error('Failed to upload budget (split format):', e);
@@ -325,7 +351,7 @@ export function useBudgetSync() {
       }));
       return false;
     }
-  }, [user, publish, queryClient, nostr]);
+  }, [user, queryClient, config.relayMetadata]);
 
   // Full download that returns a complete BudgetState (used by Save button flows and NostrSync)
   const downloadBudget = useCallback(async (): Promise<BudgetState | null> => {
