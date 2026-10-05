@@ -72,10 +72,19 @@ function mergeBudgetStates(local: BudgetState, remote: BudgetState): BudgetState
     }
   }
 
-  // Union partners by pubkey (prefer remote for up-to-date status)
+  // Union partners by pubkey (prefer remote for up-to-date status).
+  // A reset leaves the local list empty and the thread ended. Do not let an
+  // older cloud backup put that partner back.
   const partnersMap = new Map<string, NonNullable<BudgetState['partners']>[number]>();
-  for (const p of local.partners || []) partnersMap.set(p.pubkey, p);
-  for (const p of remote.partners || []) partnersMap.set(p.pubkey, p);
+  const linkEnded = !local.budgetThread
+    || local.budgetThread.status === 'left'
+    || local.budgetThread.status === 'revoked'
+    || local.budgetThread.status === 'none';
+  const partnersCleared = linkEnded && (local.partners || []).length === 0;
+  if (!partnersCleared) {
+    for (const p of local.partners || []) partnersMap.set(p.pubkey, p);
+    for (const p of remote.partners || []) partnersMap.set(p.pubkey, p);
+  }
 
   // Union payment methods (deduped)
   const paymentMethodsSet = new Set<string>([
@@ -89,7 +98,7 @@ function mergeBudgetStates(local: BudgetState, remote: BudgetState): BudgetState
     budgets: mergedBudgets,
     templates: Array.from(templatesMap.values()),
     partners: Array.from(partnersMap.values()),
-    userRole: remote.userRole || local.userRole,
+    userRole: partnersCleared ? (local.userRole || 'owner') : (remote.userRole || local.userRole),
     defaultTemplateId: remote.defaultTemplateId || local.defaultTemplateId,
     paymentMethods: Array.from(paymentMethodsSet),
     lastSynced: Math.floor(Date.now() / 1000),
