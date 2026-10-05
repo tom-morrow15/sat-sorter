@@ -7,6 +7,8 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/useToast';
 import { useBudget } from '@/hooks/useBudget';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useAuthor } from '@/hooks/useAuthor';
+import { usePartners } from '@/hooks/usePartners';
 import { useSharedSync } from './PartnerSyncWrapper';
 import { QRScanner } from './QRScanner';
 import {
@@ -23,12 +25,20 @@ interface ManagePartnersDialogProps {
   userRole?: 'owner' | 'editor' | 'viewer';
 }
 
+function PartnerLine({ pubkey, name }: { pubkey: string; name?: string }) {
+  const profile = useAuthor(pubkey);
+  const metadata = profile.data?.metadata;
+  const label = metadata?.display_name || metadata?.name || name || `${nip19.npubEncode(pubkey).slice(0, 16)}…`;
+  return <p className="text-sm font-medium">{label}</p>;
+}
+
 export function ManagePartnersDialog({
   open,
   onOpenChange,
 }: ManagePartnersDialogProps) {
   const { fullState } = useBudget();
   const { user } = useCurrentUser();
+  const { partners: nostrPartners } = usePartners();
   const shared = useSharedSync();
   const threadApi = shared?.thread;
   const { toast } = useToast();
@@ -39,8 +49,18 @@ export function ManagePartnersDialog({
 
   const thread = threadApi?.thread;
   const incoming = threadApi?.incomingInvite;
-  const months = fullState.budgets?.length || 0;
-  const latestMonth = [...(fullState.budgets || [])].map((budget) => budget.month).sort().at(-1);
+  const newThreadActive = thread?.status === 'pending' || thread?.status === 'accepted';
+  const txPartners = (fullState.budgets || []).flatMap((budget) =>
+    (budget.transactions || [])
+      .map((tx) => tx.partnerPubkey)
+      .filter((pubkey): pubkey is string => !!pubkey && pubkey !== user?.pubkey)
+      .map((pubkey) => ({ pubkey, permission: 'edit' as const, addedAt: 0, name: undefined, status: undefined })),
+  );
+  const knownPartners = [...(fullState.partners || []), ...nostrPartners, ...txPartners].filter((partner) => {
+    return partner.pubkey && partner.pubkey !== user?.pubkey && partner.status !== 'declined';
+  });
+  const existingPartners = Array.from(new Map(knownPartners.map((partner) => [partner.pubkey, partner])).values());
+  const alreadyShared = !newThreadActive && (!!fullState.budgetKeypair || fullState.userRole === 'editor' || fullState.userRole === 'viewer' || existingPartners.length > 0);
 
   const run = async (action: () => Promise<void>, success: string) => {
     try {
@@ -91,7 +111,7 @@ export function ManagePartnersDialog({
 
           {user && incoming && threadApi && thread?.status !== 'accepted' && (
             <div className="space-y-3 rounded-lg border p-3">
-              <p className="text-sm">Someone shared a budget with you. If you accept, you can both edit it. Months already on this phone stay.</p>
+              <p className="text-sm">Someone shared a budget with you. If you accept, you can both edit it.</p>
               <p className="text-xs text-muted-foreground">{incoming.monthCount} month{incoming.monthCount === 1 ? '' : 's'} are included.</p>
               <div className="flex gap-2">
                 <Button className="flex-1" disabled={threadApi.busy} onClick={() => {
@@ -105,9 +125,6 @@ export function ManagePartnersDialog({
           {user && thread?.status === 'pending' && (
             <div className="space-y-3">
               <p className="text-sm">Waiting for them to accept the invite.</p>
-              <p className="text-xs text-muted-foreground">
-                {months} month{months === 1 ? '' : 's'}{latestMonth ? `, through ${latestMonth}` : ''} stay on this phone.
-              </p>
               <Button variant="outline" className="w-full" onClick={showCode}>
                 <QrCode className="h-4 w-4 mr-2" /> Show join code
               </Button>
@@ -131,11 +148,22 @@ export function ManagePartnersDialog({
             </div>
           )}
 
-          {user && (!thread || thread.status === 'none' || thread.status === 'revoked' || thread.status === 'left') && (
-            <div className="space-y-3">
+          {user && alreadyShared && (
+            <div className="space-y-2 rounded-lg border p-3">
               <p className="text-sm">
-                Months already on this phone stay{latestMonth ? `, through ${latestMonth}` : ''}. An invite does not erase them.
+                {fullState.userRole === 'editor' || fullState.userRole === 'viewer'
+                  ? 'You are already on this shared budget.'
+                  : 'This budget is already shared.'}
               </p>
+              {existingPartners.map((partner) => (
+                <PartnerLine key={partner.pubkey} pubkey={partner.pubkey} name={partner.name} />
+              ))}
+              <p className="text-xs text-muted-foreground">You do not need to send a new invite.</p>
+            </div>
+          )}
+
+          {user && !alreadyShared && (!thread || thread.status === 'none' || thread.status === 'revoked' || thread.status === 'left') && (
+            <div className="space-y-3">
               <Input
                 value={npubInput}
                 onChange={(event) => setNpubInput(event.target.value)}
