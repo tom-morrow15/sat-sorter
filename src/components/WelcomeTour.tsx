@@ -133,8 +133,8 @@ const TOUR_STEPS: TourStep[] = [
     icon: Users,
     iconColor: 'text-petrol',
     title: 'Budget Partners',
-    description: 'Share your budget with a partner — like a spouse — so you both see the same categories and transactions. Changes sync automatically across devices.',
-    howTo: 'Open the hamburger menu → Budget Partners → Share Budget Key (QR). Your partner scans it to join. Use Force Sync if changes aren\'t appearing.',
+    description: 'Share your budget with one other person. You each keep your own login, and you both see the same categories and transactions.',
+    howTo: 'Open Budget Partners. Send an invite with their npub, or show a join code for them to scan.',
     needsNostr: true,
   },
   {

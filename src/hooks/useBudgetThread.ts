@@ -172,7 +172,7 @@ export function useBudgetThread() {
       await joinBudget(parsed.join.budgetId, parsed.join.ownerPubkey);
       return;
     }
-    if (!parsed.pubkey) throw new Error('Enter her npub, or scan her profile QR');
+    if (!parsed.pubkey) throw new Error('Enter an npub, or scan an npub or join code');
     if (parsed.pubkey === user.pubkey) throw new Error('That is your own npub');
     setBusy(true);
     try {

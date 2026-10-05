@@ -34,7 +34,6 @@ export function ManagePartnersDialog({
   const { toast } = useToast();
   const [npubInput, setNpubInput] = useState('');
   const [scannerOpen, setScannerOpen] = useState(false);
-  const [scanMode, setScanMode] = useState<'npub' | 'join'>('npub');
   const [confirm, setConfirm] = useState<'revoke' | 'stop' | null>(null);
   const [joinQr, setJoinQr] = useState('');
 
@@ -82,7 +81,7 @@ export function ManagePartnersDialog({
               Budget Partners
             </DialogTitle>
             <DialogDescription>
-              You keep your login. She keeps hers. Changes sync one at a time.
+              Share this budget with one other person. You each stay logged in as yourself, and you both see the same changes.
             </DialogDescription>
           </DialogHeader>
 
@@ -92,7 +91,7 @@ export function ManagePartnersDialog({
 
           {user && incoming && threadApi && thread?.status !== 'accepted' && (
             <div className="space-y-3 rounded-lg border p-3">
-              <p className="text-sm">Someone shared a budget with you. You will both be able to edit it. Your existing months stay, and anything only on your phone is kept.</p>
+              <p className="text-sm">Someone shared a budget with you. If you accept, you can both edit it. Months already on this phone stay.</p>
               <p className="text-xs text-muted-foreground">{incoming.monthCount} month{incoming.monthCount === 1 ? '' : 's'} are included.</p>
               <div className="flex gap-2">
                 <Button className="flex-1" disabled={threadApi.busy} onClick={() => {
@@ -105,9 +104,9 @@ export function ManagePartnersDialog({
 
           {user && thread?.status === 'pending' && (
             <div className="space-y-3">
-              <p className="text-sm">Waiting for budget partner to accept invite.</p>
+              <p className="text-sm">Waiting for them to accept the invite.</p>
               <p className="text-xs text-muted-foreground">
-                {months} month{months === 1 ? '' : 's'}{latestMonth ? `, through ${latestMonth}` : ''} stay on this phone. Nothing is deleted.
+                {months} month{months === 1 ? '' : 's'}{latestMonth ? `, through ${latestMonth}` : ''} stay on this phone.
               </p>
               <Button variant="outline" className="w-full" onClick={showCode}>
                 <QrCode className="h-4 w-4 mr-2" /> Show join code
@@ -120,14 +119,14 @@ export function ManagePartnersDialog({
 
           {user && thread?.status === 'accepted' && threadApi && (
             <div className="space-y-3">
-              <p className="text-sm">Sharing with {partnerLabel}. You can both edit.</p>
+              <p className="text-sm">This budget is shared with {partnerLabel}. You can both edit it.</p>
               {threadApi.unsyncedCount > 0 && (
                 <p className="text-xs text-muted-foreground">
-                  {threadApi.unsyncedCount} change{threadApi.unsyncedCount === 1 ? '' : 's'} not synced yet. They stay on this phone and send when a relay accepts them.
+                  {threadApi.unsyncedCount} change{threadApi.unsyncedCount === 1 ? '' : 's'} saved on this phone, not sent yet.
                 </p>
               )}
               <Button variant="outline" className="w-full" onClick={() => setConfirm('stop')}>
-                {thread.role === 'owner' ? 'Remove partner' : 'Leave budget'}
+                {thread.role === 'owner' ? 'Remove partner' : 'Leave shared budget'}
               </Button>
             </div>
           )}
@@ -135,26 +134,26 @@ export function ManagePartnersDialog({
           {user && (!thread || thread.status === 'none' || thread.status === 'revoked' || thread.status === 'left') && (
             <div className="space-y-3">
               <p className="text-sm">
-                Your months stay{latestMonth ? `, through ${latestMonth}` : ''}. Inviting someone does not erase them. The old shared key is no longer how you add a partner.
+                Months already on this phone stay{latestMonth ? `, through ${latestMonth}` : ''}. An invite does not erase them.
               </p>
               <Input
                 value={npubInput}
                 onChange={(event) => setNpubInput(event.target.value)}
-                placeholder="Paste her npub"
+                placeholder="Paste an npub"
                 autoCapitalize="none"
                 autoCorrect="off"
               />
               <Button className="w-full" disabled={threadApi?.busy || !npubInput.trim()} onClick={() => invite(npubInput)}>
-                Invite partner
+                Send invite
               </Button>
-              <Button variant="outline" className="w-full" onClick={() => { setScanMode('npub'); setScannerOpen(true); }}>
-                <Camera className="h-4 w-4 mr-2" /> Scan her npub
+              <Button variant="outline" className="w-full" onClick={() => setScannerOpen(true)}>
+                <Camera className="h-4 w-4 mr-2" /> Scan a code
               </Button>
+              <p className="text-xs text-muted-foreground text-center">
+                Scan an npub to invite someone, or scan a join code to join their budget.
+              </p>
               <Button variant="outline" className="w-full" onClick={showCode}>
-                <QrCode className="h-4 w-4 mr-2" /> Show a join code
-              </Button>
-              <Button variant="outline" className="w-full" onClick={() => { setScanMode('join'); setScannerOpen(true); }}>
-                <Camera className="h-4 w-4 mr-2" /> Scan a join code
+                <QrCode className="h-4 w-4 mr-2" /> Show join code
               </Button>
             </div>
           )}
@@ -165,7 +164,7 @@ export function ManagePartnersDialog({
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Join code</DialogTitle>
-            <DialogDescription>She scans this while logged in as herself. It does not contain a private key.</DialogDescription>
+            <DialogDescription>Have them scan this while logged in. This code is not a private key.</DialogDescription>
           </DialogHeader>
           <div className="flex justify-center py-2">
             <div className="rounded-lg border bg-white p-4">
@@ -181,8 +180,8 @@ export function ManagePartnersDialog({
             <DialogTitle>{confirm === 'revoke' ? 'Revoke this invite?' : 'Stop sharing?'}</DialogTitle>
             <DialogDescription>
               {confirm === 'revoke'
-                ? 'She will not be able to accept this invite. Your budget stays on this phone.'
-                : 'You both keep the budget as it is. New changes will no longer sync.'}
+                ? 'They will not be able to join from this invite. The budget stays on this phone.'
+                : 'You both keep the budget. New changes will no longer sync.'}
             </DialogDescription>
           </DialogHeader>
           <div className="flex gap-2">
@@ -200,12 +199,11 @@ export function ManagePartnersDialog({
       <QRScanner
         open={scannerOpen}
         onOpenChange={setScannerOpen}
-        title={scanMode === 'join' ? 'Scan join code' : 'Scan npub'}
-        description={scanMode === 'join' ? 'Point the camera at the join code.' : 'Point the camera at her npub QR.'}
+        title="Scan a code"
+        description="Point the camera at an npub or a join code."
         onScan={(value) => {
           setScannerOpen(false);
-          if (scanMode === 'join') void invite(value);
-          else void invite(value);
+          void invite(value);
         }}
       />
     </>
