@@ -1,4 +1,4 @@
-import { useCallback, useState, useRef } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import { useAISettings } from './useAISettings';
 import { useBudget } from './useBudget';
 import { useBitcoinPrice } from './useBitcoinPrice';
@@ -23,6 +23,15 @@ export interface ChatEntry {
   content: string;
 }
 
+// Lives for this visit only. Switching tabs keeps it. Closing the app clears it.
+let sessionMessages: ChatEntry[] = [];
+const sessionListeners = new Set<(next: ChatEntry[]) => void>();
+
+function updateSession(next: ChatEntry[] | ((prev: ChatEntry[]) => ChatEntry[])) {
+  sessionMessages = typeof next === 'function' ? next(sessionMessages) : next;
+  sessionListeners.forEach((listener) => listener(sessionMessages));
+}
+
 export interface UseMapleChatReturn {
   messages: ChatEntry[];
   isLoading: boolean;
@@ -44,9 +53,16 @@ export function useMapleChat(): UseMapleChatReturn {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Chats are intentionally ephemeral: a fresh, in-memory conversation each
-  // time Budget Buddy is opened. Closing/reopening the app starts over.
-  const [messages, setMessages] = useState<ChatEntry[]>([]);
+  const [messages, setMessages] = useState<ChatEntry[]>(sessionMessages);
+
+  useEffect(() => {
+    const listener = (next: ChatEntry[]) => setMessages(next);
+    sessionListeners.add(listener);
+    setMessages(sessionMessages);
+    return () => {
+      sessionListeners.delete(listener);
+    };
+  }, []);
 
   const abortRef = useRef<AbortController | null>(null);
 
@@ -150,23 +166,14 @@ export function useMapleChat(): UseMapleChatReturn {
         role: 'user',
         content: text,
       };
-      setMessages((prev) => [...prev, userEntry]);
+      updateSession((prev) => [...prev, userEntry]);
 
       try {
         const context = getContext();
-
-        // Build history for API (exclude the just-added user message —
-        // we include it manually)
-        const previousMessages: ChatMessage[] = messages.map((m) => ({
-          role: m.role,
-          content: m.content,
+        const fullHistory: ChatMessage[] = sessionMessages.map((entry) => ({
+          role: entry.role,
+          content: entry.content,
         }));
-        const fullHistory: ChatMessage[] = [
-          ...previousMessages,
-          { role: 'user', content: text },
-        ];
-
-        // Trim history to stay within context window limits
         const trimmedHistory = trimHistory(fullHistory);
 
         const responseText = await chatWithMaple(apiKey, proxyUrl, context, trimmedHistory, model, zdr);
@@ -176,7 +183,7 @@ export function useMapleChat(): UseMapleChatReturn {
           role: 'assistant',
           content: responseText,
         };
-        setMessages((prev) => [...prev, assistantEntry]);
+        updateSession((prev) => [...prev, assistantEntry]);
       } catch (err) {
         const msg = getMapleErrorMessage(err);
         setError(msg);
@@ -185,7 +192,7 @@ export function useMapleChat(): UseMapleChatReturn {
         setIsLoading(false);
       }
     },
-    [apiKey, isCustom, proxyUrl, model, zdr, messages, getContext, setMessages, toast]
+    [apiKey, isCustom, proxyUrl, model, zdr, getContext, toast]
   );
 
   const analyze = useCallback(async () => {
@@ -216,8 +223,8 @@ export function useMapleChat(): UseMapleChatReturn {
   }, [apiKey, isCustom, proxyUrl, model, zdr, getContext, toast]);
 
   const clearHistory = useCallback(() => {
-    setMessages([]);
-  }, [setMessages]);
+    updateSession([]);
+  }, []);
 
   const preflightCheck = useCallback(
     (text: string) => {
