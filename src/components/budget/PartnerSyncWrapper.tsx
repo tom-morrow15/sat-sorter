@@ -2,6 +2,7 @@ import { useEffect, useRef, createContext, useContext } from 'react';
 import { useBudget } from '@/hooks/useBudget';
 import { useBudgetContext } from '@/contexts/BudgetContext';
 import { useSharedBudgetSync, fingerprintBudgetMonth } from '@/hooks/useSharedBudgetSync';
+import { useBudgetThread } from '@/hooks/useBudgetThread';
 import type { MonthlyBudget } from '@/lib/budgetTypes';
 
 interface SharedSyncContextValue {
@@ -10,6 +11,7 @@ interface SharedSyncContextValue {
   hasSharedBudget: boolean;
   /** Mark a month as received from sync so it isn't echoed back. */
   markReceivedSnapshot: (month: string, snapshot: MonthlyBudget) => void;
+  thread: ReturnType<typeof useBudgetThread>;
 }
 
 const SharedSyncContext = createContext<SharedSyncContextValue | null>(null);
@@ -30,6 +32,8 @@ export function PartnerSyncWrapper({ children }: { children: React.ReactNode }) 
   const { fullState } = useBudget();
   const { state } = useBudgetContext();
   const budgetKeypair = state.budgetKeypair;
+  const thread = useBudgetThread();
+  const threadLive = state.budgetThread?.status === 'accepted';
 
   const {
     publishBudgetSnapshot,
@@ -40,8 +44,8 @@ export function PartnerSyncWrapper({ children }: { children: React.ReactNode }) 
     lastLocalChange,
     markReceivedSnapshot,
   } = useSharedBudgetSync(
-    budgetKeypair?.budgetNpub || '',
-    budgetKeypair?.budgetNsec || ''
+    threadLive ? '' : (budgetKeypair?.budgetNpub || ''),
+    threadLive ? '' : (budgetKeypair?.budgetNsec || '')
   );
 
   // Debounce timer for publishing
@@ -66,7 +70,7 @@ export function PartnerSyncWrapper({ children }: { children: React.ReactNode }) 
 
   // Publish full-month snapshots whenever the budget state changes (debounced)
   useEffect(() => {
-    if (!budgetKeypair) return;
+    if (!budgetKeypair || threadLive) return;
 
     // Build a fingerprint of each month using the shared helper so it matches
     // what useSharedBudgetSync records when a snapshot is received.
@@ -150,14 +154,15 @@ export function PartnerSyncWrapper({ children }: { children: React.ReactNode }) 
     return () => {
       if (publishTimer.current) clearTimeout(publishTimer.current);
     };
-  }, [budgetKeypair, fullState.budgets, publishBudgetSnapshot, receivedFingerprints, lastLocalChange]);
+  }, [budgetKeypair, threadLive, fullState.budgets, publishBudgetSnapshot, receivedFingerprints, lastLocalChange]);
 
   return (
     <SharedSyncContext.Provider value={{
       forceSync,
       requestSync,
-      hasSharedBudget: !!budgetKeypair,
+      hasSharedBudget: !!budgetKeypair || threadLive,
       markReceivedSnapshot,
+      thread,
     }}>
       {children}
     </SharedSyncContext.Provider>

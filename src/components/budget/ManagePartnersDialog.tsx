@@ -1,20 +1,14 @@
 import { useState } from 'react';
-import { QrCode, Camera, RefreshCw, Shield, Eye, Users, KeyRound, Copy } from 'lucide-react';
+import { QrCode, Camera, Users } from 'lucide-react';
 import { nip19 } from 'nostr-tools';
-import { getPublicKey } from 'nostr-tools/pure';
+import QRCode from 'qrcode';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/useToast';
 import { useBudget } from '@/hooks/useBudget';
-import { useBudgetContext } from '@/contexts/BudgetContext';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
-import { useNostr } from '@nostrify/react';
-import { generateBudgetKeypair } from '@/lib/budgetCrypto';
-import { seedAllBudgetSnapshots, fetchAllSharedBudgetSnapshots } from '@/hooks/useSharedBudgetSync';
 import { useSharedSync } from './PartnerSyncWrapper';
 import { QRScanner } from './QRScanner';
-import QRCode from 'qrcode';
 import {
   Dialog,
   DialogContent,
@@ -22,7 +16,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface ManagePartnersDialogProps {
   open: boolean;
@@ -33,181 +26,51 @@ interface ManagePartnersDialogProps {
 export function ManagePartnersDialog({
   open,
   onOpenChange,
-  userRole = 'owner',
 }: ManagePartnersDialogProps) {
   const { fullState } = useBudget();
-  const { setState } = useBudgetContext();
   const { user } = useCurrentUser();
-  const { nostr } = useNostr();
-  const sharedSync = useSharedSync();
+  const shared = useSharedSync();
+  const threadApi = shared?.thread;
   const { toast } = useToast();
+  const [npubInput, setNpubInput] = useState('');
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [scanMode, setScanMode] = useState<'npub' | 'join'>('npub');
+  const [confirm, setConfirm] = useState<'revoke' | 'stop' | null>(null);
+  const [joinQr, setJoinQr] = useState('');
 
-  const [showShareQR, setShowShareQR] = useState(false);
-  const [showJoinScanner, setShowJoinScanner] = useState(false);
-  const [showSecurityWarning, setShowSecurityWarning] = useState(false);
-  const [showJoinWarning, setShowJoinWarning] = useState(false);
-  const [isJoining, setIsJoining] = useState(false);
-  const [qrCodeUrl, setQrCodeUrl] = useState('');
+  const thread = threadApi?.thread;
+  const incoming = threadApi?.incomingInvite;
+  const months = fullState.budgets?.length || 0;
+  const latestMonth = [...(fullState.budgets || [])].map((budget) => budget.month).sort().at(-1);
 
-  const budgetKeypair = fullState.budgetKeypair;
-  const isOwner = !budgetKeypair || userRole === 'owner';
-
-  // Prepare the keypair (generate if needed, seed relay) then show the
-  // security warning before revealing the QR. Called from the Share button.
-  const handleShareClick = async () => {
-    let keypair = budgetKeypair;
-
-    // Generate a new keypair if this is the first time sharing
-    if (!keypair) {
-      const generated = generateBudgetKeypair();
-      keypair = {
-        budgetNsec: generated.budgetNsec,
-        budgetNpub: generated.budgetNpub,
-      };
-
-      // Store it immediately
-      setState(prev => ({
-        ...prev,
-        budgetKeypair: { budgetNsec: keypair!.budgetNsec, budgetNpub: keypair!.budgetNpub },
-        accessibleBudgets: [
-          ...(prev.accessibleBudgets || []).filter(b => b.budgetNpub && b.budgetNpub !== keypair!.budgetNpub),
-          { budgetNpub: keypair!.budgetNpub, budgetNsec: keypair!.budgetNsec, role: 'owner' as const },
-        ],
-      }));
-
-      // Seed all existing months to the shared keypair so partners get data immediately
-      const currentBudgets = [...(fullState.budgets || [])];
-      if (currentBudgets.length > 0) {
-        console.log('[ManagePartnersDialog] Seeding', currentBudgets.length, 'months to shared keypair...');
-        try {
-          const count = await seedAllBudgetSnapshots(currentBudgets, keypair.budgetNsec, nostr);
-          console.log('[ManagePartnersDialog] Seeded', count, 'months');
-        } catch (e) {
-          console.warn('[ManagePartnersDialog] Seeding failed (non-fatal):', e);
-        }
-      }
-    } else {
-      // Keypair exists — re-seed in case data changed or previous seed failed
-      const currentBudgets = [...(fullState.budgets || [])];
-      if (currentBudgets.length > 0) {
-        try {
-          const count = await seedAllBudgetSnapshots(currentBudgets, keypair.budgetNsec, nostr);
-          console.log('[ManagePartnersDialog] Re-seeded', count, 'months');
-        } catch (e) {
-          console.warn('[ManagePartnersDialog] Re-seed failed (non-fatal):', e);
-        }
-      }
-    }
-
-    // Show the security warning before revealing the QR
-    setShowSecurityWarning(true);
-  };
-
-  // Called when the user acknowledges the warning — generates and shows the QR
-  const handleAcknowledgeWarning = async () => {
-    setShowSecurityWarning(false);
-    const keypair = fullState.budgetKeypair;
-    if (keypair?.budgetNsec) {
-      try {
-        const url = await QRCode.toDataURL(keypair.budgetNsec, { width: 280, margin: 1, color: { dark: '#000', light: '#fff' } });
-        setQrCodeUrl(url);
-      } catch (e) {
-        console.error('QR generation failed:', e);
-      }
-    }
-    setShowShareQR(true);
-  };
-
-  // Handle QR scan when joining a budget
-  const handleJoinScan = async (scannedValue: string) => {
-    setIsJoining(true);
+  const run = async (action: () => Promise<void>, success: string) => {
     try {
-      // The scanned value should be a budget nsec
-      let budgetNsec = scannedValue.trim();
-
-      // Remove nostr: prefix if present
-      if (budgetNsec.startsWith('nostr:')) {
-        budgetNsec = budgetNsec.substring(6);
-      }
-
-      // Validate it's an nsec
-      const decoded = nip19.decode(budgetNsec);
-      if (decoded.type !== 'nsec') {
-        throw new Error('Not a valid budget key (expected nsec)');
-      }
-
-      const secretKey = decoded.data as Uint8Array;
-      const budgetPubkeyHex = getPublicKey(secretKey);
-      const budgetNpub = nip19.npubEncode(budgetPubkeyHex);
-
-      console.log('[ManagePartnersDialog] Joining budget:', budgetNpub.slice(0, 16) + '...');
-
-      // Fetch existing data from the relay
-      let snapshotBudgets: any[] = [];
-      try {
-        snapshotBudgets = await fetchAllSharedBudgetSnapshots(budgetNsec, nostr);
-        console.log('[ManagePartnersDialog] Fetched', snapshotBudgets.length, 'month snapshots on join');
-      } catch (e) {
-        console.warn('[ManagePartnersDialog] Could not fetch snapshots (will rely on live sync):', e);
-      }
-
-      // Store the keypair + apply snapshots
-      setState(prev => {
-        let mergedBudgets = [...(prev.budgets || [])];
-        if (snapshotBudgets.length > 0) {
-          const incomingMonths = new Set(snapshotBudgets.map((b: any) => b.month));
-          const withoutIncoming = mergedBudgets.filter((b: any) => !incomingMonths.has(b.month));
-          mergedBudgets = [...withoutIncoming, ...snapshotBudgets];
-        }
-
-        return {
-          ...prev,
-          budgets: mergedBudgets,
-          currentMonth: new Date().toISOString().slice(0, 7),
-          accessibleBudgets: [
-            ...(prev.accessibleBudgets || []).filter(b => b.budgetNpub !== budgetNpub),
-            { budgetNpub, budgetNsec: budgetNsec, role: 'editor' as const },
-          ],
-          budgetKeypair: { budgetNsec: budgetNsec, budgetNpub },
-          userRole: 'editor' as const,
-        };
-      });
-
-      // Mark received snapshots so they aren't echoed back
-      for (const snap of snapshotBudgets) {
-        sharedSync?.markReceivedSnapshot(snap.month, snap);
-      }
-
-      setShowJoinScanner(false);
-      onOpenChange(false);
-
-      toast({
-        title: snapshotBudgets.length > 0 ? 'Budget joined!' : 'Connected to shared budget',
-        description: snapshotBudgets.length > 0
-          ? `Loaded ${snapshotBudgets.length} month${snapshotBudgets.length === 1 ? '' : 's'} of budget data. Changes will sync automatically.`
-          : 'Connected to the shared budget key. Data will sync as the owner publishes it.',
-      });
+      await action();
+      toast({ title: success });
     } catch (error) {
-      console.error('[ManagePartnersDialog] Failed to join budget:', error);
       toast({
-        title: 'Could not join budget',
-        description: error instanceof Error ? error.message : 'Invalid QR code. Make sure you scanned the budget key.',
+        title: 'Could not update budget partners',
+        description: error instanceof Error ? error.message : 'Try again.',
         variant: 'destructive',
       });
-    } finally {
-      setIsJoining(false);
     }
   };
 
-  const copyKey = async () => {
-    if (!budgetKeypair?.budgetNsec) return;
-    try {
-      await navigator.clipboard.writeText(budgetKeypair.budgetNsec);
-      toast({ title: 'Copied!', description: 'Budget key copied. Share it securely with your partner.' });
-    } catch {
-      toast({ title: 'Copy failed', description: 'Could not copy the key.', variant: 'destructive' });
-    }
-  };
+  const invite = (raw: string) => run(async () => {
+    await threadApi?.invitePartner(raw);
+    setNpubInput('');
+  }, 'Invite sent');
+
+  const showCode = () => run(async () => {
+    const code = await threadApi?.showJoinCode();
+    if (!code) return;
+    const url = await QRCode.toDataURL(code, { width: 280, margin: 1, color: { dark: '#000', light: '#fff' } });
+    setJoinQr(url);
+  }, 'Join code ready');
+
+  const partnerLabel = thread?.partnerPubkey
+    ? nip19.npubEncode(thread.partnerPubkey).slice(0, 16) + '…'
+    : 'your partner';
 
   return (
     <>
@@ -219,249 +82,131 @@ export function ManagePartnersDialog({
               Budget Partners
             </DialogTitle>
             <DialogDescription>
-              Share a budget with your partner. Scan a QR code to join — no invites needed.
+              You keep your login. She keeps hers. Changes sync one at a time.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-4">
-            {/* Role indicator */}
-            <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
-              <p className="text-sm">
-                <strong>Your Role:</strong>{' '}
-                <Badge variant="secondary" className="ml-2 capitalize">{userRole}</Badge>
-              </p>
-              {isOwner && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  You own this budget. Share your key to let someone join.
-                </p>
-              )}
-              {!isOwner && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  You're collaborating on a shared budget.
-                </p>
-              )}
-            </div>
+          {!user && (
+            <p className="text-sm text-muted-foreground">Log in with your Nostr key before inviting a partner.</p>
+          )}
 
-            {/* Owner: Share button */}
-            {isOwner && (
-              <div className="space-y-3">
-                <Button
-                  className="w-full"
-                  size="lg"
-                  onClick={handleShareClick}
-                >
-                  <QrCode className="h-5 w-5 mr-2" />
-                  Share Budget Key (QR)
-                </Button>
-                <p className="text-xs text-muted-foreground text-center">
-                  Your partner scans this QR code to join the budget.
-                  They'll see all categories and transactions immediately.
-                </p>
+          {user && incoming && threadApi && thread?.status !== 'accepted' && (
+            <div className="space-y-3 rounded-lg border p-3">
+              <p className="text-sm">Someone shared a budget with you. You will both be able to edit it. Your existing months stay, and anything only on your phone is kept.</p>
+              <p className="text-xs text-muted-foreground">{incoming.monthCount} month{incoming.monthCount === 1 ? '' : 's'} are included.</p>
+              <div className="flex gap-2">
+                <Button className="flex-1" disabled={threadApi.busy} onClick={() => {
+                  void run(() => threadApi.joinBudget(incoming.budgetId, incoming.ownerPubkey), 'Joined the budget');
+                }}>Accept</Button>
+                <Button className="flex-1" variant="outline" onClick={threadApi.dismissInvite}>Decline</Button>
               </div>
-            )}
+            </div>
+          )}
 
-            {/* Anyone: Join a budget by scanning */}
-            {!budgetKeypair && (
-              <Button
-                className="w-full"
-                size="lg"
-                variant="outline"
-                onClick={() => setShowJoinWarning(true)}
-                disabled={isJoining}
-              >
-                <Camera className="h-5 w-5 mr-2" />
-                {isJoining ? 'Joining...' : 'Join a Budget (Scan QR)'}
+          {user && thread?.status === 'pending' && (
+            <div className="space-y-3">
+              <p className="text-sm">Waiting for budget partner to accept invite.</p>
+              <p className="text-xs text-muted-foreground">
+                {months} month{months === 1 ? '' : 's'}{latestMonth ? `, through ${latestMonth}` : ''} stay on this phone. Nothing is deleted.
+              </p>
+              <Button variant="outline" className="w-full" onClick={showCode}>
+                <QrCode className="h-4 w-4 mr-2" /> Show join code
               </Button>
-            )}
+              <Button variant="outline" className="w-full" onClick={() => setConfirm('revoke')}>
+                Revoke invite
+              </Button>
+            </div>
+          )}
 
-            {/* Force Sync — available to everyone with a shared budget */}
-            {sharedSync?.hasSharedBudget && (
-              <div className="p-3 rounded-md bg-petrol/10 border border-petrol/20">
-                <p className="text-xs text-muted-foreground mb-2">
-                  Not seeing your partner's latest changes? Force a sync.
+          {user && thread?.status === 'accepted' && threadApi && (
+            <div className="space-y-3">
+              <p className="text-sm">Sharing with {partnerLabel}. You can both edit.</p>
+              {threadApi.unsyncedCount > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  {threadApi.unsyncedCount} change{threadApi.unsyncedCount === 1 ? '' : 's'} not synced yet. They stay on this phone and send when a relay accepts them.
                 </p>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="w-full"
-                  onClick={async () => {
-                    toast({ title: 'Syncing...', description: 'Fetching latest budget data from shared relays.' });
-                    await sharedSync.forceSync();
-                    toast({ title: 'Sync complete', description: 'Checked for updates.' });
-                  }}
-                >
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Force Sync
-                </Button>
-              </div>
-            )}
-
-            {/* Budget key info (if exists) */}
-            {budgetKeypair && (
-              <div className="p-3 rounded-lg border space-y-2">
-                <div className="flex items-center gap-2">
-                  <KeyRound className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">Budget Key</span>
-                </div>
-                <p className="text-xs text-muted-foreground font-mono break-all">
-                  {budgetKeypair.budgetNpub?.slice(0, 30)}...
-                </p>
-                <div className="flex gap-2">
-                  <Button size="sm" variant="outline" onClick={copyKey}>
-                    <Copy className="h-3.5 w-3.5 mr-1" /> Copy key
-                  </Button>
-                  {isOwner && (
-                    <Button size="sm" variant="outline" onClick={handleShareClick}>
-                      <QrCode className="h-3.5 w-3.5 mr-1" /> Show QR
-                    </Button>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Info box */}
-            <div className="p-3 rounded-lg bg-muted/30 border text-xs text-muted-foreground space-y-2">
-              <p className="font-medium">How it works:</p>
-              <ul className="space-y-1 list-disc list-inside">
-                <li>Owner taps "Share Budget Key" to show a QR code</li>
-                <li>Partner opens this dialog and taps "Join Budget"</li>
-                <li>Partner scans the QR code — done!</li>
-                <li>Both people see the same budget and sync changes automatically</li>
-              </ul>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Security Warning — shown before the QR is revealed */}
-      <Dialog open={showSecurityWarning} onOpenChange={setShowSecurityWarning}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Shield className="h-5 w-5 text-amber-500" />
-              Before You Share
-            </DialogTitle>
-            <DialogDescription>
-              Please read carefully before showing the QR code.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3 py-3 text-sm">
-            <div className="p-3 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300">
-              <p className="font-medium mb-1">This QR code contains a shared budget key — not your personal Nostr key.</p>
-              <p className="text-xs">
-                This is a separate, budget-only key generated just for this shared budget.
-                Anyone who scans it gains <strong>full read and write access</strong> to the budget — every category, every transaction, past and future months.
-              </p>
-            </div>
-            <div className="p-3 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-xs">
-              <p className="font-medium mb-1">Your personal Nostr key (nsec) is never shared.</p>
-              <p>
-                This QR contains a budget-specific key only. Your identity, profile, posts, zaps, and all other Nostr apps are completely unaffected. Rotating the budget key has zero impact on your personal account.
-              </p>
-            </div>
-            <ul className="space-y-1.5 text-xs text-muted-foreground list-disc list-inside">
-              <li>Only share in person with someone you trust completely</li>
-              <li>Never screenshot, text, or email the QR code</li>
-              <li>Don't display it where others might see or photograph it</li>
-              <li>To remove a partner: generate a new budget key and re-share with the people you want to keep</li>
-            </ul>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" className="flex-1" onClick={() => setShowSecurityWarning(false)}>
-              Cancel
-            </Button>
-            <Button className="flex-1" onClick={handleAcknowledgeWarning}>
-              I Understand — Show QR Code
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Share QR Dialog */}
-      <Dialog open={showShareQR} onOpenChange={setShowShareQR}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <QrCode className="h-5 w-5" />
-              Share Budget Key
-            </DialogTitle>
-            <DialogDescription>
-              Have your partner scan this code with their Sat Sorter app.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col items-center gap-3 py-4">
-            <div className="rounded-lg border bg-white p-4">
-              {qrCodeUrl ? (
-                <img src={qrCodeUrl} alt="Budget key QR" className="w-[240px] h-[240px]" />
-              ) : (
-                <div className="w-[240px] h-[240px] flex items-center justify-center text-muted-foreground">
-                  Generating...
-                </div>
               )}
+              <Button variant="outline" className="w-full" onClick={() => setConfirm('stop')}>
+                {thread.role === 'owner' ? 'Remove partner' : 'Leave budget'}
+              </Button>
             </div>
-            <p className="text-xs text-muted-foreground text-center">
-              This gives full access to the shared budget. Only share with people you trust.
-            </p>
-          </div>
+          )}
+
+          {user && (!thread || thread.status === 'none' || thread.status === 'revoked' || thread.status === 'left') && (
+            <div className="space-y-3">
+              <p className="text-sm">
+                Your months stay{latestMonth ? `, through ${latestMonth}` : ''}. Inviting someone does not erase them. The old shared key is no longer how you add a partner.
+              </p>
+              <Input
+                value={npubInput}
+                onChange={(event) => setNpubInput(event.target.value)}
+                placeholder="Paste her npub"
+                autoCapitalize="none"
+                autoCorrect="off"
+              />
+              <Button className="w-full" disabled={threadApi?.busy || !npubInput.trim()} onClick={() => invite(npubInput)}>
+                Invite partner
+              </Button>
+              <Button variant="outline" className="w-full" onClick={() => { setScanMode('npub'); setScannerOpen(true); }}>
+                <Camera className="h-4 w-4 mr-2" /> Scan her npub
+              </Button>
+              <Button variant="outline" className="w-full" onClick={showCode}>
+                <QrCode className="h-4 w-4 mr-2" /> Show a join code
+              </Button>
+              <Button variant="outline" className="w-full" onClick={() => { setScanMode('join'); setScannerOpen(true); }}>
+                <Camera className="h-4 w-4 mr-2" /> Scan a join code
+              </Button>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
-      {/* Join Budget security warning — shown before the scanner opens */}
-      <Dialog open={showJoinWarning} onOpenChange={setShowJoinWarning}>
+      <Dialog open={!!joinQr} onOpenChange={(next) => { if (!next) setJoinQr(''); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Shield className="h-5 w-5 text-amber-500" />
-              Before You Join
-            </DialogTitle>
-            <DialogDescription>
-              Please read carefully before scanning a budget key.
-            </DialogDescription>
+            <DialogTitle>Join code</DialogTitle>
+            <DialogDescription>She scans this while logged in as herself. It does not contain a private key.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-3 py-3 text-sm">
-            <div className="p-3 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300">
-              <p className="font-medium mb-1">The person who shared this key can see everything you enter.</p>
-              <p className="text-xs">
-                When you join a shared budget, all categories, transactions, and amounts you add
-                are encrypted with the budget key — which the keyholder controls. They can see
-                <strong> all of your spending data</strong> in real time, for as long as you use this budget.
-              </p>
+          <div className="flex justify-center py-2">
+            <div className="rounded-lg border bg-white p-4">
+              <img src={joinQr} alt="Budget join code" className="w-[240px] h-[240px]" />
             </div>
-            <div className="p-3 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-xs">
-              <p className="font-medium mb-1">Your personal Nostr key (nsec) is never shared.</p>
-              <p>
-                This only shares budget data through a separate budget-specific key.
-                Your identity, profile, posts, zaps, and all other Nostr apps are completely unaffected.
-              </p>
-            </div>
-            <ul className="space-y-1.5 text-xs text-muted-foreground list-disc list-inside">
-              <li>Only join budgets from people you trust completely</li>
-              <li>The keyholder can see every transaction you enter, past and future</li>
-              <li>There is no way to "partially" join — it's all or nothing</li>
-              <li>To leave later, you'll need to create a new personal budget</li>
-            </ul>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" className="flex-1" onClick={() => setShowJoinWarning(false)}>
-              Cancel
-            </Button>
-            <Button className="flex-1" onClick={() => {
-              setShowJoinWarning(false);
-              setShowJoinScanner(true);
-            }}>
-              I Understand — Scan QR Code
-            </Button>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Join Budget scanner */}
+      <Dialog open={confirm !== null} onOpenChange={(next) => { if (!next) setConfirm(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{confirm === 'revoke' ? 'Revoke this invite?' : 'Stop sharing?'}</DialogTitle>
+            <DialogDescription>
+              {confirm === 'revoke'
+                ? 'She will not be able to accept this invite. Your budget stays on this phone.'
+                : 'You both keep the budget as it is. New changes will no longer sync.'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-2">
+            <Button variant="outline" className="flex-1" onClick={() => setConfirm(null)}>Cancel</Button>
+            <Button className="flex-1" onClick={() => {
+              const action = confirm;
+              setConfirm(null);
+              if (action === 'revoke') void run(() => threadApi!.revokeInvite(), 'Invite revoked');
+              if (action === 'stop') void run(() => threadApi!.leaveOrRemove(), 'Sharing stopped');
+            }}>Confirm</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <QRScanner
-        open={showJoinScanner}
-        onOpenChange={setShowJoinScanner}
-        onScan={handleJoinScan}
-        title="Scan Budget Key"
-        description="Point your camera at your partner's budget key QR code"
+        open={scannerOpen}
+        onOpenChange={setScannerOpen}
+        title={scanMode === 'join' ? 'Scan join code' : 'Scan npub'}
+        description={scanMode === 'join' ? 'Point the camera at the join code.' : 'Point the camera at her npub QR.'}
+        onScan={(value) => {
+          setScannerOpen(false);
+          if (scanMode === 'join') void invite(value);
+          else void invite(value);
+        }}
       />
     </>
   );

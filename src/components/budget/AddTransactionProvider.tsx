@@ -36,7 +36,7 @@ export function AddTransactionProvider({ children }: { children: ReactNode }) {
 
   // Stamp the transaction with the current user's pubkey so partners can see
   // who logged it. Only stamp when a shared budget exists (keypair present).
-  const hasSharedBudget = !!fullState.budgetKeypair;
+  const hasSharedBudget = !!fullState.budgetKeypair || fullState.budgetThread?.status === 'accepted' || fullState.budgetThread?.status === 'pending';
 
   return (
     <AddTransactionContext.Provider value={{ openAddTransaction }}>

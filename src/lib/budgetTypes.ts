@@ -122,9 +122,36 @@ export interface BudgetState {
     budgetNsec: string;
     role: 'owner' | 'editor' | 'viewer';
   }[];
+
+  /** New partner thread. Absent until this phone creates or accepts one. */
+  budgetThread?: BudgetThreadState;
 }
 
-/** Current storage schema version. Bump when adding required fields. */
+/** Shared-budget thread. Notes are the record. There is no shared private key. */
+export interface BudgetThreadState {
+  budgetId: string;
+  role: 'owner' | 'partner';
+  ownerPubkey: string;
+  partnerPubkey?: string;
+  status: 'none' | 'pending' | 'accepted' | 'revoked' | 'left';
+  acceptedAt?: number;
+  endedAt?: number;
+  appliedNoteIds: string[];
+  unsyncedNotes: Array<{
+    id: string;
+    budgetId: string;
+    month: string;
+    entity: 'bucket' | 'line' | 'transaction';
+    entityId: string;
+    op: 'upsert' | 'delete';
+    at: number;
+    authorPubkey: string;
+    bucket?: Bucket;
+    bucketId?: string;
+    lineItem?: LineItem;
+    transaction?: Transaction;
+  }>;
+}
 export const BUDGET_STORAGE_VERSION = 2;
 
 /** A complete, safe default BudgetState that is guaranteed to have all required fields. */
@@ -192,6 +219,7 @@ export function normalizeBudgetState(input: any): BudgetState {
           budgetNpub: String(input.budgetKeypair.budgetNpub || ''),
         }
       : undefined,
+    budgetThread: normalizeBudgetThread(input.budgetThread),
   };
 
   // CRITICAL: always ensure accessibleBudgets is a real array
@@ -227,6 +255,26 @@ export function normalizeBudgetState(input: any): BudgetState {
   }
 
   return merged;
+}
+
+function normalizeBudgetThread(input: any): BudgetThreadState | undefined {
+  if (!input || typeof input !== 'object' || typeof input.budgetId !== 'string' || !input.budgetId) {
+    return undefined;
+  }
+  const status = ['none', 'pending', 'accepted', 'revoked', 'left'].includes(input.status)
+    ? input.status
+    : 'none';
+  return {
+    budgetId: input.budgetId,
+    role: input.role === 'partner' ? 'partner' : 'owner',
+    ownerPubkey: String(input.ownerPubkey || ''),
+    partnerPubkey: typeof input.partnerPubkey === 'string' ? input.partnerPubkey : undefined,
+    status,
+    acceptedAt: typeof input.acceptedAt === 'number' ? input.acceptedAt : undefined,
+    endedAt: typeof input.endedAt === 'number' ? input.endedAt : undefined,
+    appliedNoteIds: Array.isArray(input.appliedNoteIds) ? input.appliedNoteIds.filter((id: unknown) => typeof id === 'string') : [],
+    unsyncedNotes: Array.isArray(input.unsyncedNotes) ? input.unsyncedNotes : [],
+  };
 }
 
 // Default buckets for a new month

@@ -63,7 +63,7 @@ function openSharedRelays(): NRelay1[] {
 }
 
 /** Publish an event to all shared relays directly (bypassing personal relay list). */
-async function publishToSharedRelays(event: any): Promise<boolean> {
+export async function publishToSharedRelays(event: any): Promise<boolean> {
   const relays = openSharedRelays();
   if (relays.length === 0) {
     console.warn('[SharedBudgetSync] Could not open any shared relays for publishing');
@@ -86,7 +86,7 @@ async function publishToSharedRelays(event: any): Promise<boolean> {
 }
 
 /** Query shared relays directly (bypassing personal relay list). */
-async function querySharedRelays(filter: any, timeoutMs = 10000): Promise<any[]> {
+export async function querySharedRelays(filter: any, timeoutMs = 10000): Promise<any[]> {
   const relays = openSharedRelays();
   if (relays.length === 0) return [];
   const allEvents: any[] = [];
