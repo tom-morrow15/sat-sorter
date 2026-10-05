@@ -442,25 +442,32 @@ export function useBudgetThread() {
   }, [isLeader, state.budgets]);
 
   // Turn local edits into notes once a partner is connected.
+  // The previous copy is captured when the budget changes. A relay update must
+  // not cancel that, or the transaction is saved on this phone and never sent.
   useEffect(() => {
     if (!isLeader || !readyRef.current || !user) return;
-    const current = state.budgetThread;
+    const current = stateRef.current.budgetThread;
     if (!current || (current.status !== 'accepted' && current.status !== 'pending')) return;
     if (!current.partnerPubkey && current.status !== 'accepted') return;
     const serialized = JSON.stringify(state.budgets);
     if (serialized === baselineRef.current) return;
+    const previousSerialized = baselineRef.current;
     const timer = setTimeout(() => {
       const latest = JSON.stringify(stateRef.current.budgets);
-      if (latest === baselineRef.current) return;
+      if (latest === previousSerialized) return;
       const threadNow = stateRef.current.budgetThread;
-      if (!threadNow) return;
+      if (!threadNow || (threadNow.status !== 'accepted' && threadNow.status !== 'pending')) return;
       let previous: BudgetState['budgets'] = [];
-      try { previous = JSON.parse(baselineRef.current || '[]'); } catch { previous = []; }
+      try { previous = JSON.parse(previousSerialized || '[]'); } catch { previous = []; }
       const notes = diffAgainstBase(previous, stateRef.current.budgets, user.pubkey, threadNow.budgetId, Date.now())
         .map((note) => ({ ...note, id: generateId() }))
         .filter((note) => !threadNow.sharedFromMonth || note.month >= threadNow.sharedFromMonth);
       baselineRef.current = latest;
-      if (notes.length === 0) return;
+      if (notes.length === 0) {
+        console.log('[BudgetPartners] local change was not sent');
+        return;
+      }
+      console.log('[BudgetPartners] queued', notes.length, 'change(s) to send');
       updateThread((threadState) => {
         const entityClock = { ...(threadState.entityClock || {}) };
         for (const note of notes) {
@@ -476,7 +483,7 @@ export function useBudgetThread() {
       });
     }, 600);
     return () => clearTimeout(timer);
-  }, [isLeader, state.budgets, state.budgetThread, updateThread, user]);
+  }, [isLeader, state.budgets, updateThread, user]);
 
   const pull = useCallback(async (preset?: any[]) => {
     if (!user?.signer) {
