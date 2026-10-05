@@ -54,7 +54,7 @@ export function OverspendDialog({
             Cancel
           </Button>
           <Button onClick={onAskMaple} className="flex-1">
-            Ask Maple Anyway
+            Ask Budget Buddy anyway
           </Button>
         </div>
       </DialogContent>

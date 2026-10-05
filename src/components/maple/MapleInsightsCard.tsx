@@ -38,11 +38,11 @@ export function MapleInsightsCard() {
       const context = buildBudgetContext(currentMonth, currentBudget, btcPrice, evergreenContext, undefined, undefined);
       const text = await analyzeMonth(apiKey, proxyUrl, context, model, zdr);
       if (!text || !text.trim()) {
-        const msg = "Maple didn't return any insights for this month. Try again or check your spending data.";
+        const msg = "Budget Buddy didn't return any insights for this month. Try again or check your spending data.";
         setInsights(msg);
         toast({
           title: 'No insights returned',
-          description: 'Maple sent back an empty response. Tap "Retry".',
+          description: 'Budget Buddy sent back an empty response. Tap "Retry".',
           variant: 'destructive',
         });
         return;
@@ -69,7 +69,7 @@ export function MapleInsightsCard() {
     <section>
       <div className="flex items-center justify-between mb-3 px-1">
         <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Maple Insights
+          Budget Buddy
         </h2>
         {insights && (
           <span className="text-[10px] text-muted-foreground">AI-powered</span>
@@ -89,8 +89,7 @@ export function MapleInsightsCard() {
                   Get AI insights for {monthLabel}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Maple will analyze your spending and give you 2–3 actionable
-                  observations.
+                  Budget Buddy will look at your spending and give you 2–3 practical notes.
                 </p>
               </div>
               <Button size="sm" onClick={handleAnalyze}>
@@ -140,7 +139,7 @@ export function MapleInsightsCard() {
                   onClick={() => navigate('/buddy')}
                 >
                   <MessageSquare className="h-3 w-3 mr-1" />
-                  Ask Maple more...
+                  Ask Budget Buddy more...
                 </Button>
                 <Button
                   variant="link"

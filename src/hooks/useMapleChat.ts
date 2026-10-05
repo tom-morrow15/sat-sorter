@@ -242,7 +242,7 @@ export function useMapleChat(): UseMapleChatReturn {
         const overspendAmount = Math.round((intent.amount - remaining) * 100) / 100;
         return {
           blocked: true,
-          reason: `This puts you $${overspendAmount.toFixed(2)} over your ${bucket.name} budget. Ask Maple how to reallocate?`,
+          reason: `This puts you $${overspendAmount.toFixed(2)} over your ${bucket.name} budget. Ask Budget Buddy how to reallocate?`,
           bucket,
           overspendAmount,
         };

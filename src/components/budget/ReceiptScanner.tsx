@@ -185,7 +185,7 @@ export function ReceiptScanner({ open, onOpenChange, onScanComplete }: ReceiptSc
           {/* Privacy notice */}
           {!isScanning && !error && (
             <p className="text-xs text-muted-foreground text-center leading-relaxed">
-              Your receipt image is processed by {provider === 'ppq' ? 'PPQ' : 'Maple'} AI.
+              Your receipt image is sent to the AI you selected in Budget Buddy.
               {zdr && provider === 'ppq' && ' Zero Data Retention is enabled — your data is not stored.'}
             </p>
           )}
@@ -195,7 +195,7 @@ export function ReceiptScanner({ open, onOpenChange, onScanComplete }: ReceiptSc
             <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
               <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
               <p className="text-xs text-amber-800 dark:text-amber-200">
-                Add an API key from Maple or PPQ in Budget Buddy settings to enable receipt scanning.
+                Add an AI in Budget Buddy settings to scan receipts.
               </p>
             </div>
           )}

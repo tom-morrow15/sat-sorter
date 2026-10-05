@@ -22,7 +22,7 @@ export function ContextBottomSheet({
         <SheetHeader>
           <SheetTitle>Budget Buddy Context</SheetTitle>
           <p className="text-xs text-muted-foreground">
-            This is the background context Maple uses when answering your
+            This is the background context Budget Buddy uses when answering your
             questions. You can edit it in Settings.
           </p>
         </SheetHeader>
