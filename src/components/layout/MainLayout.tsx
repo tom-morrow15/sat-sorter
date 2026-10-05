@@ -2,6 +2,7 @@ import { ReactNode } from 'react';
 import { BottomNavigation } from './BottomNavigation';
 import { Sidebar } from './Sidebar';
 import { PartnerSyncWrapper } from '@/components/budget/PartnerSyncWrapper';
+import { PartnerTransferBar } from '@/components/budget/ManagePartnersDialog';
 import { AddTransactionProvider } from '@/components/budget/AddTransactionProvider';
 import { BudgetBuddyFAB } from '@/components/maple/BudgetBuddyFAB';
 
@@ -37,6 +38,8 @@ export function MainLayout({ children }: MainLayoutProps) {
           <div className="xl:hidden">
             <BudgetBuddyFAB />
           </div>
+
+          <PartnerTransferBar floating />
 
           {/* Bottom Navigation — hidden on desktop */}
           <div className="xl:hidden">

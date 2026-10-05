@@ -184,6 +184,7 @@ export function useBudgetThread() {
         {
           type: 'checkpoint',
           budgetId: current.budgetId,
+          monthCount: months.length,
           checkpoint: {
             authorPubkey: user.pubkey,
             budgets: [month],
@@ -381,6 +382,7 @@ export function useBudgetThread() {
     const notes: BudgetNote[] = [];
     const monthsByKey = new Map<string, BudgetCheckpoint['budgets'][number]>();
     let acceptedPartner = '';
+    let announcedTotal = 0;
     let sawLeaveAt: number | null = null;
 
     for (const event of events) {
@@ -402,6 +404,7 @@ export function useBudgetThread() {
       }
       if (body.type === 'note' && body.note?.id) notes.push(body.note as BudgetNote);
       if (body.type === 'checkpoint' && body.checkpoint?.budgets) {
+        if (typeof body.monthCount === 'number') announcedTotal = Math.max(announcedTotal, body.monthCount);
         for (const month of body.checkpoint.budgets as BudgetCheckpoint['budgets']) {
           if (!month?.month) continue;
           const previous = monthsByKey.get(month.month);
@@ -445,8 +448,8 @@ export function useBudgetThread() {
       const incomingMonths = [...monthsByKey.values()];
       const extras = extrasAgainstBase(incomingMonths, stateRef.current.budgets, user.pubkey, latest.budgetId, Date.now());
       const merged = applyNotes(incomingMonths, extras);
-      const expected = latest.expectedMonths || incomingMonths.length;
-      const complete = incomingMonths.length >= expected;
+      const expected = Math.max(latest.expectedMonths || 0, announcedTotal);
+      const complete = expected > 0 && incomingMonths.length >= expected;
       const wasPending = latest.status === 'pending';
       baselineRef.current = JSON.stringify(merged);
       const nextThread: BudgetThreadState = {

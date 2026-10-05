@@ -13,6 +13,7 @@ import { useAuthor } from '@/hooks/useAuthor';
 import { usePartners } from '@/hooks/usePartners';
 import { useSharedSync } from './PartnerSyncWrapper';
 import { QRScanner } from './QRScanner';
+import { Progress } from '@/components/ui/progress';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -63,6 +64,44 @@ function PartnerMenu({ onEdit, onRemove }: { onEdit: () => void; onRemove: () =>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+export function PartnerTransferBar({ floating = false }: { floating?: boolean }) {
+  const shared = useSharedSync();
+  const thread = shared?.thread.thread;
+  if (!thread || thread.status === 'left' || thread.status === 'revoked' || thread.status === 'none') return null;
+
+  const total = thread.expectedMonths || 0;
+  const done = thread.role === 'partner' ? (thread.receivedMonths || 0) : (thread.sentMonths || 0);
+  const waiting = thread.role !== 'partner' && thread.status === 'pending';
+  const sending = thread.role !== 'partner' && thread.status === 'accepted' && total > 0 && done < total;
+  const receiving = thread.role === 'partner' && (thread.status === 'pending' || (total > 0 && done < total));
+  if (!waiting && !sending && !receiving) return null;
+
+  const pct = total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 0;
+  const label = waiting
+    ? 'Waiting for them to scan'
+    : sending
+      ? `Sending the budget, ${done} of ${total} months`
+      : total > 0
+        ? `Receiving the budget, ${done} of ${total} months`
+        : 'Waiting for the other phone to send the budget';
+
+  const body = (
+    <div className="space-y-2 rounded-lg border bg-card p-3 shadow-sm">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      {(sending || (receiving && total > 0)) && <Progress value={pct} className="h-2" />}
+    </div>
+  );
+
+  if (!floating) return body;
+  return (
+    <div
+      className="fixed inset-x-3 z-40 xl:left-[17rem] xl:right-4 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] xl:bottom-6"
+    >
+      {body}
+    </div>
   );
 }
 
@@ -202,14 +241,7 @@ export function ManagePartnersDialog({
           )}
 
           {user && thread?.status === 'pending' && thread.role === 'partner' && (
-            <div className="space-y-2 rounded-lg border p-3">
-              <p className="text-sm font-medium">Joining their budget</p>
-              <p className="text-sm text-muted-foreground">
-                {thread.expectedMonths
-                  ? `Received ${thread.receivedMonths || 0} of ${thread.expectedMonths} months. This phone picks them up while it is open. The other phone sends them while it is open.`
-                  : 'Waiting for the other phone to send the budget. It sends while Sat Sorter is open there.'}
-              </p>
-            </div>
+            <PartnerTransferBar />
           )}
 
           {user && thread?.status === 'accepted' && threadApi && (
@@ -218,11 +250,7 @@ export function ManagePartnersDialog({
                 <div className="space-y-2">
                   <p className="text-sm">Connected. You both see the same budget.</p>
                   {thread.partnerPubkey && thread.partnerPubkey !== user.pubkey && <PartnerLine pubkey={thread.partnerPubkey} />}
-                  {thread.role === 'owner' && (thread.sentMonths || 0) < (thread.expectedMonths || 0) && (
-                    <p className="text-xs text-muted-foreground">
-                      Sending the budget… {thread.sentMonths || 0} of {thread.expectedMonths} months.
-                    </p>
-                  )}
+                  <PartnerTransferBar />
                   {threadApi.unsyncedCount > 0 && (
                     <p className="text-xs text-muted-foreground">
                       {threadApi.unsyncedCount} change{threadApi.unsyncedCount === 1 ? '' : 's'} saved on this phone, not sent yet.
