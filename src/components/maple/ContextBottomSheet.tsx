@@ -29,8 +29,7 @@ export function ContextBottomSheet({
         <div className="mt-4 p-4 rounded-xl bg-muted border border-border/60 text-sm leading-relaxed">
           {context || (
             <span className="text-muted-foreground italic">
-              No evergreen context set. Go to Settings &gt; Maple AI to add
-              instructions.
+              No notes yet. Add them in Budget Buddy settings.
             </span>
           )}
         </div>
