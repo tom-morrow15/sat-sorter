@@ -141,6 +141,12 @@ export interface BudgetThreadState {
   sentMonths?: number;
   /** First month the partner receives, YYYY-MM. Earlier months stay on the owner's phone. */
   sharedFromMonth?: string;
+  /** Latest note time applied for each item, so an older note cannot rewind it. */
+  entityClock?: Record<string, number>;
+  /** This phone already published its own existing transactions once. */
+  catchUpDone?: boolean;
+  /** When this membership last changed. A newer record from another device wins. */
+  updatedAt?: number;
   appliedNoteIds: string[];
   unsyncedNotes: Array<{
     id: string;
@@ -281,6 +287,9 @@ function normalizeBudgetThread(input: any): BudgetThreadState | undefined {
     receivedMonths: typeof input.receivedMonths === 'number' ? input.receivedMonths : undefined,
     sentMonths: typeof input.sentMonths === 'number' ? input.sentMonths : undefined,
     sharedFromMonth: typeof input.sharedFromMonth === 'string' && /^\d{4}-\d{2}$/.test(input.sharedFromMonth) ? input.sharedFromMonth : undefined,
+    entityClock: input.entityClock && typeof input.entityClock === 'object' ? input.entityClock : {},
+    catchUpDone: input.catchUpDone === true,
+    updatedAt: typeof input.updatedAt === 'number' ? input.updatedAt : undefined,
     appliedNoteIds: Array.isArray(input.appliedNoteIds) ? input.appliedNoteIds.filter((id: unknown) => typeof id === 'string') : [],
     unsyncedNotes: Array.isArray(input.unsyncedNotes) ? input.unsyncedNotes : [],
   };

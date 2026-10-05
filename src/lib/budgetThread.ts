@@ -142,13 +142,20 @@ function applyOne(budgets: MonthlyBudget[], note: BudgetNote): MonthlyBudget[] {
   return budgets;
 }
 
-/** Apply notes in order. Duplicate ids are ignored. */
-export function applyNotes(budgets: MonthlyBudget[], notes: BudgetNote[]): MonthlyBudget[] {
+/** Apply notes in order. Duplicate ids are ignored. An older note never replaces a newer one for the same item. */
+export function applyNotes(
+  budgets: MonthlyBudget[],
+  notes: BudgetNote[],
+  clocks: Record<string, number> = {},
+): MonthlyBudget[] {
   const next = clone(budgets);
   const seen = new Set<string>();
   for (const note of [...notes].sort(byTimeThenId)) {
     if (seen.has(note.id)) continue;
     seen.add(note.id);
+    const key = `${note.month}:${note.entity}:${note.entityId}`;
+    if (note.at < (clocks[key] ?? 0)) continue;
+    clocks[key] = note.at;
     applyOne(next, note);
   }
   return next;

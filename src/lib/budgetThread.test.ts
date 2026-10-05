@@ -156,6 +156,57 @@ describe('budget thread', () => {
     expect(budgets.find((month) => month.month === '2027-01')?.transactions.map((tx) => tx.id)).toContain('only-hers');
   });
 
+  it('does not let an older note rewind a newer change that is already applied', () => {
+    const newer = note({
+      id: 'new',
+      at: 20,
+      op: 'upsert',
+      entity: 'line',
+      entityId: 'dtv',
+      bucketId: 'bills',
+      lineItem: { id: 'dtv', name: 'DIRECTV', plannedAmount: 93000, plannedAmountUsd: 93, order: 0 },
+    });
+    const clocks: Record<string, number> = {};
+    const current = applyNotes([], [newer], clocks);
+    const older = note({
+      id: 'old',
+      at: 10,
+      op: 'upsert',
+      entity: 'line',
+      entityId: 'dtv',
+      bucketId: 'bills',
+      lineItem: { id: 'dtv', name: 'DIRECTV', plannedAmount: 127000, plannedAmountUsd: 127, order: 0 },
+    });
+    const budgets = applyNotes(current, [older], clocks);
+    expect(budgets[0].buckets[0].lineItems[0].plannedAmountUsd).toBe(93);
+  });
+
+  it('lets a later delete remove a transaction that was logged earlier', () => {
+    const added = note({
+      id: 'add',
+      at: 10,
+      op: 'upsert',
+      entity: 'transaction',
+      entityId: 'groceries',
+      transaction: {
+        id: 'groceries',
+        amount: 4000,
+        amountUsd: 40,
+        description: 'Groceries',
+        date: '2026-10-04',
+        lineItemId: 'food',
+        bucketId: 'spend',
+        isIncome: false,
+      },
+    });
+    const clocks: Record<string, number> = {};
+    const current = applyNotes([], [added], clocks);
+    const removed = note({ id: 'del', at: 30, op: 'delete', entity: 'transaction', entityId: 'groceries' });
+    const budgets = applyNotes(current, [removed], clocks);
+    expect(budgets[0].transactions).toHaveLength(0);
+    expect(budgets[0].deletedTxIds).toContain('groceries');
+  });
+
   it('does not delete his line items when her phone is missing them', () => {
     const base: MonthlyBudget[] = [{
       id: '2026-10',

@@ -18,6 +18,20 @@ import { publishToSharedRelays, querySharedRelays, subscribeSharedRelays } from 
 function monthsFrom(budgets: BudgetState['budgets'], from: string) {
   return budgets.filter((month) => month.month >= from);
 }
+
+function seedClocks(budgets: BudgetState['budgets']): Record<string, number> {
+  const clocks: Record<string, number> = {};
+  for (const month of budgets) {
+    const at = (month.updatedAt || 0) * 1000;
+    if (!at) continue;
+    for (const bucket of month.buckets || []) {
+      clocks[`${month.month}:bucket:${bucket.id}`] = at;
+      for (const line of bucket.lineItems || []) clocks[`${month.month}:line:${line.id}`] = at;
+    }
+    for (const tx of month.transactions || []) clocks[`${month.month}:transaction:${tx.id}`] = at;
+  }
+  return clocks;
+}
 const KIND = 30078;
 const TAG = 'sat-sorter-thread';
 
@@ -222,6 +236,7 @@ export function useBudgetThread() {
         sharedFromMonth: from,
         expectedMonths: monthCount,
         sentMonths: 0,
+        updatedAt: Date.now(),
         appliedNoteIds: existing?.appliedNoteIds || [],
         unsyncedNotes: existing?.unsyncedNotes || [],
       };
@@ -263,6 +278,7 @@ export function useBudgetThread() {
         partnerPubkey: ownerPubkey,
         status: 'accepted',
         acceptedAt: Date.now(),
+        updatedAt: Date.now(),
         expectedMonths: monthCount,
         sharedFromMonth,
         receivedMonths: 0,
@@ -292,7 +308,7 @@ export function useBudgetThread() {
           [['b', current.budgetId]],
         );
       }
-      updateThread({ status: 'revoked', endedAt: Date.now(), partnerPubkey: undefined, unsyncedNotes: [] });
+      updateThread({ status: 'revoked', endedAt: Date.now(), updatedAt: Date.now(), partnerPubkey: undefined, unsyncedNotes: [] });
     } finally {
       setBusy(false);
     }
@@ -314,7 +330,7 @@ export function useBudgetThread() {
           [['b', current.budgetId]],
         );
       }
-      updateThread({ status: 'left', endedAt, unsyncedNotes: [] });
+      updateThread({ status: 'left', endedAt, updatedAt: endedAt, unsyncedNotes: [] });
     } finally {
       setBusy(false);
     }
@@ -338,6 +354,7 @@ export function useBudgetThread() {
       sharedFromMonth: from,
       expectedMonths: total,
       sentMonths: existing?.sentMonths,
+      updatedAt: Date.now(),
       appliedNoteIds: existing?.appliedNoteIds || [],
       unsyncedNotes: existing?.unsyncedNotes || [],
     };
@@ -374,11 +391,19 @@ export function useBudgetThread() {
         .filter((note) => !threadNow.sharedFromMonth || note.month >= threadNow.sharedFromMonth);
       baselineRef.current = latest;
       if (notes.length === 0) return;
-      updateThread((threadState) => ({
-        ...threadState,
-        appliedNoteIds: Array.from(new Set([...threadState.appliedNoteIds, ...notes.map((note) => note.id)])),
-        unsyncedNotes: [...threadState.unsyncedNotes, ...notes],
-      }));
+      updateThread((threadState) => {
+        const entityClock = { ...(threadState.entityClock || {}) };
+        for (const note of notes) {
+          const key = `${note.month}:${note.entity}:${note.entityId}`;
+          entityClock[key] = Math.max(entityClock[key] ?? 0, note.at);
+        }
+        return {
+          ...threadState,
+          entityClock,
+          appliedNoteIds: Array.from(new Set([...threadState.appliedNoteIds, ...notes.map((note) => note.id)])),
+          unsyncedNotes: [...threadState.unsyncedNotes, ...notes],
+        };
+      });
     }, 600);
     return () => clearTimeout(timer);
   }, [isLeader, state.budgets, state.budgetThread, updateThread, user]);
@@ -394,6 +419,7 @@ export function useBudgetThread() {
     let announcedTotal = 0;
     let announcedFrom = '';
     let sawLeaveAt: number | null = null;
+    let selfRecord: { at: number; thread: BudgetThreadState } | null = null;
 
     const parsed: Array<{ event: any; body: any; eventBudgetId?: string }> = [];
     for (const event of tagged) {
@@ -444,6 +470,43 @@ export function useBudgetThread() {
       }
     }
 
+    for (const { event, body } of parsed) {
+      if (body.type !== 'self' || event.pubkey !== user.pubkey || !body.thread?.budgetId) continue;
+      const at = typeof body.at === 'number' ? body.at : (event.created_at || 0) * 1000;
+      if (!selfRecord || at > selfRecord.at) selfRecord = { at, thread: body.thread as BudgetThreadState };
+    }
+    if (selfRecord && selfRecord.at > (active?.updatedAt || 0)) {
+      const incoming = selfRecord.thread;
+      const same = !!active
+        && active.budgetId === incoming.budgetId
+        && active.status === incoming.status
+        && active.partnerPubkey === incoming.partnerPubkey
+        && active.role === incoming.role;
+      if (!same && (incoming.status === 'accepted' || incoming.status === 'pending' || incoming.status === 'left' || incoming.status === 'revoked')) {
+        const next: BudgetThreadState = {
+          budgetId: incoming.budgetId,
+          role: incoming.role === 'partner' ? 'partner' : 'owner',
+          ownerPubkey: String(incoming.ownerPubkey || ''),
+          partnerPubkey: incoming.partnerPubkey,
+          status: incoming.status,
+          acceptedAt: incoming.acceptedAt,
+          endedAt: incoming.endedAt,
+          sharedFromMonth: incoming.sharedFromMonth,
+          updatedAt: selfRecord.at,
+          entityClock: active?.entityClock && Object.keys(active.entityClock).length > 0 ? active.entityClock : seedClocks(stateRef.current.budgets),
+          catchUpDone: active?.catchUpDone,
+          expectedMonths: active?.expectedMonths,
+          receivedMonths: active?.receivedMonths,
+          sentMonths: active?.sentMonths,
+          appliedNoteIds: active?.appliedNoteIds || [],
+          unsyncedNotes: active?.unsyncedNotes || [],
+        };
+        active = next.status === 'pending' || next.status === 'accepted' ? next : null;
+        stateRef.current = { ...stateRef.current, budgetThread: next };
+        setState((prev) => ({ ...prev, budgetThread: next }));
+      }
+    }
+
     for (const { event, body, eventBudgetId } of parsed) {
       if (body.type === 'invite' && body.ownerPubkey !== user.pubkey) {
         setIncomingInvite({
@@ -488,6 +551,7 @@ export function useBudgetThread() {
         partnerPubkey: acceptedPartner,
         status: 'accepted',
         acceptedAt: Date.now(),
+        updatedAt: Date.now(),
         sharedFromMonth: from,
         sentMonths: 0,
         expectedMonths: shareCount,
@@ -500,7 +564,7 @@ export function useBudgetThread() {
     const latest = stateRef.current.budgetThread;
     if (!latest) return;
     if (sawLeaveAt && latest.status === 'accepted') {
-      updateThread({ status: 'left', endedAt: sawLeaveAt, unsyncedNotes: [] });
+      updateThread({ status: 'left', endedAt: sawLeaveAt, updatedAt: sawLeaveAt, unsyncedNotes: [] });
       return;
     }
 
@@ -513,9 +577,10 @@ export function useBudgetThread() {
         .join('|');
       if (signature && signature !== monthSigRef.current) {
         monthSigRef.current = signature;
+        const clocks = { ...(latest.entityClock || {}) };
         const extras = extrasAgainstBase(incomingMonths, stateRef.current.budgets, user.pubkey, latest.budgetId, Date.now());
         const earlier = stateRef.current.budgets.filter((month) => from && month.month < from);
-        const merged = [...earlier, ...applyNotes(incomingMonths, extras)];
+        const merged = [...earlier, ...applyNotes(incomingMonths, extras, clocks)];
         const expected = Math.max(latest.expectedMonths || 0, announcedTotal, incomingMonths.length);
         baselineRef.current = JSON.stringify(merged);
         const nextThread: BudgetThreadState = {
@@ -525,6 +590,7 @@ export function useBudgetThread() {
           receivedMonths: incomingMonths.length,
           expectedMonths: expected,
           sharedFromMonth: from || latest.sharedFromMonth,
+          entityClock: clocks,
           appliedNoteIds: Array.from(new Set([...latest.appliedNoteIds, ...extras.map((note) => note.id)])),
           unsyncedNotes: latest.unsyncedNotes,
         };
@@ -548,20 +614,21 @@ export function useBudgetThread() {
 
     const applied = new Set(stateRef.current.budgetThread?.appliedNoteIds || []);
     const members = stateRef.current.budgetThread ? membershipOf(stateRef.current.budgetThread) : null;
+    const clocks = { ...(stateRef.current.budgetThread?.entityClock || {}) };
     const fresh = notes.filter((note) => note.budgetId === stateRef.current.budgetThread?.budgetId && !applied.has(note.id) && (!members || noteIsActive(members, note) || note.authorPubkey === user.pubkey));
     if (fresh.length > 0) {
-      const merged = applyNotes(stateRef.current.budgets, fresh);
+      const merged = applyNotes(stateRef.current.budgets, fresh, clocks);
       const ids = Array.from(new Set([...(stateRef.current.budgetThread?.appliedNoteIds || []), ...fresh.map((note) => note.id)]));
       baselineRef.current = JSON.stringify(merged);
       const nextThread = stateRef.current.budgetThread
-        ? { ...stateRef.current.budgetThread, appliedNoteIds: ids }
+        ? { ...stateRef.current.budgetThread, appliedNoteIds: ids, entityClock: clocks }
         : stateRef.current.budgetThread;
       stateRef.current = { ...stateRef.current, budgets: merged, budgetThread: nextThread };
       setState((prev) => ({
         ...prev,
         budgets: merged,
         budgetThread: prev.budgetThread
-          ? { ...prev.budgetThread, appliedNoteIds: ids }
+          ? { ...prev.budgetThread, appliedNoteIds: ids, entityClock: clocks }
           : prev.budgetThread,
       }));
       if (fresh.some((note) => note.authorPubkey !== user.pubkey)) {
@@ -589,20 +656,22 @@ export function useBudgetThread() {
     const current = stateRef.current.budgetThread;
     if (!current?.partnerPubkey) return;
     if (current.status !== 'accepted' && current.status !== 'pending') return;
-    if (caughtUpRef.current === current.budgetId) return;
+    if (current.catchUpDone || caughtUpRef.current === current.budgetId) return;
     caughtUpRef.current = current.budgetId;
     const from = current.sharedFromMonth || getCurrentMonth();
     const months = stateRef.current.budgets.filter((month) => month.month >= from);
     const base = months.map((month) => ({ ...month, transactions: [] }));
-    const notes = diffAgainstBase(base, months, user.pubkey, current.budgetId, Date.now())
+    const clocks = current.entityClock || {};
+    const notes = diffAgainstBase(base, months, user.pubkey, current.budgetId, 1)
       .filter((note) => note.entity === 'transaction' && note.op === 'upsert')
       .filter((note) => note.transaction?.partnerPubkey === user.pubkey)
-      .map((note) => ({ ...note, id: `catch-${note.entityId}` }));
-    if (notes.length === 0) return;
+      .filter((note) => (clocks[`${note.month}:${note.entity}:${note.entityId}`] ?? 0) < 1)
+      .map((note) => ({ ...note, id: `catch-${note.entityId}`, at: 1 }));
     updateThread((threadState) => {
       const have = new Set(threadState.unsyncedNotes.map((note) => note.id));
       return {
         ...threadState,
+        catchUpDone: true,
         unsyncedNotes: [...threadState.unsyncedNotes, ...notes.filter((note) => !have.has(note.id))],
       };
     });
@@ -673,6 +742,40 @@ export function useBudgetThread() {
       stop();
     };
   }, [enqueuePull, isLeader, user, waiting]);
+
+  useEffect(() => {
+    if (!isLeader || !user?.signer || !thread?.budgetId) return;
+    if (thread.status !== 'pending' && thread.status !== 'accepted' && thread.status !== 'left' && thread.status !== 'revoked') return;
+    const snapshot = thread;
+    const signer = user.signer;
+    const pubkey = user.pubkey;
+    const timer = setTimeout(() => {
+      const at = snapshot.updatedAt || Date.now();
+      void publishEncrypted(
+        signer,
+        pubkey,
+        `sat-sorter/thread-self/${at}`,
+        {
+          type: 'self',
+          at,
+          budgetId: snapshot.budgetId,
+          thread: {
+            budgetId: snapshot.budgetId,
+            role: snapshot.role,
+            ownerPubkey: snapshot.ownerPubkey,
+            partnerPubkey: snapshot.partnerPubkey,
+            status: snapshot.status,
+            sharedFromMonth: snapshot.sharedFromMonth,
+            acceptedAt: snapshot.acceptedAt,
+            endedAt: snapshot.endedAt,
+            updatedAt: at,
+          },
+        },
+        [['b', snapshot.budgetId]],
+      ).catch(() => undefined);
+    }, 700);
+    return () => clearTimeout(timer);
+  }, [isLeader, thread?.acceptedAt, thread?.budgetId, thread?.endedAt, thread?.partnerPubkey, thread?.role, thread?.sharedFromMonth, thread?.status, thread?.updatedAt, user]);
 
   return {
     thread,

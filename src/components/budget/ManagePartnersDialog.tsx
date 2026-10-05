@@ -173,6 +173,11 @@ export function ManagePartnersDialog({
   };
 
   const removeConnection = async () => {
+    if (thread?.status === 'pending' && thread.role !== 'partner') {
+      await threadApi?.revokeInvite();
+      setEditing(false);
+      return;
+    }
     if (thread?.status === 'accepted' || (thread?.status === 'pending' && thread.partnerPubkey)) {
       await threadApi?.leaveOrRemove();
       setEditing(false);
@@ -229,9 +234,12 @@ export function ManagePartnersDialog({
             </div>
           )}
 
-          {user && thread?.status === 'pending' && thread.role !== 'partner' && !(thread.partnerPubkey && thread.partnerPubkey !== user.pubkey) && (
-            <div className="space-y-3">
-              <p className="text-sm">Waiting for them to scan your code.</p>
+          {user && thread?.status === 'pending' && thread.role !== 'partner' && (
+            <div className="space-y-3 rounded-lg border p-3">
+              {thread.partnerPubkey && thread.partnerPubkey !== user.pubkey && (
+                <PartnerLine pubkey={thread.partnerPubkey} />
+              )}
+              <p className="text-sm">Waiting for them to accept.</p>
               <Button className="w-full" onClick={() => { void showCode(); }}>
                 <QrCode className="h-4 w-4 mr-2" /> Show my code
               </Button>
@@ -241,11 +249,11 @@ export function ManagePartnersDialog({
             </div>
           )}
 
-          {user && threadApi && thread?.partnerPubkey && thread.partnerPubkey !== user.pubkey && (thread.status === 'accepted' || thread.status === 'pending') && (
+          {user && threadApi && thread?.partnerPubkey && thread.partnerPubkey !== user.pubkey && (thread.status === 'accepted' || (thread.status === 'pending' && thread.role === 'partner')) && (
             <div className="rounded-lg border p-3">
               <div className="flex items-start justify-between gap-2">
                 <div className="space-y-2">
-                  <p className="text-sm">Connected. A transaction logged on either phone shows up on the other.</p>
+                  <p className="text-sm">Connected. A transaction or a budget change on either phone shows up on the other.</p>
                   <PartnerLine pubkey={thread.partnerPubkey} />
                   <PartnerTransferBar />
                   {threadApi.unsyncedCount > 0 && (

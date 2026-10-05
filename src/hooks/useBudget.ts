@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from 'react';
 import { useBudgetContext } from '@/contexts/BudgetContext';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
 import {
   BudgetState,
   MonthlyBudget,
@@ -18,6 +19,7 @@ import { cloneBudgetForMonth } from '@/lib/budgetMerge';
 export function useBudget() {
   // Use shared context so all components share the same state instance
   const { state, setState } = useBudgetContext();
+  const { user } = useCurrentUser();
 
   // Get or create budget for current month
   const currentBudget = useMemo((): MonthlyBudget => {
@@ -196,23 +198,28 @@ export function useBudget() {
 
   // Delete a line item
   const deleteLineItem = useCallback((bucketId: string, lineItemId: string) => {
-    const updatedBudget = {
-      ...currentBudget,
-      buckets: currentBudget.buckets.map(b =>
-        b.id === bucketId
-          ? { ...b, lineItems: b.lineItems.filter(item => item.id !== lineItemId) }
-          : b
-      ),
-      // Tombstone the line item so the deletion propagates to the partner
-      // and personal backup instead of being resurrected by union merges
-      deletedLineItemIds: [...(currentBudget.deletedLineItemIds || []), lineItemId],
-      // Unassign any transactions from this line item
-      transactions: currentBudget.transactions.map(t =>
-        t.lineItemId === lineItemId ? { ...t, lineItemId: null, bucketId: null } : t
-      ),
-    };
-    saveBudget(updatedBudget);
-  }, [currentBudget, saveBudget]);
+    setState(prev => {
+      const idx = prev.budgets.findIndex(b => b.month === prev.currentMonth);
+      const budget = idx >= 0 ? prev.budgets[idx] : currentBudget;
+      const next: MonthlyBudget = {
+        ...budget,
+        updatedAt: Math.floor(Date.now() / 1000),
+        buckets: (budget.buckets || []).map(b =>
+          b.id === bucketId
+            ? { ...b, lineItems: (b.lineItems || []).filter(item => item.id !== lineItemId) }
+            : b
+        ),
+        deletedLineItemIds: [...(budget.deletedLineItemIds || []), lineItemId],
+        transactions: (budget.transactions || []).map(t =>
+          t.lineItemId === lineItemId ? { ...t, lineItemId: null, bucketId: null } : t
+        ),
+      };
+      const budgets = [...prev.budgets];
+      if (idx >= 0) budgets[idx] = next;
+      else budgets.push(next);
+      return { ...prev, budgets };
+    });
+  }, [setState, currentBudget]);
 
     // Add a transaction
   const addTransaction = useCallback((transaction: Omit<Transaction, 'id'>) => {
@@ -220,6 +227,11 @@ export function useBudget() {
       ...transaction,
       id: generateId(),
       date: transaction.date || new Date().toISOString(),
+      partnerPubkey: transaction.partnerPubkey || (
+        (state.budgetThread?.status === 'accepted' || state.budgetThread?.status === 'pending') && user?.pubkey
+          ? user.pubkey
+          : undefined
+      ),
     };
 
     setState(prev => {
@@ -237,52 +249,77 @@ export function useBudget() {
       return { ...prev, budgets };
     });
     return newTransaction;
-  }, [setState, currentBudget]);
+  }, [setState, currentBudget, state.budgetThread?.status, user]);
 
   // Add multiple transactions in a single atomic update (used for splits to avoid stale-closure overwrites)
   const addTransactions = useCallback((transactions: Omit<Transaction, 'id'>[]) => {
     if (!transactions.length) return [];
 
+    const shared = state.budgetThread?.status === 'accepted' || state.budgetThread?.status === 'pending';
     const newOnes: Transaction[] = transactions.map(t => ({
       ...t,
       id: generateId(),
       date: t.date || new Date().toISOString(),
+      partnerPubkey: t.partnerPubkey || (shared && user?.pubkey ? user.pubkey : undefined),
     }));
 
-    const updatedBudget = {
-      ...currentBudget,
-      transactions: [...currentBudget.transactions, ...newOnes],
-    };
-
-    saveBudget(updatedBudget);
+    setState(prev => {
+      const idx = prev.budgets.findIndex(b => b.month === prev.currentMonth);
+      const budget = idx >= 0 ? prev.budgets[idx] : currentBudget;
+      const next: MonthlyBudget = {
+        ...budget,
+        updatedAt: Math.floor(Date.now() / 1000),
+        transactions: [...(budget.transactions || []), ...newOnes],
+      };
+      const budgets = [...prev.budgets];
+      if (idx >= 0) budgets[idx] = next;
+      else budgets.push(next);
+      return { ...prev, budgets };
+    });
     return newOnes;
-  }, [currentBudget, saveBudget]);
+  }, [setState, currentBudget, state.budgetThread?.status, user]);
 
   // Update a transaction (assign to line item)
   const updateTransaction = useCallback((
     transactionId: string,
     updates: Partial<Transaction>
   ) => {
-    const updatedBudget = {
-      ...currentBudget,
-      transactions: currentBudget.transactions.map(t =>
-        t.id === transactionId ? { ...t, ...updates } : t
-      ),
-    };
-    saveBudget(updatedBudget);
-  }, [currentBudget, saveBudget]);
+    setState(prev => {
+      const idx = prev.budgets.findIndex(b => b.month === prev.currentMonth);
+      const budget = idx >= 0 ? prev.budgets[idx] : currentBudget;
+      const next: MonthlyBudget = {
+        ...budget,
+        updatedAt: Math.floor(Date.now() / 1000),
+        transactions: (budget.transactions || []).map(t =>
+          t.id === transactionId ? { ...t, ...updates } : t
+        ),
+      };
+      const budgets = [...prev.budgets];
+      if (idx >= 0) budgets[idx] = next;
+      else budgets.push(next);
+      return { ...prev, budgets };
+    });
+  }, [setState, currentBudget]);
 
   // Delete a transaction — also records a tombstone in deletedTxIds so the
   // deletion propagates to the partner's device (without it, the partner's
   // snapshot would re-add the transaction on next sync).
   const deleteTransaction = useCallback((transactionId: string) => {
-    const updatedBudget = {
-      ...currentBudget,
-      transactions: currentBudget.transactions.filter(t => t.id !== transactionId),
-      deletedTxIds: [...(currentBudget.deletedTxIds || []), transactionId],
-    };
-    saveBudget(updatedBudget);
-  }, [currentBudget, saveBudget]);
+    setState(prev => {
+      const idx = prev.budgets.findIndex(b => b.month === prev.currentMonth);
+      const budget = idx >= 0 ? prev.budgets[idx] : currentBudget;
+      const next: MonthlyBudget = {
+        ...budget,
+        updatedAt: Math.floor(Date.now() / 1000),
+        transactions: (budget.transactions || []).filter(t => t.id !== transactionId),
+        deletedTxIds: [...(budget.deletedTxIds || []), transactionId],
+      };
+      const budgets = [...prev.budgets];
+      if (idx >= 0) budgets[idx] = next;
+      else budgets.push(next);
+      return { ...prev, budgets };
+    });
+  }, [setState, currentBudget]);
 
   // Assign transaction to a line item
   const assignTransaction = useCallback((
