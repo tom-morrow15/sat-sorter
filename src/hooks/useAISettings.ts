@@ -29,6 +29,7 @@ export interface AiConnection {
   baseUrl: string;
   apiKey: string;
   model: string;
+  host: 'cloud' | 'local';
 }
 
 export interface AISettings {
@@ -160,14 +161,15 @@ export function useAISettings() {
     setConnections((prev) => prev.map((connection) => connection.id === id ? { ...connection, ...patch } : connection));
   };
 
-  const addConnection = (draft: { name: string; baseUrl: string; apiKey: string; model: string }) => {
+  const addConnection = (draft: { name: string; baseUrl: string; apiKey: string; model: string; host: 'cloud' | 'local' }) => {
     const id = `c_${Date.now().toString(36)}`;
     const next: AiConnection = {
       id,
-      name: draft.name.trim() || 'Custom',
+      name: draft.name.trim() || (draft.host === 'local' ? 'Local AI' : 'Cloud AI'),
       baseUrl: draft.baseUrl.trim().replace(/\/+$/, ''),
       apiKey: draft.apiKey.trim(),
       model: draft.model.trim(),
+      host: draft.host,
     };
     setConnections((prev) => [...prev, next]);
     setProvider(id);

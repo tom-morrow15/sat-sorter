@@ -1,21 +1,11 @@
 import { useState } from 'react';
-import {
-  KeyRound,
-  TestTube,
-  Eye,
-  EyeOff,
-  AlertCircle,
-  Shield,
-  Server,
-  FileText,
-} from 'lucide-react';
+import { AlertCircle, ChevronLeft, Eye, EyeOff, FileText, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   Select,
@@ -24,19 +14,40 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useAISettings, PROVIDER_DEFAULTS, type AIProvider } from '@/hooks/useAISettings';
+import { useAISettings, PROVIDER_DEFAULTS, type AiConnection } from '@/hooks/useAISettings';
 import { useToast } from '@/hooks/useToast';
 import { testKey, MAPLE_MODELS_FALLBACK } from '@/services/mapleAi';
 import { cn } from '@/lib/utils';
 
+type Host = 'cloud' | 'local';
+type View =
+  | { name: 'list' }
+  | { name: 'host' }
+  | { name: 'cloud' }
+  | { name: 'create'; host: Host; preset: 'maple' | 'ppq' | 'other' }
+  | { name: 'edit'; id: string };
+
+function hostOf(connection: AiConnection): Host {
+  if (connection.host === 'local' || connection.host === 'cloud') return connection.host;
+  const url = connection.baseUrl.toLowerCase();
+  if (url.includes('localhost') || url.includes('127.0.0.1') || url.startsWith('http://')) return 'local';
+  return 'cloud';
+}
+
 export function MapleSettings() {
+  const settings = useAISettings();
+  const { toast } = useToast();
+  const [view, setView] = useState<View>({ name: 'list' });
+  const [returnProvider, setReturnProvider] = useState(settings.provider);
+  const [showKey, setShowKey] = useState(false);
+  const [isTesting, setIsTesting] = useState(false);
+  const [draft, setDraft] = useState({ name: '', baseUrl: '', apiKey: '', model: '' });
+
   const {
     provider,
     setProvider,
     apiKey,
     setApiKey,
-    evergreenContext,
-    setEvergreenContext,
     proxyUrl,
     setProxyUrl,
     model,
@@ -45,20 +56,79 @@ export function MapleSettings() {
     modelsLoading,
     zdr,
     setZdr,
+    evergreenContext,
+    setEvergreenContext,
     disclaimerAccepted,
     setDisclaimerAccepted,
     connections,
     addConnection,
     removeConnection,
     updateConnection,
-    isCustom,
-    activeName,
+    maple,
+    ppq,
     connectionReady,
-  } = useAISettings();
-  const { toast } = useToast();
-  const [showKey, setShowKey] = useState(false);
-  const [isTesting, setIsTesting] = useState(false);
-  const [draft, setDraft] = useState({ name: '', baseUrl: '', apiKey: '', model: '' });
+    activeName,
+  } = settings;
+
+  const rows = [
+    ...(maple.apiKey || provider === 'maple'
+      ? [{ id: 'maple', name: 'Maple', host: 'cloud' as Host, ready: maple.apiKey.length > 0, detail: 'Cloud' }]
+      : []),
+    ...(ppq.apiKey || provider === 'ppq'
+      ? [{ id: 'ppq', name: 'PPQ', host: 'cloud' as Host, ready: ppq.apiKey.length > 0, detail: 'Cloud' }]
+      : []),
+    ...connections.map((connection) => ({
+      id: connection.id,
+      name: connection.name,
+      host: hostOf(connection),
+      ready: connection.baseUrl.trim().length > 0,
+      detail: hostOf(connection) === 'local' ? 'On your network' : 'Cloud',
+    })),
+  ];
+
+  const openEdit = (id: string) => {
+    setProvider(id);
+    setShowKey(false);
+    setView({ name: 'edit', id });
+  };
+
+  const runTest = async (key: string, url: string, modelId: string, needsKey: boolean) => {
+    if (needsKey && !key.trim()) {
+      toast({ title: 'Add an API key first', variant: 'destructive' });
+      return;
+    }
+    if (!url.trim()) {
+      toast({ title: 'Add the server address first', variant: 'destructive' });
+      return;
+    }
+    setIsTesting(true);
+    try {
+      const result = await testKey(key, url, modelId || undefined);
+      toast(result.ok
+        ? { title: 'Connection successful' }
+        : { title: 'Connection failed', description: result.error, variant: 'destructive' });
+    } catch {
+      toast({ title: 'Connection failed', description: 'Could not reach the server.', variant: 'destructive' });
+    } finally {
+      setIsTesting(false);
+    }
+  };
+
+  const saveDraft = () => {
+    if (view.name !== 'create' || view.preset === 'maple' || view.preset === 'ppq') return;
+    if (!draft.baseUrl.trim()) {
+      toast({ title: 'Add the server address', variant: 'destructive' });
+      return;
+    }
+    if (view.host === 'cloud' && !draft.apiKey.trim()) {
+      toast({ title: 'Add an API key', variant: 'destructive' });
+      return;
+    }
+    const id = addConnection({ ...draft, host: view.host });
+    setDraft({ name: '', baseUrl: '', apiKey: '', model: '' });
+    setView({ name: 'edit', id });
+    toast({ title: 'AI added' });
+  };
 
   const modelOptions = availableModels.length > 0
     ? availableModels
@@ -68,337 +138,348 @@ export function MapleSettings() {
         ? [{ id: model, label: model, description: '' }]
         : [];
 
-  const handleTest = async () => {
-    if (!isCustom && !apiKey.trim()) {
-      toast({ title: 'Please enter an API key', variant: 'destructive' });
-      return;
+  const leaveForm = () => {
+    if (view.name === 'create' && (view.preset === 'maple' || view.preset === 'ppq')) {
+      setProvider(returnProvider);
     }
-    if (!proxyUrl.trim()) {
-      toast({ title: 'Add the server address first', variant: 'destructive' });
-      return;
-    }
-    setIsTesting(true);
-    try {
-      const result = await testKey(apiKey, proxyUrl, model || undefined);
-      if (result.ok) {
-        toast({ title: 'Connection successful!', description: `Connected to ${activeName}.` });
-      } else {
-        toast({ title: 'Connection failed', description: result.error, variant: 'destructive' });
-      }
-    } catch {
-      toast({ title: 'Connection failed', description: 'Could not reach the server.', variant: 'destructive' });
-    } finally {
-      setIsTesting(false);
-    }
+    setView({ name: 'list' });
   };
 
-  const handleProviderChange = (newProvider: string) => {
-    setProvider(newProvider as AIProvider);
-  };
-
-  const handleAdd = () => {
-    if (!draft.baseUrl.trim()) {
-      toast({ title: 'Add the server address', variant: 'destructive' });
-      return;
-    }
-    addConnection(draft);
-    setDraft({ name: '', baseUrl: '', apiKey: '', model: '' });
-    toast({ title: 'AI added', description: 'You can pick it in the Budget Buddy chat.' });
-  };
+  const back = (
+    <button type="button" onClick={leaveForm} className="flex items-center gap-1 text-sm text-muted-foreground">
+      <ChevronLeft className="h-4 w-4" /> Back
+    </button>
+  );
 
   return (
     <div className="space-y-5">
-      {/* Provider Selection */}
-      <div className="space-y-2">
-        <Label className="text-sm font-semibold">AI Provider</Label>
-        <div className="grid grid-cols-2 gap-2">
-          {(['maple', 'ppq'] as const).map((p) => (
-            <button
-              key={p}
-              onClick={() => handleProviderChange(p)}
-              className={cn(
-                'p-3 rounded-xl border-2 text-left transition-all press-feedback',
-                provider === p
-                  ? 'border-primary bg-primary/5 shadow-sm'
-                  : 'border-border hover:border-primary/40'
-              )}
-            >
-              <p className="font-semibold text-sm">{PROVIDER_DEFAULTS[p].label}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">{PROVIDER_DEFAULTS[p].description}</p>
-            </button>
-          ))}
-          {connections.map((connection) => (
-            <button
-              key={connection.id}
-              onClick={() => handleProviderChange(connection.id)}
-              className={cn(
-                'p-3 rounded-xl border-2 text-left transition-all press-feedback',
-                provider === connection.id
-                  ? 'border-primary bg-primary/5 shadow-sm'
-                  : 'border-border hover:border-primary/40'
-              )}
-            >
-              <p className="font-semibold text-sm">{connection.name}</p>
-              <p className="text-xs text-muted-foreground mt-0.5 truncate">{connection.baseUrl}</p>
-            </button>
-          ))}
-        </div>
-      </div>
+      {view.name === 'list' && (
+        <>
+          <p className="text-sm text-muted-foreground">
+            Add the AIs you want Budget Buddy to use. You can add more than one, then pick which one to talk to in the chat.
+          </p>
+          {rows.length === 0 ? (
+            <p className="text-sm rounded-xl border border-dashed p-4 text-muted-foreground">No AI added yet.</p>
+          ) : (
+            <div className="space-y-2">
+              {rows.map((row) => (
+                <button
+                  key={row.id}
+                  type="button"
+                  onClick={() => openEdit(row.id)}
+                  className={cn(
+                    'w-full rounded-xl border p-3 text-left',
+                    provider === row.id ? 'border-primary bg-primary/5' : 'border-border',
+                  )}
+                >
+                  <span className="flex items-center justify-between gap-2">
+                    <span className="font-medium text-sm">{row.name}</span>
+                    {provider === row.id && <span className="text-[10px] text-primary">In use</span>}
+                  </span>
+                  <span className="mt-0.5 block text-xs text-muted-foreground">
+                    {row.detail}{row.ready ? '' : ' · Needs setup'}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+          <Button className="w-full" onClick={() => setView({ name: 'host' })}>Add an AI</Button>
+          {connectionReady && (
+            <p className="text-xs text-muted-foreground">Talking to {activeName}. Change it here, or from the chat.</p>
+          )}
+        </>
+      )}
 
-      {isCustom ? (
-        <div className="space-y-2">
-          <Label htmlFor="custom-name">Name</Label>
-          <Input
-            id="custom-name"
-            value={activeName}
-            onChange={(event) => updateConnection(provider, { name: event.target.value })}
+      {view.name === 'host' && (
+        <div className="space-y-3">
+          {back}
+          <p className="text-sm font-medium">Where does this AI run?</p>
+          <button type="button" onClick={() => setView({ name: 'cloud' })} className="w-full rounded-xl border p-4 text-left hover:border-primary/40">
+            <span className="block font-medium text-sm">Cloud hosted</span>
+            <span className="mt-1 block text-xs text-muted-foreground">A service on the internet. You need an API key from that service.</span>
+          </button>
+          <button type="button" onClick={() => { setDraft({ name: '', baseUrl: '', apiKey: '', model: '' }); setView({ name: 'create', host: 'local', preset: 'other' }); }} className="w-full rounded-xl border p-4 text-left hover:border-primary/40">
+            <span className="block font-medium text-sm">On your network</span>
+            <span className="mt-1 block text-xs text-muted-foreground">An AI you run yourself, on a computer or a server you control.</span>
+          </button>
+        </div>
+      )}
+
+      {view.name === 'cloud' && (
+        <div className="space-y-3">
+          <button type="button" onClick={() => setView({ name: 'host' })} className="flex items-center gap-1 text-sm text-muted-foreground">
+            <ChevronLeft className="h-4 w-4" /> Back
+          </button>
+          <p className="text-sm font-medium">Choose a cloud service</p>
+          <button type="button" onClick={() => { setReturnProvider(provider); setProvider('maple'); setView({ name: 'create', host: 'cloud', preset: 'maple' }); }} className="w-full rounded-xl border p-4 text-left">
+            <span className="block font-medium text-sm">Maple</span>
+            <span className="mt-1 block text-xs text-muted-foreground">Private models. Uses your Maple key.</span>
+          </button>
+          <button type="button" onClick={() => { setReturnProvider(provider); setProvider('ppq'); setView({ name: 'create', host: 'cloud', preset: 'ppq' }); }} className="w-full rounded-xl border p-4 text-left">
+            <span className="block font-medium text-sm">PPQ</span>
+            <span className="mt-1 block text-xs text-muted-foreground">Pay per question. No account required.</span>
+          </button>
+          <button type="button" onClick={() => { setDraft({ name: '', baseUrl: '', apiKey: '', model: '' }); setView({ name: 'create', host: 'cloud', preset: 'other' }); }} className="w-full rounded-xl border p-4 text-left">
+            <span className="block font-medium text-sm">Another cloud service</span>
+            <span className="mt-1 block text-xs text-muted-foreground">Any service that uses the standard chat address ending in /v1.</span>
+          </button>
+        </div>
+      )}
+
+      {(view.name === 'create' || view.name === 'edit') && (
+        <div className="space-y-4">
+          {back}
+          <ConnectionForm
+            title={view.name === 'edit'
+              ? activeName
+              : view.preset === 'maple'
+                ? 'Maple'
+                : view.preset === 'ppq'
+                  ? 'PPQ'
+                  : view.host === 'local'
+                    ? 'AI on your network'
+                    : 'Cloud AI'}
+            host={view.name === 'edit'
+              ? (view.id === 'maple' || view.id === 'ppq' ? 'cloud' : hostOf(connections.find((item) => item.id === view.id) || { id: view.id, name: '', baseUrl: proxyUrl, apiKey, model, host: 'cloud' }))
+              : view.host}
+            preset={view.name === 'create' ? view.preset : view.id === 'maple' ? 'maple' : view.id === 'ppq' ? 'ppq' : 'other'}
+            name={view.name === 'create' && view.preset === 'other' ? draft.name : activeName}
+            baseUrl={view.name === 'create' && view.preset === 'other' ? draft.baseUrl : proxyUrl}
+            apiKeyValue={view.name === 'create' && view.preset === 'other' ? draft.apiKey : apiKey}
+            modelValue={view.name === 'create' && view.preset === 'other' ? draft.model : model}
+            showKey={showKey}
+            onToggleKey={() => setShowKey((value) => !value)}
+            onName={(value) => {
+              if (view.name === 'create' && view.preset === 'other') setDraft((prev) => ({ ...prev, name: value }));
+              else if (view.name === 'edit' && view.id !== 'maple' && view.id !== 'ppq') updateConnection(view.id, { name: value });
+            }}
+            onBaseUrl={(value) => {
+              if (view.name === 'create' && view.preset === 'other') setDraft((prev) => ({ ...prev, baseUrl: value }));
+              else setProxyUrl(value);
+            }}
+            onApiKey={(value) => {
+              if (view.name === 'create' && view.preset === 'other') setDraft((prev) => ({ ...prev, apiKey: value }));
+              else setApiKey(value);
+            }}
+            onModel={(value) => {
+              if (view.name === 'create' && view.preset === 'other') setDraft((prev) => ({ ...prev, model: value }));
+              else setModel(value);
+            }}
+            modelOptions={view.name === 'create' && view.preset === 'other' ? [] : modelOptions}
+            modelsLoading={modelsLoading}
+            zdr={zdr}
+            onZdr={setZdr}
+            isTesting={isTesting}
+            onTest={() => {
+              if (view.name === 'create' && view.preset === 'other') {
+                void runTest(draft.apiKey, draft.baseUrl, draft.model, view.host === 'cloud');
+              } else {
+                void runTest(apiKey, proxyUrl, model, view.name === 'create' ? view.preset !== 'other' : view.id === 'maple' || view.id === 'ppq');
+              }
+            }}
+            onSave={view.name === 'create' && view.preset === 'other' ? saveDraft : undefined}
+            onRemove={view.name === 'edit' && view.id !== 'maple' && view.id !== 'ppq'
+              ? () => {
+                removeConnection(view.id);
+                setView({ name: 'list' });
+              }
+              : undefined}
           />
-          <Label htmlFor="custom-url">Server address</Label>
+        </div>
+      )}
+
+      {view.name === 'list' && (
+        <>
+          <div className="space-y-2">
+            <Label htmlFor="context" className="flex items-center gap-1.5">
+              <FileText className="h-3.5 w-3.5" />
+              Notes for every chat
+            </Label>
+            <Textarea
+              id="context"
+              value={evergreenContext}
+              onChange={(event) => setEvergreenContext(event.target.value)}
+              placeholder="Optional. Example: We are saving for a house. Keep monthly savings above $1,000."
+              rows={4}
+              className="resize-none"
+            />
+            <p className="text-xs text-muted-foreground">Included with every question, no matter which AI you pick.</p>
+          </div>
+
+          <div className={cn(
+            'p-4 rounded-xl border space-y-3',
+            disclaimerAccepted ? 'border-border bg-muted/30' : 'border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30',
+          )}>
+            <div className="flex items-start gap-2">
+              <AlertCircle className={cn('h-4 w-4 shrink-0 mt-0.5', disclaimerAccepted ? 'text-muted-foreground' : 'text-amber-600 dark:text-amber-400')} />
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Budget Buddy is not a financial advisor. It can be wrong. You are responsible for your own decisions.
+              </p>
+            </div>
+            <label className="flex items-start gap-2.5 cursor-pointer">
+              <Checkbox checked={disclaimerAccepted} onCheckedChange={(value) => setDisclaimerAccepted(Boolean(value))} className="mt-0.5" />
+              <span className="text-xs font-medium">I understand, and I want to use Budget Buddy.</span>
+            </label>
+          </div>
+
+          {connectionReady && disclaimerAccepted ? (
+            <Alert className="border-green-500/30 bg-green-50 dark:bg-green-950/30">
+              <AlertDescription className="text-xs text-green-700 dark:text-green-400">
+                Budget Buddy is ready.
+              </AlertDescription>
+            </Alert>
+          ) : connectionReady && !disclaimerAccepted ? (
+            <Alert className="border-amber-300 bg-amber-50 dark:bg-amber-950/30">
+              <AlertDescription className="text-xs">Accept the note above to turn Budget Buddy on.</AlertDescription>
+            </Alert>
+          ) : null}
+        </>
+      )}
+    </div>
+  );
+}
+
+function ConnectionForm({
+  title,
+  host,
+  preset,
+  name,
+  baseUrl,
+  apiKeyValue,
+  modelValue,
+  showKey,
+  onToggleKey,
+  onName,
+  onBaseUrl,
+  onApiKey,
+  onModel,
+  modelOptions,
+  modelsLoading,
+  zdr,
+  onZdr,
+  isTesting,
+  onTest,
+  onSave,
+  onRemove,
+}: {
+  title: string;
+  host: Host;
+  preset: 'maple' | 'ppq' | 'other';
+  name: string;
+  baseUrl: string;
+  apiKeyValue: string;
+  modelValue: string;
+  showKey: boolean;
+  onToggleKey: () => void;
+  onName: (value: string) => void;
+  onBaseUrl: (value: string) => void;
+  onApiKey: (value: string) => void;
+  onModel: (value: string) => void;
+  modelOptions: { id: string; label: string; description?: string }[];
+  modelsLoading: boolean;
+  zdr: boolean;
+  onZdr: (value: boolean) => void;
+  isTesting: boolean;
+  onTest: () => void;
+  onSave?: () => void;
+  onRemove?: () => void;
+}) {
+  const showAddress = preset === 'other';
+  return (
+    <div className="space-y-3">
+      <p className="text-sm font-medium">{title}</p>
+      <p className="text-xs text-muted-foreground">{host === 'local' ? 'On your network' : 'Cloud hosted'}</p>
+      {preset === 'other' && (
+        <div className="space-y-2">
+          <Label htmlFor="ai-name">Name</Label>
+          <Input id="ai-name" value={name} onChange={(event) => onName(event.target.value)} placeholder={host === 'local' ? 'Home server' : 'Cloud AI'} />
+        </div>
+      )}
+      {showAddress && (
+        <div className="space-y-2">
+          <Label htmlFor="ai-url">Server address</Label>
           <Input
-            id="custom-url"
-            value={proxyUrl}
-            onChange={(event) => setProxyUrl(event.target.value)}
-            placeholder="http://192.168.1.20:1234/v1"
+            id="ai-url"
+            value={baseUrl}
+            onChange={(event) => onBaseUrl(event.target.value)}
+            placeholder={host === 'local' ? 'https://your-server/v1' : 'https://api.example.com/v1'}
             className="font-mono text-xs"
             autoCapitalize="none"
             autoCorrect="off"
           />
           <p className="text-xs text-muted-foreground">
-            For LM Studio, use the address from its server tab and end it with /v1. A phone cannot use localhost. The address has to be https when you open Sat Sorter from the phone, because the app itself is https. Turn on CORS in LM Studio.
+            {host === 'local'
+              ? 'Use the address from the program running the model. It usually ends in /v1. On a phone, localhost means the phone, not your computer. Use the computer’s network address, and it must start with https or the browser will block it.'
+              : 'Use the base address from the service. It usually ends in /v1.'}
           </p>
         </div>
-      ) : null}
-
-      {/* API Key */}
+      )}
+      {preset === 'maple' && (
+        <p className="text-xs text-muted-foreground">Uses {PROVIDER_DEFAULTS.maple.label}. Paste the key from your Maple account.</p>
+      )}
+      {preset === 'ppq' && (
+        <p className="text-xs text-muted-foreground">Uses {PROVIDER_DEFAULTS.ppq.label}. Get a key at ppq.ai. You can pay per question, with no account.</p>
+      )}
       <div className="space-y-2">
-        <Label htmlFor="api-key" className="flex items-center gap-1.5">
-          <KeyRound className="h-3.5 w-3.5" />
-          {isCustom ? 'API key, if the server asks for one' : `${provider === 'ppq' ? 'PPQ' : 'Maple'} API key`}
-        </Label>
+        <Label htmlFor="ai-key">{host === 'local' ? 'API key, if the server asks for one' : 'API key'}</Label>
         <div className="flex gap-2">
           <div className="relative flex-1">
             <Input
-              id="api-key"
+              id="ai-key"
               type={showKey ? 'text' : 'password'}
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder={provider === 'maple' ? 'Enter Maple API key...' : provider === 'ppq' ? 'ppq_...' : 'Optional'}
+              value={apiKeyValue}
+              onChange={(event) => onApiKey(event.target.value)}
+              placeholder={host === 'local' ? 'Optional' : 'Paste your key'}
               className="pr-10"
+              autoCapitalize="none"
             />
-            <button
-              onClick={() => setShowKey(!showKey)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-            >
+            <button type="button" onClick={onToggleKey} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
               {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleTest}
-            disabled={isTesting || !proxyUrl.trim() || (!isCustom && !apiKey.trim())}
-          >
+          <Button variant="outline" size="sm" onClick={onTest} disabled={isTesting}>
             {isTesting ? 'Testing...' : 'Test'}
           </Button>
         </div>
       </div>
-
-      {/* Model Selection */}
       <div className="space-y-2">
         <Label>Model</Label>
         {modelOptions.length > 0 && (
-        <Select value={model || modelOptions[0].id} onValueChange={setModel}>
-          <SelectTrigger>
-            <SelectValue placeholder="Select a model..." />
-          </SelectTrigger>
-          <SelectContent>
-            {modelsLoading && <SelectItem value="loading" disabled>Loading models...</SelectItem>}
-            {modelOptions.map((m) => (
-              <SelectItem key={m.id} value={m.id}>
-                <div className="flex flex-col">
-                  <span className="font-medium">{m.label}</span>
-                  {m.description && (
-                    <span className="text-xs text-muted-foreground">{m.description}</span>
-                  )}
-                </div>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          <Select value={modelValue || modelOptions[0].id} onValueChange={onModel}>
+            <SelectTrigger>
+              <SelectValue placeholder={modelsLoading ? 'Loading models...' : 'Select a model'} />
+            </SelectTrigger>
+            <SelectContent>
+              {modelOptions.map((option) => (
+                <SelectItem key={option.id} value={option.id}>{option.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         )}
-        {isCustom && (
+        {preset === 'other' && (
           <Input
-            value={model}
-            onChange={(event) => setModel(event.target.value)}
-            placeholder="Model name, if it is not in the list"
+            value={modelValue}
+            onChange={(event) => onModel(event.target.value)}
+            placeholder="Model name, if you know it"
             autoCapitalize="none"
             autoCorrect="off"
           />
         )}
-        {isCustom && (
-          <Button variant="outline" className="w-full" onClick={() => removeConnection(provider)}>
-            Remove this AI
-          </Button>
-        )}
       </div>
-
-      {/* PPQ ZDR Toggle */}
-      {provider === 'ppq' && (
-        <div className="flex items-start gap-3 p-3 rounded-xl bg-primary/5 border border-primary/20">
-          <Switch
-            checked={zdr}
-            onCheckedChange={setZdr}
-            id="zdr-toggle"
-          />
-          <div className="flex-1">
+      {preset === 'ppq' && (
+        <div className="flex items-start gap-3 rounded-xl border border-primary/20 bg-primary/5 p-3">
+          <Switch checked={zdr} onCheckedChange={onZdr} id="zdr-toggle" />
+          <div>
             <Label htmlFor="zdr-toggle" className="flex items-center gap-1.5 text-sm font-medium cursor-pointer">
               <Shield className="h-3.5 w-3.5 text-primary" />
-              Zero Data Retention (ZDR)
+              Don’t store prompts
             </Label>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Routes requests only to endpoints that don't store your prompt data. Recommended for sensitive financial information.
-            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">Sends your budget only to models that say they do not keep the question.</p>
           </div>
         </div>
       )}
-
-      {/* Evergreen Context (persistent instructions) */}
-      <div className="space-y-2">
-        <Label htmlFor="context" className="flex items-center gap-1.5">
-          <FileText className="h-3.5 w-3.5" />
-          Persistent Context
-        </Label>
-        <Textarea
-          id="context"
-          value={evergreenContext}
-          onChange={(e) => setEvergreenContext(e.target.value)}
-          placeholder="Tell your Budget Buddy about your financial goals, situation, or preferences. Example: 'We're saving for a house down payment. We want to keep monthly savings above $1,000. We tithe 10% of our income.'"
-          rows={4}
-          className="resize-none"
-        />
-        <p className="text-xs text-muted-foreground">
-          This context is included with every conversation. Use it to give your Budget Buddy persistent instructions.
-        </p>
-      </div>
-
-      {/* Advanced: Proxy URL */}
-      {!isCustom && (
-      <details className="group">
-        <summary className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer hover:text-foreground">
-          <Server className="h-3.5 w-3.5" />
-          Advanced: Custom proxy URL
-        </summary>
-        <div className="mt-2">
-          <Input
-            value={proxyUrl}
-            onChange={(e) => setProxyUrl(e.target.value)}
-            placeholder={provider === 'ppq' ? PROVIDER_DEFAULTS.ppq.proxyUrl : PROVIDER_DEFAULTS.maple.proxyUrl}
-            className="text-xs font-mono"
-          />
-          <p className="text-xs text-muted-foreground mt-1">
-            Only change this if you're running a local proxy (e.g., PPQ private mode or Maple desktop app).
-          </p>
-        </div>
-      </details>
-      )}
-
-      <div className="space-y-2 rounded-xl border p-3">
-        <Label className="text-sm font-semibold">Add another AI</Label>
-        <Input
-          value={draft.name}
-          onChange={(event) => setDraft((prev) => ({ ...prev, name: event.target.value }))}
-          placeholder="Name, for example LM Studio"
-        />
-        <Input
-          value={draft.baseUrl}
-          onChange={(event) => setDraft((prev) => ({ ...prev, baseUrl: event.target.value }))}
-          placeholder="Server address, ending in /v1"
-          className="font-mono text-xs"
-          autoCapitalize="none"
-          autoCorrect="off"
-        />
-        <Input
-          value={draft.apiKey}
-          onChange={(event) => setDraft((prev) => ({ ...prev, apiKey: event.target.value }))}
-          placeholder="API key, if needed"
-          type="password"
-          autoCapitalize="none"
-        />
-        <Input
-          value={draft.model}
-          onChange={(event) => setDraft((prev) => ({ ...prev, model: event.target.value }))}
-          placeholder="Model name, optional"
-          autoCapitalize="none"
-          autoCorrect="off"
-        />
-        <Button variant="outline" className="w-full" onClick={handleAdd}>Add AI</Button>
-        <p className="text-xs text-muted-foreground">
-          Any server that speaks the OpenAI chat format works. Maple and PPQ stay available, and you pick which one to talk to inside the chat.
-        </p>
-      </div>
-
-      {/* Disclaimer — must be accepted to use Budget Buddy */}
-      <div className={cn(
-        'p-4 rounded-xl border space-y-3',
-        disclaimerAccepted
-          ? 'border-border bg-muted/30'
-          : 'border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30'
-      )}>
-        <div className="flex items-start gap-2">
-          <AlertCircle className={cn(
-            'h-4 w-4 shrink-0 mt-0.5',
-            disclaimerAccepted ? 'text-muted-foreground' : 'text-amber-600 dark:text-amber-400'
-          )} />
-          <div className="flex-1">
-            <p className="text-xs font-medium text-foreground">
-              Budget Buddy Disclaimer
-            </p>
-            <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-              Budget Buddy is an AI assistant, not a certified financial advisor. It may produce
-              inaccurate information (hallucinations) or suggest actions that are not appropriate
-              for your financial situation. Always use your own judgment before making financial
-              decisions. Sat Sorter is not responsible for advice given by the AI, and any
-              financial decisions you make are your sole responsibility.
-            </p>
-          </div>
-        </div>
-        <label className="flex items-start gap-2.5 cursor-pointer">
-          <Checkbox
-            checked={disclaimerAccepted}
-            onCheckedChange={(v) => setDisclaimerAccepted(Boolean(v))}
-            className="mt-0.5"
-          />
-          <span className="text-xs font-medium">
-            I understand Budget Buddy is not a financial advisor and I use it at my own risk.
-          </span>
-        </label>
-      </div>
-
-      {/* Status */}
-      {connectionReady && disclaimerAccepted ? (
-        <Alert className="border-green-500/30 bg-green-50 dark:bg-green-950/30">
-          <AlertDescription className="text-xs text-green-700 dark:text-green-400">
-            ✓ Budget Buddy is ready. Tap the chat icon to start asking questions about your budget.
-          </AlertDescription>
-        </Alert>
-      ) : connectionReady && !disclaimerAccepted ? (
-        <Alert className="border-amber-300 bg-amber-50 dark:bg-amber-950/30">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription className="text-xs text-amber-800 dark:text-amber-200">
-            Accept the disclaimer above to activate Budget Buddy.
-          </AlertDescription>
-        </Alert>
-      ) : (
-        <Alert>
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription className="text-xs">
-            {isCustom
-              ? 'Add the server address above to activate Budget Buddy.'
-              : `Enter your ${provider === 'ppq' ? 'PPQ' : 'Maple'} API key above to activate Budget Buddy.`}
-            {provider === 'ppq' && ' Get a key at ppq.ai — no signup required, pay per query with crypto.'}
-          </AlertDescription>
-        </Alert>
-      )}
+      {onSave && <Button className="w-full" onClick={onSave}>Save</Button>}
+      {onRemove && <Button variant="outline" className="w-full" onClick={onRemove}>Remove this AI</Button>}
     </div>
   );
 }
