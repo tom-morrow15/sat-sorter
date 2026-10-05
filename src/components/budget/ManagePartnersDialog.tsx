@@ -115,14 +115,22 @@ export function ManagePartnersDialog({
   const invite = (raw: string) => run(async () => {
     await threadApi?.invitePartner(raw);
     setNpubInput('');
-  }, 'Invite sent');
+  }, raw.includes('satsorter:join:') ? 'Looking for their budget' : 'Invite sent');
 
-  const showCode = () => run(async () => {
-    const code = await threadApi?.showJoinCode();
-    if (!code) return;
-    const url = await QRCode.toDataURL(code, { width: 280, margin: 1, color: { dark: '#000', light: '#fff' } });
-    setJoinQr(url);
-  }, 'Join code ready');
+  const showCode = async () => {
+    try {
+      const code = await threadApi?.showJoinCode();
+      if (!code) return;
+      const url = await QRCode.toDataURL(code, { width: 280, margin: 1, color: { dark: '#000', light: '#fff' } });
+      setJoinQr(url);
+    } catch (error) {
+      toast({
+        title: 'Could not show a code',
+        description: error instanceof Error ? error.message : 'Try again.',
+        variant: 'destructive',
+      });
+    }
+  };
 
   const removeConnection = async () => {
     if (thread?.status === 'accepted') {
@@ -174,18 +182,18 @@ export function ManagePartnersDialog({
               <p className="text-xs text-muted-foreground">{incoming.monthCount} month{incoming.monthCount === 1 ? '' : 's'} are included.</p>
               <div className="flex gap-2">
                 <Button className="flex-1" disabled={threadApi.busy} onClick={() => {
-                  void run(() => threadApi.joinBudget(incoming.budgetId, incoming.ownerPubkey), 'Joined the budget');
+                  void run(() => threadApi.joinBudget(incoming.budgetId, incoming.ownerPubkey, incoming.monthCount), 'Looking for their budget');
                 }}>Accept</Button>
                 <Button className="flex-1" variant="outline" onClick={threadApi.dismissInvite}>Decline</Button>
               </div>
             </div>
           )}
 
-          {user && thread?.status === 'pending' && (
+          {user && thread?.status === 'pending' && thread.role !== 'partner' && (
             <div className="space-y-3">
-              <p className="text-sm">Waiting for them to accept the invite.</p>
-              <Button variant="outline" className="w-full" onClick={showCode}>
-                <QrCode className="h-4 w-4 mr-2" /> Show join code
+              <p className="text-sm">Waiting for them to scan your code.</p>
+              <Button className="w-full" onClick={() => { void showCode(); }}>
+                <QrCode className="h-4 w-4 mr-2" /> Show my code
               </Button>
               <Button variant="outline" className="w-full" onClick={() => setConfirm('revoke')}>
                 Revoke invite
@@ -193,12 +201,26 @@ export function ManagePartnersDialog({
             </div>
           )}
 
+          {user && thread?.status === 'pending' && thread.role === 'partner' && (
+            <div className="space-y-2 rounded-lg border p-3">
+              <p className="text-sm font-medium">Joining their budget</p>
+              <p className="text-sm text-muted-foreground">
+                Received {thread.receivedMonths || 0} of {thread.expectedMonths || '…'} months. Keep both phones open.
+              </p>
+            </div>
+          )}
+
           {user && thread?.status === 'accepted' && threadApi && (
             <div className="rounded-lg border p-3">
               <div className="flex items-start justify-between gap-2">
                 <div className="space-y-2">
-                  <p className="text-sm">This budget is shared. You can both edit it.</p>
-                  {thread.partnerPubkey && <PartnerLine pubkey={thread.partnerPubkey} />}
+                  <p className="text-sm">Connected. You both see the same budget.</p>
+                  {thread.partnerPubkey && thread.partnerPubkey !== user.pubkey && <PartnerLine pubkey={thread.partnerPubkey} />}
+                  {thread.role === 'owner' && (thread.sentMonths || 0) < (thread.expectedMonths || 0) && (
+                    <p className="text-xs text-muted-foreground">
+                      Sending the budget… {thread.sentMonths || 0} of {thread.expectedMonths} months.
+                    </p>
+                  )}
                   {threadApi.unsyncedCount > 0 && (
                     <p className="text-xs text-muted-foreground">
                       {threadApi.unsyncedCount} change{threadApi.unsyncedCount === 1 ? '' : 's'} saved on this phone, not sent yet.
@@ -230,24 +252,29 @@ export function ManagePartnersDialog({
 
           {user && (editing || (!alreadyShared && !newThreadActive)) && (!thread || thread.status === 'none' || thread.status === 'revoked' || thread.status === 'left' || editing) && (
             <div className="space-y-3">
+              <div className="space-y-2 rounded-lg border p-3">
+                <p className="text-sm font-medium">Share your budget</p>
+                <p className="text-xs text-muted-foreground">You show a code. The other person scans it on their phone.</p>
+                <Button className="w-full" onClick={() => { void showCode(); }}>
+                  <QrCode className="h-4 w-4 mr-2" /> Show my code
+                </Button>
+              </div>
+              <div className="space-y-2 rounded-lg border p-3">
+                <p className="text-sm font-medium">Join their budget</p>
+                <p className="text-xs text-muted-foreground">They show a code. You scan it.</p>
+                <Button variant="outline" className="w-full" onClick={() => setScannerOpen(true)}>
+                  <Camera className="h-4 w-4 mr-2" /> Scan a code
+                </Button>
+              </div>
               <Input
                 value={npubInput}
                 onChange={(event) => setNpubInput(event.target.value)}
-                placeholder="Paste an npub"
+                placeholder="Or paste an npub"
                 autoCapitalize="none"
                 autoCorrect="off"
               />
-              <Button className="w-full" disabled={threadApi?.busy || !npubInput.trim()} onClick={() => invite(npubInput)}>
-                {editing ? 'Update connection' : 'Send invite'}
-              </Button>
-              <Button variant="outline" className="w-full" onClick={() => setScannerOpen(true)}>
-                <Camera className="h-4 w-4 mr-2" /> Scan a code
-              </Button>
-              <p className="text-xs text-muted-foreground text-center">
-                Scan an npub to invite someone, or scan a join code to join their budget.
-              </p>
-              <Button variant="outline" className="w-full" onClick={showCode}>
-                <QrCode className="h-4 w-4 mr-2" /> Show join code
+              <Button variant="outline" className="w-full" disabled={threadApi?.busy || !npubInput.trim()} onClick={() => invite(npubInput)}>
+                Send invite
               </Button>
             </div>
           )}
@@ -257,14 +284,30 @@ export function ManagePartnersDialog({
       <Dialog open={!!joinQr} onOpenChange={(next) => { if (!next) setJoinQr(''); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Join code</DialogTitle>
-            <DialogDescription>Have them scan this while logged in. This code is not a private key.</DialogDescription>
+            <DialogTitle>{thread?.status === 'accepted' ? 'Connected' : 'Have them scan this'}</DialogTitle>
+            <DialogDescription>
+              {thread?.status === 'accepted'
+                ? 'They can see this budget.'
+                : 'On their phone, open Budget Partners and tap Scan a code. Keep this phone open until it says connected.'}
+            </DialogDescription>
           </DialogHeader>
-          <div className="flex justify-center py-2">
-            <div className="rounded-lg border bg-white p-4">
-              <img src={joinQr} alt="Budget join code" className="w-[240px] h-[240px]" />
+          {thread?.status === 'accepted' ? (
+            <div className="space-y-2 py-4 text-center">
+              <p className="text-sm font-medium">Connected</p>
+              <p className="text-sm text-muted-foreground">
+                {(thread.sentMonths || 0) < (thread.expectedMonths || 0)
+                  ? `Sending the budget… ${thread.sentMonths || 0} of ${thread.expectedMonths} months.`
+                  : 'They can see this budget.'}
+              </p>
             </div>
-          </div>
+          ) : (
+            <div className="flex flex-col items-center gap-3 py-2">
+              <div className="rounded-lg border bg-white p-4">
+                <img src={joinQr} alt="Budget join code" className="w-[240px] h-[240px]" />
+              </div>
+              <p className="text-sm text-muted-foreground">Waiting for them to scan.</p>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
@@ -293,8 +336,8 @@ export function ManagePartnersDialog({
       <QRScanner
         open={scannerOpen}
         onOpenChange={setScannerOpen}
-        title="Scan a code"
-        description="Point the camera at an npub or a join code."
+        title="Scan their code"
+        description="Point the camera at the code on their phone."
         onScan={(value) => {
           setScannerOpen(false);
           void invite(value);

@@ -136,6 +136,9 @@ export interface BudgetThreadState {
   status: 'none' | 'pending' | 'accepted' | 'revoked' | 'left';
   acceptedAt?: number;
   endedAt?: number;
+  expectedMonths?: number;
+  receivedMonths?: number;
+  sentMonths?: number;
   appliedNoteIds: string[];
   unsyncedNotes: Array<{
     id: string;
