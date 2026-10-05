@@ -69,20 +69,50 @@ export async function publishToSharedRelays(event: any): Promise<boolean> {
     console.warn('[SharedBudgetSync] Could not open any shared relays for publishing');
     return false;
   }
-  let success = false;
+  const results = await Promise.all(relays.map(async (relay) => {
+    try {
+      await relay.event(event, { signal: AbortSignal.timeout(8000) });
+      return true;
+    } catch {
+      return false;
+    } finally {
+      try { relay.close(); } catch { /* already closed */ }
+    }
+  }));
+  return results.some(Boolean);
+}
+
+/** Keep a live subscription open so a partner's update arrives without waiting for the next poll. */
+export function subscribeSharedRelays(filter: any, onEvent: (event: any) => void): () => void {
+  const relays = openSharedRelays();
+  const subscriptions: { close?: () => void }[] = [];
   for (const relay of relays) {
     try {
-      await relay.event(event, { signal: AbortSignal.timeout(5000) });
-      success = true;
-    } catch (e) {
-      // Try next relay
+      const sub = relay.req([filter]);
+      subscriptions.push({
+        close: () => { void sub.return(undefined); },
+      });
+      void (async () => {
+        try {
+          for await (const msg of sub) {
+            if (msg[0] === 'EVENT' && msg[2]) onEvent(msg[2]);
+          }
+        } catch {
+          // The socket closed. The caller reconnects when the app is open again.
+        }
+      })();
+    } catch {
+      // Try the next relay.
     }
   }
-  // Clean up relay connections
-  for (const relay of relays) {
-    try { relay.close(); } catch {}
-  }
-  return success;
+  return () => {
+    for (const sub of subscriptions) {
+      try { sub.close?.(); } catch { /* already closed */ }
+    }
+    for (const relay of relays) {
+      try { relay.close(); } catch { /* already closed */ }
+    }
+  };
 }
 
 /** Query shared relays directly (bypassing personal relay list). */

@@ -173,7 +173,7 @@ export function ManagePartnersDialog({
   };
 
   const removeConnection = async () => {
-    if (thread?.status === 'accepted') {
+    if (thread?.status === 'accepted' || (thread?.status === 'pending' && thread.partnerPubkey)) {
       await threadApi?.leaveOrRemove();
       setEditing(false);
       return;
@@ -229,7 +229,7 @@ export function ManagePartnersDialog({
             </div>
           )}
 
-          {user && thread?.status === 'pending' && thread.role !== 'partner' && (
+          {user && thread?.status === 'pending' && thread.role !== 'partner' && !(thread.partnerPubkey && thread.partnerPubkey !== user.pubkey) && (
             <div className="space-y-3">
               <p className="text-sm">Waiting for them to scan your code.</p>
               <Button className="w-full" onClick={() => { void showCode(); }}>
@@ -241,16 +241,12 @@ export function ManagePartnersDialog({
             </div>
           )}
 
-          {user && thread?.status === 'pending' && thread.role === 'partner' && (
-            <PartnerTransferBar />
-          )}
-
-          {user && thread?.status === 'accepted' && threadApi && (
+          {user && threadApi && thread?.partnerPubkey && thread.partnerPubkey !== user.pubkey && (thread.status === 'accepted' || thread.status === 'pending') && (
             <div className="rounded-lg border p-3">
               <div className="flex items-start justify-between gap-2">
                 <div className="space-y-2">
-                  <p className="text-sm">Connected. You both see this month and later months.</p>
-                  {thread.partnerPubkey && thread.partnerPubkey !== user.pubkey && <PartnerLine pubkey={thread.partnerPubkey} />}
+                  <p className="text-sm">Connected. A transaction logged on either phone shows up on the other.</p>
+                  <PartnerLine pubkey={thread.partnerPubkey} />
                   <PartnerTransferBar />
                   {threadApi.unsyncedCount > 0 && (
                     <p className="text-xs text-muted-foreground">

@@ -33,7 +33,8 @@ export function PartnerSyncWrapper({ children }: { children: React.ReactNode }) 
   const { state } = useBudgetContext();
   const budgetKeypair = state.budgetKeypair;
   const thread = useBudgetThread();
-  const threadLive = state.budgetThread?.status === 'accepted';
+  const threadStatus = state.budgetThread?.status;
+  const threadLive = threadStatus === 'accepted' || threadStatus === 'pending';
 
   const {
     publishBudgetSnapshot,
