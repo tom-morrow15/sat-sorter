@@ -400,11 +400,50 @@ export function useBudgetThread() {
     let announcedFrom = '';
     let sawLeaveAt: number | null = null;
 
+    const parsed: Array<{ event: any; body: any; eventBudgetId?: string }> = [];
     for (const event of events) {
       const body = await decrypt(user.signer, event.pubkey, event.content);
       if (!body?.type) continue;
       const taggedBudgetId = event.tags?.find((tag: string[]) => tag[0] === 'b')?.[1];
-      const eventBudgetId = body.budgetId || body.note?.budgetId || taggedBudgetId;
+      parsed.push({ event, body, eventBudgetId: body.budgetId || body.note?.budgetId || taggedBudgetId });
+    }
+
+    let active = current && (current.status === 'pending' || current.status === 'accepted') ? current : null;
+    if (!active) {
+      const endedAt = new Map<string, number>();
+      for (const item of parsed) {
+        if ((item.body.type === 'revoke' || item.body.type === 'leave') && item.eventBudgetId) {
+          endedAt.set(item.eventBudgetId, Math.max(endedAt.get(item.eventBudgetId) || 0, item.body.endedAt || item.event.created_at * 1000));
+        }
+      }
+      let best: (typeof parsed)[number] | null = null;
+      for (const item of parsed) {
+        if (item.body.type !== 'checkpoint' || !item.eventBudgetId || item.event.pubkey === user.pubkey) continue;
+        const at = (item.event.created_at || 0) * 1000;
+        if ((endedAt.get(item.eventBudgetId) || 0) > at) continue;
+        if (!best || at > (best.event.created_at || 0) * 1000) best = item;
+      }
+      if (best?.eventBudgetId) {
+        const owner = best.body.checkpoint?.authorPubkey || best.event.pubkey;
+        active = {
+          budgetId: best.eventBudgetId,
+          role: 'partner',
+          ownerPubkey: owner,
+          partnerPubkey: owner,
+          status: 'accepted',
+          acceptedAt: Date.now(),
+          sharedFromMonth: typeof best.body.sharedFromMonth === 'string' ? best.body.sharedFromMonth : undefined,
+          expectedMonths: typeof best.body.monthCount === 'number' ? best.body.monthCount : undefined,
+          receivedMonths: 0,
+          appliedNoteIds: current?.appliedNoteIds || [],
+          unsyncedNotes: [],
+        };
+        stateRef.current = { ...stateRef.current, budgetThread: active };
+        setState((prev) => ({ ...prev, budgetThread: active! }));
+      }
+    }
+
+    for (const { event, body, eventBudgetId } of parsed) {
       if (body.type === 'invite' && body.ownerPubkey !== user.pubkey) {
         setIncomingInvite({
           budgetId: body.budgetId,
@@ -413,8 +452,8 @@ export function useBudgetThread() {
           eventId: event.id,
         });
       }
-      if (!current || eventBudgetId !== current.budgetId) continue;
-      if (body.type === 'accept' && current.role === 'owner' && current.status === 'pending') {
+      if (!active || eventBudgetId !== active.budgetId) continue;
+      if (body.type === 'accept' && active.role === 'owner' && active.status === 'pending') {
         acceptedPartner = body.partnerPubkey as string;
       }
       if (body.type === 'note' && body.note?.id) notes.push(body.note as BudgetNote);
@@ -430,11 +469,11 @@ export function useBudgetThread() {
       if (body.type === 'revoke' || body.type === 'leave') sawLeaveAt = body.endedAt || Date.now();
     }
 
-    if (acceptedPartner && current?.role === 'owner' && current.status === 'pending') {
-      const from = current.sharedFromMonth || getCurrentMonth();
+    if (acceptedPartner && active?.role === 'owner' && active.status === 'pending') {
+      const from = active.sharedFromMonth || getCurrentMonth();
       const shareCount = monthsFrom(stateRef.current.budgets, from).length;
       const next: BudgetThreadState = {
-        ...current,
+        ...active,
         partnerPubkey: acceptedPartner,
         status: 'accepted',
         acceptedAt: Date.now(),
@@ -449,7 +488,7 @@ export function useBudgetThread() {
       try {
         const delivered = await sendMonths(next, acceptedPartner);
         toast(delivered
-          ? { title: 'Connected', description: 'They can see this budget.' }
+          ? { title: 'Connected', description: 'The other person can see this budget.' }
           : { title: 'The budget did not finish sending', description: 'Leave the app open. It will try again.', variant: 'destructive' });
       } finally {
         sendingRef.current = false;

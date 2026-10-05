@@ -4,7 +4,7 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useAppContext } from '@/hooks/useAppContext';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { createEncryptedSerializer, decryptValue } from '@/lib/secureStorage';
-import { SAFE_DEFAULT_BUDGET_STATE } from '@/lib/budgetTypes';
+import { SAFE_DEFAULT_BUDGET_STATE, getCurrentMonth } from '@/lib/budgetTypes';
 import type { BudgetState, MonthlyBudget } from '@/lib/budgetTypes';
 import type { WealthTrackerState } from '@/lib/wealthTypes';
 import { mergeWealthStates } from '@/lib/wealthTypes';
@@ -39,8 +39,8 @@ const SAVED_BUDGET_KEY = 'sat-sorter-saved-budget';
  *   the user explicitly saved.
  * - Union months — never drop any month from either side.
  * - Templates and partners: union by id/pubkey.
- * - currentMonth: prefer the remote's currentMonth if it exists in the merged
- *   budgets, otherwise keep local's currentMonth.
+ * - currentMonth: opening the app stays on this month. A saved backup must
+ *   not switch the screen to an older month.
  */
 function mergeBudgetStates(local: BudgetState, remote: BudgetState): BudgetState {
   // Merge per-month with the shared tombstone-aware engine. The old
@@ -58,17 +58,9 @@ function mergeBudgetStates(local: BudgetState, remote: BudgetState): BudgetState
     return lb || rb!;
   });
 
-  // Choose currentMonth: prefer remote's if that month exists in merged data
-  const remoteMonthHasData = mergedBudgets.some(b => b.month === remote.currentMonth);
-  const localMonthHasData = mergedBudgets.some(b => b.month === local.currentMonth);
-  let currentMonth: string;
-  if (remoteMonthHasData) {
-    currentMonth = remote.currentMonth;
-  } else if (localMonthHasData) {
-    currentMonth = local.currentMonth;
-  } else {
-    currentMonth = remote.currentMonth || local.currentMonth;
-  }
+  // The month on screen is local. A cloud backup must not jump the user to
+  // whatever month was open the last time they saved.
+  const currentMonth = getCurrentMonth();
 
   // Union templates by id
   const templatesMap = new Map<string, NonNullable<BudgetState['templates']>[number]>();
@@ -107,6 +99,7 @@ function mergeBudgetStates(local: BudgetState, remote: BudgetState): BudgetState
     // merge would strip the keypair and break the shared budget sync.
     budgetKeypair: local.budgetKeypair,
     accessibleBudgets: local.accessibleBudgets || [],
+    budgetThread: local.budgetThread,
   };
 }
 
@@ -269,7 +262,10 @@ export function NostrSync() {
           // fall through with closure value
         }
 
-        const merged = mergeBudgetStates(freshLocal, remoteBudget);
+        const merged = mergeBudgetStates(
+          { ...freshLocal, budgetThread: freshLocal.budgetThread || localBudget.budgetThread },
+          remoteBudget,
+        );
 
         // Sanity check: the merge should never reduce the number of budgets
         // below what we already had locally or what's on the remote.
