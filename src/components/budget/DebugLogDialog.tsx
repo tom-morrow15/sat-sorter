@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ClipboardList, Copy, Trash2 } from 'lucide-react';
 import {
   Dialog,
@@ -8,7 +8,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/useToast';
 import { getDebugLogs, clearDebugLogs, subscribeDebugLogs, formatDebugLogs } from '@/lib/debugLog';
 import type { DebugLogEntry } from '@/lib/debugLog';
@@ -21,11 +20,19 @@ interface DebugLogDialogProps {
 export function DebugLogDialog({ open, onOpenChange }: DebugLogDialogProps) {
   const [logs, setLogs] = useState<DebugLogEntry[]>(getDebugLogs());
   const { toast } = useToast();
+  const scrollerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const unsub = subscribeDebugLogs(() => setLogs(getDebugLogs()));
     return unsub;
   }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    const node = scrollerRef.current;
+    if (!node) return;
+    node.scrollTop = node.scrollHeight;
+  }, [open, logs.length]);
 
   const handleClear = () => {
     clearDebugLogs();
@@ -71,7 +78,11 @@ export function DebugLogDialog({ open, onOpenChange }: DebugLogDialogProps) {
           </div>
         </div>
 
-        <ScrollArea className="flex-1 -mx-2 px-2">
+        <div
+          ref={scrollerRef}
+          className="h-[50vh] touch-pan-y overflow-y-auto overscroll-contain px-1"
+          style={{ WebkitOverflowScrolling: 'touch' }}
+        >
           {logs.length === 0 ? (
             <div className="text-center py-8 text-sm text-muted-foreground">
               Nothing logged yet. Use the app, then come back.
@@ -97,7 +108,7 @@ export function DebugLogDialog({ open, onOpenChange }: DebugLogDialogProps) {
               ))}
             </div>
           )}
-        </ScrollArea>
+        </div>
       </DialogContent>
     </Dialog>
   );
