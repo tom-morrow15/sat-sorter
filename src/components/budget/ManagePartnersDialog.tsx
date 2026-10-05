@@ -4,6 +4,7 @@ import { nip19 } from 'nostr-tools';
 import QRCode from 'qrcode';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/useToast';
 import { useBudget } from '@/hooks/useBudget';
 import { useBudgetContext } from '@/contexts/BudgetContext';
@@ -36,7 +37,15 @@ function PartnerLine({ pubkey, name }: { pubkey: string; name?: string }) {
   const profile = useAuthor(pubkey);
   const metadata = profile.data?.metadata;
   const label = metadata?.display_name || metadata?.name || name || `${nip19.npubEncode(pubkey).slice(0, 16)}…`;
-  return <p className="text-sm font-medium">{label}</p>;
+  return (
+    <div className="flex items-center gap-2">
+      <Avatar className="h-8 w-8">
+        <AvatarImage src={metadata?.picture} alt="" />
+        <AvatarFallback className="text-xs">{label.charAt(0).toUpperCase()}</AvatarFallback>
+      </Avatar>
+      <p className="text-sm font-medium">{label}</p>
+    </div>
+  );
 }
 
 function PartnerMenu({ onEdit, onRemove }: { onEdit: () => void; onRemove: () => void }) {
@@ -192,7 +201,8 @@ export function ManagePartnersDialog({
             <div className="rounded-lg border p-3">
               <div className="flex items-start justify-between gap-2">
                 <div className="space-y-2">
-                  <p className="text-sm">This budget is shared with {partnerLabel}. You can both edit it.</p>
+                  <p className="text-sm">This budget is shared. You can both edit it.</p>
+                  {thread.partnerPubkey && <PartnerLine pubkey={thread.partnerPubkey} />}
                   {threadApi.unsyncedCount > 0 && (
                     <p className="text-xs text-muted-foreground">
                       {threadApi.unsyncedCount} change{threadApi.unsyncedCount === 1 ? '' : 's'} saved on this phone, not sent yet.
