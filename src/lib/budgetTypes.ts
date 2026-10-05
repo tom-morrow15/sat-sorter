@@ -145,6 +145,8 @@ export interface BudgetThreadState {
   entityClock?: Record<string, number>;
   /** This phone already published its own existing transactions once. */
   catchUpDone?: boolean;
+  /** Unix seconds of the last time this phone asked the relays for changes. */
+  lastPullSec?: number;
   /** When this membership last changed. A newer record from another device wins. */
   updatedAt?: number;
   appliedNoteIds: string[];
@@ -289,6 +291,7 @@ function normalizeBudgetThread(input: any): BudgetThreadState | undefined {
     sharedFromMonth: typeof input.sharedFromMonth === 'string' && /^\d{4}-\d{2}$/.test(input.sharedFromMonth) ? input.sharedFromMonth : undefined,
     entityClock: input.entityClock && typeof input.entityClock === 'object' ? input.entityClock : {},
     catchUpDone: input.catchUpDone === true,
+    lastPullSec: typeof input.lastPullSec === 'number' ? input.lastPullSec : undefined,
     updatedAt: typeof input.updatedAt === 'number' ? input.updatedAt : undefined,
     appliedNoteIds: Array.isArray(input.appliedNoteIds) ? input.appliedNoteIds.filter((id: unknown) => typeof id === 'string') : [],
     unsyncedNotes: Array.isArray(input.unsyncedNotes) ? input.unsyncedNotes : [],

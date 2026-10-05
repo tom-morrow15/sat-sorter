@@ -479,9 +479,21 @@ export function useBudgetThread() {
   }, [isLeader, state.budgets, state.budgetThread, updateThread, user]);
 
   const pull = useCallback(async (preset?: any[]) => {
-    if (!user?.signer) return;
-    const events = preset ?? await querySharedRelays({ kinds: [KIND], '#p': [user.pubkey], limit: 500 }, 12000);
-    const tagged = events.filter((event) => event.tags?.some((tag: string[]) => tag[0] === 't' && tag[1] === TAG));
+    if (!user?.signer) {
+      console.warn('[BudgetPartners] cannot look yet, login is not ready');
+      return;
+    }
+    let events = preset;
+    if (!events) {
+      const last = stateRef.current.budgetThread?.lastPullSec;
+      const since = last ? Math.max(0, last - 120) : Math.floor(Date.now() / 1000) - 60 * 60 * 12;
+      console.log('[BudgetPartners] looking for changes');
+      events = await querySharedRelays({ kinds: [KIND], '#p': [user.pubkey], since, limit: 80 }, 12000);
+      console.log('[BudgetPartners] found', events.length, 'saved events');
+    }
+    const tagged = events
+      .filter((event) => event.tags?.some((tag: string[]) => tag[0] === 't' && tag[1] === TAG))
+      .sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
     const current = stateRef.current.budgetThread;
     const notes: BudgetNote[] = [];
     const monthsByKey = new Map<string, BudgetCheckpoint['budgets'][number]>();
@@ -717,6 +729,15 @@ export function useBudgetThread() {
       }));
       if (fresh.some((note) => note.authorPubkey !== user.pubkey)) {
         toast({ title: 'Budget updated', description: 'A change arrived from your budget partner.' });
+      }
+    } else if (!preset) {
+      console.log('[BudgetPartners] read', notes.length, 'changes, none were new');
+    }
+    if (!preset) {
+      const pulledAt = Math.floor(Date.now() / 1000);
+      const currentThread = stateRef.current.budgetThread;
+      if (currentThread && (events.length > 0 || currentThread.lastPullSec)) {
+        updateThread({ lastPullSec: pulledAt });
       }
     }
   }, [sendMonths, setState, toast, updateThread, user]);
