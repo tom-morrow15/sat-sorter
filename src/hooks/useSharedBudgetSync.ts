@@ -62,24 +62,34 @@ function openSharedRelays(): NRelay1[] {
   }).filter((r): r is NRelay1 => r !== null);
 }
 
-/** Publish an event to all shared relays directly (bypassing personal relay list). */
+/** Publish an event to the shared relays.
+ *  The caller is done as soon as one relay accepts. The others keep going
+ *  in the background, so a slow relay cannot hold the update for 8 seconds. */
 export async function publishToSharedRelays(event: any): Promise<boolean> {
   const relays = openSharedRelays();
   if (relays.length === 0) {
     console.warn('[SharedBudgetSync] Could not open any shared relays for publishing');
     return false;
   }
-  const results = await Promise.all(relays.map(async (relay) => {
-    try {
-      await relay.event(event, { signal: AbortSignal.timeout(8000) });
-      return true;
-    } catch {
-      return false;
-    } finally {
-      try { relay.close(); } catch { /* already closed */ }
+  return new Promise((resolve) => {
+    let pending = relays.length;
+    let settled = false;
+    const finish = (ok: boolean) => {
+      if (settled) return;
+      settled = true;
+      resolve(ok);
+    };
+    for (const relay of relays) {
+      relay.event(event, { signal: AbortSignal.timeout(8000) })
+        .then(() => finish(true))
+        .catch(() => undefined)
+        .finally(() => {
+          try { relay.close(); } catch { /* already closed */ }
+          pending -= 1;
+          if (pending === 0) finish(false);
+        });
     }
-  }));
-  return results.some(Boolean);
+  });
 }
 
 /** Keep a live subscription open so a partner's update arrives without waiting for the next poll. */
@@ -115,30 +125,70 @@ export function subscribeSharedRelays(filter: any, onEvent: (event: any) => void
   };
 }
 
-/** Query shared relays directly (bypassing personal relay list). */
-export async function querySharedRelays(filter: any, timeoutMs = 10000): Promise<any[]> {
+/** Query shared relays directly (bypassing personal relay list).
+ *  When returnWhenFound is set, return shortly after the first relay that
+ *  has events instead of waiting up to timeoutMs for the slowest relay. */
+export async function querySharedRelays(filter: any, timeoutMs = 10000, returnWhenFound = false): Promise<any[]> {
   const relays = openSharedRelays();
   if (relays.length === 0) return [];
   const allEvents: any[] = [];
   const seenIds = new Set<string>();
-  await Promise.all(relays.map(async (relay) => {
-    try {
-      const events = await relay.query([filter], { signal: AbortSignal.timeout(timeoutMs) });
-      for (const ev of events) {
-        if (!seenIds.has(ev.id)) {
-          seenIds.add(ev.id);
-          allEvents.push(ev);
+  if (!returnWhenFound) {
+    await Promise.all(relays.map(async (relay) => {
+      try {
+        const events = await relay.query([filter], { signal: AbortSignal.timeout(timeoutMs) });
+        for (const ev of events) {
+          if (!seenIds.has(ev.id)) {
+            seenIds.add(ev.id);
+            allEvents.push(ev);
+          }
+        }
+      } catch {
+        // Try next relay
+      } finally {
+        try { relay.close(); } catch { /* already closed */ }
+      }
+    }));
+    return allEvents;
+  }
+  return new Promise((resolve) => {
+    let pending = relays.length;
+    let settled = false;
+    let grace: ReturnType<typeof setTimeout> | null = null;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      if (grace) clearTimeout(grace);
+      clearTimeout(cap);
+      resolve(allEvents.slice());
+    };
+    const cap = setTimeout(finish, timeoutMs);
+    const note = (events: any[] | null) => {
+      if (settled) return;
+      if (events) {
+        for (const ev of events) {
+          if (ev?.id && !seenIds.has(ev.id)) {
+            seenIds.add(ev.id);
+            allEvents.push(ev);
+          }
         }
       }
-    } catch {
-      // Try next relay
+      pending -= 1;
+      if (pending === 0) {
+        finish();
+        return;
+      }
+      if (allEvents.length > 0 && !grace) grace = setTimeout(finish, 400);
+    };
+    for (const relay of relays) {
+      relay.query([filter], { signal: AbortSignal.timeout(timeoutMs) })
+        .then((events) => note(events))
+        .catch(() => note(null))
+        .finally(() => {
+          try { relay.close(); } catch { /* already closed */ }
+        });
     }
-  }));
-  // Clean up
-  for (const relay of relays) {
-    try { relay.close(); } catch {}
-  }
-  return allEvents;
+  });
 }
 
 /** Compute a stable fingerprint for a budget month. Used by both the sync

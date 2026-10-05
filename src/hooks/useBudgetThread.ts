@@ -166,21 +166,20 @@ export function useBudgetThread() {
 
   const publishToThread = useCallback(async (current: BudgetThreadState, notes: BudgetNote[]) => {
     if (!user?.signer || notes.length === 0) return false;
+    const signer = user.signer;
     const targets = recipientsFor(current, user.pubkey);
     let ok = true;
     for (let index = 0; index < notes.length; index += 20) {
       const chunk = notes.slice(index, index + 20);
       const batchId = `${Date.now()}-${index}`;
-      for (const recipient of targets) {
-        const sent = await publishEncrypted(
-          user.signer,
-          recipient,
-          `sat-sorter/thread-batch/${current.budgetId}/${batchId}/${recipient.slice(0, 8)}`,
-          { type: 'notes', budgetId: current.budgetId, notes: chunk },
-          [['b', current.budgetId]],
-        );
-        ok = ok && sent;
-      }
+      const results = await Promise.all(targets.map((recipient) => publishEncrypted(
+        signer,
+        recipient,
+        `sat-sorter/thread-batch/${current.budgetId}/${batchId}/${recipient.slice(0, 8)}`,
+        { type: 'notes', budgetId: current.budgetId, notes: chunk },
+        [['b', current.budgetId]],
+      )));
+      ok = ok && results.every(Boolean);
     }
     return ok;
   }, [user]);
@@ -495,7 +494,7 @@ export function useBudgetThread() {
       const last = stateRef.current.budgetThread?.lastPullSec;
       const since = last ? Math.max(0, last - 120) : Math.floor(Date.now() / 1000) - 60 * 60 * 12;
       console.log('[BudgetPartners] looking for changes');
-      events = await querySharedRelays({ kinds: [KIND], '#p': [user.pubkey], since, limit: 80 }, 12000);
+      events = await querySharedRelays({ kinds: [KIND], '#p': [user.pubkey], since, limit: 80 }, 12000, true);
       console.log('[BudgetPartners] found', events.length, 'saved events');
     }
     const tagged = events
