@@ -216,7 +216,6 @@ export function ManagePartnersDialog({
                   {existingPartners.map((partner) => (
                     <PartnerLine key={partner.pubkey} pubkey={partner.pubkey} name={partner.name} />
                   ))}
-                  <p className="text-xs text-muted-foreground">You do not need to send a new invite.</p>
                 </div>
                 <PartnerMenu onEdit={() => setEditing(true)} onRemove={() => setConfirm('stop')} />
               </div>
