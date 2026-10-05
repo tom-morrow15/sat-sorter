@@ -150,10 +150,6 @@ export function ManagePartnersDialog({
     setEditing(false);
   };
 
-  const partnerLabel = thread?.partnerPubkey
-    ? nip19.npubEncode(thread.partnerPubkey).slice(0, 16) + '…'
-    : 'your partner';
-
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
