@@ -205,7 +205,9 @@ export function ManagePartnersDialog({
             <div className="space-y-2 rounded-lg border p-3">
               <p className="text-sm font-medium">Joining their budget</p>
               <p className="text-sm text-muted-foreground">
-                Received {thread.receivedMonths || 0} of {thread.expectedMonths || '…'} months. Keep both phones open.
+                {thread.expectedMonths
+                  ? `Received ${thread.receivedMonths || 0} of ${thread.expectedMonths} months. This phone picks them up while it is open. The other phone sends them while it is open.`
+                  : 'Waiting for the other phone to send the budget. It sends while Sat Sorter is open there.'}
               </p>
             </div>
           )}
@@ -288,7 +290,7 @@ export function ManagePartnersDialog({
             <DialogDescription>
               {thread?.status === 'accepted'
                 ? 'They can see this budget.'
-                : 'On their phone, open Budget Partners and tap Scan a code. Keep this phone open until it says connected.'}
+                : 'On their phone, open Budget Partners and tap Scan a code. This phone sends the budget after the scan, so leave it open until it says connected.'}
             </DialogDescription>
           </DialogHeader>
           {thread?.status === 'accepted' ? (

@@ -164,7 +164,7 @@ export function useBudgetThread() {
           user.signer,
           recipient,
           `sat-sorter/thread-checkpoint/${current.budgetId}/${user.pubkey}/${recipient.slice(0, 8)}`,
-          { type: 'checkpoint', checkpoint },
+          { type: 'checkpoint', budgetId: current.budgetId, checkpoint },
           [['b', current.budgetId]],
         );
       }
@@ -183,6 +183,7 @@ export function useBudgetThread() {
         `sat-sorter/thread-month/${current.budgetId}/${user.pubkey}/${recipient.slice(0, 8)}/${month.month}`,
         {
           type: 'checkpoint',
+          budgetId: current.budgetId,
           checkpoint: {
             authorPubkey: user.pubkey,
             budgets: [month],
@@ -385,6 +386,8 @@ export function useBudgetThread() {
     for (const event of events) {
       const body = await decrypt(user.signer, event.pubkey, event.content);
       if (!body?.type) continue;
+      const taggedBudgetId = event.tags?.find((tag: string[]) => tag[0] === 'b')?.[1];
+      const eventBudgetId = body.budgetId || body.note?.budgetId || taggedBudgetId;
       if (body.type === 'invite' && body.ownerPubkey !== user.pubkey) {
         setIncomingInvite({
           budgetId: body.budgetId,
@@ -393,7 +396,7 @@ export function useBudgetThread() {
           eventId: event.id,
         });
       }
-      if (!current || body.budgetId !== current.budgetId) continue;
+      if (!current || eventBudgetId !== current.budgetId) continue;
       if (body.type === 'accept' && current.role === 'owner' && current.status === 'pending') {
         acceptedPartner = body.partnerPubkey as string;
       }

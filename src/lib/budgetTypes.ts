@@ -275,6 +275,9 @@ function normalizeBudgetThread(input: any): BudgetThreadState | undefined {
     status,
     acceptedAt: typeof input.acceptedAt === 'number' ? input.acceptedAt : undefined,
     endedAt: typeof input.endedAt === 'number' ? input.endedAt : undefined,
+    expectedMonths: typeof input.expectedMonths === 'number' ? input.expectedMonths : undefined,
+    receivedMonths: typeof input.receivedMonths === 'number' ? input.receivedMonths : undefined,
+    sentMonths: typeof input.sentMonths === 'number' ? input.sentMonths : undefined,
     appliedNoteIds: Array.isArray(input.appliedNoteIds) ? input.appliedNoteIds.filter((id: unknown) => typeof id === 'string') : [],
     unsyncedNotes: Array.isArray(input.unsyncedNotes) ? input.unsyncedNotes : [],
   };
