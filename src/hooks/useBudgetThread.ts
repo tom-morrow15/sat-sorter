@@ -665,16 +665,6 @@ export function useBudgetThread() {
         const merged = [...earlier, ...notYet, ...applyNotes(incomingMonths, extras, clocks)];
         const expected = Math.max(latest.expectedMonths || 0, announcedTotal, incomingMonths.length);
         baselineRef.current = JSON.stringify(merged);
-        const outbound = extras
-          .filter((note) => note.entity === 'transaction')
-          .map((note) => ({
-            ...note,
-            transaction: note.transaction
-              ? { ...note.transaction, partnerPubkey: note.transaction.partnerPubkey || user.pubkey }
-              : note.transaction,
-          }));
-        const have = new Set(latest.unsyncedNotes.map((note) => note.id));
-        console.log('[BudgetPartners] keeping', outbound.length, 'transaction(s) the other phone does not have');
         const nextThread: BudgetThreadState = {
           ...latest,
           status: 'accepted',
@@ -684,7 +674,7 @@ export function useBudgetThread() {
           sharedFromMonth: from || latest.sharedFromMonth,
           entityClock: clocks,
           appliedNoteIds: Array.from(new Set([...latest.appliedNoteIds, ...extras.map((note) => note.id)])),
-          unsyncedNotes: [...latest.unsyncedNotes, ...outbound.filter((note) => !have.has(note.id))],
+          unsyncedNotes: latest.unsyncedNotes,
         };
         stateRef.current = { ...stateRef.current, budgets: merged, budgetThread: nextThread };
         setState((prev) => ({ ...prev, budgets: merged, budgetThread: nextThread }));
@@ -710,6 +700,8 @@ export function useBudgetThread() {
     const fresh = notes.filter((note) => note.budgetId === stateRef.current.budgetThread?.budgetId && !applied.has(note.id) && (!members || noteIsActive(members, note) || note.authorPubkey === user.pubkey));
     if (fresh.length > 0) {
       const merged = applyNotes(stateRef.current.budgets, fresh, clocks);
+      const fromPartner = fresh.filter((note) => note.authorPubkey !== user.pubkey);
+      console.log('[BudgetPartners] applied', fresh.length, 'change(s),', fromPartner.length, 'from the other phone');
       const ids = Array.from(new Set([...(stateRef.current.budgetThread?.appliedNoteIds || []), ...fresh.map((note) => note.id)]));
       baselineRef.current = JSON.stringify(merged);
       const nextThread = stateRef.current.budgetThread
@@ -740,9 +732,9 @@ export function useBudgetThread() {
   const waiting = thread?.status === 'pending' || (thread?.status === 'accepted' && (thread.sentMonths || 0) < (thread.expectedMonths || 0));
   const unsyncedKey = (thread?.unsyncedNotes || []).map((note) => note.id).join(',');
 
-  // Send the other phone a copy of transactions this phone logged, once per shared budget.
-  // A failed earlier sync had already moved the local baseline past them, so a normal edit
-  // diff will not see them again.
+  // A normal edit after the two phones are connected is what syncs.
+  // Do not queue the whole history. That backlog was 339 notes and it blocked
+  // the one new transaction from being sent.
   useEffect(() => {
     if (!isLeader || !readyRef.current || !user) return;
     const current = stateRef.current.budgetThread;
@@ -750,31 +742,11 @@ export function useBudgetThread() {
     if (current.status !== 'accepted' && current.status !== 'pending') return;
     if (current.catchUpDone || caughtUpRef.current === current.budgetId) return;
     caughtUpRef.current = current.budgetId;
-    const from = current.sharedFromMonth || getCurrentMonth();
-    const months = stateRef.current.budgets.filter((month) => month.month >= from);
-    const base = months.map((month) => ({ ...month, transactions: [] }));
-    const clocks = current.entityClock || {};
-    const notes = diffAgainstBase(base, months, user.pubkey, current.budgetId, 1)
-      .filter((note) => note.entity === 'transaction' && note.op === 'upsert')
-      .filter((note) => !note.transaction?.partnerPubkey || note.transaction.partnerPubkey === user.pubkey)
-      .filter((note) => (clocks[`${note.month}:${note.entity}:${note.entityId}`] ?? 0) < 1)
-      .map((note) => ({
-        ...note,
-        id: `catch-${note.entityId}`,
-        at: 1,
-        transaction: note.transaction
-          ? { ...note.transaction, partnerPubkey: note.transaction.partnerPubkey || user.pubkey }
-          : note.transaction,
-      }));
-    console.log('[BudgetPartners] catch-up', notes.length, 'transaction(s)');
-    updateThread((threadState) => {
-      const have = new Set(threadState.unsyncedNotes.map((note) => note.id));
-      return {
-        ...threadState,
-        catchUpDone: true,
-        unsyncedNotes: [...threadState.unsyncedNotes, ...notes.filter((note) => !have.has(note.id))],
-      };
-    });
+    updateThread((threadState) => ({
+      ...threadState,
+      catchUpDone: true,
+      unsyncedNotes: threadState.unsyncedNotes.filter((note) => !note.id.startsWith('catch-') && !note.id.startsWith('migrate-')),
+    }));
   }, [isLeader, state.budgetThread?.budgetId, state.budgetThread?.partnerPubkey, state.budgetThread?.status, updateThread, user]);
 
   // Publish queued notes as soon as they exist. This is what makes a new transaction show up
@@ -785,10 +757,22 @@ export function useBudgetThread() {
     const send = () => {
       if (cancelled) return;
       const latestThread = stateRef.current.budgetThread;
-      const notes = (latestThread?.unsyncedNotes || []) as BudgetNote[];
-      if (!latestThread || notes.length === 0 || notesLockRef.current) return;
+      const queued = (latestThread?.unsyncedNotes || []) as BudgetNote[];
+      if (!latestThread || queued.length === 0 || notesLockRef.current) return;
       if (!latestThread.partnerPubkey) return;
       if (latestThread.status !== 'accepted' && latestThread.status !== 'pending') return;
+      const stale = queued.some((note) => note.id.startsWith('catch-') || note.id.startsWith('migrate-'));
+      if (stale) {
+        updateThread((threadState) => ({
+          ...threadState,
+          unsyncedNotes: threadState.unsyncedNotes.filter((note) => !note.id.startsWith('catch-') && !note.id.startsWith('migrate-')),
+        }));
+      }
+      const notes = queued
+        .filter((note) => !note.id.startsWith('catch-') && !note.id.startsWith('migrate-'))
+        .sort((a, b) => b.at - a.at)
+        .slice(0, 20);
+      if (notes.length === 0) return;
       notesLockRef.current = true;
       console.log('[BudgetPartners] sending', notes.length, 'change(s)');
       void publishToThread(latestThread, notes).then((ok) => {
@@ -799,6 +783,8 @@ export function useBudgetThread() {
           ...threadState,
           unsyncedNotes: threadState.unsyncedNotes.filter((note) => !sent.has(note.id)),
         }));
+      }).catch((error) => {
+        console.warn('[BudgetPartners] send failed', error);
       }).finally(() => {
         notesLockRef.current = false;
       });
