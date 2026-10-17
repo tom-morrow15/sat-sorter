@@ -535,9 +535,7 @@ export function getLineItemUsdAmount(lineItem: LineItem, currentBtcPrice: number
   if (lineItem.plannedAmountUsd && lineItem.plannedAmountUsd > 0) {
     return lineItem.plannedAmountUsd;
   }
-  
-  // Fallback: convert from sats using current price
-  // This handles legacy line items that only have sats
+  if (!currentBtcPrice || currentBtcPrice <= 0) return 0;
   return lineItem.plannedAmount / 100_000_000 * currentBtcPrice;
 }
 

@@ -124,14 +124,11 @@ export function TransactionsPanel({
 
   const formatAmount = (sats: number, transaction?: Transaction) => {
     if (currency === 'usd') {
-      if (transaction && priceData) {
-        // Use source-of-truth USD amount
-        const usdAmount = getTransactionUsdAmount(transaction, priceData.usdPerBtc);
-        return formatUsd(usdAmount);
+      if (transaction) {
+        return formatUsd(getTransactionUsdAmount(transaction, priceData?.usdPerBtc));
       }
-      if (priceData) {
-        return formatUsd(satsToUsd(sats, priceData.usdPerBtc));
-      }
+      if (priceData) return formatUsd(satsToUsd(sats, priceData.usdPerBtc));
+      return formatUsd(0);
     }
     return `${formatSats(sats)} sats`;
   };

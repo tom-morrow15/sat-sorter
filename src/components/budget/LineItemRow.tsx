@@ -40,9 +40,11 @@ export function LineItemRow({
 
   let spent = 0, remaining = 0, percentSpent = 0, isOverBudget = false;
 
-  if (currency === 'usd' && priceData) {
-    const plannedAmountUsd = getLineItemUsdAmount(lineItem, priceData.usdPerBtc);
-    const spentUsd = lineItemSpentUsd(lineItem.id, transactions, priceData.usdPerBtc);
+  const price = priceData?.usdPerBtc ?? 0;
+
+  if (currency === 'usd') {
+    const plannedAmountUsd = getLineItemUsdAmount(lineItem, price);
+    const spentUsd = lineItemSpentUsd(lineItem.id, transactions, price);
     spent = spentUsd;
     remaining = plannedAmountUsd - spentUsd;
     percentSpent = Math.min(percentUsedSafe(spentUsd, plannedAmountUsd), 100);
@@ -55,8 +57,8 @@ export function LineItemRow({
   }
 
   const formatAmount = (lineItemData = lineItem, compact = false) => {
-    if (currency === 'usd' && priceData) {
-      return formatUsd(getLineItemUsdAmount(lineItemData, priceData.usdPerBtc));
+    if (currency === 'usd') {
+      return formatUsd(getLineItemUsdAmount(lineItemData, price));
     }
     const sats = lineItemData.plannedAmount || 0;
     if (compact && sats >= 1_000_000) return `${(sats / 1_000_000).toFixed(1)}M`;

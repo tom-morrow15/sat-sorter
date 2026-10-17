@@ -82,19 +82,17 @@ export function BucketCard({
 
   const Icon = iconMap[bucket.icon] || Wallet;
 
-  const total = currency === 'usd' && priceData
-    ? calculateBucketTotalUsd(bucket, priceData.usdPerBtc)
-    : (priceData ? calculateBucketTotalSats(bucket, priceData.usdPerBtc) : calculateBucketTotal(bucket));
+  const price = priceData?.usdPerBtc ?? 0;
+  const total = currency === 'usd'
+    ? calculateBucketTotalUsd(bucket, price)
+    : (price ? calculateBucketTotalSats(bucket, price) : calculateBucketTotal(bucket));
 
-  let spent: number;
-  if (priceData) {
-    const spentUsd = bucket.lineItems.reduce(
-      (sum, item) => sum + lineItemSpentUsd(item.id, transactions, priceData.usdPerBtc), 0
-    );
-    spent = currency === 'usd' ? spentUsd : usdToSats(spentUsd, priceData.usdPerBtc);
-  } else {
-    spent = bucket.lineItems.reduce((sum, item) => sum + item.plannedAmount, 0);
-  }
+  const spentUsd = bucket.lineItems.reduce(
+    (sum, item) => sum + lineItemSpentUsd(item.id, transactions, price), 0
+  );
+  const spent = currency === 'usd'
+    ? spentUsd
+    : (price ? usdToSats(spentUsd, price) : bucket.lineItems.reduce((sum, item) => sum + item.plannedAmount, 0));
 
   const formatAmount = (amount: number, compact = false) => {
     if (currency === 'usd') return formatUsd(amount);

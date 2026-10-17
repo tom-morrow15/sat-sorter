@@ -148,14 +148,16 @@ export function BudgetHeader({
   let totalExpenses: number;
   let remaining: number;
 
-  if (currency === 'usd' && priceData) {
-    totalIncome = calculateTotalIncomeUsd(buckets, priceData.usdPerBtc);
-    totalExpenses = calculateTotalExpensesUsd(buckets, priceData.usdPerBtc);
-    remaining = calculateRemainingToBudgetUsd(buckets, priceData.usdPerBtc);
+  const price = priceData?.usdPerBtc ?? 0;
+
+  if (currency === 'usd') {
+    totalIncome = calculateTotalIncomeUsd(buckets, price);
+    totalExpenses = calculateTotalExpensesUsd(buckets, price);
+    remaining = calculateRemainingToBudgetUsd(buckets, price);
   } else {
-    totalIncome = priceData ? calculateTotalIncomeSats(buckets, priceData.usdPerBtc) : calculateTotalIncome(buckets);
-    totalExpenses = priceData ? calculateTotalExpensesSats(buckets, priceData.usdPerBtc) : calculateTotalExpenses(buckets);
-    remaining = priceData ? calculateRemainingToBudgetSats(buckets, priceData.usdPerBtc) : calculateRemainingToBudget(buckets);
+    totalIncome = price ? calculateTotalIncomeSats(buckets, price) : calculateTotalIncome(buckets);
+    totalExpenses = price ? calculateTotalExpensesSats(buckets, price) : calculateTotalExpenses(buckets);
+    remaining = price ? calculateRemainingToBudgetSats(buckets, price) : calculateRemainingToBudget(buckets);
   }
 
   const formatAmt = (amount: number) => {
