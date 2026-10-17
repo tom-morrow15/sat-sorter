@@ -147,6 +147,59 @@ function lineNames() {
   return (catalog?.categories || []).flatMap((category) => (category.lineItems || []).map((line) => line.name));
 }
 
+function savedMonths(current) {
+  if (Array.isArray(current.months) && current.months.length > 0) return current.months;
+  return [{
+    month: current.month,
+    categories: current.categories || [],
+    transactions: current.transactions || [],
+  }];
+}
+
+function ledgerWasSent(current) {
+  if (Array.isArray(current.transactions)) return true;
+  return Array.isArray(current.months) && current.months.some((month) => Array.isArray(month.transactions));
+}
+
+async function listTransactions(args) {
+  if (!catalog) await refreshCatalog();
+  if (!catalog) {
+    return { error: 'Sat Sorter has not approved this agent yet. Open Sat Sorter, leave Agents open, and try again.' };
+  }
+  if (!ledgerWasSent(catalog)) {
+    return { error: 'Sat Sorter has not sent the transaction list yet. Refresh the app and leave it open, then ask again.' };
+  }
+  const wantMonth = args.month ? String(args.month).slice(0, 7) : '';
+  const wantLine = String(args.line_item || '').trim().toLowerCase();
+  const transactions = [];
+  for (const month of savedMonths(catalog)) {
+    if (wantMonth && month.month !== wantMonth) continue;
+    const lineName = new Map();
+    for (const category of month.categories || []) {
+      for (const line of category.lineItems || []) lineName.set(line.id, line.name);
+    }
+    for (const tx of month.transactions || []) {
+      const line = lineName.get(tx.lineItemId) || (tx.lineItemId ? '' : 'unassigned');
+      const note = String(tx.note || '');
+      if (wantLine && line.toLowerCase() !== wantLine && !note.toLowerCase().includes(wantLine)) continue;
+      transactions.push({
+        month: month.month,
+        date: tx.date || '',
+        note,
+        amountUsd: tx.amountUsd,
+        line: line || 'unassigned',
+        paymentMethod: tx.paymentMethod || null,
+        income: tx.income === true ? true : undefined,
+      });
+    }
+  }
+  return {
+    months: savedMonths(catalog).map((month) => month.month),
+    count: transactions.length,
+    transactions,
+  };
+}
+
 async function addExpense(args) {
   const description = String(args.description || '').trim();
   const amountUsd = Number(args.amount_usd);
@@ -247,8 +300,19 @@ async function addExpense(args) {
 const tools = [
   {
     name: 'list_budget',
-    description: 'Read this month’s categories, what is left on each line, and the payment methods on the budget. Call this before logging an expense.',
+    description: 'Read this month’s categories, what is left on each line, and the payment methods. The same update may also include transactions, other months, Wealth balances, and nearby Bitcoin places. Call list_transactions for the ledger.',
     inputSchema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'list_transactions',
+    description: 'List the transactions Sat Sorter has sent, including earlier months and months planned ahead. Use this when asked what was spent, who logged it, or what happened on a line. Optional month is YYYY-MM. Optional line_item is a line name.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        month: { type: 'string', description: 'YYYY-MM. Omit for every saved month.' },
+        line_item: { type: 'string', description: 'Only transactions on this line, or whose note contains this text.' },
+      },
+    },
   },
   {
     name: 'add_expense',
@@ -321,6 +385,11 @@ async function handle(message) {
           return;
         }
         respond(id, { content: [{ type: 'text', text: JSON.stringify(current) }] });
+        return;
+      }
+      if (tool === 'list_transactions') {
+        const result = await listTransactions(args);
+        respond(id, { content: [{ type: 'text', text: JSON.stringify(result) }], isError: !!result.error });
         return;
       }
       if (tool === 'add_expense') {
