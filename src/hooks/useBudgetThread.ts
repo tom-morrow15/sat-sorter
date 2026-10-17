@@ -3,7 +3,10 @@ import { nip19 } from 'nostr-tools';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useBudgetContext } from '@/contexts/BudgetContext';
 import { useToast } from '@/hooks/useToast';
-import { generateId, getCurrentMonth, type BudgetState, type BudgetThreadState } from '@/lib/budgetTypes';
+import { useBitcoinPrice } from '@/hooks/useBitcoinPrice';
+import { useWealthTracker } from '@/hooks/useWealthTracker';
+import { useBTCMap } from '@/hooks/useBTCMap';
+import { generateId, getCurrentMonth, type BudgetState, type BudgetThreadState, type MonthlyBudget, type Transaction } from '@/lib/budgetTypes';
 import {
   addAgent,
   agentMayWrite,
@@ -18,6 +21,67 @@ import {
 } from '@/lib/budgetThread';
 import type { BudgetAgent } from '@/lib/budgetTypes';
 import { publishToSharedRelays, querySharedRelays, subscribeSharedRelays } from '@/hooks/useSharedBudgetSync';
+
+function usdAmount(amountUsd: number | undefined, sats: number, price: number): number {
+  if (amountUsd && amountUsd > 0) return Math.round(amountUsd * 100) / 100;
+  if (price > 0) return Math.round((sats / 100_000_000) * price * 100) / 100;
+  return 0;
+}
+
+function catalogTransactions(transactions: Transaction[], price: number) {
+  return transactions.map((tx) => ({
+    id: tx.id,
+    date: tx.date ? tx.date.split('T')[0] : '',
+    note: tx.description || '',
+    amountUsd: usdAmount(tx.amountUsd, tx.amount, price),
+    amountSats: tx.amount || 0,
+    income: tx.isIncome || undefined,
+    paymentMethod: tx.paymentMethod || undefined,
+    lineItemId: tx.lineItemId,
+    bucketId: tx.bucketId,
+    splits: tx.splits?.length
+      ? tx.splits.map((split) => ({
+          lineItemId: split.lineItemId,
+          bucketId: split.bucketId,
+          amountUsd: usdAmount(split.amountUsd, split.amount, price),
+          amountSats: split.amount || 0,
+        }))
+      : undefined,
+  }));
+}
+
+function catalogCategories(month: MonthlyBudget | undefined, price: number) {
+  const transactions = month?.transactions || [];
+  const spentFor = (lineId: string) => {
+    let total = 0;
+    for (const tx of transactions) {
+      if (tx.isIncome) continue;
+      if (tx.lineItemId === lineId && !(tx.splits && tx.splits.length)) {
+        total += usdAmount(tx.amountUsd, tx.amount, price);
+      }
+      for (const split of tx.splits || []) {
+        if (split.lineItemId === lineId) total += usdAmount(split.amountUsd, split.amount, price);
+      }
+    }
+    return Math.round(total * 100) / 100;
+  };
+  return (month?.buckets || []).map((bucket) => ({
+    id: bucket.id,
+    name: bucket.name,
+    isIncome: !!bucket.isIncome,
+    lineItems: (bucket.lineItems || []).map((line) => {
+      const plannedUsd = line.plannedAmountUsd || 0;
+      const spentUsd = spentFor(line.id);
+      return {
+        id: line.id,
+        name: line.name,
+        plannedUsd,
+        spentUsd,
+        remainingUsd: Math.round((plannedUsd - spentUsd) * 100) / 100,
+      };
+    }),
+  }));
+}
 
 function monthsFrom(budgets: BudgetState['budgets'], from: string) {
   return budgets.filter((month) => month.month >= from);
@@ -168,6 +232,17 @@ export function useBudgetThread() {
   const { user } = useCurrentUser();
   const { state, setState } = useBudgetContext();
   const { toast } = useToast();
+  const { data: priceData } = useBitcoinPrice();
+  const { watchedAddresses, liveBalancesById } = useWealthTracker();
+  const { merchants } = useBTCMap();
+  const priceRef = useRef(0);
+  const wealthRef = useRef(watchedAddresses);
+  const balanceRef = useRef(liveBalancesById);
+  const merchantRef = useRef(merchants);
+  priceRef.current = priceData?.usdPerBtc ?? 0;
+  wealthRef.current = watchedAddresses;
+  balanceRef.current = liveBalancesById;
+  merchantRef.current = merchants;
   const token = useRef({});
   const [isLeader, setIsLeader] = useState(false);
   const [incomingInvite, setIncomingInvite] = useState<IncomingInvite | null>(null);
@@ -547,47 +622,62 @@ export function useBudgetThread() {
 
   const publishCatalog = useCallback(async (current: BudgetThreadState, agentPubkey: string) => {
     if (!user?.signer) return;
+    const price = priceRef.current;
     const monthId = getCurrentMonth();
-    const month = stateRef.current.budgets.find((item) => item.month === monthId);
-    const transactions = month?.transactions || [];
-    const spentFor = (lineId: string) => {
-      let total = 0;
-      for (const tx of transactions) {
-        if (tx.isIncome) continue;
-        if (tx.lineItemId === lineId && !(tx.splits && tx.splits.length)) total += tx.amountUsd || 0;
-        for (const split of tx.splits || []) if (split.lineItemId === lineId) total += split.amountUsd || 0;
-      }
-      return Math.round(total * 100) / 100;
-    };
+    const budgets = stateRef.current.budgets || [];
+    const month = budgets.find((item) => item.month === monthId);
+    const months = [...budgets]
+      .sort((a, b) => a.month.localeCompare(b.month))
+      .map((item) => ({
+        month: item.month,
+        categories: catalogCategories(item, price),
+        transactions: catalogTransactions(item.transactions || [], price),
+      }));
+    const holdings = wealthRef.current.map((addr) => {
+      const sats = balanceRef.current.get(addr.id) ?? 0;
+      return {
+        label: addr.label || undefined,
+        address: addr.address,
+        balanceSats: sats,
+        balanceBtc: sats / 100_000_000,
+        balanceUsd: price > 0 ? Math.round((sats / 100_000_000) * price * 100) / 100 : 0,
+      };
+    });
+    const nearbyMerchants = merchantRef.current
+      .filter((item) =>
+        item.osm_json.tags['payment:bitcoin'] === 'yes' ||
+        item.osm_json.tags['payment:lightning'] === 'yes' ||
+        item.osm_json.tags['payment:onchain'] === 'yes'
+      )
+      .slice(0, 20)
+      .map((item) => ({
+        name: item.osm_json.tags.name || item.osm_json.tags['name:en'] || 'Unnamed merchant',
+        category: item.tags.category || item.osm_json.tags.amenity || item.osm_json.tags.shop || 'Other',
+        address: item.osm_json.tags['addr:street']
+          ? `${item.osm_json.tags['addr:street']}${item.osm_json.tags['addr:housenumber'] ? ` ${item.osm_json.tags['addr:housenumber']}` : ''}`
+          : undefined,
+        distanceKm: item.distance,
+      }));
     const catalog = {
       type: 'agent-catalog',
       budgetId: current.budgetId,
       month: monthId,
       paymentMethods: stateRef.current.paymentMethods || [],
-      categories: (month?.buckets || []).map((bucket) => ({
-        id: bucket.id,
-        name: bucket.name,
-        isIncome: !!bucket.isIncome,
-        lineItems: (bucket.lineItems || []).map((line) => {
-          const plannedUsd = line.plannedAmountUsd || 0;
-          const spentUsd = spentFor(line.id);
-          return {
-            id: line.id,
-            name: line.name,
-            plannedUsd,
-            spentUsd,
-            remainingUsd: Math.round((plannedUsd - spentUsd) * 100) / 100,
-          };
-        }),
-      })),
+      categories: catalogCategories(month, price),
+      transactions: catalogTransactions(month?.transactions || [], price),
+      months,
+      bitcoinHoldings: holdings,
+      nearbyMerchants,
     };
-    await publishEncrypted(
+    const ok = await publishEncrypted(
       user.signer,
       agentPubkey,
       `sat-sorter/agent-catalog/${current.budgetId}/${agentPubkey.slice(0, 8)}`,
       catalog,
       [['b', current.budgetId]],
     );
+    const transactionCount = months.reduce((sum, item) => sum + item.transactions.length, 0);
+    console.log('[BudgetAgents] catalog', ok ? 'sent' : 'failed', { months: months.length, transactions: transactionCount });
   }, [user]);
 
   const pull = useCallback(async (preset?: any[]) => {
@@ -1084,6 +1174,8 @@ export function useBudgetThread() {
   }, [publishRoster, setState]);
 
   const agentKey = activeAgents(thread?.agents).map((agent) => agent.pubkey).join(',');
+  const wealthKey = watchedAddresses.map((addr) => `${addr.id}:${balanceRef.current.get(addr.id) ?? 0}`).join(',');
+  const merchantKey = merchants.slice(0, 20).map((item) => item.id).join(',');
   useEffect(() => {
     if (!isLeader || !user?.signer || !agentKey) return;
     const timer = setTimeout(() => {
@@ -1092,7 +1184,7 @@ export function useBudgetThread() {
       for (const agent of activeAgents(current.agents)) void publishCatalog(current, agent.pubkey);
     }, 2000);
     return () => clearTimeout(timer);
-  }, [agentKey, isLeader, publishCatalog, state.budgets, state.paymentMethods, user]);
+  }, [agentKey, isLeader, merchantKey, priceData?.usdPerBtc, publishCatalog, state.budgets, state.paymentMethods, user, wealthKey]);
 
   return {
     thread,

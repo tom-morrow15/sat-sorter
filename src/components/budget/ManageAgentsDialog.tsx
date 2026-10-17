@@ -90,7 +90,7 @@ export function ManageAgentsDialog({ open, onOpenChange }: { open: boolean; onOp
             <Bot className="h-5 w-5" /> Agents
           </DialogTitle>
           <DialogDescription>
-            An agent can add expenses and see this month’s categories. More than one agent can use the same code. Remove an agent here at any time.
+            An agent can add expenses. It can also see your saved months, transactions, Wealth balances, and nearby Bitcoin places. More than one agent can use the same code. Remove an agent here at any time.
           </DialogDescription>
         </DialogHeader>
 
