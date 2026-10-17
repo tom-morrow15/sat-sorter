@@ -1,4 +1,4 @@
-import type { Bucket, LineItem, MonthlyBudget, Transaction } from './budgetTypes';
+import type { Bucket, BudgetAgent, LineItem, MonthlyBudget, Transaction } from './budgetTypes';
 
 /**
  * A single shared-budget change. Notes are the record. A checkpoint is only
@@ -346,4 +346,23 @@ export function extrasAgainstBase(
     }
     return false;
   });
+}
+
+/** An agent may only add or update an expense. It cannot delete or edit the plan. */
+export function agentMayWrite(note: BudgetNote, agents: BudgetAgent[] = []): boolean {
+  const known = agents.some((agent) => agent.pubkey === note.authorPubkey);
+  if (!known) return true;
+  return note.entity === 'transaction' && note.op === 'upsert' && !!note.transaction;
+}
+
+/** Add an agent once. A removed agent is not put back by an old hello. */
+export function addAgent(list: BudgetAgent[], pubkey: string, at: number, name?: string): BudgetAgent[] {
+  const key = pubkey.toLowerCase();
+  if (list.some((agent) => agent.pubkey === key)) return list;
+  return [...list, { pubkey: key, connectedAt: at, name: name?.trim() || undefined }];
+}
+
+export function removeAgent(list: BudgetAgent[], pubkey: string, at: number): BudgetAgent[] {
+  const key = pubkey.toLowerCase();
+  return list.map((agent) => agent.pubkey === key && !agent.removedAt ? { ...agent, removedAt: at } : agent);
 }

@@ -127,6 +127,14 @@ export interface BudgetState {
   budgetThread?: BudgetThreadState;
 }
 
+/** An agent allowed to log expenses on this budget. It has its own key. */
+export interface BudgetAgent {
+  pubkey: string;
+  connectedAt: number;
+  removedAt?: number;
+  name?: string;
+}
+
 /** Shared-budget thread. Notes are the record. There is no shared private key. */
 export interface BudgetThreadState {
   budgetId: string;
@@ -149,6 +157,10 @@ export interface BudgetThreadState {
   lastPullSec?: number;
   /** When this membership last changed. A newer record from another device wins. */
   updatedAt?: number;
+  /** Agents allowed to log expenses. A removed agent stays here so later notes are ignored. */
+  agents?: BudgetAgent[];
+  /** When the agent list last changed. An older list cannot put a removed agent back. */
+  agentsUpdatedAt?: number;
   appliedNoteIds: string[];
   unsyncedNotes: Array<{
     id: string;
@@ -270,6 +282,24 @@ export function normalizeBudgetState(input: any): BudgetState {
   return merged;
 }
 
+function normalizeAgents(input: unknown): BudgetAgent[] {
+  if (!Array.isArray(input)) return [];
+  const agents: BudgetAgent[] = [];
+  for (const item of input) {
+    if (!item || typeof item !== 'object') continue;
+    const pubkey = String((item as BudgetAgent).pubkey || '').toLowerCase();
+    if (!/^[0-9a-f]{64}$/.test(pubkey)) continue;
+    const name = (item as BudgetAgent).name;
+    agents.push({
+      pubkey,
+      connectedAt: typeof (item as BudgetAgent).connectedAt === 'number' ? (item as BudgetAgent).connectedAt : 0,
+      removedAt: typeof (item as BudgetAgent).removedAt === 'number' ? (item as BudgetAgent).removedAt : undefined,
+      name: typeof name === 'string' && name.trim() ? name.trim().slice(0, 40) : undefined,
+    });
+  }
+  return agents;
+}
+
 function normalizeBudgetThread(input: any): BudgetThreadState | undefined {
   if (!input || typeof input !== 'object' || typeof input.budgetId !== 'string' || !input.budgetId) {
     return undefined;
@@ -293,6 +323,8 @@ function normalizeBudgetThread(input: any): BudgetThreadState | undefined {
     catchUpDone: input.catchUpDone === true,
     lastPullSec: typeof input.lastPullSec === 'number' ? input.lastPullSec : undefined,
     updatedAt: typeof input.updatedAt === 'number' ? input.updatedAt : undefined,
+    agents: normalizeAgents(input.agents),
+    agentsUpdatedAt: typeof input.agentsUpdatedAt === 'number' ? input.agentsUpdatedAt : undefined,
     appliedNoteIds: Array.isArray(input.appliedNoteIds) ? input.appliedNoteIds.filter((id: unknown) => typeof id === 'string') : [],
     unsyncedNotes: Array.isArray(input.unsyncedNotes) ? input.unsyncedNotes : [],
   };

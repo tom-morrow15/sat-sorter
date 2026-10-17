@@ -5,14 +5,18 @@ import { useBudgetContext } from '@/contexts/BudgetContext';
 import { useToast } from '@/hooks/useToast';
 import { generateId, getCurrentMonth, type BudgetState, type BudgetThreadState } from '@/lib/budgetTypes';
 import {
+  addAgent,
+  agentMayWrite,
   applyNotes,
   diffAgainstBase,
   extrasAgainstBase,
   noteIsActive,
+  removeAgent as removeAgentRecord,
   type BudgetCheckpoint,
   type BudgetNote,
   type Membership,
 } from '@/lib/budgetThread';
+import type { BudgetAgent } from '@/lib/budgetTypes';
 import { publishToSharedRelays, querySharedRelays, subscribeSharedRelays } from '@/hooks/useSharedBudgetSync';
 
 function monthsFrom(budgets: BudgetState['budgets'], from: string) {
@@ -32,6 +36,28 @@ function seedClocks(budgets: BudgetState['budgets']): Record<string, number> {
   }
   return clocks;
 }
+function claimAgentNote(note: BudgetNote, agents: BudgetAgent[]): BudgetNote {
+  if (!note.transaction || !agents.some((agent) => agent.pubkey === note.authorPubkey)) return note;
+  return { ...note, transaction: { ...note.transaction, partnerPubkey: note.authorPubkey } };
+}
+
+function asAgents(input: unknown): BudgetAgent[] {
+  if (!Array.isArray(input)) return [];
+  return input.flatMap((item) => {
+    if (!item || typeof item !== 'object') return [];
+    const record = item as BudgetAgent;
+    const pubkey = String(record.pubkey || '').toLowerCase();
+    if (!/^[0-9a-f]{64}$/.test(pubkey)) return [];
+    const name = typeof record.name === 'string' ? record.name.trim().slice(0, 40) : '';
+    return [{
+      pubkey,
+      connectedAt: typeof record.connectedAt === 'number' ? record.connectedAt : 0,
+      removedAt: typeof record.removedAt === 'number' ? record.removedAt : undefined,
+      name: name || undefined,
+    }];
+  });
+}
+
 const KIND = 30078;
 const TAG = 'sat-sorter-thread';
 
@@ -44,18 +70,30 @@ export interface IncomingInvite {
 
 let syncLeader: object | null = null;
 
+function activeAgents(agents: BudgetAgent[] = []): BudgetAgent[] {
+  return agents.filter((agent) => !agent.removedAt);
+}
+
 function membershipOf(thread: BudgetThreadState): Membership {
   const partner = thread.partnerPubkey;
   const live = thread.status === 'accepted' || thread.status === 'pending';
   return {
     ownerPubkey: thread.ownerPubkey,
     // at: 0 so a transaction logged in the same minute as the invite is not dropped.
-    active: live && partner ? [{ pubkey: partner, at: 0 }] : [],
+    active: [
+      ...(live && partner ? [{ pubkey: partner, at: 0 }] : []),
+      ...activeAgents(thread.agents).map((agent) => ({ pubkey: agent.pubkey, at: agent.connectedAt || 0 })),
+    ],
     pending: [],
     revoked: [],
-    former: thread.status === 'left' && partner
-      ? [{ pubkey: partner, at: thread.endedAt || 0, joinedAt: 0 }]
-      : [],
+    former: [
+      ...(thread.status === 'left' && partner ? [{ pubkey: partner, at: thread.endedAt || 0, joinedAt: 0 }] : []),
+      ...(thread.agents || []).filter((agent) => agent.removedAt).map((agent) => ({
+        pubkey: agent.pubkey,
+        at: agent.removedAt || 0,
+        joinedAt: agent.connectedAt || 0,
+      })),
+    ],
   };
 }
 
@@ -64,6 +102,11 @@ function recipientsFor(thread: BudgetThreadState, me: string): string[] {
   const live = thread.status === 'pending' || thread.status === 'accepted';
   if (live && thread.partnerPubkey && thread.partnerPubkey !== me) targets.add(thread.partnerPubkey);
   if (live && thread.role === 'partner' && thread.ownerPubkey !== me) targets.add(thread.ownerPubkey);
+  if (live) {
+    for (const agent of activeAgents(thread.agents)) {
+      if (agent.pubkey !== me) targets.add(agent.pubkey);
+    }
+  }
   return [...targets];
 }
 
@@ -484,6 +527,69 @@ export function useBudgetThread() {
     return () => clearTimeout(timer);
   }, [isLeader, state.budgets, updateThread, user]);
 
+  const publishRoster = useCallback(async (current: BudgetThreadState) => {
+    if (!user?.signer) return;
+    const signer = user.signer;
+    const payload = {
+      type: 'agents',
+      budgetId: current.budgetId,
+      at: current.agentsUpdatedAt || Date.now(),
+      agents: current.agents || [],
+    };
+    await Promise.all(recipientsFor(current, user.pubkey).map((recipient) => publishEncrypted(
+      signer,
+      recipient,
+      `sat-sorter/agents/${current.budgetId}/${payload.at}/${recipient.slice(0, 8)}`,
+      payload,
+      [['b', current.budgetId]],
+    )));
+  }, [user]);
+
+  const publishCatalog = useCallback(async (current: BudgetThreadState, agentPubkey: string) => {
+    if (!user?.signer) return;
+    const monthId = getCurrentMonth();
+    const month = stateRef.current.budgets.find((item) => item.month === monthId);
+    const transactions = month?.transactions || [];
+    const spentFor = (lineId: string) => {
+      let total = 0;
+      for (const tx of transactions) {
+        if (tx.isIncome) continue;
+        if (tx.lineItemId === lineId && !(tx.splits && tx.splits.length)) total += tx.amountUsd || 0;
+        for (const split of tx.splits || []) if (split.lineItemId === lineId) total += split.amountUsd || 0;
+      }
+      return Math.round(total * 100) / 100;
+    };
+    const catalog = {
+      type: 'agent-catalog',
+      budgetId: current.budgetId,
+      month: monthId,
+      paymentMethods: stateRef.current.paymentMethods || [],
+      categories: (month?.buckets || []).map((bucket) => ({
+        id: bucket.id,
+        name: bucket.name,
+        isIncome: !!bucket.isIncome,
+        lineItems: (bucket.lineItems || []).map((line) => {
+          const plannedUsd = line.plannedAmountUsd || 0;
+          const spentUsd = spentFor(line.id);
+          return {
+            id: line.id,
+            name: line.name,
+            plannedUsd,
+            spentUsd,
+            remainingUsd: Math.round((plannedUsd - spentUsd) * 100) / 100,
+          };
+        }),
+      })),
+    };
+    await publishEncrypted(
+      user.signer,
+      agentPubkey,
+      `sat-sorter/agent-catalog/${current.budgetId}/${agentPubkey.slice(0, 8)}`,
+      catalog,
+      [['b', current.budgetId]],
+    );
+  }, [user]);
+
   const pull = useCallback(async (preset?: any[]) => {
     if (!user?.signer) {
       console.warn('[BudgetPartners] cannot look yet, login is not ready');
@@ -569,6 +675,7 @@ export function useBudgetThread() {
         && active.budgetId === incoming.budgetId
         && active.status === incoming.status
         && active.partnerPubkey === incoming.partnerPubkey
+        && JSON.stringify(active.agents || []) === JSON.stringify(incoming.agents || [])
         && active.role === incoming.role;
       if (!same && (incoming.status === 'accepted' || incoming.status === 'pending' || incoming.status === 'left' || incoming.status === 'revoked')) {
         const next: BudgetThreadState = {
@@ -576,6 +683,8 @@ export function useBudgetThread() {
           role: incoming.role === 'partner' ? 'partner' : 'owner',
           ownerPubkey: String(incoming.ownerPubkey || ''),
           partnerPubkey: incoming.partnerPubkey,
+          agents: incoming.agents || active?.agents || [],
+          agentsUpdatedAt: incoming.agentsUpdatedAt || active?.agentsUpdatedAt,
           status: incoming.status,
           acceptedAt: incoming.acceptedAt,
           endedAt: incoming.endedAt,
@@ -712,10 +821,55 @@ export function useBudgetThread() {
       });
     }
 
+    const rosterThread = stateRef.current.budgetThread;
+    if (rosterThread && (rosterThread.status === 'accepted' || rosterThread.status === 'pending')) {
+      let roster = asAgents(rosterThread.agents);
+      let rosterAt = rosterThread.agentsUpdatedAt || 0;
+      let fromRoster = false;
+      const hellos: string[] = [];
+      for (const item of parsed) {
+        if (item.eventBudgetId !== rosterThread.budgetId || item.body.type !== 'agents' || typeof item.body.at !== 'number') continue;
+        if (item.body.at <= rosterAt) continue;
+        roster = asAgents(item.body.agents);
+        rosterAt = item.body.at;
+        fromRoster = true;
+      }
+      for (const item of parsed) {
+        if (item.eventBudgetId !== rosterThread.budgetId || item.body.type !== 'agent-hello') continue;
+        const pubkey = String(item.body.pubkey || '').toLowerCase();
+        if (!pubkey || pubkey !== item.event.pubkey) continue;
+        const at = (item.event.created_at || 0) * 1000 || Date.now();
+        const name = typeof item.body.name === 'string' ? item.body.name : undefined;
+        const nextRoster = addAgent(roster, pubkey, at, name);
+        if (nextRoster === roster) continue;
+        roster = nextRoster;
+        rosterAt = Math.max(rosterAt, at);
+        hellos.push(pubkey);
+      }
+      if (fromRoster || hellos.length > 0) {
+        const next = { ...rosterThread, agents: roster, agentsUpdatedAt: rosterAt, updatedAt: Date.now() };
+        stateRef.current = { ...stateRef.current, budgetThread: next };
+        setState((prev) => ({
+          ...prev,
+          budgetThread: prev.budgetThread
+            ? { ...prev.budgetThread, agents: roster, agentsUpdatedAt: rosterAt, updatedAt: next.updatedAt }
+            : prev.budgetThread,
+        }));
+        if (hellos.length > 0 && user.signer) {
+          void publishRoster(next).then(() => Promise.all(hellos.map((pubkey) => publishCatalog(next, pubkey))));
+          toast({ title: 'Agent connected', description: 'It can log expenses on this budget.' });
+        }
+      }
+    }
+
     const applied = new Set(stateRef.current.budgetThread?.appliedNoteIds || []);
-    const members = stateRef.current.budgetThread ? membershipOf(stateRef.current.budgetThread) : null;
-    const clocks = { ...(stateRef.current.budgetThread?.entityClock || {}) };
-    const fresh = notes.filter((note) => note.budgetId === stateRef.current.budgetThread?.budgetId && !applied.has(note.id) && (!members || noteIsActive(members, note) || note.authorPubkey === user.pubkey));
+    const threadNow = stateRef.current.budgetThread;
+    const members = threadNow ? membershipOf(threadNow) : null;
+    const clocks = { ...(threadNow?.entityClock || {}) };
+    const knownAgents = threadNow?.agents || [];
+    const fresh = notes
+      .map((note) => claimAgentNote(note, knownAgents))
+      .filter((note) => note.budgetId === threadNow?.budgetId && !applied.has(note.id) && agentMayWrite(note, knownAgents) && (!members || noteIsActive(members, note) || note.authorPubkey === user.pubkey));
     if (fresh.length > 0) {
       const merged = applyNotes(stateRef.current.budgets, fresh, clocks);
       const fromPartner = fresh.filter((note) => note.authorPubkey !== user.pubkey);
@@ -733,7 +887,9 @@ export function useBudgetThread() {
           ? { ...prev.budgetThread, appliedNoteIds: ids, entityClock: clocks }
           : prev.budgetThread,
       }));
-      if (fresh.some((note) => note.authorPubkey !== user.pubkey)) {
+      if (fresh.some((note) => knownAgents.some((agent) => agent.pubkey === note.authorPubkey && !agent.removedAt))) {
+        toast({ title: 'Expense logged', description: 'An agent added an expense to this budget.' });
+      } else if (fresh.some((note) => note.authorPubkey !== user.pubkey)) {
         toast({ title: 'Budget updated', description: 'A change arrived from your budget partner.' });
       }
     } else if (!preset) {
@@ -746,7 +902,7 @@ export function useBudgetThread() {
         updateThread({ lastPullSec: pulledAt });
       }
     }
-  }, [sendMonths, setState, toast, updateThread, user]);
+  }, [publishCatalog, publishRoster, sendMonths, setState, toast, updateThread, user]);
 
   pullRef.current = pull;
 
@@ -786,7 +942,8 @@ export function useBudgetThread() {
       const latestThread = stateRef.current.budgetThread;
       const queued = (latestThread?.unsyncedNotes || []) as BudgetNote[];
       if (!latestThread || queued.length === 0 || notesLockRef.current) return;
-      if (!latestThread.partnerPubkey) return;
+      const targets = recipientsFor(latestThread, user.pubkey);
+      if (targets.length < 2) return;
       if (latestThread.status !== 'accepted' && latestThread.status !== 'pending') return;
       const stale = queued.some((note) => note.id.startsWith('catch-') || note.id.startsWith('migrate-'));
       if (stale) {
@@ -879,6 +1036,8 @@ export function useBudgetThread() {
             role: snapshot.role,
             ownerPubkey: snapshot.ownerPubkey,
             partnerPubkey: snapshot.partnerPubkey,
+            agents: snapshot.agents || [],
+            agentsUpdatedAt: snapshot.agentsUpdatedAt,
             status: snapshot.status,
             sharedFromMonth: snapshot.sharedFromMonth,
             acceptedAt: snapshot.acceptedAt,
@@ -892,6 +1051,49 @@ export function useBudgetThread() {
     return () => clearTimeout(timer);
   }, [isLeader, thread?.acceptedAt, thread?.budgetId, thread?.endedAt, thread?.partnerPubkey, thread?.role, thread?.sharedFromMonth, thread?.status, thread?.updatedAt, user]);
 
+  const ensureAgentThread = useCallback(() => {
+    const existing = stateRef.current.budgetThread;
+    if (existing && (existing.status === 'accepted' || existing.status === 'pending') && existing.budgetId) return existing;
+    if (!user) return null;
+    const next: BudgetThreadState = {
+      budgetId: generateId(),
+      role: 'owner',
+      ownerPubkey: user.pubkey,
+      status: 'accepted',
+      acceptedAt: Date.now(),
+      updatedAt: Date.now(),
+      sharedFromMonth: getCurrentMonth(),
+      appliedNoteIds: [],
+      unsyncedNotes: [],
+      agents: [],
+    };
+    stateRef.current = { ...stateRef.current, budgetThread: next };
+    setState((prev) => ({ ...prev, budgetThread: next }));
+    return next;
+  }, [setState, user]);
+
+  const removeAgent = useCallback(async (pubkey: string) => {
+    const current = stateRef.current.budgetThread;
+    if (!current) return;
+    const at = Date.now();
+    const agents = removeAgentRecord(current.agents || [], pubkey, at);
+    const next = { ...current, agents, agentsUpdatedAt: at, updatedAt: at };
+    stateRef.current = { ...stateRef.current, budgetThread: next };
+    setState((prev) => ({ ...prev, budgetThread: next }));
+    await publishRoster(next);
+  }, [publishRoster, setState]);
+
+  const agentKey = activeAgents(thread?.agents).map((agent) => agent.pubkey).join(',');
+  useEffect(() => {
+    if (!isLeader || !user?.signer || !agentKey) return;
+    const timer = setTimeout(() => {
+      const current = stateRef.current.budgetThread;
+      if (!current) return;
+      for (const agent of activeAgents(current.agents)) void publishCatalog(current, agent.pubkey);
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [agentKey, isLeader, publishCatalog, state.budgets, state.paymentMethods, user]);
+
   return {
     thread,
     incomingInvite,
@@ -903,6 +1105,8 @@ export function useBudgetThread() {
     leaveOrRemove,
     resetPartnerConnection,
     showJoinCode,
+    ensureAgentThread,
+    removeAgent,
     dismissInvite: () => setIncomingInvite(null),
   };
 }

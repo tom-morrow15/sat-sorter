@@ -2,7 +2,7 @@ import { useState } from 'react';
 import {
   ChevronDown, LogOut, UserIcon, Heart, Info, Copy, AlertTriangle, RotateCw,
   Cloud, LogIn, Sun, Moon, GraduationCap, Wallet, Menu, QrCode, Calendar,
-  Users, Bug, Wifi, MessageSquare, CreditCard, KeyRound, BookOpen, Zap,
+  Users, Bug, Wifi, MessageSquare, CreditCard, KeyRound, BookOpen, Zap, Bot,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -26,6 +26,8 @@ import { useRegisterSW } from '@/hooks/useRegisterSW';
 interface AccountSwitcherProps {
   onAddAccountClick: () => void;
   onBudgetPartnersClick?: () => void;
+  onAgentsClick?: () => void;
+  agentsCount?: number;
   partnersCount?: number;
   pendingInvitesCount?: number;
   onShowBudgetKey?: () => void;
@@ -57,7 +59,7 @@ interface AccountSwitcherProps {
 }
 
 export function AccountSwitcher({
-  onAddAccountClick, onBudgetPartnersClick, partnersCount = 0, pendingInvitesCount = 0,
+  onAddAccountClick, onBudgetPartnersClick, onAgentsClick, partnersCount = 0, agentsCount = 0, pendingInvitesCount = 0,
   onShowBudgetKey, onOpenWallet, onOpenMapleSettings, onOpenPaymentMethods,
   onCopyPreviousMonth, onPlanNextMonth, onResetBudgetMonth,
   onSoftReset, onHardReset, onTotalReset,
@@ -152,6 +154,15 @@ export function AccountSwitcher({
                   <span className="ml-auto text-xs text-muted-foreground">{partnersCount}</span>
                 )}
               </DropdownMenuItem>
+              {onAgentsClick && (
+                <DropdownMenuItem onClick={() => onAgentsClick()}>
+                  <Bot className="h-4 w-4 mr-2" />
+                  Agents
+                  {agentsCount > 0 && (
+                    <span className="ml-auto text-xs text-muted-foreground">{agentsCount}</span>
+                  )}
+                </DropdownMenuItem>
+              )}
             </>
           )}
           {!currentUser && (

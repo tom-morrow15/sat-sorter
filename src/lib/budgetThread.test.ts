@@ -2,12 +2,15 @@ import { describe, expect, it } from 'vitest';
 import type { MonthlyBudget } from './budgetTypes';
 import {
   acceptInvite,
+  addAgent,
+  agentMayWrite,
   applyNotes,
   diffAgainstBase,
   extrasAgainstBase,
   leaveBudget,
   noteIsActive,
   reduceBudget,
+  removeAgent,
   revokeInvite,
   type BudgetNote,
   type Membership,
@@ -131,6 +134,41 @@ describe('budget thread', () => {
     const accepted = acceptInvite(revoked, 'pending', 90);
     expect(accepted.active.some((member) => member.pubkey === 'pending')).toBe(false);
     expect(accepted.pending).toHaveLength(0);
+  });
+
+  it('lets an agent add an expense, and ignores an agent that tries to change the plan', () => {
+    const agents = addAgent([], 'a'.repeat(64), 100, 'Helper');
+    const expense = note({
+      id: 'expense',
+      at: 150,
+      op: 'upsert',
+      entity: 'transaction',
+      entityId: 'tx1',
+      authorPubkey: 'a'.repeat(64),
+      transaction: { id: 'tx1', amount: 0, amountUsd: 12, description: 'Lunch', date: '2026-10-16', lineItemId: null, bucketId: null, isIncome: false },
+    });
+    const edit = note({
+      id: 'edit',
+      at: 160,
+      op: 'upsert',
+      entity: 'line',
+      entityId: 'rent',
+      authorPubkey: 'a'.repeat(64),
+    });
+    expect(agentMayWrite(expense, agents)).toBe(true);
+    expect(agentMayWrite(edit, agents)).toBe(false);
+    const removed = removeAgent(agents, 'a'.repeat(64), 200);
+    const members: Membership = {
+      ownerPubkey: OWNER,
+      active: [],
+      pending: [],
+      revoked: [],
+      former: [{ pubkey: 'a'.repeat(64), at: 200, joinedAt: 100 }],
+    };
+    expect(noteIsActive(members, expense)).toBe(true);
+    expect(noteIsActive(members, { ...expense, id: 'late', at: 250 })).toBe(false);
+    expect(removed[0].removedAt).toBe(200);
+    expect(addAgent(removed, 'a'.repeat(64), 300)).toBe(removed);
   });
 
   it('keeps a transaction that exists only on one phone during migration', () => {

@@ -44,6 +44,7 @@ import LoginDialog from '@/components/auth/LoginDialog';
 import { useAppContext } from '@/hooks/useAppContext';
 import { BackupRestoreDialog } from './BackupRestoreDialog';
 import { ManagePartnersDialog } from './ManagePartnersDialog';
+import { ManageAgentsDialog } from './ManageAgentsDialog';
 import { DonateDialog } from './DonateDialog';
 import { BudgetKeyDialog } from './BudgetKeyDialog';
 import { SubscriptionSettings } from './SubscriptionSettings';
@@ -57,6 +58,7 @@ import { useRegisterSW } from '@/hooks/useRegisterSW';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { GuestUpgradeModal } from '@/components/GuestUpgradeModal';
 import { useBudget } from '@/hooks/useBudget';
+import { useBudgetContext } from '@/contexts/BudgetContext';
 
 interface BudgetHeaderProps {
   buckets: Bucket[];
@@ -118,6 +120,7 @@ export function BudgetHeader({
   const [showLogin, setShowLogin] = useState(false);
   const [showBackup, setShowBackup] = useState(false);
   const [showPartners, setShowPartners] = useState(false);
+  const [showAgents, setShowAgents] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showResetFinalConfirm, setShowResetFinalConfirm] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -173,6 +176,8 @@ export function BudgetHeader({
   const isOver = remaining < -EPSILON;
 
   const { user } = useCurrentUser();
+  const { state: budgetState } = useBudgetContext();
+  const agentsCount = (budgetState.budgetThread?.agents || []).filter((agent) => !agent.removedAt).length;
   const { config, updateConfig } = useAppContext();
   const logoStyle = config.logoStyle || 'sats';
 
@@ -253,6 +258,8 @@ export function BudgetHeader({
                   updateAvailable={needRefresh}
                   onAddAccountClick={() => setShowLogin(true)}
                   onBudgetPartnersClick={() => setShowPartners(true)}
+                  onAgentsClick={() => setShowAgents(true)}
+                  agentsCount={agentsCount}
                   partnersCount={nostrPartners.length}
                   pendingInvitesCount={0}
                   onShowBudgetKey={() => setShowBudgetKey(true)}
@@ -489,6 +496,7 @@ export function BudgetHeader({
       </Dialog>
 
       <ManagePartnersDialog open={showPartners} onOpenChange={setShowPartners} userRole={userRole} />
+      <ManageAgentsDialog open={showAgents} onOpenChange={setShowAgents} />
       <BackupRestoreDialog open={showBackup} onOpenChange={setShowBackup} />
 
       <Dialog open={showSettings} onOpenChange={setShowSettings}>
