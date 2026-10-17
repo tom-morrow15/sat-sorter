@@ -47,7 +47,7 @@ export interface UseMapleChatReturn {
 }
 
 export function useMapleChat(): UseMapleChatReturn {
-  const { currentBudget, currentMonth } = useBudget();
+  const { currentBudget, currentMonth, fullState, paymentMethods } = useBudget();
   const { data: priceData } = useBitcoinPrice();
   const { apiKey, evergreenContext, proxyUrl, model, zdr, isCustom } = useAISettings();
   const { toast } = useToast();
@@ -142,9 +142,13 @@ export function useMapleChat(): UseMapleChatReturn {
       btcPrice, 
       evergreenContext,
       bitcoinHoldings,
-      nearbyMerchants
+      nearbyMerchants,
+      {
+        allBudgets: fullState.budgets,
+        paymentMethods,
+      }
     );
-  }, [currentMonth, currentBudget, priceData, evergreenContext, wealthAddresses, btcMapMerchants]);
+  }, [currentMonth, currentBudget, priceData, evergreenContext, wealthAddresses, btcMapMerchants, fullState.budgets, paymentMethods]);
 
   const sendMessage = useCallback(
     async (text: string) => {

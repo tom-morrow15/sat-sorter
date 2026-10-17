@@ -31,6 +31,22 @@ export interface BudgetTransactionContext {
   amount_usd: number;
   note: string;
   date: string;
+  income?: boolean;
+  payment_method?: string;
+  logged_by?: 'budget partner';
+  splits?: { line_item: string; amount_usd: number }[];
+}
+
+export interface BudgetMonthContext {
+  month: string;
+  income_usd: number;
+  planned_budget_usd: number;
+  total_spent_usd: number;
+  total_remaining_usd: number;
+  left_to_assign_usd: number;
+  income_items: { name: string; budgeted_usd: number }[];
+  categories: BudgetCategoryContext[];
+  transactions: BudgetTransactionContext[];
 }
 
 export interface BudgetContext {
@@ -40,8 +56,13 @@ export interface BudgetContext {
   planned_budget_usd: number;
   total_spent_usd: number;
   total_remaining_usd: number;
+  left_to_assign_usd: number;
+  income_items: { name: string; budgeted_usd: number }[];
   categories: BudgetCategoryContext[];
   recent_transactions: BudgetTransactionContext[];
+  /** Every other saved month, past and future, with its plan and transactions. */
+  other_months: BudgetMonthContext[];
+  payment_methods: string[];
   user_evergreen_context: string;
   // Wealth Tracker data (if available)
   bitcoin_holdings?: BitcoinHoldingContext[];
@@ -82,10 +103,99 @@ export function isEnabled(
   return !!apiKey && apiKey.length > 0 && enabledToggle;
 }
 
+function monthLabel(month: string): string {
+  const [yearStr, monthStr] = month.split('-');
+  return new Date(
+    parseInt(yearStr, 10),
+    parseInt(monthStr, 10) - 1
+  ).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+}
+
+function assignmentUsd(amountUsd: number, amountSats: number, btcPrice: number): number {
+  if (amountUsd > 0) return Math.round(amountUsd * 100) / 100;
+  if (btcPrice > 0) return Math.round((amountSats / 100_000_000) * btcPrice * 100) / 100;
+  return 0;
+}
+
+function lineLabel(budget: MonthlyBudget, bucketId: string, lineItemId: string): string {
+  const bucket = budget.buckets.find((b) => b.id === bucketId);
+  const li = bucket?.lineItems.find((l) => l.id === lineItemId);
+  if (li && bucket) return `${bucket.name} › ${li.name}`;
+  return li?.name || bucket?.name || 'Unassigned';
+}
+
+function transactionsFor(budget: MonthlyBudget, btcPrice: number): BudgetTransactionContext[] {
+  return budget.transactions
+    .map((t) => {
+      const assignments = getTransactionAssignments(t);
+      let category: string;
+      let splits: BudgetTransactionContext['splits'];
+
+      if (assignments.length === 0) {
+        category = 'Unassigned';
+      } else if (assignments.length === 1) {
+        category = lineLabel(budget, assignments[0].bucketId, assignments[0].lineItemId);
+      } else {
+        splits = assignments.map((a) => ({
+          line_item: lineLabel(budget, a.bucketId, a.lineItemId),
+          amount_usd: assignmentUsd(a.amountUsd, a.amountSats, btcPrice),
+        }));
+        category = `${splits.map((s) => s.line_item).join(' + ')} (split)`;
+      }
+
+      const row: BudgetTransactionContext = {
+        category,
+        amount_usd: transactionUsd(t, btcPrice),
+        note: t.description || 'No description',
+        date: t.date ? t.date.split('T')[0] : '',
+      };
+      if (t.isIncome) row.income = true;
+      if (t.paymentMethod) row.payment_method = t.paymentMethod;
+      if (t.partnerPubkey) row.logged_by = 'budget partner';
+      if (splits) row.splits = splits;
+      return row;
+    })
+    .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+}
+
+function monthContext(budget: MonthlyBudget, btcPrice: number): BudgetMonthContext {
+  const totals = deriveBudgetTotals(budget, btcPrice);
+  const categories: BudgetCategoryContext[] = totals.expenseBuckets
+    .map((bucket) => ({
+      name: bucket.name,
+      budgeted_usd: bucket.budgetedUsd,
+      spent_usd: bucket.spentUsd,
+      remaining_usd: bucket.remainingUsd,
+      percent_used: Math.min(100, bucket.percentUsed),
+      line_items: bucket.lineItems.map((li) => ({
+        name: li.name,
+        budgeted_usd: li.budgetedUsd,
+        spent_usd: li.spentUsd,
+        remaining_usd: li.remainingUsd,
+      })),
+    }))
+    .sort((a, b) => b.budgeted_usd - a.budgeted_usd);
+
+  return {
+    month: monthLabel(budget.month),
+    income_usd: totals.incomeUsd,
+    planned_budget_usd: totals.plannedUsd,
+    total_spent_usd: totals.spentUsd,
+    total_remaining_usd: totals.remainingToSpendUsd,
+    left_to_assign_usd: totals.remainingToBudgetUsd,
+    income_items: totals.incomeBuckets.flatMap((bucket) =>
+      bucket.lineItems.map((li) => ({ name: li.name, budgeted_usd: li.budgetedUsd }))
+    ),
+    categories,
+    transactions: transactionsFor(budget, btcPrice),
+  };
+}
+
 /**
  * Build a BudgetContext from the current monthly budget.
  * All financial figures are USD-anchored — they come directly from stored
  * usd fields or from helper functions that derive them from USD values.
+ * `allBudgets` is every saved month, including ones the user has planned ahead.
  */
 export function buildBudgetContext(
   month: string,
@@ -93,93 +203,35 @@ export function buildBudgetContext(
   btcPrice: number,
   evergreenContext: string,
   bitcoinHoldings?: BitcoinHoldingContext[],
-  nearbyMerchants?: MerchantContext[]
+  nearbyMerchants?: MerchantContext[],
+  options?: {
+    allBudgets?: MonthlyBudget[];
+    paymentMethods?: string[];
+  }
 ): BudgetContext {
-  // Derive ALL figures from the shared selector so Maple's numbers are
-  // guaranteed to match the Home dashboard and the Breakdown screen exactly.
-  const totals = deriveBudgetTotals(budget, btcPrice);
+  const current = monthContext(budget, btcPrice);
+  const other_months = (options?.allBudgets || [])
+    .filter((entry) => entry.month !== month && entry.month !== budget.month)
+    .sort((a, b) => a.month.localeCompare(b.month))
+    .map((entry) => monthContext(entry, btcPrice));
 
-  // ── Per-category data, INCLUDING per-line-item breakdown ──
-  const categories: BudgetCategoryContext[] = totals.expenseBuckets
-    .map((bucket) => {
-      const line_items: BudgetLineItemContext[] = bucket.lineItems.map((li) => ({
-        name: li.name,
-        budgeted_usd: li.budgetedUsd,
-        spent_usd: li.spentUsd,
-        remaining_usd: li.remainingUsd,
-      }));
-
-      return {
-        name: bucket.name,
-        budgeted_usd: bucket.budgetedUsd,
-        spent_usd: bucket.spentUsd,
-        remaining_usd: bucket.remainingUsd,
-        // Clamp to 100 for the "percent used" label, never NaN.
-        percent_used: Math.min(100, bucket.percentUsed),
-        line_items,
-      };
-    })
-    .filter((c) => c.budgeted_usd > 0 || c.spent_usd > 0)
-    .sort((a, b) => b.budgeted_usd - a.budgeted_usd);
-
-  // ── All transactions this month (split-aware) ──
-  const recent_transactions: BudgetTransactionContext[] = budget.transactions
-    .filter((t) => !t.isIncome)
-    .map((t) => {
-      const assignments = getTransactionAssignments(t);
-      let category: string;
-
-      if (assignments.length === 0) {
-        category = 'Unassigned';
-      } else if (assignments.length === 1) {
-        const bucket = budget.buckets.find((b) => b.id === assignments[0].bucketId);
-        const li = bucket?.lineItems.find((l) => l.id === assignments[0].lineItemId);
-        category = li
-          ? `${bucket?.name ?? 'Unknown'} › ${li.name}`
-          : bucket?.name ?? 'Unassigned';
-      } else {
-        // Split transaction — clearly show it was split and how
-        const parts = assignments
-          .map((a) => {
-            const bucket = budget.buckets.find((b) => b.id === a.bucketId);
-            const li = bucket?.lineItems.find((l) => l.id === a.lineItemId);
-            return li ? li.name : bucket?.name ?? 'Unknown';
-          })
-          .join(' + ');
-        category = `${parts} (split)`;
-      }
-
-      return {
-        category,
-        amount_usd: transactionUsd(t, btcPrice),
-        note: t.description || 'No description',
-        date: t.date ? t.date.split('T')[0] : '',
-      };
-    })
-    // Sort newest first so the most recent activity is at the top of the context
-    .sort((a, b) => (b.date > a.date ? 1 : -1));
-
-  // Month label
-  const [yearStr, monthStr] = month.split('-');
-  const monthLabel = new Date(
-    parseInt(yearStr, 10),
-    parseInt(monthStr, 10) - 1
-  ).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-
-  // Calculate total BTC holdings if available
-  const total_btc = bitcoinHoldings 
+  const total_btc = bitcoinHoldings
     ? bitcoinHoldings.reduce((sum, h) => sum + h.balance_btc, 0)
     : undefined;
 
   return {
-    month: monthLabel,
+    month: current.month,
     btc_price_usd: Math.round(btcPrice * 100) / 100,
-    income_usd: totals.incomeUsd,
-    planned_budget_usd: totals.plannedUsd,
-    total_spent_usd: totals.spentUsd,
-    total_remaining_usd: totals.remainingToSpendUsd,
-    categories,
-    recent_transactions,
+    income_usd: current.income_usd,
+    planned_budget_usd: current.planned_budget_usd,
+    total_spent_usd: current.total_spent_usd,
+    total_remaining_usd: current.total_remaining_usd,
+    left_to_assign_usd: current.left_to_assign_usd,
+    income_items: current.income_items,
+    categories: current.categories,
+    recent_transactions: current.transactions,
+    other_months,
+    payment_methods: options?.paymentMethods || [],
     user_evergreen_context: evergreenContext.trim(),
     bitcoin_holdings: bitcoinHoldings,
     total_btc,
@@ -189,26 +241,19 @@ export function buildBudgetContext(
 
 const FORMATTING_RULES = `FORMATTING RULES (critical): You are rendered in a narrow mobile chat bubble that does NOT support markdown. Write in plain, conversational sentences. Do NOT use markdown tables, pipes (|), dashes for table rows, asterisks for bold (**), or headers (#). If you need a list, use short lines with a simple dash and a space. Keep numbers inline (e.g., "Food: $120 spent of $200, $80 left").`;
 
-const INSIGHTS_SYSTEM_PROMPT = `You are Budget Buddy, the budgeting assistant inside Sat Sorter. Your name is Budget Buddy. Never call yourself Maple, and never name the model or AI service running you. The user budgets in USD but thinks in sats. You are given a full breakdown of every category AND its line items (each with budgeted_usd, spent_usd, remaining_usd), plus recent transactions. Use the line-item detail — don't just look at category totals. Provide 2–3 concise, actionable observations: spending pace, any line items or categories at risk of overspending, and one Bitcoin-themed tip (e.g., "If you finish under budget in Food, you could stack an extra X sats"). If relevant, mention that they can tap the receipt icon on any line item to see all transactions for it, or use the Transactions tab to filter/search. Keep it under 120 words. ${FORMATTING_RULES}`;
+const INSIGHTS_SYSTEM_PROMPT = `You are Budget Buddy, the budgeting assistant inside Sat Sorter. Your name is Budget Buddy. Never call yourself Maple, and never name the model or AI service running you. The user budgets in USD but thinks in sats. The context is their whole saved budget: the month they are looking at, every other saved month (past and planned ahead), income, every category and line item, and every transaction in those months. Focus this answer on the month they are looking at. Provide 2–3 concise, actionable observations: spending pace, any line items or categories at risk of overspending, and one Bitcoin-themed tip (e.g., "If you finish under budget in Food, you could stack an extra X sats"). Keep it under 120 words. ${FORMATTING_RULES}`;
 
-const CHAT_SYSTEM_PROMPT = `You are Budget Buddy inside Sat Sorter. Your name is Budget Buddy. Never introduce yourself as Maple, and never say the name of the model or AI service that is answering. If someone asks who you are, say you are Budget Buddy. You have access to the user's current monthly budget summary, every category broken down into its individual line items (budgeted/spent/remaining), ALL transactions this month, and their evergreen context. 
+const CHAT_SYSTEM_PROMPT = `You are Budget Buddy inside Sat Sorter. Your name is Budget Buddy. Never introduce yourself as Maple, and never say the name of the model or AI service that is answering. If someone asks who you are, say you are Budget Buddy.
 
-Important: Transactions may be split across multiple line items. When a transaction has "(split)" in its category, it means the amount was divided across the listed line items. Use this information when reasoning about spending.
+The context is the user's whole saved budget, not just a summary of the open month.
+- "month" is the month they are looking at right now. Its income, categories, line items, and transactions are at the top level.
+- "other_months" is every other month they have saved, including months they have planned ahead. Each one has the same income, categories, line items, and transactions.
+- Transactions include income and spending, the line item they were assigned to, a split breakdown when one exists, the payment method when they recorded one, and "logged_by": "budget partner" when the other person entered it.
+- "payment_methods" is the list of ways they pay.
+- "left_to_assign_usd" is income that has not been given a job yet.
+- Bitcoin holdings and nearby Bitcoin merchants are included when the user has them.
 
-You ALSO have access to:
-- **Wealth Tracker data**: The user's actual Bitcoin address balances (balance_btc, balance_usd, address, label). You can answer questions like "What's my total Bitcoin holdings?" or "How much BTC do I have?" directly from this data.
-- **Local Spend / BTC Map data**: Nearby Bitcoin-accepting merchants (name, category, address, distance). You can answer questions like "Where can I get coffee near me that accepts Bitcoin?" directly from this data.
-
-Sat Sorter features you can discuss:
-- **Transactions Tab**: Users can tap "More" in the bottom nav → Transactions to see all transactions, search, filter by category, or tap the receipt icon next to any line item to jump straight to all transactions for that specific line item.
-- **Wealth Tracker**: Users can tap "More" → Wealth Tracker to add Bitcoin addresses and monitor their on-chain BTC holdings over time.
-- **Local Spend / BTC Map**: Users can tap "More" → Local Spend to find Bitcoin-accepting merchants near them, organized by category.
-- **Payment Methods**: Users can track how they paid (credit card, Lightning, cash, etc.) for spending pattern analysis.
-- **Lightning Wallet**: Users can connect a Lightning wallet via Nostr Wallet Connect (NWC) to automatically import and categorize Bitcoin payments.
-- **Budget Partners**: Users can share a budget with one other person. Sharing starts with the current month. Each person keeps their own login, and changes sync while the app is open.
-- **Budget Buddy**: This is you — users can ask you anything about their budget, spending, or the app itself.
-
-Always reason using the line-item level detail, not just category totals — for example, if asked about "coffee", look for a matching line item. When answering questions about BTC holdings or merchants, use the actual data provided (bitcoin_holdings, nearby_merchants). Tailor all advice through the evergreen context when relevant. Answer helpfully, concisely, and in a friendly tone. Default to USD but feel free to mention sats using the provided btc_price_usd. If a purchase would overspend a category or line item, warn them and suggest moving funds from another one with surplus. Only use data provided in context. ${FORMATTING_RULES}`;
+Use a specific transaction, line item, or month when the user asks about one. Do not claim a month, transaction, or amount that is not in the context. Default to USD, and you may mention sats using btc_price_usd. If a purchase would overspend a line item, warn them and name another line item with money left. Answer helpfully, concisely, and in a friendly tone. ${FORMATTING_RULES}`;
 
 /**
  * Maple Proxy provides OpenAI-compatible API access to Maple's encrypted models.

@@ -109,6 +109,51 @@ describe('buildBudgetContext', () => {
     expect(ctx.recent_transactions[0].date).toBe('2026-04-12');
   });
 
+  it('includes income, payment method, and every other saved month', () => {
+    const april = makeBudget([incomeBucket, housingBucket]);
+    april.transactions = [
+      {
+        id: 't1',
+        amount: 5_000_000,
+        amountUsd: 50,
+        description: 'Paycheck',
+        date: '2026-04-01T10:00:00Z',
+        lineItemId: 'li0',
+        bucketId: 'b0',
+        isIncome: true,
+        paymentMethod: 'ACH',
+      },
+    ];
+    const may = makeBudget([incomeBucket, housingBucket]);
+    may.month = '2026-05';
+    may.transactions = [
+      {
+        id: 't2',
+        amount: 2_000_000,
+        amountUsd: 20,
+        description: 'Coffee',
+        date: '2026-05-02T10:00:00Z',
+        lineItemId: 'li1',
+        bucketId: 'b1',
+        isIncome: false,
+      },
+    ];
+
+    const ctx = buildBudgetContext('2026-04', april, btcPrice, '', undefined, undefined, {
+      allBudgets: [april, may],
+      paymentMethods: ['ACH', 'Cash'],
+    });
+
+    expect(ctx.recent_transactions).toHaveLength(1);
+    expect(ctx.recent_transactions[0].income).toBe(true);
+    expect(ctx.recent_transactions[0].payment_method).toBe('ACH');
+    expect(ctx.income_items[0].name).toBe('Salary');
+    expect(ctx.payment_methods).toEqual(['ACH', 'Cash']);
+    expect(ctx.other_months).toHaveLength(1);
+    expect(ctx.other_months[0].month).toBe('May 2026');
+    expect(ctx.other_months[0].transactions[0].note).toBe('Coffee');
+  });
+
   it('includes evergreen context', () => {
     const budget = makeBudget([incomeBucket]);
     const ctx = buildBudgetContext('2026-04', budget, btcPrice, 'Save for Japan.');
