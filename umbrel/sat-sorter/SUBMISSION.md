@@ -16,7 +16,7 @@ New app
 
 App ID: sat-sorter
 Upstream project: https://github.com/tom-morrow15/sat-sorter
-Version: 1.0.0
+Version: 1.1.0
 
 ## Summary
 
@@ -30,11 +30,15 @@ Budget together. Share a budget with your partner or household and see each othe
 
 Free and open source. Unlimited categories, line items and months, with no subscription. Ever.
 
-The web container is `ghcr.io/tom-morrow15/sat-sorter:1.0.0`, pinned by its multi-arch index digest. It listens on port 8080. Umbrel opens the app on port 8580.
+The web container is `ghcr.io/tom-morrow15/sat-sorter:1.1.0`. Its digest is filled in after the `v1.1.0` tag is published. It listens on port 8080. Umbrel opens the app on port 8580.
 
 The compose file includes a `maple-proxy` sidecar (`ghcr.io/mapleprivacylabs/maple-proxy:0.5.0`, listening on port 8080). The web image proxies same-origin `/maple/` to that container so an optional Maple connection can be used without a separate public proxy. No Maple key is baked into the image. Reviewers will see this service in `docker-compose.yml`; it is not part of the store listing.
 
-There is no app login for Umbrel to display. No host ports, named volumes, or bind mounts are published. User budgets are not stored in the container.
+There is no app login for Umbrel to display. No host ports are published.
+
+A guest who has not signed in with Nostr keeps one budget on the Umbrel. The web container writes it to `${APP_DATA_DIR}/data/guest-budget.json`. Any browser that opens this Umbrel app without signing in sees that budget, including after its own site data is cleared. If that browser already has a guest budget and the file is empty, the browser copy is saved. If both already have budgets, they are merged and neither copy is thrown away. Two browsers editing at the same time merge on the next save. Signing in with Nostr does not use this file. Upgrading a guest publishes the on-screen budget to Nostr and deletes the Umbrel guest file only after that publish succeeds.
+
+Sat Sorter does not add its own password to this file. Umbrel's app_proxy login is the access control: only someone signed in to the Umbrel can open the app and reach the guest budget. The store process listens on localhost inside the web container.
 
 Gallery images and an icon are omitted. The Umbrel team creates and hosts those assets.
 
@@ -68,6 +72,8 @@ No permissions, dependencies, migrations, or default credentials. `defaultUserna
 `requiresHttps` is set, with `manifestVersion: 2.0`, because budget encryption uses the Web Crypto API. The image also falls back when `crypto.randomUUID` or `navigator.clipboard` is missing.
 
 `app_proxy` sets `APP_HOST` to `sat-sorter_web_1` and `APP_PORT` to `8080`.
+
+The `1.1.0` image digest in `docker-compose.yml` is `DIGEST_PENDING_AFTER_TAG` until the `v1.1.0` tag is published. Do not copy that line into getumbrel/umbrel-apps until the real multi-arch digest replaces it. The volume is `${APP_DATA_DIR}/data:/data` and the web service runs as uid 1000 so it can write the guest file.
 
 Logo source, for the Umbrel team to redraw: https://github.com/tom-morrow15/sat-sorter/blob/main/public/icons/icon.svg and https://github.com/tom-morrow15/sat-sorter/blob/main/public/icons/icon-512.png
 
