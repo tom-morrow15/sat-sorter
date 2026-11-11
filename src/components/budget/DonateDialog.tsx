@@ -17,6 +17,7 @@ import { useToast } from '@/hooks/useToast';
 import { useWallet } from '@/hooks/useWallet';
 import { useNWC } from '@/hooks/useNWCContext';
 import { useBitcoinPrice, usdToSats, formatSats, formatUsd } from '@/hooks/useBitcoinPrice';
+import { copyText } from '@/lib/browserCompat';
 
 // Lightning address that supports Sat Sorter development.
 export const SAT_SORTER_LIGHTNING_ADDRESS = 'satsorter@getalby.com';
@@ -236,7 +237,7 @@ export function DonateDialog({ open, onOpenChange }: DonateDialogProps) {
 
   const handleCopy = async () => {
     if (!invoice) return;
-    await navigator.clipboard.writeText(invoice);
+    await copyText(invoice);
     setCopied(true);
     toast({ title: 'Invoice copied', description: 'Lightning invoice copied to clipboard.' });
     setTimeout(() => setCopied(false), 2000);

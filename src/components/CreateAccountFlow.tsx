@@ -21,6 +21,7 @@ import { saveSession, generateSessionPassword } from '@/utils/sessionStore';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { useLoginActions } from '@/hooks/useLoginActions';
 import { cn } from '@/lib/utils';
+import { copyText } from '@/lib/browserCompat';
 
 const MNEMONIC_WORDS = [4, 9, 12] as const;
 const STEPS = [1, 2, 3] as const;
@@ -70,7 +71,7 @@ export function CreateAccountFlow() {
 
   const handleCopyNsec = async () => {
     try {
-      await navigator.clipboard.writeText(nsec);
+      await copyText(nsec);
       setCopiedNsec(true);
       setTimeout(() => setCopiedNsec(false), 2500);
     } catch {

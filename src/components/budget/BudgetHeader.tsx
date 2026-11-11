@@ -47,7 +47,6 @@ import { ManagePartnersDialog } from './ManagePartnersDialog';
 import { ManageAgentsDialog } from './ManageAgentsDialog';
 import { DonateDialog } from './DonateDialog';
 import { BudgetKeyDialog } from './BudgetKeyDialog';
-import { SubscriptionSettings } from './SubscriptionSettings';
 import { MapleSettings } from '@/components/maple/MapleSettings';
 import { PaymentMethodsManager } from './PaymentMethodsManager';
 import { DebugLogDialog } from './DebugLogDialog';
@@ -131,7 +130,6 @@ export function BudgetHeader({
   const [showRelaySettings, setShowRelaySettings] = useState(false);
   const [showAccountDetails, setShowAccountDetails] = useState(false);
   const [showWelcomeTour, setShowWelcomeTour] = useState(false);
-  const [showSubscription, setShowSubscription] = useState(false);
 
   const getAvailableMonths = () => {
     const months: string[] = [];
@@ -271,7 +269,6 @@ export function BudgetHeader({
                   onOpenRelaySettings={() => setShowRelaySettings(true)}
                   onOpenAccountDetails={() => setShowAccountDetails(true)}
                   onOpenWelcomeTour={() => setShowWelcomeTour(true)}
-                  onOpenSubscription={() => setShowSubscription(true)}
                   onPlanNextMonth={onPlanNextMonth}
                   onResetBudgetMonth={() => setShowResetConfirm(true)}
                   onSoftReset={handleSoftReset}
@@ -312,10 +309,6 @@ export function BudgetHeader({
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuLabel className="bh-caption text-muted-foreground">Budget Tools</DropdownMenuLabel>
-                    <DropdownMenuItem onClick={() => setShowSubscription(true)}>
-                      <Zap className="h-4 w-4 mr-2 text-amber-500" />
-                      Power-Ups & Access
-                    </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => onCopyPreviousMonth?.()}>
                       <Copy className="h-4 w-4 mr-2" />
                       Copy Previous Month
@@ -521,18 +514,6 @@ export function BudgetHeader({
 
       <DonateDialog open={showDonateSorter} onOpenChange={setShowDonateSorter} />
       <DonateDialog open={showDonate} onOpenChange={setShowDonate} />
-
-      <Dialog open={showSubscription} onOpenChange={setShowSubscription}>
-        <DialogContent className="sm:max-w-[520px] max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Power-Ups & Access</DialogTitle>
-            <DialogDescription>Manage your Power-Ups and budget bucket access</DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-            <SubscriptionSettings />
-          </div>
-        </DialogContent>
-      </Dialog>
 
       <Dialog open={showAbout} onOpenChange={setShowAbout}>
         <DialogContent className="sm:max-w-[500px] max-h-[85vh]">

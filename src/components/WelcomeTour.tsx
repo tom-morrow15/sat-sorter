@@ -54,15 +54,15 @@ const TOUR_STEPS: TourStep[] = [
   {
     icon: Heart,
     iconColor: 'text-amber-500',
-    title: 'Value for Value',
-    description: 'Sat Sorter is free forever — 5 categories with 4 line items each, no strings attached.\n\nNeed more? Unlock extra categories with sats: $1 gets you +1 category, $5 gets you unlimited for the month. No auto-pay, no recurring charges — you only pay when you need more, only for the month you need it.\n\nYour first month is a free trial with unlimited everything. We call this "value for value" — we provide the tool, and if you find it valuable, sending sats keeps us building.',
-    howTo: 'When you hit the 5-category limit, tap "Add Category" and choose a Power-Up. Manage your access in the hamburger menu → Power-Ups & Access.',
+    title: 'Free for Everyone',
+    description: 'Sat Sorter is free. Categories, line items, and months are unlimited, and there is no subscription.\n\nYour budget syncs encrypted over Nostr when you sign in. Sat Sorter does not keep a copy of it.\n\nIf the app is useful, you can send sats from the menu. Donations are optional.',
+    howTo: 'Open the menu and choose Support Sat Sorter whenever you want to chip in.',
   },
   {
     icon: Plus,
     iconColor: 'text-primary',
     title: 'Setting Up Your Budget',
-    description: 'Start by adding income, then create expense categories like Groceries, Rent, and Savings. Each category can have multiple line items for granular tracking.\n\nNote: The free tier includes 5 categories with 4 line items each. If you need more, you can unlock additional categories with a Power-Up.',
+    description: 'Start by adding income, then create as many expense categories as you need, like Groceries, Rent, and Savings. Each category can have as many line items as you want.',
     howTo: 'Tap "Add Category" on the Home screen, pick an icon and color, then add line items within each category.',
   },
   {

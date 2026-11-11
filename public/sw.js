@@ -39,6 +39,13 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(request.url);
 
+  // Self-hosted Maple is same-origin (/maple/v1). Leave it to the network so
+  // the service worker does not cache model lists or swallow proxy errors.
+  // satsorter.com calls Maple on another origin, which this handler never sees.
+  if (url.origin === self.location.origin && url.pathname.startsWith('/maple/')) {
+    return;
+  }
+
   // Network-first for navigation requests (HTML pages)
   // This ensures users always get the latest version on refresh
   if (request.mode === 'navigate' || (request.headers.get('accept') || '').includes('text/html')) {

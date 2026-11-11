@@ -2,15 +2,12 @@ import { useState } from 'react';
 import {
   Home, Car, Utensils, Heart, PiggyBank, Wallet, Plus, ChevronDown, ChevronUp,
   Trash2, Edit2, Palette, ShoppingBag, Briefcase, GraduationCap, Plane, Gift,
-  Music, Dumbbell, Baby, Dog, Stethoscope, Zap,
+  Music, Dumbbell, Baby, Dog, Stethoscope,
 } from 'lucide-react';
 import { SpendingProgressBar } from './SpendingProgressBar';
 import { DeletionConfirmDialog } from './DeletionConfirmDialog';
-import { UpgradeDialog } from './UpgradeDialog';
-import { GuestLimitDialog } from './GuestLimitDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useSubscription } from '@/hooks/useSubscription';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
@@ -33,7 +30,6 @@ const iconMap: Record<string, React.ComponentType<{ className?: string; style?: 
 
 interface BucketCardProps {
   bucket: Bucket;
-  buckets: Bucket[];
   transactions: Transaction[];
   currency: 'sats' | 'usd';
   merchants?: (BTCMapElement & { distance: number })[];
@@ -48,37 +44,20 @@ interface BucketCardProps {
   }) => void;
   onViewTransactions?: (lineItemId: string) => void;
   paymentMethods?: string[];
-  isGuest?: boolean;
-  onLoginNeeded?: () => void;
 }
 
 export function BucketCard({
-  bucket, buckets, transactions, currency, merchants = [],
+  bucket, transactions, currency, merchants = [],
   onUpdateBucket, onDeleteBucket, onAddLineItem, onUpdateLineItem, onDeleteLineItem,
   onViewTransactions,
-  isGuest = false,
-  onLoginNeeded,
 }: BucketCardProps) {
   const { data: priceData } = useBitcoinPrice();
-  const { data: subscription } = useSubscription();
   const [isOpen, setIsOpen] = useState(true);
   const [isAddingItem, setIsAddingItem] = useState(false);
   const [newItemName, setNewItemName] = useState('');
   const [isEditingName, setIsEditingName] = useState(false);
   const [editName, setEditName] = useState(bucket.name);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
-  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
-
-  // Free tier limits
-  const MAX_BUCKETS_FREE = 5;
-  const MAX_ITEMS_PER_BUCKET_FREE = 4;
-  const UNLIMITED_SENTINEL = 999999;
-  
-  // Get limits from subscription (or defaults for guests)
-  const maxBucketsAvailable = isGuest ? MAX_BUCKETS_FREE : (subscription?.buckets ?? MAX_BUCKETS_FREE);
-  const maxItemsPerBucket = isGuest ? MAX_ITEMS_PER_BUCKET_FREE : (subscription?.items_per_bucket ?? MAX_ITEMS_PER_BUCKET_FREE);
-  const isUnlimitedItems = maxItemsPerBucket >= UNLIMITED_SENTINEL;
 
   const Icon = iconMap[bucket.icon] || Wallet;
 
@@ -102,21 +81,7 @@ export function BucketCard({
     return `${formatSats(sats)}`;
   };
 
-  const hasReachedItemLimit = !isUnlimitedItems && bucket.lineItems.length >= maxItemsPerBucket;
-
   const handleAddItem = () => {
-    // Check item limit for this bucket
-    if (hasReachedItemLimit) {
-      if (isGuest) {
-        setShowLoginPrompt(true);
-      } else {
-        setShowUpgradeDialog(true);
-      }
-      setIsAddingItem(false);
-      setNewItemName('');
-      return;
-    }
-
     if (newItemName.trim()) {
       onAddLineItem(bucket.id, newItemName.trim());
       setNewItemName('');
@@ -286,34 +251,10 @@ export function BucketCard({
                 </div>
               ) : (
                 <button
-                  className={cn(
-                    "w-full flex items-center justify-center gap-1.5 h-10 mt-1 rounded-md border border-dashed text-sm transition-colors touch-target-sm",
-                    hasReachedItemLimit
-                      ? "border-amber-300 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950"
-                      : "border-border text-muted-foreground hover:text-primary hover:border-primary/50"
-                  )}
-                  onClick={() => {
-                    if (hasReachedItemLimit) {
-                      if (isGuest) {
-                        setShowLoginPrompt(true);
-                      } else {
-                        setShowUpgradeDialog(true);
-                      }
-                    } else {
-                      setIsAddingItem(true);
-                    }
-                  }}
+                  className="w-full flex items-center justify-center gap-1.5 h-10 mt-1 rounded-md border border-dashed border-border text-sm text-muted-foreground transition-colors hover:text-primary hover:border-primary/50 touch-target-sm"
+                  onClick={() => setIsAddingItem(true)}
                 >
-                  {hasReachedItemLimit ? (
-                    <>
-                      <Zap className="h-4 w-4" />
-                      {isGuest ? 'Sign in to add more items' : `Upgrade for more items (${maxItemsPerBucket}/${maxItemsPerBucket})`}
-                    </>
-                  ) : (
-                    <>
-                      <Plus className="h-4 w-4" /> Add Line Item
-                    </>
-                  )}
+                  <Plus className="h-4 w-4" /> Add Line Item
                 </button>
               )}
             </div>
@@ -327,20 +268,6 @@ export function BucketCard({
         itemType="bucket"
         itemName={bucket.name}
         onConfirm={handleDeleteConfirmed}
-      />
-
-      {!isGuest && (
-        <UpgradeDialog
-          open={showUpgradeDialog}
-          onOpenChange={setShowUpgradeDialog}
-          bucketCount={buckets.length}
-          maxBucketsForFreeTier={MAX_BUCKETS_FREE}
-        />
-      )}
-
-      <GuestLimitDialog
-        open={showLoginPrompt && isGuest}
-        onOpenChange={setShowLoginPrompt}
       />
     </div>
   );

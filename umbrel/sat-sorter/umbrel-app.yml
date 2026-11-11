@@ -1,0 +1,38 @@
+manifestVersion: 2.0
+id: sat-sorter
+storage:
+  dataRoot: data
+category: finance
+name: Sat Sorter
+version: "1.0.0"
+tagline: Free zero-based budgeting on a Bitcoin standard
+description: >-
+  Sat Sorter is free for everyone. Give every sat a job, with unlimited
+  categories and line items and no subscription.
+
+
+  Your budget data syncs encrypted over Nostr. Only you, and the people you
+  share a budget with, can read it. Sat Sorter does not keep a copy.
+
+
+  Sign in with a Nostr key when you want that sync. You can also budget in
+  this browser without an account. Budget Buddy can use the bundled Maple
+  proxy with your own Maple API key, or any OpenAI-compatible server such as
+  Open WebUI.
+
+
+  The app uses browser cryptography, so umbrelOS opens it over HTTPS.
+releaseNotes: ""
+developer: Tom Morrow
+website: https://github.com/tom-morrow15/sat-sorter
+dependencies: []
+repo: https://github.com/tom-morrow15/sat-sorter
+support: https://github.com/tom-morrow15/sat-sorter/issues
+port: 8580
+gallery: []
+path: ""
+requiresHttps: true
+defaultUsername: ""
+defaultPassword: ""
+submitter: Tom Morrow
+submission: https://github.com/getumbrel/umbrel-apps/pull/TODO

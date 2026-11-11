@@ -250,22 +250,22 @@ describe('findCategory', () => {
 describe('getMapleErrorMessage', () => {
   it('returns 401 message', () => {
     const err = new Response('', { status: 401 });
-    expect(getMapleErrorMessage(err)).toBe('Invalid Maple API key. Check Settings.');
+    expect(getMapleErrorMessage(err)).toBe('The server rejected the API key. Check Settings.');
   });
 
   it('returns 429 message', () => {
     const err = new Response('', { status: 429 });
-    expect(getMapleErrorMessage(err)).toBe('Maple rate limit hit. Please wait a moment.');
+    expect(getMapleErrorMessage(err)).toBe('The AI server is rate limiting requests. Please wait a moment.');
   });
 
   it('returns generic 500 message', () => {
     const err = new Response('', { status: 500 });
-    expect(getMapleErrorMessage(err)).toBe('Maple API error (500). Please try again.');
+    expect(getMapleErrorMessage(err)).toBe('AI server error (500). Please try again.');
   });
 
   it('returns network message for network Error', () => {
     const err = new Error('Network error');
-    expect(getMapleErrorMessage(err)).toBe("Can't reach Maple. Check your connection.");
+    expect(getMapleErrorMessage(err)).toBe("Can't reach the AI server. Check the address and your connection.");
   });
 
   it('returns generic for unknown', () => {
@@ -280,7 +280,7 @@ describe('testKey', () => {
     globalThis.fetch = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'));
     const result = await testKey('sk-bad', PROXY);
     expect(result.ok).toBe(false);
-    expect(result.error).toContain('Cannot reach Maple Proxy');
+    expect(result.error).toContain('Cannot reach the AI server');
   });
 
   it('returns ok on 200 with streaming body', async () => {
@@ -302,7 +302,7 @@ describe('testKey', () => {
     globalThis.fetch = vi.fn().mockResolvedValue(new Response('Unauthorized', { status: 401 }));
     const result = await testKey('sk-bad', PROXY);
     expect(result.ok).toBe(false);
-    expect(result.error).toContain('Invalid Maple API key');
+    expect(result.error).toContain('The server rejected the API key');
   });
 
   it('returns helpful error when proxy is down', async () => {

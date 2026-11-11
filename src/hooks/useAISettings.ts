@@ -3,7 +3,9 @@ import { useLocalStorage } from './useLocalStorage';
 import { createEncryptedSerializer } from '@/lib/secureStorage';
 import {
   DEFAULT_MAPLE_MODEL,
+  defaultMapleProxyUrl,
   fetchMapleModels,
+  resolveMapleProxyUrl,
   type MapleModelOption,
 } from '@/services/mapleAi';
 
@@ -45,7 +47,7 @@ export interface AISettings {
 // Provider defaults
 export const PROVIDER_DEFAULTS: Record<'maple' | 'ppq', { proxyUrl: string; label: string; description: string }> = {
   maple: {
-    proxyUrl: 'https://maple-proxy-production-c67d.up.railway.app/v1',
+    proxyUrl: defaultMapleProxyUrl(),
     label: 'Maple',
     description: 'Encrypted AI models via Maple proxy. Privacy-focused with TEE support.',
   },
@@ -154,7 +156,7 @@ export function useAISettings() {
   const custom = connections.find((connection) => connection.id === provider);
   const isCustom = Boolean(custom);
   const apiKey = custom ? custom.apiKey : provider === 'ppq' ? ppqApiKey : mapleApiKey;
-  const proxyUrl = custom ? custom.baseUrl : provider === 'ppq' ? ppqProxyUrl : mapleProxyUrl;
+  const proxyUrl = custom ? custom.baseUrl : provider === 'ppq' ? ppqProxyUrl : resolveMapleProxyUrl(mapleProxyUrl);
   const model = custom ? custom.model : provider === 'ppq' ? ppqModel : mapleModel;
 
   const updateConnection = (id: string, patch: Partial<AiConnection>) => {
@@ -261,7 +263,7 @@ export function useAISettings() {
     maple: {
       apiKey: mapleApiKey,
       setApiKey: setMapleApiKey,
-      proxyUrl: mapleProxyUrl,
+      proxyUrl: resolveMapleProxyUrl(mapleProxyUrl),
       setProxyUrl: setMapleProxyUrl,
       model: mapleModel,
       setModel: setMapleModel,

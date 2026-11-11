@@ -2,7 +2,7 @@ import { useState } from 'react';
 import {
   ChevronDown, LogOut, UserIcon, Heart, Info, Copy, AlertTriangle, RotateCw,
   Cloud, LogIn, Sun, Moon, GraduationCap, Wallet, Menu, QrCode, Calendar,
-  Users, Bug, Wifi, MessageSquare, CreditCard, KeyRound, BookOpen, Zap, Bot,
+  Users, Bug, Wifi, MessageSquare, CreditCard, KeyRound, BookOpen, Bot,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -52,7 +52,6 @@ interface AccountSwitcherProps {
   onOpenRelaySettings?: () => void;
   onOpenAccountDetails?: () => void;
   onOpenWelcomeTour?: () => void;
-  onOpenSubscription?: () => void;
   variant?: 'avatar' | 'hamburger';
   updateAvailable?: boolean;
   triggerClassName?: string;
@@ -65,7 +64,7 @@ export function AccountSwitcher({
   onSoftReset, onHardReset, onTotalReset,
   onOpenBackup, onSupportSatSorter, onSupportBitcoinProjects,
   onAbout, onLearnAboutBitcoin, onOpenDebugLog, onOpenRelaySettings,
-  onOpenAccountDetails, onOpenWelcomeTour, onOpenSubscription,
+  onOpenAccountDetails, onOpenWelcomeTour,
   variant = 'avatar', updateAvailable = false, triggerClassName,
 }: AccountSwitcherProps) {
   const { currentUser, otherUsers, removeLogin } = useLoggedInAccounts();
@@ -176,12 +175,6 @@ export function AccountSwitcher({
 
           {/* === BUDGET TOOLS === */}
           <DropdownMenuLabel className="text-xs text-muted-foreground uppercase tracking-wider">Budget Tools</DropdownMenuLabel>
-          {onOpenSubscription && (
-            <DropdownMenuItem onClick={onOpenSubscription}>
-              <Zap className="h-4 w-4 mr-2 text-amber-500" />
-              Power-Ups & Access
-            </DropdownMenuItem>
-          )}
           <DropdownMenuItem onClick={() => onCopyPreviousMonth?.()}>
             <Copy className="h-4 w-4 mr-2" />
             Copy Previous Month

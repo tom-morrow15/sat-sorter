@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, forwardRef } from 'react';
 import { Zap, Copy, Check, ExternalLink, Sparkle, Sparkles, Star, Rocket, ArrowLeft, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { copyText } from '@/lib/browserCompat';
 import {
   Dialog,
   DialogContent,
@@ -294,7 +295,7 @@ export function ZapDialog({ target, children, className }: ZapDialogProps) {
 
   const handleCopy = async () => {
     if (invoice) {
-      await navigator.clipboard.writeText(invoice);
+      await copyText(invoice);
       setCopied(true);
       toast({
         title: 'Invoice copied',

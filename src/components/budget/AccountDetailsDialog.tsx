@@ -13,6 +13,7 @@ import { useToast } from '@/hooks/useToast';
 import { useNostrLogin } from '@nostrify/react/login';
 import { nip19 } from 'nostr-tools';
 import { genUserName } from '@/lib/genUserName';
+import { copyText } from '@/lib/browserCompat';
 
 interface AccountDetailsDialogProps {
   open: boolean;
@@ -37,7 +38,7 @@ export function AccountDetailsDialog({ open, onOpenChange }: AccountDetailsDialo
 
   const handleCopy = async (text: string, label: string) => {
     try {
-      await navigator.clipboard.writeText(text);
+      await copyText(text);
       toast({ title: 'Copied', description: `${label} copied to clipboard.` });
     } catch {
       toast({ title: 'Copy failed', description: 'Could not copy to clipboard.', variant: 'destructive' });
