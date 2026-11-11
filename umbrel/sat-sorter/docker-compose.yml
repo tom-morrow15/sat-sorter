@@ -5,7 +5,7 @@ services:
       APP_PORT: 8080
 
   web:
-    image: ghcr.io/tom-morrow15/sat-sorter:1.0.0@sha256:DIGEST_PLACEHOLDER
+    image: ghcr.io/tom-morrow15/sat-sorter:1.0.0@sha256:433600a30420977dab46524c4aab9c1db5535c6ca02866800a8853d70ebcb806
     restart: on-failure
     environment:
       MAPLE_UPSTREAM: http://maple-proxy:8080/
