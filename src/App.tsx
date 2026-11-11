@@ -16,6 +16,7 @@ import { AppProvider } from '@/components/AppProvider';
 import { NWCProvider } from '@/contexts/NWCContext';
 import { BudgetProvider } from '@/contexts/BudgetContext';
 import { OnboardingProvider } from '@/contexts/OnboardingContext';
+import { GuestBudgetBridge } from '@/components/GuestBudgetBridge';
 import { AppConfig } from '@/contexts/AppContext';
 import AppRouter from './AppRouter';
 
@@ -59,6 +60,7 @@ export function App() {
               <NWCProvider>
                 <BudgetProvider>
                   <OnboardingProvider>
+                    <GuestBudgetBridge />
                     <TooltipProvider>
                       <Toaster />
                       <OfflineIndicator />

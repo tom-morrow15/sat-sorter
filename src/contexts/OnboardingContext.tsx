@@ -6,6 +6,7 @@ import { encryptSecretKey } from '@/utils/nostrAuth';
 import { useLoginActions } from '@/hooks/useLoginActions';
 import type { KeyPair } from '@/utils/nostrAuth';
 import type { BudgetState } from '@/lib/budgetTypes';
+import { clearGuestBudgetStore } from '@/lib/guestBudgetSync';
 
 /** Onboarding flow states, in the order a new user experiences them. */
 type OnboardingState = 'loading' | 'authenticated' | 'guest' | 'welcome';
@@ -155,10 +156,16 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     // 3. Publish existing budget data to relays
     const success = await publishBudget(budgetState);
 
-    // 3. If successful, clean up guest localStorage data
+    // 3. If the Nostr publish succeeded, drop the guest copies.
+    // A failed publish leaves both the browser and the Umbrel guest budget.
     if (success) {
       localStorage.removeItem(GUEST_BUDGET_KEY);
       localStorage.removeItem(GUEST_KEY);
+      try {
+        await clearGuestBudgetStore();
+      } catch (error) {
+        console.warn('[guest-budget] Nostr publish succeeded, but the Umbrel guest copy is still there.', error);
+      }
     }
 
     // 4. Transition to authenticated state

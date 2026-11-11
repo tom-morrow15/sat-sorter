@@ -42,7 +42,7 @@ self.addEventListener('fetch', (event) => {
   // Self-hosted Maple is same-origin (/maple/v1). Leave it to the network so
   // the service worker does not cache model lists or swallow proxy errors.
   // satsorter.com calls Maple on another origin, which this handler never sees.
-  if (url.origin === self.location.origin && url.pathname.startsWith('/maple/')) {
+  if (url.origin === self.location.origin && (url.pathname.startsWith('/maple/') || url.pathname === '/api/guest-budget')) {
     return;
   }
 
