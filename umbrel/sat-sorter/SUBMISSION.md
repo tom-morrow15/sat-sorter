@@ -36,7 +36,7 @@ The compose file includes a `maple-proxy` sidecar (`ghcr.io/mapleprivacylabs/map
 
 There is no app login for Umbrel to display. No host ports, named volumes, or bind mounts are published. User budgets are not stored in the container.
 
-Gallery images and an icon are omitted. The Umbrel team creates and hosts those assets. Screenshots will be added in a comment shortly.
+Gallery images and an icon are omitted. The Umbrel team creates and hosts those assets.
 
 ## Verification
 
@@ -71,4 +71,14 @@ No permissions, dependencies, migrations, or default credentials. `defaultUserna
 
 Logo source, for the Umbrel team to redraw: https://github.com/tom-morrow15/sat-sorter/blob/main/public/icons/icon.svg and https://github.com/tom-morrow15/sat-sorter/blob/main/public/icons/icon-512.png
 
-Screenshots will be added in a comment shortly. Do not commit gallery images or an icon. The Umbrel team adds those.
+Do not commit gallery images or an icon. The Umbrel team adds those.
+
+## Screenshots
+
+![Overview](https://raw.githubusercontent.com/tom-morrow15/sat-sorter/9a59a984df270d23593c1e3f62181a3022f1e1b9/umbrel/sat-sorter/screenshots/01-overview.png)
+
+![Category](https://raw.githubusercontent.com/tom-morrow15/sat-sorter/9a59a984df270d23593c1e3f62181a3022f1e1b9/umbrel/sat-sorter/screenshots/02-category.png)
+
+![Transactions](https://raw.githubusercontent.com/tom-morrow15/sat-sorter/9a59a984df270d23593c1e3f62181a3022f1e1b9/umbrel/sat-sorter/screenshots/03-transactions.png)
+
+![Spending breakdown](https://raw.githubusercontent.com/tom-morrow15/sat-sorter/9a59a984df270d23593c1e3f62181a3022f1e1b9/umbrel/sat-sorter/screenshots/04-breakdown.png)
