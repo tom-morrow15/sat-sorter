@@ -1,6 +1,6 @@
 # getumbrel/umbrel-apps pull request
 
-When the pull request exists, set `submission` in `umbrel-app.yml` to its URL.
+The App Store pull request is https://github.com/getumbrel/umbrel-apps/pull/6342. `submission` in `umbrel-app.yml` points at that URL.
 
 ## Title
 
