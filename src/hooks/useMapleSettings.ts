@@ -3,7 +3,9 @@ import { useLocalStorage } from './useLocalStorage';
 import { createEncryptedSerializer } from '@/lib/secureStorage';
 import {
   DEFAULT_MAPLE_MODEL,
+  defaultMapleProxyUrl,
   fetchMapleModels,
+  resolveMapleProxyUrl,
   type MapleModelOption,
 } from '@/services/mapleAi';
 
@@ -23,10 +25,9 @@ export const MAPLE_MODEL_STORAGE = 'sat-sorter:maple-model';
 // One-time flag: migrate users off the old, broken "Auto (Quick)" default.
 export const MAPLE_MODEL_MIGRATED_STORAGE = 'sat-sorter:maple-model-migrated-v2';
 
-// Default to Sat Sorter's hosted Maple Proxy (Railway).
-// This handles the TEE handshake + CORS so users don't need to run anything locally.
+// satsorter.com uses the hosted Maple Proxy. The self-hosted image uses /maple/v1.
 // Each user supplies their own Maple API key, which is passed per-request.
-export const DEFAULT_PROXY_URL = 'https://maple-proxy-production-c67d.up.railway.app/v1';
+export const DEFAULT_PROXY_URL = defaultMapleProxyUrl();
 
 // Legacy local proxy URLs that should be auto-migrated to the hosted proxy.
 const LEGACY_PROXY_URLS = [
@@ -103,10 +104,11 @@ export function useMapleSettings() {
   const [availableModels, setAvailableModels] = useState<MapleModelOption[]>([]);
   const [modelsLoading, setModelsLoading] = useState(false);
 
-  // Auto-migrate anyone still pointing at a local proxy to the hosted one.
-  const proxyUrl = LEGACY_PROXY_URLS.includes(storedProxyUrl.trim())
-    ? DEFAULT_PROXY_URL
-    : storedProxyUrl;
+  // Auto-migrate anyone still pointing at a local proxy to the build's default.
+  // Self-hosted builds always use the same-origin proxy for the Maple option.
+  const proxyUrl = resolveMapleProxyUrl(
+    LEGACY_PROXY_URLS.includes(storedProxyUrl.trim()) ? DEFAULT_PROXY_URL : storedProxyUrl,
+  );
 
   // One-time migration: the old default "Auto (Quick)" frequently produced
   // garbled output (fused digits, dropped words). Move existing users off it

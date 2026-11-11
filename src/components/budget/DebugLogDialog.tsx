@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/useToast';
 import { getDebugLogs, clearDebugLogs, subscribeDebugLogs, formatDebugLogs } from '@/lib/debugLog';
 import type { DebugLogEntry } from '@/lib/debugLog';
+import { copyText } from '@/lib/browserCompat';
 
 interface DebugLogDialogProps {
   open: boolean;
@@ -42,7 +43,7 @@ export function DebugLogDialog({ open, onOpenChange }: DebugLogDialogProps) {
   const handleCopy = async () => {
     const text = formatDebugLogs(logs);
     try {
-      await navigator.clipboard.writeText(text || 'No log entries.');
+      await copyText(text || 'No log entries.');
       toast({ title: 'Logs copied' });
     } catch {
       toast({ title: 'Could not copy logs', variant: 'destructive' });

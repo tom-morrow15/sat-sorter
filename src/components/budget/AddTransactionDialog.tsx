@@ -26,6 +26,7 @@ import { findCategory } from '@/services/mapleAi';
 import type { ReceiptData } from '@/services/receiptOcr';
 import type { Bucket, Transaction, TransactionSplit } from '@/lib/budgetTypes';
 import { cn } from '@/lib/utils';
+import { randomUUID } from '@/lib/browserCompat';
 
 interface AddTransactionDialogProps {
   open: boolean;
@@ -105,7 +106,7 @@ export function AddTransactionDialog({
       setSelectedPaymentMethod('');
       // Start with one empty assignment row, pre-filled with the default bucket
       setAssignments([{
-        id: crypto.randomUUID(),
+        id: randomUUID(),
         bucketId: defaultBucketId || '',
         lineItemId: '',
         amountInput: '',
@@ -187,7 +188,7 @@ export function AddTransactionDialog({
     setAssignments(prev => {
       const newAssignments = [...prev];
       newAssignments.push({
-        id: crypto.randomUUID(),
+        id: randomUUID(),
         bucketId: defaultBucketId || '',
         lineItemId: '',
         amountInput: '',
@@ -314,7 +315,7 @@ export function AddTransactionDialog({
         const matchedAssignments = data.lineItems.slice(0, 10).map((item) => {
           const matchedBucket = findCategory(item.name, buckets);
           return {
-            id: crypto.randomUUID(),
+            id: randomUUID(),
             bucketId: matchedBucket?.id || '',
             lineItemId: '',
             amountInput: item.price.toFixed(2),

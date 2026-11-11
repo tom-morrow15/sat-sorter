@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo } from 'react';
 import { Plus, Bitcoin, Zap, Wallet, Info, Copy, X } from 'lucide-react';
 import { useSeoMeta, useHead } from '@unhead/react';
 import { useNavigate } from 'react-router-dom';
@@ -10,11 +10,7 @@ import { BucketCard } from '@/components/budget/BucketCard';
 import { DashboardSummary } from '@/components/budget/DashboardSummary';
 import { BitcoinIsmTicker } from '@/components/budget/BitcoinIsmTicker';
 import { AddBucketDialog } from '@/components/budget/AddBucketDialog';
-import { UpgradeDialog } from '@/components/budget/UpgradeDialog';
-import { GuestLimitDialog } from '@/components/budget/GuestLimitDialog';
-import { useSubscription } from '@/hooks/useSubscription';
 import { CopyMonthPrompt, type AvailableMonth } from '@/components/budget/CopyMonthPrompt';
-import { CopyMonthWithUpgrade } from '@/components/budget/CopyMonthWithUpgrade';
 import { WalletModalControlled } from '@/components/budget/WalletModalControlled';
 import { LoginArea } from '@/components/auth/LoginArea';
 import { useBudget } from '@/hooks/useBudget';
@@ -33,8 +29,6 @@ export default function HomePage() {
   const [showAddBucket, setShowAddBucket] = useState(false);
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [showCopyPrompt, setShowCopyPrompt] = useState(false);
-  const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
-  const [showGuestLimitDialog, setShowGuestLimitDialog] = useState(false);
   const [dismissedNwcPrompt, setDismissedNwcPrompt] = useLocalStorage<boolean>('sat-sorter:nwc-prompt-dismissed', false);
   const [dismissedGuestBanner, setDismissedGuestBanner] = useLocalStorage<boolean>('sat-sorter:guest-banner-dismissed', false);
   const { toast } = useToast();
@@ -45,7 +39,6 @@ export default function HomePage() {
   const { data: priceData } = useBitcoinPrice();
   const { syncCopiedBudget } = useSyncCopiedBudget();
   const { state: onboardingState } = useOnboarding();
-  const { data: subscription } = useSubscription();
 
   const {
     currentBudget, currentMonth, currency, fullState, setCurrentMonth, toggleCurrency,
@@ -53,24 +46,8 @@ export default function HomePage() {
     addTransaction, duplicateFromMonth, paymentMethods,
   } = useBudget();
 
-  // Subscription limit check
-  const FREE_TIER_BUCKETS = 5;
-  const UNLIMITED_SENTINEL = 999999;
-  const maxBucketsAllowed = subscription?.buckets ?? FREE_TIER_BUCKETS;
-  const isGuest = !user?.pubkey;
-  const currentBucketCount = currentBudget.buckets.length;
-  const hasReachedBucketLimit = currentBucketCount >= maxBucketsAllowed && maxBucketsAllowed < UNLIMITED_SENTINEL;
-
   const handleAddBucketClick = () => {
-    if (hasReachedBucketLimit) {
-      if (isGuest) {
-        setShowGuestLimitDialog(true);
-      } else {
-        setShowUpgradeDialog(true);
-      }
-    } else {
-      setShowAddBucket(true);
-    }
+    setShowAddBucket(true);
   };
 
   useSeoMeta({
@@ -113,37 +90,10 @@ export default function HomePage() {
       .map(b => ({ month: b.month, budget: b }));
   }, [fullState.budgets, currentMonth]);
 
-  const [showPlanNextMonthUpgrade, setShowPlanNextMonthUpgrade] = useState(false);
-  const pendingPlanNextMonth = useRef<string | null>(null);
-
   const handlePlanNextMonth = () => {
     const [year, month] = currentMonth.split('-').map(Number);
     const nextDate = new Date(year, month);
     const nextMonth = `${nextDate.getFullYear()}-${String(nextDate.getMonth() + 1).padStart(2, '0')}`;
-
-    // If current month has more buckets than the subscription allows, require upgrade for next month
-    // (skip for unlimited users — their maxBucketsAllowed is the unlimited sentinel)
-    if (!isGuest && maxBucketsAllowed < UNLIMITED_SENTINEL && currentBudget.buckets.length > maxBucketsAllowed) {
-      pendingPlanNextMonth.current = nextMonth;
-      setShowPlanNextMonthUpgrade(true);
-      return;
-    }
-
-    // Within limits — proceed with copy
-    const result = duplicateFromMonth(currentMonth, nextMonth, priceData?.usdPerBtc);
-    if (result.success) {
-      toast({ title: 'Next month planned!', description: `Copied your budget to ${formatMonth(nextMonth)}.` });
-      setCurrentMonth(nextMonth);
-    } else {
-      toast({ title: 'Could not plan next month', description: result.message ?? 'Please try again.', variant: 'destructive' });
-    }
-  };
-
-  const handlePlanNextMonthAfterUpgrade = () => {
-    if (!pendingPlanNextMonth.current) return;
-    const nextMonth = pendingPlanNextMonth.current;
-    pendingPlanNextMonth.current = null;
-    setShowPlanNextMonthUpgrade(false);
 
     const result = duplicateFromMonth(currentMonth, nextMonth, priceData?.usdPerBtc);
     if (result.success) {
@@ -280,7 +230,6 @@ export default function HomePage() {
               <div className="animate-slide-in-up" style={{ animationDelay: '0.1s', animationFillMode: 'both' }}>
                 <BucketCard
                   bucket={incomeBucket}
-                  buckets={currentBudget.buckets}
                   transactions={currentBudget.transactions}
                   currency={currency}
                   merchants={merchants}
@@ -292,7 +241,6 @@ export default function HomePage() {
                   onAddTransaction={addTransaction}
                   onViewTransactions={handleViewTransactions}
                   paymentMethods={paymentMethods}
-                  isGuest={isGuest}
                 />
               </div>
             </>
@@ -316,7 +264,6 @@ export default function HomePage() {
               <div key={bucket.id} className="animate-slide-in-up" style={{ animationDelay: `${0.15 + index * 0.06}s`, animationFillMode: 'both' }}>
                 <BucketCard
                   bucket={bucket}
-                  buckets={currentBudget.buckets}
                   transactions={currentBudget.transactions}
                   currency={currency}
                   merchants={merchants}
@@ -328,7 +275,6 @@ export default function HomePage() {
                   onAddTransaction={addTransaction}
                   onViewTransactions={handleViewTransactions}
                   paymentMethods={paymentMethods}
-                  isGuest={isGuest}
                 />
               </div>
             ))}
@@ -383,70 +329,16 @@ export default function HomePage() {
         open={showAddBucket}
         onOpenChange={setShowAddBucket}
         onAdd={(name, color, icon) => addBucket(name, color, icon)}
-        currentBucketCount={currentBucketCount}
-        maxBucketsAllowed={maxBucketsAllowed}
-        isGuest={isGuest}
-        onUpgradeNeeded={() => {
-          setShowAddBucket(false);
-          setShowUpgradeDialog(true);
-        }}
-        onLoginNeeded={() => {
-          setShowAddBucket(false);
-          setShowGuestLimitDialog(true);
-        }}
       />
 
-      {!isGuest && (
-        <UpgradeDialog
-          open={showUpgradeDialog}
-          onOpenChange={setShowUpgradeDialog}
-          bucketCount={currentBucketCount}
-          maxBucketsForFreeTier={FREE_TIER_BUCKETS}
-          onUpgradeComplete={() => {
-            toast({
-              title: 'Access unlocked!',
-              description: 'You can now add more budget buckets.',
-            });
-          }}
-        />
-      )}
-
-      <GuestLimitDialog
-        open={showGuestLimitDialog}
-        onOpenChange={setShowGuestLimitDialog}
+      <CopyMonthPrompt
+        open={showCopyPrompt}
+        onOpenChange={setShowCopyPrompt}
+        currentMonth={currentMonth}
+        availableMonths={availableCopyMonths}
+        onStartFresh={() => toast({ title: 'Starting fresh', description: 'Your new month is ready.' })}
+        onCopyPrevious={handleCopyPreviousMonth}
       />
-
-      {/* Plan Next Month upgrade dialog */}
-      {!isGuest && (
-        <UpgradeDialog
-          open={showPlanNextMonthUpgrade}
-          onOpenChange={(isOpen) => {
-            if (!isOpen) {
-              setShowPlanNextMonthUpgrade(false);
-              pendingPlanNextMonth.current = null;
-            }
-          }}
-          bucketCount={currentBudget.buckets.length}
-          maxBucketsForFreeTier={FREE_TIER_BUCKETS}
-          onUpgradeComplete={handlePlanNextMonthAfterUpgrade}
-        />
-      )}
-      {(() => {
-        const previousMonthBudget = availableCopyMonths[0]?.budget ?? null;
-        return (
-          <CopyMonthWithUpgrade
-            open={showCopyPrompt}
-            onOpenChange={setShowCopyPrompt}
-            currentMonth={currentMonth}
-            availableMonths={availableCopyMonths}
-            previousBudget={previousMonthBudget}
-            currentBudgets={fullState.budgets.filter(b => b.month === currentMonth)}
-            onStartFresh={() => toast({ title: 'Starting fresh', description: 'Your new month is ready.' })}
-              onCopyPrevious={handleCopyPreviousMonth}
-              maxBucketsAllowed={maxBucketsAllowed}
-            />
-        );
-      })()}
       {showWalletModal && <WalletModalControlled open={showWalletModal} onOpenChange={setShowWalletModal} />}
       <FirstRunOnboarding />
     </div>

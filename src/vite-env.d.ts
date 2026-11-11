@@ -1,5 +1,10 @@
 /// <reference types="vite/client" />
 
+interface ImportMetaEnv {
+  /** "true" in the self-hosted Docker image. Unset on the satsorter.com build. */
+  readonly VITE_SELF_HOSTED?: string;
+}
+
 // NOTE: The app version is now obtained by a direct static import of package.json
 // (see BudgetHeader.tsx). This is the most reliable way to get a build-time string
 // when using @vitejs/plugin-react-swc.

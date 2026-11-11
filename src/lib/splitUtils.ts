@@ -1,4 +1,5 @@
 import type { Transaction, TransactionSplit } from './budgetTypes';
+import { randomUUID } from '@/lib/browserCompat';
 
 /**
  * Get all assignments (bucket + line item combos) for a transaction,
@@ -70,7 +71,7 @@ export function createSplit(
   description?: string
 ): TransactionSplit {
   return {
-    id: crypto.randomUUID(),
+    id: randomUUID(),
     bucketId,
     lineItemId,
     amountUsd,

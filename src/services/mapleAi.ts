@@ -255,6 +255,31 @@ The context is the user's whole saved budget, not just a summary of the open mon
 
 Use a specific transaction, line item, or month when the user asks about one. Do not claim a month, transaction, or amount that is not in the context. Default to USD, and you may mention sats using btc_price_usd. If a purchase would overspend a line item, warn them and name another line item with money left. Answer helpfully, concisely, and in a friendly tone. ${FORMATTING_RULES}`;
 
+/** Railway proxy used by the satsorter.com build. */
+export const HOSTED_MAPLE_PROXY_URL = 'https://maple-proxy-production-c67d.up.railway.app/v1';
+
+/** Same-origin path. The self-hosted image proxies this to maple-proxy. */
+export const SELF_HOSTED_MAPLE_PROXY_URL = '/maple/v1';
+
+export function isSelfHostedBuild(): boolean {
+  return import.meta.env.VITE_SELF_HOSTED === 'true';
+}
+
+/** Default base URL for the built-in Maple option. */
+export function defaultMapleProxyUrl(): string {
+  return isSelfHostedBuild() ? SELF_HOSTED_MAPLE_PROXY_URL : HOSTED_MAPLE_PROXY_URL;
+}
+
+/**
+ * Built-in Maple always talks to the same-origin proxy on a self-hosted build.
+ * A stored Railway URL from another install must not leak out of the Umbrel app.
+ * Custom connections (Open WebUI and other OpenAI-compatible servers) are unchanged.
+ */
+export function resolveMapleProxyUrl(stored: string): string {
+  if (isSelfHostedBuild()) return SELF_HOSTED_MAPLE_PROXY_URL;
+  return stored;
+}
+
 /**
  * Maple Proxy provides OpenAI-compatible API access to Maple's encrypted models.
  * Requires the Maple Proxy to be running (desktop app or Docker).
@@ -263,10 +288,9 @@ Use a specific transaction, line item, or month when the user asks about one. Do
  * the Enclave backend requires a cryptographic TEE handshake/attestation that
  * only the Maple Proxy can perform.
  *
- * The proxy URL is configurable in Settings:
- * - Default: http://localhost:8080/v1 (Maple desktop app on same machine)
- * - Network: http://<mac-ip>:8080/v1 (proxy on Mac, accessed from phone on home WiFi)
- * - Hosted: https://your-proxy.com/v1 (public proxy deployment)
+ * The built-in Maple option uses the hosted Railway proxy on satsorter.com.
+ * A self-hosted build (VITE_SELF_HOSTED) uses same-origin /maple/v1 instead.
+ * Custom connections, including Open WebUI, still use the address from Settings.
  */
 
 // Available models from Maple, surfaced to the user as a picker in Budget Buddy.

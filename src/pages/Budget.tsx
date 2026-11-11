@@ -11,10 +11,7 @@ import { BitcoinIsmTicker } from '@/components/budget/BitcoinIsmTicker';
 import { BudgetDashboard } from '@/components/budget/BudgetDashboard';
 import { BucketCard } from '@/components/budget/BucketCard';
 import { AddBucketDialog } from '@/components/budget/AddBucketDialog';
-import { UpgradeDialog } from '@/components/budget/UpgradeDialog';
-import { GuestLimitDialog } from '@/components/budget/GuestLimitDialog';
-import { type AvailableMonth } from '@/components/budget/CopyMonthPrompt';
-import { CopyMonthWithUpgrade } from '@/components/budget/CopyMonthWithUpgrade';
+import { CopyMonthPrompt, type AvailableMonth } from '@/components/budget/CopyMonthPrompt';
 import { TransactionsPanel } from '@/components/budget/TransactionsPanel';
 import { BTCMapBanner } from '@/components/budget/BTCMapBanner';
 import { WalletModalControlled } from '@/components/budget/WalletModalControlled';
@@ -28,7 +25,6 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useBTCMap } from '@/hooks/useBTCMap';
 import { useBitcoinPrice } from '@/hooks/useBitcoinPrice';
 import { useSyncCopiedBudget } from '@/hooks/useSharedBudgetSync';
-import { useSubscription } from '@/hooks/useSubscription';
 import { canAddBucket } from '@/lib/budgetPermissions';
 
 const COPY_PROMPT_FLAG_PREFIX = 'sat-sorter-copy-prompt-shown-';
@@ -53,8 +49,6 @@ export default function Budget() {
   const [showAddBucket, setShowAddBucket] = useState(false);
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [showCopyPrompt, setShowCopyPrompt] = useState(false);
-  const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
-  const [showGuestLimitDialog, setShowGuestLimitDialog] = useState(false);
   const { toast } = useToast();
 
   const { user } = useCurrentUser();
@@ -62,7 +56,6 @@ export default function Budget() {
   const { merchants } = useBTCMap();
   const { data: priceData } = useBitcoinPrice();
   const { syncCopiedBudget } = useSyncCopiedBudget();
-  const { data: subscription } = useSubscription();
 
   const {
     currentBudget,
@@ -151,25 +144,8 @@ export default function Budget() {
   const incomeBucket = sortedBuckets.find(b => b.isIncome);
   const expenseBuckets = sortedBuckets.filter(b => !b.isIncome);
 
-  // Subscription limit check
-  const FREE_TIER_BUCKETS = 5;
-  const UNLIMITED_SENTINEL = 999999;
-  const maxBucketsAllowed = subscription?.buckets ?? FREE_TIER_BUCKETS;
-  const isGuest = !user?.pubkey;
-  const currentBucketCount = currentBudget.buckets.length;
-  const hasReachedBucketLimit = currentBucketCount >= maxBucketsAllowed && maxBucketsAllowed < UNLIMITED_SENTINEL;
-
-  // Handle "Add Category" button click with limit enforcement
   const handleAddBucketClick = () => {
-    if (hasReachedBucketLimit) {
-      if (isGuest) {
-        setShowGuestLimitDialog(true);
-      } else {
-        setShowUpgradeDialog(true);
-      }
-    } else {
-      setShowAddBucket(true);
-    }
+    setShowAddBucket(true);
   };
 
   // Count unassigned transactions
@@ -317,7 +293,6 @@ export default function Budget() {
                {incomeBucket && (
                  <BucketCard
                    bucket={incomeBucket}
-                   buckets={currentBudget.buckets}
                    transactions={currentBudget.transactions}
                    currency={currency}
                    merchants={merchants}
@@ -327,7 +302,6 @@ export default function Budget() {
                    onUpdateLineItem={updateLineItem}
                    onDeleteLineItem={deleteLineItem}
                    paymentMethods={paymentMethods}
-                   isGuest={!user?.pubkey}
                  />
                )}
 
@@ -358,7 +332,6 @@ export default function Budget() {
                    <BucketCard
                      key={bucket.id}
                      bucket={bucket}
-                     buckets={currentBudget.buckets}
                      transactions={currentBudget.transactions}
                      currency={currency}
                      merchants={merchants}
@@ -368,7 +341,6 @@ export default function Budget() {
                      onUpdateLineItem={updateLineItem}
                      onDeleteLineItem={deleteLineItem}
                      paymentMethods={paymentMethods}
-                     isGuest={!user?.pubkey}
                    />
                 ))}
              </div>
@@ -435,63 +407,21 @@ export default function Budget() {
            open={showAddBucket}
            onOpenChange={setShowAddBucket}
            onAdd={(name, color, icon) => addBucket(name, color, icon)}
-           currentBucketCount={currentBucketCount}
-           maxBucketsAllowed={maxBucketsAllowed}
-           isGuest={isGuest}
-           onUpgradeNeeded={() => {
-             setShowAddBucket(false);
-             setShowUpgradeDialog(true);
-           }}
-           onLoginNeeded={() => {
-             setShowAddBucket(false);
-             setShowGuestLimitDialog(true);
-           }}
          />
 
-        {/* Upgrade dialog for logged-in users at bucket limit */}
-        {!isGuest && (
-          <UpgradeDialog
-            open={showUpgradeDialog}
-            onOpenChange={setShowUpgradeDialog}
-            bucketCount={currentBucketCount}
-            maxBucketsForFreeTier={FREE_TIER_BUCKETS}
-            onUpgradeComplete={() => {
-              toast({
-                title: 'Access unlocked!',
-                description: 'You can now add more budget buckets.',
-              });
-            }}
-          />
-        )}
-
-        {/* Guest limit dialog for unauthenticated users at bucket limit */}
-        <GuestLimitDialog
-          open={showGuestLimitDialog}
-          onOpenChange={setShowGuestLimitDialog}
+        <CopyMonthPrompt
+          open={showCopyPrompt}
+          onOpenChange={setShowCopyPrompt}
+          currentMonth={currentMonth}
+          availableMonths={availableCopyMonths}
+          onStartFresh={() => {
+            toast({
+              title: 'Starting fresh',
+              description: 'Your new month is ready.',
+            });
+          }}
+          onCopyPrevious={handleCopyPreviousMonth}
         />
-
-        {/* Copy Budget Prompt — with upgrade integration for large budgets */}
-        {(() => {
-          const previousMonthBudget = availableCopyMonths[0]?.budget ?? null;
-          return (
-            <CopyMonthWithUpgrade
-              open={showCopyPrompt}
-              onOpenChange={setShowCopyPrompt}
-              currentMonth={currentMonth}
-              availableMonths={availableCopyMonths}
-              previousBudget={previousMonthBudget}
-              currentBudgets={fullState.budgets.filter(b => b.month === currentMonth)}
-              onStartFresh={() => {
-                toast({
-                  title: 'Starting fresh',
-                  description: 'Your new month is ready.',
-                });
-              }}
-              onCopyPrevious={handleCopyPreviousMonth}
-              maxBucketsAllowed={maxBucketsAllowed}
-            />
-          );
-        })()}
 
        {/* Wallet Modal - controlled via state */}
        {showWalletModal && (

@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/useToast';
+import { copyText } from '@/lib/browserCompat';
 
 interface BudgetKeyDialogProps {
   open: boolean;
@@ -53,7 +54,7 @@ export function BudgetKeyDialog({
   const copyKey = async () => {
     if (!budgetNsec) return;
     try {
-      await navigator.clipboard.writeText(budgetNsec);
+      await copyText(budgetNsec);
       toast({
         title: 'Copied!',
         description: 'Budget key copied to clipboard. Share securely with your partner.',
@@ -70,7 +71,7 @@ export function BudgetKeyDialog({
   const copyNpub = async () => {
     if (!budgetNpub) return;
     try {
-      await navigator.clipboard.writeText(budgetNpub);
+      await copyText(budgetNpub);
       toast({
         title: 'Copied!',
         description: 'Budget public key copied.',

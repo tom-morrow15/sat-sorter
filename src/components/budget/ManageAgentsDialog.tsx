@@ -5,6 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/useToast';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useAuthor } from '@/hooks/useAuthor';
+import { copyText } from '@/lib/browserCompat';
 import { useSharedSync } from './PartnerSyncWrapper';
 import {
   DropdownMenu,
@@ -75,7 +76,7 @@ export function ManageAgentsDialog({ open, onOpenChange }: { open: boolean; onOp
   const copy = async () => {
     if (!code) return;
     try {
-      await navigator.clipboard.writeText(code);
+      await copyText(code);
       toast({ title: 'Code copied', description: 'Paste it into your agent.' });
     } catch {
       toast({ title: 'Copy the code', description: 'Select the code below and copy it.' });

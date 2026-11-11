@@ -13,6 +13,7 @@ import { useAuthor } from '@/hooks/useAuthor';
 import { nip19 } from 'nostr-tools';
 import { genUserName } from '@/lib/genUserName';
 import { useToast } from '@/hooks/useToast';
+import { copyText } from '@/lib/browserCompat';
 
 interface MyNpubQrProps {
   open: boolean;
@@ -36,7 +37,7 @@ export function MyNpubQr({ open, onOpenChange }: MyNpubQrProps) {
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(npub);
+      await copyText(npub);
       setCopied(true);
       toast({ title: 'npub copied to clipboard' });
       setTimeout(() => setCopied(false), 2000);

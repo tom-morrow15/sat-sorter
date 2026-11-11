@@ -1,0 +1,8 @@
+# Sourced by the nginx entrypoint (*.envsh) before envsubst.
+# A trailing slash makes proxy_pass strip the /maple/ prefix.
+upstream="${MAPLE_UPSTREAM:-http://maple-proxy:8080/}"
+case "$upstream" in
+  */) ;;
+  *) upstream="${upstream}/" ;;
+esac
+export MAPLE_UPSTREAM="$upstream"
